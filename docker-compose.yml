@@ -1,0 +1,115 @@
+# Dev stack. `just docker-up` builds and runs everything; `just test-db` starts only the
+# throwaway test Postgres. Host ports avoid the usual suspects: 5440 (dev DB), 5434 (test DB).
+name: svc-registry
+
+services:
+  # Dev database (data in a named volume).
+  pgsql:
+    image: ${PGSQL_IMAGE:-postgres:17-alpine}
+    environment:
+      POSTGRES_USER: registry
+      POSTGRES_PASSWORD: registry
+      POSTGRES_DB: registry
+    ports:
+      - "${PGSQL_PORT:-5440}:5432"
+    volumes:
+      - pgsql-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U registry -d registry"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Throwaway database for `go test` (`just test`, TEST_DATABASE_URL); every test makes its own
+  # schema.
+  pgsql-test:
+    image: pgvector/pgvector:0.8.6-pg17
+    environment:
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    command: ["postgres", "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off", "-c", "max_connections=200"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # Optional search engines (KNOWLEDGE_SEARCH_ENGINE=qdrant|meilisearch): `docker compose --profile search up -d`.
+  qdrant:
+    image: qdrant/qdrant:v1.19.1
+    profiles: ["search"]
+    ports:
+      - "${QDRANT_PORT:-6334}:6334"
+      - "${QDRANT_HTTP_PORT:-6333}:6333"
+    volumes:
+      - qdrant-data:/qdrant/storage
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.54.0
+    profiles: ["search"]
+    environment:
+      MEILI_ENV: development
+      MEILI_NO_ANALYTICS: "true"
+    ports:
+      - "${MEILISEARCH_PORT:-7700}:7700"
+    volumes:
+      - meili-data:/meili_data
+
+  # Throwaway engines for `just test` (TEST_QDRANT_URL, TEST_MEILISEARCH_URL); each test uses its own
+  # collection or index.
+  qdrant-test:
+    image: qdrant/qdrant:v1.19.1
+    profiles: ["test"]
+    ports:
+      - "6344:6334"
+    tmpfs:
+      - /qdrant/storage
+
+  meilisearch-test:
+    image: getmeili/meilisearch:v1.54.0
+    profiles: ["test"]
+    environment:
+      MEILI_ENV: development
+      MEILI_NO_ANALYTICS: "true"
+    ports:
+      - "7710:7700"
+    tmpfs:
+      - /meili_data
+
+  # One-shot: apply migrations before the API starts.
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["db:migrate"]
+    environment:
+      DATABASE_URL: postgres://registry:registry@pgsql:5432/registry
+    depends_on:
+      pgsql:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["serve"]
+    environment:
+      DATABASE_URL: postgres://registry:registry@pgsql:5432/registry
+      HTTP_ADDR: 0.0.0.0:8080
+      LOG_LEVEL: info
+      SESSION_COOKIE_SECURE: "false"
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgsql-data:
+  qdrant-data:
+  meili-data:

@@ -1,0 +1,11 @@
+# pnpm settings for this single-package project (not a workspace of several packages).
+# unrs-resolver's install script only rebuilds a native binding that ships prebuilt.
+allowBuilds:
+  unrs-resolver: false
+# Versions newer than pnpm's minimum release age, pinned deliberately (bootstrap-service).
+minimumReleaseAgeExclude:
+  - '@next/swc-linux-arm64-musl@16.4.0'
+  - '@next/swc-linux-x64-musl@16.4.0'
+  - '@next/swc-linux-x64-gnu@16.4.0'
+  - eslint-config-next@16.4.0
+  - next@16.4.0

@@ -1,0 +1,36 @@
+package request
+
+import (
+	"github.com/google/uuid"
+
+	"svc-registry/internal/access"
+)
+
+type Page struct {
+	Limit  *int64 `query:"limit"`
+	Offset *int64 `query:"offset"`
+}
+
+func (p Page) Query() access.PageQuery { return access.PageQuery{Limit: p.Limit, Offset: p.Offset} }
+
+type Children struct {
+	Page
+	Parent *uuid.UUID `query:"parent"`
+}
+
+type Tree struct {
+	Root  *uuid.UUID `query:"root"`
+	Depth *int64     `query:"depth"`
+}
+
+type Events struct {
+	Page
+	Type string `query:"type"`
+}
+
+type Deployments struct {
+	Page
+	Service     *string `query:"service"`
+	Environment *string `query:"environment"`
+	Branch      *string `query:"branch"`
+}
