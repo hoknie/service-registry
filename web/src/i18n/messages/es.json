@@ -216,7 +216,8 @@
       "invalid_knowledge_settings": "Patrones: como máximo 50 por lista, de 1 a 200 caracteres y un glob válido.",
       "invalid_search": "Escribe de 1 a 200 caracteres para buscar.",
       "invalid_knowledge_source": "La fuente no es válida: revisa el tipo, la dirección o la ruta.",
-      "knowledge_path_not_allowed": "Esta ruta está fuera de los directorios que permite el servidor."
+      "knowledge_path_not_allowed": "Esta ruta está fuera de los directorios que permite el servidor.",
+      "invalid_filter": "Revisa los filtros: búsqueda de hasta 100 caracteres, etiqueta como clave o clave=valor, como máximo 5 etiquetas."
     },
     "conflict": {
       "email_taken": "Ya existe un usuario con este correo.",
@@ -272,6 +273,11 @@
       "not_a_repository": "Esta ruta no es un repositorio git.",
       "unreadable": "No se puede leer la fuente.",
       "not_allowed": "La ruta ya no está dentro de los directorios permitidos."
+    },
+    "search": {
+      "embeddings_unavailable": "El servicio de embeddings no está disponible.",
+      "embeddings_dimensions": "Los embeddings tienen un tamaño distinto del que espera el índice de búsqueda.",
+      "engine_unavailable": "El motor de búsqueda no está disponible."
     }
   },
   "guard": {
@@ -664,7 +670,8 @@
       "view": "Vista",
       "cards": "Tarjetas",
       "table": "Tabla",
-      "noMatch": "Nada coincide con el filtro."
+      "noMatch": "Nada coincide con el filtro.",
+      "tree": "Árbol"
     },
     "pager": {
       "prev": "Anterior",
@@ -1232,6 +1239,55 @@
       "more": "{n} más",
       "empty": "Sin datos",
       "open": "Abrir"
+    },
+    "activity": {
+      "label": "Tareas en segundo plano",
+      "kinds": {
+        "collect": "Recopilación de documentación",
+        "index": "Indexación para búsqueda",
+        "forge": "Sincronización con forge",
+        "clusters": "Sondeo de clústeres"
+      },
+      "states": {
+        "running": "en curso",
+        "queued": "en cola",
+        "failed": "con error",
+        "idle": "inactiva"
+      },
+      "pending": "{count} archivos en espera",
+      "last": "Última ejecución {when}",
+      "summary": {
+        "running": "{count} en curso",
+        "queued": "{count} en cola",
+        "failed": "{count} con error"
+      },
+      "none": "No hay tareas en segundo plano."
+    },
+    "tree": {
+      "name": "Nombre",
+      "slug": "Slug",
+      "labels": "Etiquetas",
+      "activity": "Tareas",
+      "children": "Elementos",
+      "expand": "Expandir {name}",
+      "collapse": "Contraer {name}",
+      "more": "Mostrar más",
+      "retry": "Reintentar",
+      "loading": "Cargando…",
+      "search": "Buscar por nombre o slug",
+      "kind": "Tipo",
+      "anyKind": "Cualquier tipo",
+      "label": "Etiqueta",
+      "labelHint": "clave o clave=valor, varias separadas por comas",
+      "state": "Tareas",
+      "anyState": "Cualquier estado",
+      "running": "En curso",
+      "queued": "En cola",
+      "failed": "Con error",
+      "truncated": "Se muestran las primeras 500 coincidencias: afina el filtro.",
+      "noMatch": "Nada coincide con el filtro.",
+      "reset": "Restablecer filtros",
+      "label_aria": "Árbol del catálogo"
     }
   },
   "notFound": {

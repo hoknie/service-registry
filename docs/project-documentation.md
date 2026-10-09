@@ -53,11 +53,27 @@ has:
 - per branch: the commit, collected and skipped files with the reason;
 - an error with an explanation and a hint what to do;
 - warnings:
-  - `collect.no_files_matched` — nothing fits the include patterns; a local git source reads only
-    committed files;
+  - `collect.no_files_matched` — nothing fits the include patterns; a local git source with
+    "Include uncommitted files" off reads only committed files;
   - `collect.files_skipped`, `collect.truncated`, `collect.no_branches`, `collect.no_source`.
 
 Filters (project, kind, result, how it started) live in the page address. Repeated runs without
 changes collapse into one row with a counter. The last `KNOWLEDGE_SCAN_HISTORY` (20) runs are kept
 per project for collection and for indexing. Spec: `openspec/specs/knowledge/scan-history/`.
 
+## Activity indicators
+
+A project shows what its background jobs are doing right now: documentation collection, indexing
+for search (with the number of files waiting for embeddings), forge sync and cluster polling. Each
+job is:
+
+- **running** — a worker holds it now;
+- **queued** — it is due (or "Collect now" was pressed) and waits for a worker. With
+  `BACKGROUND_JOBS_ENABLED=false` nothing picks it up, so it stays queued;
+- **failed** — its last run ended with an error; the hint explains the code;
+- idle otherwise — nothing is shown.
+
+Organizations and folders show how many readable projects below them are running, queued or failed.
+The page refreshes this every 5 seconds while something runs or waits, otherwise every minute, and
+not while the browser tab is hidden. API: `GET /api/v1/catalog/nodes/{id}/activity`; the catalog table
+view uses `GET /api/v1/catalog/table`. Spec: `openspec/specs/catalog/activity/`.

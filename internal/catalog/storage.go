@@ -9,6 +9,8 @@ import (
 type NodeStore interface {
 	Chain(ctx context.Context, userID, id uuid.UUID) (*NodeChain, error)
 	Walk(ctx context.Context, walk Walk) ([]WalkNode, uint64, error)
+	Table(ctx context.Context, walk Walk) ([]TableNode, uint64, error)
+	Search(ctx context.Context, search Search) ([]TableNode, uint64, error)
 	Get(ctx context.Context, id uuid.UUID) (*Node, error)
 	ChildBySlug(ctx context.Context, parent *uuid.UUID, slug string) (*Node, error)
 	Insert(ctx context.Context, node NewNode) (Node, error)

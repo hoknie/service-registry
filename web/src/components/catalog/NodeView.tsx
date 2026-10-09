@@ -21,12 +21,13 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Locale } from "@/i18n/config";
 import { errorText } from "@/i18n/errors";
 import { ago, when } from "@/i18n/time";
-import { apiGet, errorCode, type CatalogNode, type Page } from "@/lib/api";
+import { busy, isSummary, useActivity } from "@/lib/activity";
+import { apiGet, errorCode, type CatalogNode, type CatalogTable, type NodeActivity, type ProcessKind } from "@/lib/api";
 import { useChildrenView } from "@/lib/childrenView";
 
 import { ForgeTab } from "../forge/ForgeTab";
@@ -52,6 +53,7 @@ import { Skeleton, SkeletonRows } from "../ui/Skeleton";
 import { Table, Td, Th, Tr } from "../ui/Table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/Tabs";
 import { AccessTab } from "./AccessTab";
+import { ProcessBadges, SummaryBadges } from "./ActivityBadges";
 import { BranchesTab } from "./BranchesTab";
 import { BranchPicker } from "./BranchPicker";
 import { DeploymentsTab } from "./DeploymentsTab";
@@ -61,6 +63,7 @@ import { KindIcon } from "./KindIcon";
 import { CreateDialog, DeleteDialog, EditDialog, MoveDialog } from "./NodeForms";
 import { ProjectKeys } from "./ProjectKeys";
 import { ProjectSummary } from "./ProjectSummary";
+import { TreeTable } from "./TreeTable";
 import { catalogHref, childKinds, FORGE_NAMES, type CatalogLabels } from "./shared";
 
 const PAGE = 50;
@@ -98,7 +101,8 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
   const { session } = useSession();
   const router = useRouter();
   const [node, setNode] = useState<CatalogNode | null>(null);
-  const [children, setChildren] = useState<Page<CatalogNode> | null>(null);
+  const [children, setChildren] = useState<CatalogTable | null>(null);
+  const [docsReload, setDocsReload] = useState(0);
   const [offset, setOffset] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialogs>(null);
@@ -107,21 +111,39 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
 
   const fail = useCallback((e: unknown) => errorText(errors, errorCode(e)), [errors]);
 
+  const loadChildren = useCallback(async () => {
+    const parent = id ? `parent=${id}&` : "";
+    setChildren(await apiGet<CatalogTable>(`/v1/catalog/table?${parent}limit=${PAGE}&offset=${offset}`));
+  }, [id, offset]);
+
   const load = useCallback(async () => {
     try {
       if (id) setNode(await apiGet<CatalogNode>(`/v1/catalog/nodes/${id}`));
-      const parent = id ? `parent=${id}&` : "";
-      setChildren(await apiGet<Page<CatalogNode>>(`/v1/catalog/nodes?${parent}limit=${PAGE}&offset=${offset}`));
+      await loadChildren();
       setError(null);
     } catch (e) {
       setError(fail(e));
     }
-  }, [id, offset, fail]);
+  }, [id, loadChildren, fail]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+
+  const loadActivity = useCallback((nodeId: string) => apiGet<NodeActivity>(`/v1/catalog/nodes/${nodeId}/activity`), []);
+  const onSettled = useCallback((kinds: ProcessKind[]) => {
+    if (kinds.includes("collect")) setDocsReload((n) => n + 1);
+  }, []);
+  const { activity, refresh: refreshActivity } = useActivity(id, loadActivity, onSettled);
+  const childrenBusy = useRef(false);
+
+  useEffect(() => {
+    if (!activity || node?.kind === "project" || view === "tree") return;
+    const now = busy(activity);
+    if (now || childrenBusy.current) void loadChildren().catch(() => undefined);
+    childrenBusy.current = now;
+  }, [activity, node?.kind, view, loadChildren]);
 
   const changed = () => {
     void load();
@@ -228,6 +250,13 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
     return !q || c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q);
   });
 
+  const childActivity = (c: CatalogTable["items"][number]) =>
+    isSummary(c.activity) ? (
+      <SummaryBadges summary={c.activity} labels={t.activity} />
+    ) : (
+      <ProcessBadges processes={c.activity} labels={t.activity} locale={locale} compact />
+    );
+
   const childCards = (
     <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {filtered.map((c) => {
@@ -250,6 +279,7 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
                   {t.navigateOnly}
                 </Badge>
               )}
+              <span className="mt-3 block empty:hidden">{childActivity(c)}</span>
               {labels.length > 0 && (
                 <span className="mt-3 flex flex-wrap gap-1">
                   {labels.slice(0, 4).map(([k, v]) => (
@@ -273,6 +303,7 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
           <Th>{t.children.kind}</Th>
           <Th>{t.children.slug}</Th>
           <Th className="hidden md:table-cell">{t.node.labels}</Th>
+          <Th>{t.tree.activity}</Th>
         </tr>
       </thead>
       <tbody>
@@ -302,6 +333,7 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
                   ))}
               </span>
             </Td>
+            <Td>{childActivity(c)}</Td>
           </Tr>
         ))}
       </tbody>
@@ -317,27 +349,32 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
         </h2>
         {children.items.length > 0 && (
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <Input
-              type="search"
-              value={childFilter}
-              onChange={(e) => setChildFilter(e.target.value)}
-              placeholder={t.children.filter}
-              aria-label={t.children.filter}
-              className="w-56 max-w-full"
-            />
+            {view !== "tree" && (
+              <Input
+                type="search"
+                value={childFilter}
+                onChange={(e) => setChildFilter(e.target.value)}
+                placeholder={t.children.filter}
+                aria-label={t.children.filter}
+                className="w-56 max-w-full"
+              />
+            )}
             <Segmented
               label={t.children.view}
               value={view}
-              onChange={(v) => setView(v === "table" ? "table" : "cards")}
+              onChange={(v) => setView(v === "table" || v === "tree" ? v : "cards")}
               options={[
                 { value: "cards", label: t.children.cards },
                 { value: "table", label: t.children.table },
+                { value: "tree", label: t.children.tree },
               ]}
             />
           </div>
         )}
       </div>
-      {children.items.length === 0 ? (
+      {children.items.length > 0 && view === "tree" ? (
+        <TreeTable rootId={id} locale={locale} labels={t} />
+      ) : children.items.length === 0 ? (
         <EmptyState
           icon={FolderTree}
           title={t.children.empty}
@@ -438,6 +475,8 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
               </Badge>
               <code className="rounded-md bg-surface/70 px-1.5 text-xs text-ink-2 ring-1 ring-line ring-inset">{node.slug}</code>
               {!readable && <Badge tone="outline">{t.navigateOnly}</Badge>}
+              {readable && activity?.processes && <ProcessBadges processes={activity.processes} labels={t.activity} locale={locale} />}
+              {readable && activity?.summary && <SummaryBadges summary={activity.summary} labels={t.activity} />}
               {project && readable && <BranchPicker projectId={node.id} current={branch} labels={t.branches} onSelect={selectBranch} />}
               {managed && (
                 <Badge tone="outline" className="bg-surface/70">
@@ -507,6 +546,8 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
                   locale={locale}
                   labels={t}
                   canWrite={can("catalog.write")}
+                  reload={docsReload}
+                  onCollect={refreshActivity}
                   onOpen={(nextBranch, nextDoc) =>
                     router.replace(catalogHref(locale, node.id, "docs", nextBranch, nextDoc), { scroll: false })
                   }
@@ -524,7 +565,7 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
           )}
           {tabs.includes("docs-settings") && (
             <TabsContent value="docs-settings">
-              <DocsSettingsTab node={node} locale={locale} labels={t} canWrite={can("catalog.write")} />
+              <DocsSettingsTab node={node} locale={locale} labels={t} canWrite={can("catalog.write")} onChanged={refreshActivity} />
             </TabsContent>
           )}
           {tabs.includes("keys") && (

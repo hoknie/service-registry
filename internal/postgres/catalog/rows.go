@@ -124,3 +124,19 @@ func dbErr(err error) error {
 	}
 	return &domain.InternalError{Detail: err.Error()}
 }
+
+type signalRow struct {
+	ProjectID uuid.UUID `db:"project_id"`
+	Kind      string    `db:"kind"`
+	Running   bool      `db:"running"`
+	Queued    bool      `db:"queued"`
+	Failed    bool      `db:"failed"`
+	Code      *string   `db:"code"`
+	LastAt    *string   `db:"last_at"`
+	Pending   *int64    `db:"pending"`
+}
+
+type containedRow struct {
+	ContainerID uuid.UUID `db:"container_id"`
+	ProjectID   uuid.UUID `db:"project_id"`
+}

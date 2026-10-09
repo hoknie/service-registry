@@ -33,11 +33,13 @@ type Props = {
   labels: CatalogLabels;
   canWrite: boolean;
   onOpen: (branch: string | null, doc: string | null) => void;
+  reload?: number;
+  onCollect?: () => void;
 };
 
 const statusTone = { ok: "signal", partial: "amber", failed: "danger" } as const;
 
-export function DocsTab({ node, branch: branchParam, doc, locale, labels, canWrite, onOpen }: Props) {
+export function DocsTab({ node, branch: branchParam, doc, locale, labels, canWrite, onOpen, reload = 0, onCollect }: Props) {
   const { errors, common } = useUiText();
   const t = labels.docs;
   const [overview, setOverview] = useState<Knowledge | null>(null);
@@ -61,7 +63,7 @@ export function DocsTab({ node, branch: branchParam, doc, locale, labels, canWri
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
-  }, [load]);
+  }, [load, reload]);
 
   useEffect(() => {
     if (!overview?.source || !branch) return;
@@ -78,6 +80,7 @@ export function DocsTab({ node, branch: branchParam, doc, locale, labels, canWri
     setBusy(true);
     try {
       await apiSend("POST", `${base}/collect` as `/${string}`);
+      onCollect?.();
       toast.success(t.collected);
       await load();
     } catch (e) {

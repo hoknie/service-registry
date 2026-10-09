@@ -337,6 +337,10 @@
   .motion-collapse { overflow: hidden; }
   .motion-collapse[data-state="open"] { animation: collapsible-down var(--dur-base) var(--ease-out); }
   .motion-collapse[data-state="closed"] { animation: collapsible-up var(--dur-fast) ease-in; }
+  .motion-spin { animation: spin 1s linear infinite; }
+  @media (prefers-reduced-motion: reduce) {
+    .motion-spin { animation: none; }
+  }
   .motion-control {
     transition-property: color, background-color, border-color, box-shadow, opacity, transform;
     transition-duration: var(--dur-fast);

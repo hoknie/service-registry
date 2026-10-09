@@ -36,6 +36,11 @@ for (const [name, t] of Object.entries(themes)) {
     }
   });
 
+  test(`${name}: highlighted matches are at least 4.5:1`, () => {
+    const r = ratio(t.ink, t["amber-soft"]);
+    assert.ok(r >= 4.5, `ink on amber-soft: ${r.toFixed(2)}`);
+  });
+
   test(`${name}: field borders are at least 3:1`, () => {
     for (const bg of ["surface", "canvas"]) {
       const r = ratio(t.field, t[bg]);

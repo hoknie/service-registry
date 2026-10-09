@@ -22,6 +22,7 @@ const (
 	InvalidBranchState
 	InvalidBranchPage
 	InvalidClusterObservation
+	InvalidFilter
 )
 
 func (i Invalid) Code() string {
@@ -60,6 +61,8 @@ func (i Invalid) Code() string {
 		return "validation.invalid_grace_period"
 	case InvalidClusterObservation:
 		return "validation.invalid_cluster_observation"
+	case InvalidFilter:
+		return "validation.invalid_filter"
 	}
 	return "validation.invalid"
 }
@@ -100,6 +103,9 @@ func (i Invalid) Message() string {
 		return "grace_secs must be an integer 0..=604800"
 	case InvalidClusterObservation:
 		return "cluster_observation must be true or false"
+	case InvalidFilter:
+		return `q must be 1 to 100 characters, kind "organization", "folder" or "project", at most 5 labels "key" or "key=value", ` +
+			`activity "running", "queued" or "failed"`
 	}
 	return "invalid input"
 }

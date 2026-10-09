@@ -49,6 +49,7 @@ func BuildState(cfg config.Config) (*service.State, error) {
 		Bindings:      catalogstore.NewBindingStore(pool),
 		ProjectKeys:   catalogstore.NewProjectKeyStore(pool),
 		Branches:      catalogstore.NewBranchStore(pool, cfg.Branches.StaleDays),
+		Activity:      catalogstore.NewActivityStore(pool),
 		Events:        ingeststore.NewEventStore(pool),
 		Deployments:   ingeststore.NewDeploymentStore(pool),
 		Connections:   forgestore.NewConnectionStore(pool),
@@ -137,6 +138,8 @@ func BuildRouter(state *service.State, dist webui.Dist) *fiber.App {
 	r.add("/api/v1/catalog/tree", true, get(api.Tree))
 	r.add("/api/v1/catalog/nodes", true, get(api.ListNodes), post(api.CreateNode))
 	r.add("/api/v1/catalog/nodes/:id", true, get(api.GetNode), patch(api.UpdateNode), del(api.DeleteNode))
+	r.add("/api/v1/catalog/nodes/:id/activity", true, get(api.NodeActivity))
+	r.add("/api/v1/catalog/table", true, get(api.CatalogTable))
 	r.add("/api/v1/catalog/nodes/:id/move", true, post(api.MoveNode))
 	r.add("/api/v1/catalog/nodes/:id/bindings", true, get(api.ListBindings), post(api.GrantRole))
 	r.add("/api/v1/catalog/nodes/:id/bindings/:binding_id", true, del(api.RevokeBinding))

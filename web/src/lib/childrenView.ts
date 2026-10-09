@@ -3,11 +3,12 @@
 import { useSyncExternalStore } from "react";
 
 export const CHILDREN_VIEW_KEY = "svcr-children-view";
-export type ChildrenView = "cards" | "table";
+export type ChildrenView = "cards" | "table" | "tree";
 
 function read(): ChildrenView {
   try {
-    return window.localStorage.getItem(CHILDREN_VIEW_KEY) === "table" ? "table" : "cards";
+    const v = window.localStorage.getItem(CHILDREN_VIEW_KEY);
+    return v === "table" || v === "tree" ? v : "cards";
   } catch {
     return "cards";
   }

@@ -216,7 +216,8 @@
       "invalid_knowledge_settings": "模式：每个列表最多 50 个，每个 1–200 个字符且为有效的 glob。",
       "invalid_search": "请输入 1–200 个字符进行搜索。",
       "invalid_knowledge_source": "来源无效：请检查类型、地址或路径。",
-      "knowledge_path_not_allowed": "此路径不在服务器允许的目录内。"
+      "knowledge_path_not_allowed": "此路径不在服务器允许的目录内。",
+      "invalid_filter": "请检查筛选条件：搜索最多 100 个字符，标签为 键 或 键=值，最多 5 个标签。"
     },
     "conflict": {
       "email_taken": "该邮箱已被其他用户使用。",
@@ -272,6 +273,11 @@
       "not_a_repository": "此路径不是 git 仓库。",
       "unreadable": "无法读取来源。",
       "not_allowed": "该路径已不在允许的目录内。"
+    },
+    "search": {
+      "embeddings_unavailable": "嵌入服务不可用。",
+      "embeddings_dimensions": "嵌入向量的维度与搜索索引不一致。",
+      "engine_unavailable": "搜索引擎不可用。"
     }
   },
   "guard": {
@@ -664,7 +670,8 @@
       "view": "视图",
       "cards": "卡片",
       "table": "表格",
-      "noMatch": "没有符合筛选条件的项。"
+      "noMatch": "没有符合筛选条件的项。",
+      "tree": "树"
     },
     "pager": {
       "prev": "上一页",
@@ -1232,6 +1239,55 @@
       "more": "还有 {n} 个",
       "empty": "暂无数据",
       "open": "打开"
+    },
+    "activity": {
+      "label": "后台任务",
+      "kinds": {
+        "collect": "文档收集",
+        "index": "搜索索引",
+        "forge": "Forge 同步",
+        "clusters": "集群轮询"
+      },
+      "states": {
+        "running": "进行中",
+        "queued": "排队中",
+        "failed": "失败",
+        "idle": "空闲"
+      },
+      "pending": "{count} 个文件等待中",
+      "last": "上次运行 {when}",
+      "summary": {
+        "running": "进行中 {count}",
+        "queued": "排队中 {count}",
+        "failed": "失败 {count}"
+      },
+      "none": "没有后台任务。"
+    },
+    "tree": {
+      "name": "名称",
+      "slug": "Slug",
+      "labels": "标签",
+      "activity": "任务",
+      "children": "子项",
+      "expand": "展开 {name}",
+      "collapse": "收起 {name}",
+      "more": "显示更多",
+      "retry": "重试",
+      "loading": "加载中…",
+      "search": "按名称或 slug 搜索",
+      "kind": "类型",
+      "anyKind": "任意类型",
+      "label": "标签",
+      "labelHint": "键或 键=值，多个用逗号分隔",
+      "state": "任务",
+      "anyState": "任意状态",
+      "running": "进行中",
+      "queued": "排队中",
+      "failed": "失败",
+      "truncated": "仅显示前 500 个匹配项——请细化筛选条件。",
+      "noMatch": "没有符合筛选条件的项目。",
+      "reset": "重置筛选",
+      "label_aria": "目录树"
     }
   },
   "notFound": {

@@ -84,6 +84,14 @@ export type CatalogNode = {
   cluster_observation?: boolean;
 };
 
+export type ProcessKind = "collect" | "index" | "forge" | "clusters";
+export type ProcessState = "running" | "queued" | "failed" | "idle";
+export type Process = { kind: ProcessKind; state: ProcessState; code: string | null; last_at: string | null; pending: number | null };
+export type ActivitySummary = { running: number; queued: number; failed: number };
+export type NodeActivity = { processes?: Process[]; summary?: ActivitySummary };
+export type CatalogTableRow = CatalogNode & { children: number; match: boolean; activity: Process[] | ActivitySummary };
+export type CatalogTable = Page<CatalogTableRow> & { truncated: boolean };
+
 export type ForgeKind = "github" | "gitlab" | "forgejo" | "gitea";
 
 export type Repository = {

@@ -4,6 +4,7 @@ import (
 	"github.com/google/uuid"
 
 	"svc-registry/internal/access"
+	"svc-registry/internal/catalog"
 )
 
 type Page struct {
@@ -33,4 +34,17 @@ type Deployments struct {
 	Service     *string `query:"service"`
 	Environment *string `query:"environment"`
 	Branch      *string `query:"branch"`
+}
+
+type CatalogTable struct {
+	Page
+	Parent   *uuid.UUID `query:"parent"`
+	Q        *string    `query:"q"`
+	Kind     *string    `query:"kind"`
+	Label    []string   `query:"label"`
+	Activity *string    `query:"activity"`
+}
+
+func (q CatalogTable) Filter() catalog.TableQuery {
+	return catalog.TableQuery{Q: q.Q, Kind: q.Kind, Labels: q.Label, Activity: q.Activity}
 }

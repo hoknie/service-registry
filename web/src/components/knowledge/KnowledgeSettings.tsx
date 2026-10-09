@@ -25,6 +25,7 @@ type Props = {
   canWrite: boolean;
   locale: Locale;
   labels: CatalogLabels["docs"]["settings"];
+  onSaved?: () => void;
 };
 
 const FIELDS: SettingsField[] = ["include", "exclude", "branches"];
@@ -36,7 +37,7 @@ function draftOf(s: NodeKnowledgeSettings): Draft {
   return { include: own("include"), exclude: own("exclude"), branches: own("branches") };
 }
 
-export function KnowledgeSettings({ nodeId, project, canWrite, locale, labels: t }: Props) {
+export function KnowledgeSettings({ nodeId, project, canWrite, locale, labels: t, onSaved }: Props) {
   const { errors, common } = useUiText();
   const url = `/v1/catalog/nodes/${nodeId}/knowledge/settings` as const;
   const [settings, setSettings] = useState<NodeKnowledgeSettings | null>(null);
@@ -72,6 +73,7 @@ export function KnowledgeSettings({ nodeId, project, canWrite, locale, labels: t
     }
     try {
       show(await apiSend<NodeKnowledgeSettings>("PUT", url, body));
+      onSaved?.();
       toast.success(t.saved);
     } catch (e) {
       setNote({ kind: "error", text: errorText(errors, errorCode(e)) });

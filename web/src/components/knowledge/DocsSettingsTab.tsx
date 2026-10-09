@@ -9,7 +9,9 @@ import type { CatalogLabels } from "../catalog/shared";
 import { KnowledgeSettings } from "./KnowledgeSettings";
 import { SourcePanel } from "./SourcePanel";
 
-export function DocsSettingsTab({ node, locale, labels, canWrite }: { node: CatalogNode; locale: Locale; labels: CatalogLabels; canWrite: boolean }) {
+type Props = { node: CatalogNode; locale: Locale; labels: CatalogLabels; canWrite: boolean; onChanged?: () => void };
+
+export function DocsSettingsTab({ node, locale, labels, canWrite, onChanged }: Props) {
   const project = node.kind === "project";
   const [synced, setSynced] = useState(false);
 
@@ -26,8 +28,16 @@ export function DocsSettingsTab({ node, locale, labels, canWrite }: { node: Cata
 
   return (
     <div className="grid gap-6">
-      {project && <SourcePanel projectId={node.id} synced={synced} canWrite={canWrite} labels={labels.docs.source} onChanged={() => undefined} />}
-      <KnowledgeSettings key={node.id} nodeId={node.id} project={project} canWrite={canWrite} locale={locale} labels={labels.docs.settings} />
+      {project && <SourcePanel projectId={node.id} synced={synced} canWrite={canWrite} labels={labels.docs.source} onChanged={() => onChanged?.()} />}
+      <KnowledgeSettings
+        key={node.id}
+        nodeId={node.id}
+        project={project}
+        canWrite={canWrite}
+        locale={locale}
+        labels={labels.docs.settings}
+        onSaved={onChanged}
+      />
     </div>
   );
 }

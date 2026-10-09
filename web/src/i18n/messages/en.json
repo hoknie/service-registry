@@ -216,7 +216,8 @@
       "invalid_knowledge_settings": "Patterns: at most 50 per list, each 1 to 200 characters and a valid glob.",
       "invalid_search": "Enter 1 to 200 characters to search for.",
       "invalid_knowledge_source": "The source is not valid: check the kind, the address or the path.",
-      "knowledge_path_not_allowed": "This path is outside the directories the server allows."
+      "knowledge_path_not_allowed": "This path is outside the directories the server allows.",
+      "invalid_filter": "Check the filters: search up to 100 characters, a label as key or key=value, at most 5 labels."
     },
     "conflict": {
       "email_taken": "A user with this email already exists.",
@@ -272,6 +273,11 @@
       "not_a_repository": "This path is not a git repository.",
       "unreadable": "The source cannot be read.",
       "not_allowed": "The path is no longer inside the allowed directories."
+    },
+    "search": {
+      "embeddings_unavailable": "The embeddings service is unavailable.",
+      "embeddings_dimensions": "The embeddings have a different size than the search index expects.",
+      "engine_unavailable": "The search engine is unavailable."
     }
   },
   "guard": {
@@ -664,7 +670,8 @@
       "view": "View",
       "cards": "Cards",
       "table": "Table",
-      "noMatch": "Nothing matches the filter."
+      "noMatch": "Nothing matches the filter.",
+      "tree": "Tree"
     },
     "pager": {
       "prev": "Previous",
@@ -1232,6 +1239,55 @@
       "more": "{n} more",
       "empty": "No data",
       "open": "Open"
+    },
+    "activity": {
+      "label": "Background jobs",
+      "kinds": {
+        "collect": "Documentation collection",
+        "index": "Search indexing",
+        "forge": "Forge sync",
+        "clusters": "Cluster polling"
+      },
+      "states": {
+        "running": "running",
+        "queued": "queued",
+        "failed": "failed",
+        "idle": "idle"
+      },
+      "pending": "{count} files waiting",
+      "last": "Last run {when}",
+      "summary": {
+        "running": "{count} running",
+        "queued": "{count} queued",
+        "failed": "{count} failed"
+      },
+      "none": "No background jobs."
+    },
+    "tree": {
+      "name": "Name",
+      "slug": "Slug",
+      "labels": "Labels",
+      "activity": "Jobs",
+      "children": "Items",
+      "expand": "Expand {name}",
+      "collapse": "Collapse {name}",
+      "more": "Show more",
+      "retry": "Retry",
+      "loading": "Loading…",
+      "search": "Search by name or slug",
+      "kind": "Kind",
+      "anyKind": "Any kind",
+      "label": "Label",
+      "labelHint": "key or key=value, several separated by commas",
+      "state": "Jobs",
+      "anyState": "Any state",
+      "running": "Running",
+      "queued": "Queued",
+      "failed": "Failed",
+      "truncated": "The first 500 matches are shown — refine the filter.",
+      "noMatch": "Nothing matches the filter.",
+      "reset": "Reset filters",
+      "label_aria": "Catalog tree"
     }
   },
   "notFound": {

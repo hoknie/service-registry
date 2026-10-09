@@ -29,6 +29,7 @@ type State struct {
 	Bindings      catalog.BindingStore
 	ProjectKeys   catalog.ProjectKeyStore
 	Branches      catalog.BranchStore
+	Activity      catalog.ActivityStore
 	Events        ingest.EventStore
 	Deployments   ingest.DeploymentStore
 	Connections   forge.ConnectionStore
