@@ -7,7 +7,6 @@ import (
 
 	"svc-registry/internal/apperr"
 	domain "svc-registry/internal/knowledge"
-	"svc-registry/internal/postgres"
 )
 
 func dbErr(err error) error {
@@ -25,9 +24,6 @@ func dbErr(err error) error {
 	}
 	return &domain.InternalError{Detail: err.Error()}
 }
-
-var snapshotColumns = "s.id, s.project_id, s.branch, s.commit_sha, s.status, s.error_code, s.files, s.bytes, s.skipped, " +
-	"s.truncated, " + postgres.RFC3339("s.collected_at") + " AS collected_at"
 
 type snapshotRow struct {
 	ID          uuid.UUID `db:"id"`

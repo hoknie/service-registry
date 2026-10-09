@@ -15,10 +15,7 @@ CREATE TABLE environments
     -
     ARRAY[
     'en', 'es', 'ru', 'zh'] =
-    '{}'
-    :
-    :
-    jsonb
+    '{}'::jsonb
     AND
     jsonb_typeof
 (

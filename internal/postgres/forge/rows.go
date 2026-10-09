@@ -10,23 +10,7 @@ import (
 
 	"svc-registry/internal/apperr"
 	domain "svc-registry/internal/forge"
-	"svc-registry/internal/postgres"
 )
-
-var runColumns = "r.id, r.connection_id, r.trigger, r.status, " +
-	postgres.RFC3339("r.started_at") + ", " + postgres.RFC3339("r.finished_at") + ", " +
-	"r.created, r.updated, r.orphaned, r.skipped, r.error_code, r.error_message, r.problems"
-
-var connectionColumns = "c.id, c.node_id, c.kind, c.api_url, c.owner_path, c.mirror_subgroups, c.include_archived, " +
-	"c.include_forks, c.name_include, c.name_exclude, c.branch_include, c.interval_secs, c.credentials_ref, c.credentials_fingerprint, " +
-	"c.webhook_mode, " + postgres.RFC3339("c.next_run_at") + ", " + postgres.RFC3339("c.created_at") + ", " +
-	postgres.RFC3339("c.updated_at") + ", " +
-	"lr.id, lr.connection_id, lr.trigger, lr.status, " + postgres.RFC3339("lr.started_at") + ", " +
-	postgres.RFC3339("lr.finished_at") + ", lr.created, lr.updated, lr.orphaned, lr.skipped, lr.error_code, " +
-	"lr.error_message, lr.problems"
-
-const connectionFrom = " FROM forge_connections c LEFT JOIN LATERAL (SELECT * FROM forge_sync_runs r " +
-	"WHERE r.connection_id = c.id ORDER BY r.started_at DESC, r.id DESC LIMIT 1) lr ON true"
 
 func internal(what, value string) error {
 	return &domain.InternalError{Detail: "unknown " + what + " " + value}

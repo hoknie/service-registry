@@ -15,34 +15,13 @@ type TemplateStore struct{ pool *pgxpool.Pool }
 
 func NewTemplateStore(pool *pgxpool.Pool) *TemplateStore { return &TemplateStore{pool: pool} }
 
-const upCTE = "WITH RECURSIVE up AS (SELECT id, parent_id, 0 AS lvl FROM nodes WHERE id = $1 " +
-	"UNION ALL SELECT p.id, p.parent_id, up.lvl + 1 FROM nodes p JOIN up ON p.id = up.parent_id) "
-
-var (
-	templateEffective = upCTE + "SELECT DISTINCT ON (t.link_key) " + templateColumns + ", up.lvl > 0 AS inherited " +
-		"FROM up JOIN link_templates t ON t.node_id = up.id JOIN link_kinds k ON k.id = t.kind_id " +
-		"ORDER BY t.link_key, up.lvl"
-	templateOwn = "SELECT " + templateColumns + ", false AS inherited FROM link_templates t " +
-		"JOIN link_kinds k ON k.id = t.kind_id WHERE t.node_id = $1 AND t.link_key = $2"
-	templateLockNode = "SELECT 1 FROM nodes WHERE id = $1 FOR NO KEY UPDATE"
-	templateKindID   = "SELECT id FROM link_kinds WHERE key = $1"
-	templateCount    = "SELECT count(*) FROM link_templates WHERE node_id = $1 AND link_key <> $2"
-	templateUpsert   = "INSERT INTO link_templates (id, node_id, kind_id, link_key, template, disabled, position) " +
-		"VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (node_id, link_key) DO UPDATE SET kind_id = EXCLUDED.kind_id, " +
-		"template = EXCLUDED.template, disabled = EXCLUDED.disabled, position = EXCLUDED.position, updated_at = now()"
-	templateDelete = "DELETE FROM link_templates WHERE node_id = $1 AND link_key = $2"
-
-	varEffective = upCTE + "SELECT DISTINCT ON (v.key) v.key, v.value, v.node_id, up.lvl > 0 AS inherited " +
-		"FROM up JOIN node_vars v ON v.node_id = up.id ORDER BY v.key, up.lvl"
-	varClear  = "DELETE FROM node_vars WHERE node_id = $1"
-	varInsert = "INSERT INTO node_vars (id, node_id, key, value) VALUES ($1, $2, $3, $4)"
-
-	projectRepo        = "SELECT full_path FROM forge_repositories WHERE project_id = $1 AND orphaned_at IS NULL"
-	projectDeployments = "SELECT d.service, d.environment, d.version, d.commit_sha, d.cluster, d.namespace, d.url " +
-		"FROM service_environments e JOIN service_deployments d ON d.id = e.deployment_id WHERE e.project_id = $1"
-	nodeIsUnder = upCTE + "SELECT EXISTS (SELECT 1 FROM up WHERE id = $2)"
-	projectPage = "SELECT id FROM nodes WHERE kind = 'project' AND id > $1 ORDER BY id LIMIT $2"
-)
+func lockNode(ctx context.Context, tx pgx.Tx, nodeID uuid.UUID) error {
+	_, err := tx.Exec(ctx, `
+		SELECT 1
+		FROM nodes
+		WHERE id = $1 FOR NO KEY UPDATE`, nodeID)
+	return err
+}
 
 func (s *TemplateStore) Effective(ctx context.Context, nodeID uuid.UUID) ([]domain.Template, error) {
 	return effectiveTemplates(ctx, s.pool, nodeID)
@@ -53,7 +32,23 @@ type querier interface {
 }
 
 func effectiveTemplates(ctx context.Context, q querier, nodeID uuid.UUID) ([]domain.Template, error) {
-	rows, err := q.Query(ctx, templateEffective, nodeID)
+	rows, err := q.Query(ctx, `
+		WITH RECURSIVE up AS (
+			SELECT id, parent_id, 0 AS lvl
+			FROM nodes
+			WHERE id = $1
+			UNION ALL
+			SELECT p.id, p.parent_id, up.lvl + 1
+			FROM nodes p
+			JOIN up ON p.id = up.parent_id
+		)
+		SELECT DISTINCT ON (t.link_key) t.id, t.node_id, t.link_key, k.key AS kind_key,
+			k.position AS kind_position, t.template, t.disabled, t.position,
+			rfc3339(t.created_at) AS created_at, rfc3339(t.updated_at) AS updated_at, up.lvl > 0 AS inherited
+		FROM up
+		JOIN link_templates t ON t.node_id = up.id
+		JOIN link_kinds k ON k.id = t.kind_id
+		ORDER BY t.link_key, up.lvl`, nodeID)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -70,7 +65,20 @@ func effectiveTemplates(ctx context.Context, q querier, nodeID uuid.UUID) ([]dom
 }
 
 func effectiveVars(ctx context.Context, q querier, nodeID uuid.UUID) ([]domain.Var, error) {
-	rows, err := q.Query(ctx, varEffective, nodeID)
+	rows, err := q.Query(ctx, `
+		WITH RECURSIVE up AS (
+			SELECT id, parent_id, 0 AS lvl
+			FROM nodes
+			WHERE id = $1
+			UNION ALL
+			SELECT p.id, p.parent_id, up.lvl + 1
+			FROM nodes p
+			JOIN up ON p.id = up.parent_id
+		)
+		SELECT DISTINCT ON (v.key) v.key, v.value, v.node_id, up.lvl > 0 AS inherited
+		FROM up
+		JOIN node_vars v ON v.node_id = up.id
+		ORDER BY v.key, up.lvl`, nodeID)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -88,26 +96,46 @@ func effectiveVars(ctx context.Context, q querier, nodeID uuid.UUID) ([]domain.V
 func (s *TemplateStore) Put(ctx context.Context, t domain.NewTemplate) (domain.Template, error) {
 	var out domain.Template
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, templateLockNode, t.NodeID); err != nil {
+		if err := lockNode(ctx, tx, t.NodeID); err != nil {
 			return err
 		}
 		var kindID uuid.UUID
-		if err := tx.QueryRow(ctx, templateKindID, t.KindKey).Scan(&kindID); errors.Is(err, pgx.ErrNoRows) {
+		if err := tx.QueryRow(ctx, `
+			SELECT id
+			FROM link_kinds
+			WHERE key = $1`, t.KindKey).Scan(&kindID); errors.Is(err, pgx.ErrNoRows) {
 			return domain.UnknownKind
 		} else if err != nil {
 			return err
 		}
 		var others int64
-		if err := tx.QueryRow(ctx, templateCount, t.NodeID, t.LinkKey).Scan(&others); err != nil {
+		if err := tx.QueryRow(ctx, `
+			SELECT count(*)
+			FROM link_templates
+			WHERE node_id = $1
+				AND link_key <> $2`, t.NodeID, t.LinkKey).Scan(&others); err != nil {
 			return err
 		}
 		if others >= domain.MaxTemplatesPerNode {
 			return domain.TooManyTemplates
 		}
-		if _, err := tx.Exec(ctx, templateUpsert, t.ID, t.NodeID, kindID, t.LinkKey, t.Template, t.Disabled, t.Position); err != nil {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO link_templates (id, node_id, kind_id, link_key, template, disabled, position)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			ON CONFLICT (node_id, link_key)
+			DO UPDATE SET kind_id = EXCLUDED.kind_id, template = EXCLUDED.template,
+				disabled = EXCLUDED.disabled, position = EXCLUDED.position, updated_at = now()`,
+			t.ID, t.NodeID, kindID, t.LinkKey, t.Template, t.Disabled, t.Position); err != nil {
 			return err
 		}
-		rows, err := tx.Query(ctx, templateOwn, t.NodeID, t.LinkKey)
+		rows, err := tx.Query(ctx, `
+			SELECT t.id, t.node_id, t.link_key, k.key AS kind_key, k.position AS kind_position, t.template,
+				t.disabled, t.position, rfc3339(t.created_at) AS created_at, rfc3339(t.updated_at) AS updated_at,
+				false AS inherited
+			FROM link_templates t
+			JOIN link_kinds k ON k.id = t.kind_id
+			WHERE t.node_id = $1
+				AND t.link_key = $2`, t.NodeID, t.LinkKey)
 		if err != nil {
 			return err
 		}
@@ -119,7 +147,10 @@ func (s *TemplateStore) Put(ctx context.Context, t domain.NewTemplate) (domain.T
 }
 
 func (s *TemplateStore) Delete(ctx context.Context, nodeID uuid.UUID, linkKey string) error {
-	tag, err := s.pool.Exec(ctx, templateDelete, nodeID, linkKey)
+	tag, err := s.pool.Exec(ctx, `
+		DELETE FROM link_templates
+		WHERE node_id = $1
+			AND link_key = $2`, nodeID, linkKey)
 	if err != nil {
 		return dbErr(err)
 	}
@@ -135,14 +166,18 @@ func (s *TemplateStore) EffectiveVars(ctx context.Context, nodeID uuid.UUID) ([]
 
 func (s *TemplateStore) ReplaceVars(ctx context.Context, nodeID uuid.UUID, vars map[string]string) error {
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, templateLockNode, nodeID); err != nil {
+		if err := lockNode(ctx, tx, nodeID); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, varClear, nodeID); err != nil {
+		if _, err := tx.Exec(ctx, `
+			DELETE FROM node_vars
+			WHERE node_id = $1`, nodeID); err != nil {
 			return err
 		}
 		for k, v := range vars {
-			if _, err := tx.Exec(ctx, varInsert, uuid.Must(uuid.NewV7()), nodeID, k, v); err != nil {
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO node_vars (id, node_id, key, value)
+				VALUES ($1, $2, $3, $4)`, uuid.Must(uuid.NewV7()), nodeID, k, v); err != nil {
 				return err
 			}
 		}
@@ -162,13 +197,21 @@ func (s *TemplateStore) ProjectData(ctx context.Context, projectID uuid.UUID) (d
 			return err
 		}
 		var full string
-		switch err := tx.QueryRow(ctx, projectRepo, projectID).Scan(&full); {
+		switch err := tx.QueryRow(ctx, `
+			SELECT full_path
+			FROM forge_repositories
+			WHERE project_id = $1
+				AND orphaned_at IS NULL`, projectID).Scan(&full); {
 		case err == nil:
 			out.RepoFullPath = &full
 		case !errors.Is(err, pgx.ErrNoRows):
 			return err
 		}
-		rows, err := tx.Query(ctx, projectDeployments, projectID)
+		rows, err := tx.Query(ctx, `
+			SELECT d.service, d.environment, d.version, d.commit_sha, d.cluster, d.namespace, d.url
+			FROM service_environments e
+			JOIN service_deployments d ON d.id = e.deployment_id
+			WHERE e.project_id = $1`, projectID)
 		if err != nil {
 			return err
 		}
@@ -187,12 +230,28 @@ func (s *TemplateStore) ProjectData(ctx context.Context, projectID uuid.UUID) (d
 
 func (s *TemplateStore) IsUnder(ctx context.Context, node, root uuid.UUID) (bool, error) {
 	var ok bool
-	err := s.pool.QueryRow(ctx, nodeIsUnder, node, root).Scan(&ok)
+	err := s.pool.QueryRow(ctx, `
+		WITH RECURSIVE up AS (
+			SELECT id, parent_id, 0 AS lvl
+			FROM nodes
+			WHERE id = $1
+			UNION ALL
+			SELECT p.id, p.parent_id, up.lvl + 1
+			FROM nodes p
+			JOIN up ON p.id = up.parent_id
+		)
+		SELECT EXISTS (SELECT 1 FROM up WHERE id = $2)`, node, root).Scan(&ok)
 	return ok, dbErr(err)
 }
 
 func (s *TemplateStore) Projects(ctx context.Context, after uuid.UUID, limit int) ([]uuid.UUID, error) {
-	rows, err := s.pool.Query(ctx, projectPage, after, limit)
+	rows, err := s.pool.Query(ctx, `
+		SELECT id
+		FROM nodes
+		WHERE kind = 'project'
+			AND id > $1
+		ORDER BY id
+		LIMIT $2`, after, limit)
 	if err != nil {
 		return nil, dbErr(err)
 	}

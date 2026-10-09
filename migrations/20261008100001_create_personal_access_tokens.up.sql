@@ -15,12 +15,7 @@ CREATE TABLE personal_access_tokens
     CONSTRAINT personal_access_tokens_token_hash_len_check CHECK (octet_length(token_hash) = 32),
     CONSTRAINT personal_access_tokens_name_check CHECK (char_length(name) BETWEEN 1 AND 100),
     CONSTRAINT personal_access_tokens_scopes_check
-        CHECK (cardinality(scopes) > 0 AND scopes < @ ARRAY['read', 'write', 'admin', 'mcp']
-    :
-    :
-    text
-[]
-)
+        CHECK (cardinality(scopes) > 0 AND scopes <@ ARRAY['read', 'write', 'admin', 'mcp']::text[])
     );
 
 CREATE INDEX personal_access_tokens_user_id_idx ON personal_access_tokens (user_id, created_at);

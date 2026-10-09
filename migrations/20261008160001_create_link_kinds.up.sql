@@ -16,10 +16,7 @@ CREATE TABLE link_kinds
     -
     ARRAY[
     'en', 'es', 'ru', 'zh'] =
-    '{}'
-    :
-    :
-    jsonb
+    '{}'::jsonb
     AND
     jsonb_typeof
 (

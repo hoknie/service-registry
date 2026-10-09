@@ -8,7 +8,6 @@ import (
 
 	"svc-registry/internal/apperr"
 	domain "svc-registry/internal/links"
-	"svc-registry/internal/postgres"
 )
 
 type kindRow struct {
@@ -20,9 +19,6 @@ type kindRow struct {
 	CreatedAt string            `db:"created_at"`
 	UpdatedAt string            `db:"updated_at"`
 }
-
-var kindColumns = "k.id, k.key, k.names, k.icon, k.position, " +
-	postgres.RFC3339("k.created_at") + " AS created_at, " + postgres.RFC3339("k.updated_at") + " AS updated_at"
 
 func (r kindRow) kind() domain.Kind {
 	return domain.Kind{ID: r.ID, Key: r.Key, Names: r.Names, Icon: domain.Icon(r.Icon), Position: r.Position,
@@ -42,10 +38,6 @@ type templateRow struct {
 	UpdatedAt    string    `db:"updated_at"`
 	Inherited    bool      `db:"inherited"`
 }
-
-var templateColumns = "t.id, t.node_id, t.link_key, k.key AS kind_key, k.position AS kind_position, t.template, " +
-	"t.disabled, t.position, " + postgres.RFC3339("t.created_at") + " AS created_at, " +
-	postgres.RFC3339("t.updated_at") + " AS updated_at"
 
 func (r templateRow) template() domain.Template {
 	return domain.Template{ID: r.ID, NodeID: r.NodeID, LinkKey: r.LinkKey, KindKey: r.KindKey,

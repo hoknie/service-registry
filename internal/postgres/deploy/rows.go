@@ -9,7 +9,6 @@ import (
 	"svc-registry/internal/apperr"
 	domain "svc-registry/internal/deploy"
 	"svc-registry/internal/forge"
-	"svc-registry/internal/postgres"
 )
 
 type environmentRow struct {
@@ -20,9 +19,6 @@ type environmentRow struct {
 	CreatedAt string            `db:"created_at"`
 	UpdatedAt string            `db:"updated_at"`
 }
-
-var environmentColumns = "e.id, e.key, e.names, e.position, " +
-	postgres.RFC3339("e.created_at") + " AS created_at, " + postgres.RFC3339("e.updated_at") + " AS updated_at"
 
 func (r environmentRow) environment() domain.Environment {
 	return domain.Environment{ID: r.ID, Key: r.Key, Names: r.Names, Position: r.Position, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
@@ -80,13 +76,6 @@ type errorJSON struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
-
-var clusterColumns = "c.id, c.name, c.environment, c.in_cluster, c.api_url, c.ca_pem, c.credentials_ref, " +
-	"c.credentials_fingerprint, c.namespaces, c.rules, c.interval_secs, c.enabled, c.status, c.last_error, " +
-	postgres.RFC3339("c.last_polled_at") + " AS last_polled_at, " + postgres.RFC3339("c.next_run_at") + " AS next_run_at, " +
-	"(SELECT count(*) FROM cluster_workloads w WHERE w.cluster_id = c.id AND w.project_id IS NOT NULL AND w.gone_at IS NULL) AS workloads, " +
-	"(SELECT count(*) FROM cluster_workloads w WHERE w.cluster_id = c.id AND w.project_id IS NULL AND w.gone_at IS NULL) AS unmatched, " +
-	postgres.RFC3339("c.created_at") + " AS created_at, " + postgres.RFC3339("c.updated_at") + " AS updated_at"
 
 func (r clusterRow) cluster() domain.Cluster {
 	c := domain.Cluster{

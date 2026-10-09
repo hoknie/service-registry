@@ -15,49 +15,6 @@ type NodeStore struct{ pool *pgxpool.Pool }
 
 func NewNodeStore(pool *pgxpool.Pool) *NodeStore { return &NodeStore{pool: pool} }
 
-var (
-	nodeChain = "WITH RECURSIVE " + boundCTE +
-		", up AS (SELECT n.*, 0 AS lvl FROM nodes n WHERE n.id = $2 " +
-		"UNION ALL SELECT p.*, up.lvl + 1 FROM nodes p JOIN up ON p.id = up.parent_id) " +
-		"SELECT " + nodeColumns +
-		", (SELECT max(CASE b.role WHEN 'admin' THEN 3 WHEN 'editor' THEN 2 ELSE 1 END) " +
-		"FROM bound b WHERE b.node_id = n.id) AS bound_rank, " +
-		"EXISTS (SELECT 1 FROM lineage WHERE lineage.id = $2) AS navigable " +
-		"FROM up n ORDER BY n.lvl"
-
-	nodeWalk = "WITH RECURSIVE " + boundCTE +
-		", walk AS (SELECT n.id, 1 AS depth, ($2 OR n.id IN (SELECT node_id FROM bound)) AS readable " +
-		"FROM nodes n WHERE ($3::uuid IS NULL AND n.parent_id IS NULL) OR n.parent_id = $3 " +
-		"UNION ALL SELECT c.id, w.depth + 1, (w.readable OR c.id IN (SELECT node_id FROM bound)) " +
-		"FROM walk w JOIN nodes c ON c.parent_id = w.id " +
-		"WHERE w.depth < $4 AND (w.readable OR w.id IN (SELECT id FROM lineage))), " +
-		"visible AS (SELECT w.depth, w.readable, n.* FROM walk w JOIN nodes n ON n.id = w.id " +
-		"WHERE w.readable OR w.id IN (SELECT id FROM lineage)) " +
-		"SELECT t.total, p.* FROM (SELECT count(*) AS total FROM visible) t LEFT JOIN LATERAL (" +
-		"SELECT n.depth, n.readable, " + nodeColumns +
-		" FROM visible n ORDER BY n.depth, " + kindRank + ", lower(n.name), n.id LIMIT $5 OFFSET $6) p ON true"
-
-	nodeInsert = "INSERT INTO nodes AS n (id, kind, parent_id, slug, name, description, labels, forge, " +
-		"repo_url, default_branch, cluster_observation) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, COALESCE($11, true)) RETURNING " + nodeColumns
-
-	nodeUpdate = "UPDATE nodes AS n SET slug = COALESCE($2, n.slug), name = COALESCE($3, n.name), " +
-		"description = COALESCE($4, n.description), labels = COALESCE($5::jsonb, n.labels), " +
-		"forge = CASE WHEN $6 THEN $7 ELSE n.forge END, " +
-		"repo_url = CASE WHEN $8 THEN $9 ELSE n.repo_url END, " +
-		"default_branch = CASE WHEN $10 THEN $11 ELSE n.default_branch END, " +
-		"cluster_observation = COALESCE($12, n.cluster_observation), " +
-		"updated_at = now() WHERE n.id = $1 RETURNING " + nodeColumns
-
-	nodeLockMoves        = "SELECT pg_advisory_xact_lock(7316001)"
-	nodeIsAncestorOrSelf = "WITH RECURSIVE up AS (SELECT id, parent_id FROM nodes " +
-		"WHERE id = $1 UNION ALL SELECT p.id, p.parent_id FROM nodes p JOIN up ON p.id = up.parent_id) " +
-		"SELECT EXISTS (SELECT 1 FROM up WHERE id = $2)"
-	nodeMove   = "UPDATE nodes AS n SET parent_id = $2, updated_at = now() WHERE n.id = $1 RETURNING " + nodeColumns
-	nodeDelete = "DELETE FROM nodes WHERE id = $1"
-	nodeGet    = "SELECT " + nodeColumns + " FROM nodes n WHERE n.id = $1"
-	nodeChild  = "SELECT " + nodeColumns + " FROM nodes n WHERE n.parent_id IS NOT DISTINCT FROM $1 AND n.slug = $2"
-)
-
 type chainRow struct {
 	nodeRow
 	BoundRank *int32 `db:"bound_rank"`
@@ -88,15 +45,63 @@ func (s *NodeStore) one(ctx context.Context, query string, args ...any) (*domain
 }
 
 func (s *NodeStore) Get(ctx context.Context, id uuid.UUID) (*domain.Node, error) {
-	return s.one(ctx, nodeGet, id)
+	return s.one(ctx, `
+		SELECT n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url,
+			n.default_branch, n.cluster_observation, rfc3339(n.created_at) AS created_at,
+			rfc3339(n.updated_at) AS updated_at
+		FROM nodes n
+		WHERE n.id = $1`, id)
 }
 
 func (s *NodeStore) ChildBySlug(ctx context.Context, parent *uuid.UUID, slug string) (*domain.Node, error) {
-	return s.one(ctx, nodeChild, parent, slug)
+	return s.one(ctx, `
+		SELECT n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url,
+			n.default_branch, n.cluster_observation, rfc3339(n.created_at) AS created_at,
+			rfc3339(n.updated_at) AS updated_at
+		FROM nodes n
+		WHERE n.parent_id IS NOT DISTINCT FROM $1
+			AND n.slug = $2`, parent, slug)
 }
 
 func (s *NodeStore) Chain(ctx context.Context, userID, id uuid.UUID) (*domain.NodeChain, error) {
-	rows, _ := s.pool.Query(ctx, nodeChain, userID, id)
+	rows, _ := s.pool.Query(ctx, `
+		WITH RECURSIVE bound AS (
+			SELECT node_id, role
+			FROM role_bindings
+			WHERE user_id = $1
+			UNION ALL
+			SELECT b.node_id, b.role
+			FROM role_bindings b
+			JOIN group_members gm ON gm.group_id = b.group_id
+			WHERE gm.user_id = $1
+		),
+		lineage AS (
+			SELECT n.id, n.parent_id
+			FROM nodes n
+			WHERE n.id IN (SELECT node_id FROM bound)
+			UNION
+			SELECT p.id, p.parent_id
+			FROM nodes p
+			JOIN lineage l ON p.id = l.parent_id
+		),
+		up AS (
+			SELECT n.*, 0 AS lvl
+			FROM nodes n
+			WHERE n.id = $2
+			UNION ALL
+			SELECT p.*, up.lvl + 1
+			FROM nodes p
+			JOIN up ON p.id = up.parent_id
+		)
+		SELECT n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url,
+			n.default_branch, n.cluster_observation, rfc3339(n.created_at) AS created_at,
+			rfc3339(n.updated_at) AS updated_at, (
+			SELECT max(CASE b.role WHEN 'admin' THEN 3 WHEN 'editor' THEN 2 ELSE 1 END)
+			FROM bound b
+			WHERE b.node_id = n.id
+		) AS bound_rank, EXISTS (SELECT 1 FROM lineage WHERE lineage.id = $2) AS navigable
+		FROM up n
+		ORDER BY n.lvl`, userID, id)
 	found, err := pgx.CollectRows(rows, pgx.RowToStructByName[chainRow])
 	if err != nil {
 		return nil, dbErr(err)
@@ -117,7 +122,55 @@ func (s *NodeStore) Chain(ctx context.Context, userID, id uuid.UUID) (*domain.No
 
 func (s *NodeStore) Walk(ctx context.Context, w domain.Walk) ([]domain.WalkNode, uint64, error) {
 	depth := int32(min(w.Depth, uint32(1<<31-1)))
-	rows, _ := s.pool.Query(ctx, nodeWalk, w.UserID, w.RootReadable, w.Root, depth, int64(w.Limit), bigint(w.Offset))
+	rows, _ := s.pool.Query(ctx, `
+		WITH RECURSIVE bound AS (
+			SELECT node_id, role
+			FROM role_bindings
+			WHERE user_id = $1
+			UNION ALL
+			SELECT b.node_id, b.role
+			FROM role_bindings b
+			JOIN group_members gm ON gm.group_id = b.group_id
+			WHERE gm.user_id = $1
+		),
+		lineage AS (
+			SELECT n.id, n.parent_id
+			FROM nodes n
+			WHERE n.id IN (SELECT node_id FROM bound)
+			UNION
+			SELECT p.id, p.parent_id
+			FROM nodes p
+			JOIN lineage l ON p.id = l.parent_id
+		),
+		walk AS (
+			SELECT n.id, 1 AS depth, ($2 OR n.id IN (SELECT node_id FROM bound)) AS readable
+			FROM nodes n
+			WHERE ($3::uuid IS NULL AND n.parent_id IS NULL) OR n.parent_id = $3
+			UNION ALL
+			SELECT c.id, w.depth + 1, (w.readable OR c.id IN (SELECT node_id FROM bound))
+			FROM walk w
+			JOIN nodes c ON c.parent_id = w.id
+			WHERE w.depth < $4
+				AND (w.readable OR w.id IN (SELECT id FROM lineage))
+		),
+		visible AS (
+			SELECT w.depth, w.readable, n.*
+			FROM walk w
+			JOIN nodes n ON n.id = w.id
+			WHERE w.readable OR w.id IN (SELECT id FROM lineage)
+		)
+		SELECT t.total, p.*
+		FROM (SELECT count(*) AS total FROM visible) t
+		LEFT JOIN LATERAL (
+			SELECT n.depth, n.readable, n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels,
+				n.forge, n.repo_url, n.default_branch, n.cluster_observation, rfc3339(n.created_at) AS created_at,
+				rfc3339(n.updated_at) AS updated_at
+			FROM visible n
+			ORDER BY n.depth, CASE n.kind WHEN 'organization' THEN 0 WHEN 'folder' THEN 1 ELSE 2 END,
+				lower(n.name), n.id
+			LIMIT $5
+			OFFSET $6
+		) p ON true`, w.UserID, w.RootReadable, w.Root, depth, int64(w.Limit), bigint(w.Offset))
 	found, err := pgx.CollectRows(rows, pgx.RowToStructByName[walkRow])
 	if err != nil {
 		return nil, 0, dbErr(err)
@@ -147,7 +200,13 @@ func forgeText(f *domain.Forge) *string {
 }
 
 func (s *NodeStore) Insert(ctx context.Context, n domain.NewNode) (domain.Node, error) {
-	rows, _ := s.pool.Query(ctx, nodeInsert, n.ID, string(n.Kind), n.ParentID, n.Slug, n.Name,
+	rows, _ := s.pool.Query(ctx, `
+		INSERT INTO nodes AS n (id, kind, parent_id, slug, name, description, labels, forge, repo_url,
+			default_branch, cluster_observation)
+		VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, COALESCE($11, true))
+		RETURNING n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url,
+			n.default_branch, n.cluster_observation, rfc3339(n.created_at) AS created_at,
+			rfc3339(n.updated_at) AS updated_at`, n.ID, string(n.Kind), n.ParentID, n.Slug, n.Name,
 		n.Description, labelsParam(n.Labels), forgeText(n.Repo.Forge), n.Repo.RepoURL, n.Repo.DefaultBranch, n.ClusterObservation)
 	node, err := oneNode(rows)
 	return node, dbErr(err)
@@ -158,7 +217,17 @@ func (s *NodeStore) Update(ctx context.Context, id uuid.UUID, c domain.NodeChang
 	if c.Labels != nil {
 		labels = &c.Labels
 	}
-	rows, _ := s.pool.Query(ctx, nodeUpdate, id, c.Slug, c.Name, c.Description, labels,
+	rows, _ := s.pool.Query(ctx, `
+		UPDATE nodes AS n
+		SET slug = COALESCE($2, n.slug), name = COALESCE($3, n.name),
+			description = COALESCE($4, n.description), labels = COALESCE($5::jsonb, n.labels),
+			forge = CASE WHEN $6 THEN $7 ELSE n.forge END, repo_url = CASE WHEN $8 THEN $9 ELSE n.repo_url END,
+			default_branch = CASE WHEN $10 THEN $11 ELSE n.default_branch END,
+			cluster_observation = COALESCE($12, n.cluster_observation), updated_at = now()
+		WHERE n.id = $1
+		RETURNING n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url,
+			n.default_branch, n.cluster_observation, rfc3339(n.created_at) AS created_at,
+			rfc3339(n.updated_at) AS updated_at`, id, c.Slug, c.Name, c.Description, labels,
 		c.Forge.Set, forgeText(c.Forge.Value), c.RepoURL.Set, c.RepoURL.Value,
 		c.DefaultBranch.Set, c.DefaultBranch.Value, c.ClusterObservation)
 	node, err := oneNode(rows)
@@ -174,19 +243,36 @@ func (s *NodeStore) Move(ctx context.Context, id uuid.UUID, parent *uuid.UUID) (
 		return domain.Node{}, dbErr(err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := tx.Exec(ctx, nodeLockMoves); err != nil {
+	if _, err := tx.Exec(ctx, `
+		SELECT pg_advisory_xact_lock(7316001)`); err != nil {
 		return domain.Node{}, dbErr(err)
 	}
 	if parent != nil {
 		var cycle bool
-		if err := tx.QueryRow(ctx, nodeIsAncestorOrSelf, *parent, id).Scan(&cycle); err != nil {
+		if err := tx.QueryRow(ctx, `
+			WITH RECURSIVE up AS (
+				SELECT id, parent_id
+				FROM nodes
+				WHERE id = $1
+				UNION ALL
+				SELECT p.id, p.parent_id
+				FROM nodes p
+				JOIN up ON p.id = up.parent_id
+			)
+			SELECT EXISTS (SELECT 1 FROM up WHERE id = $2)`, *parent, id).Scan(&cycle); err != nil {
 			return domain.Node{}, dbErr(err)
 		}
 		if cycle {
 			return domain.Node{}, domain.ConflictCycle
 		}
 	}
-	rows, _ := tx.Query(ctx, nodeMove, id, parent)
+	rows, _ := tx.Query(ctx, `
+		UPDATE nodes AS n
+		SET parent_id = $2, updated_at = now()
+		WHERE n.id = $1
+		RETURNING n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url,
+			n.default_branch, n.cluster_observation, rfc3339(n.created_at) AS created_at,
+			rfc3339(n.updated_at) AS updated_at`, id, parent)
 	node, err := oneNode(rows)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Node{}, domain.ErrNotFound
@@ -201,7 +287,9 @@ func (s *NodeStore) Move(ctx context.Context, id uuid.UUID, parent *uuid.UUID) (
 }
 
 func (s *NodeStore) Delete(ctx context.Context, id uuid.UUID) error {
-	tag, err := s.pool.Exec(ctx, nodeDelete, id)
+	tag, err := s.pool.Exec(ctx, `
+		DELETE FROM nodes
+		WHERE id = $1`, id)
 	if err != nil {
 		if constraint(err) == "nodes_parent_id_fkey" {
 			return domain.ConflictNodeNotEmpty

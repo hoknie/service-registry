@@ -14,16 +14,12 @@ type EnvironmentStore struct{ pool *pgxpool.Pool }
 
 func NewEnvironmentStore(pool *pgxpool.Pool) *EnvironmentStore { return &EnvironmentStore{pool: pool} }
 
-var (
-	environmentList   = "SELECT " + environmentColumns + " FROM environments e ORDER BY e.position, e.key"
-	environmentInsert = "INSERT INTO environments AS e (id, key, names, position) VALUES ($1, $2, $3, $4) RETURNING " + environmentColumns
-	environmentUpdate = "UPDATE environments AS e SET names = COALESCE($2, e.names), position = COALESCE($3, e.position), " +
-		"updated_at = now() WHERE e.key = $1 RETURNING " + environmentColumns
-	environmentDelete = "DELETE FROM environments WHERE key = $1"
-)
-
 func (s *EnvironmentStore) List(ctx context.Context) ([]domain.Environment, error) {
-	rows, err := s.pool.Query(ctx, environmentList)
+	rows, err := s.pool.Query(ctx, `
+		SELECT e.id, e.key, e.names, e.position, rfc3339(e.created_at) AS created_at,
+			rfc3339(e.updated_at) AS updated_at
+		FROM environments e
+		ORDER BY e.position, e.key`)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -39,7 +35,11 @@ func (s *EnvironmentStore) List(ctx context.Context) ([]domain.Environment, erro
 }
 
 func (s *EnvironmentStore) Insert(ctx context.Context, e domain.NewEnvironment) (domain.Environment, error) {
-	rows, err := s.pool.Query(ctx, environmentInsert, e.ID, e.Key, e.Names, e.Position)
+	rows, err := s.pool.Query(ctx, `
+		INSERT INTO environments AS e (id, key, names, position)
+		VALUES ($1, $2, $3, $4)
+		RETURNING e.id, e.key, e.names, e.position, rfc3339(e.created_at) AS created_at,
+			rfc3339(e.updated_at) AS updated_at`, e.ID, e.Key, e.Names, e.Position)
 	if err != nil {
 		return domain.Environment{}, dbErr(err)
 	}
@@ -55,7 +55,12 @@ func (s *EnvironmentStore) Update(ctx context.Context, key string, c domain.Envi
 	if c.Names != nil {
 		names = c.Names
 	}
-	rows, err := s.pool.Query(ctx, environmentUpdate, key, names, c.Position)
+	rows, err := s.pool.Query(ctx, `
+		UPDATE environments AS e
+		SET names = COALESCE($2, e.names), position = COALESCE($3, e.position), updated_at = now()
+		WHERE e.key = $1
+		RETURNING e.id, e.key, e.names, e.position, rfc3339(e.created_at) AS created_at,
+			rfc3339(e.updated_at) AS updated_at`, key, names, c.Position)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -71,7 +76,9 @@ func (s *EnvironmentStore) Update(ctx context.Context, key string, c domain.Envi
 }
 
 func (s *EnvironmentStore) Delete(ctx context.Context, key string) error {
-	tag, err := s.pool.Exec(ctx, environmentDelete, key)
+	tag, err := s.pool.Exec(ctx, `
+		DELETE FROM environments
+		WHERE key = $1`, key)
 	if err != nil {
 		return dbErr(err)
 	}

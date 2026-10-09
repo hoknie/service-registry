@@ -8,12 +8,7 @@ import (
 
 	"svc-registry/internal/apperr"
 	domain "svc-registry/internal/ingest"
-	"svc-registry/internal/postgres"
 )
-
-var eventColumns = "e.id, e.project_id, e.type, e.version, e.idempotency_key, " +
-	postgres.RFC3339("e.occurred_at") + " AS occurred_at, " +
-	postgres.RFC3339("e.received_at") + " AS received_at, k.prefix AS key_prefix, e.payload"
 
 type eventRow struct {
 	ID             uuid.UUID       `db:"id"`
@@ -33,12 +28,6 @@ func (r eventRow) event() domain.Event {
 		OccurredAt: r.OccurredAt, ReceivedAt: r.ReceivedAt, KeyPrefix: r.KeyPrefix, Payload: r.Payload,
 	}
 }
-
-var deploymentColumns = "d.id, d.project_id, d.event_id, d.service, d.environment, d.version, d.commit_sha, " +
-	"d.branch, d.cluster, d.namespace, d.url, d.deployed_by, d.metadata, " +
-	postgres.RFC3339("d.occurred_at") + " AS occurred_at, " +
-	postgres.RFC3339("d.created_at") + " AS received_at, " +
-	"EXISTS (SELECT 1 FROM service_environments s WHERE s.deployment_id = d.id) AS current, d.source"
 
 type deploymentRow struct {
 	ID          uuid.UUID         `db:"id"`

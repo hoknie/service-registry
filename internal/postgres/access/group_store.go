@@ -16,36 +16,24 @@ type GroupStore struct{ pool *pgxpool.Pool }
 
 func NewGroupStore(pool *pgxpool.Pool) *GroupStore { return &GroupStore{pool: pool} }
 
-var (
-	groupInsert  = "INSERT INTO groups AS g (id, name) VALUES ($1, $2) RETURNING " + groupColumns
-	groupList    = "SELECT " + groupColumns + " FROM groups g ORDER BY lower(g.name), g.id LIMIT $1 OFFSET $2"
-	groupCount   = "SELECT count(*) FROM groups"
-	groupFind    = "SELECT " + groupColumns + " FROM groups g WHERE g.id = $1"
-	groupMembers = "SELECT u.id, u.email, u.display_name, u.status, m.source FROM group_members m " +
-		"JOIN users u ON u.id = m.user_id WHERE m.group_id = $1 ORDER BY u.email"
-	groupRename    = "UPDATE groups AS g SET name = $2, updated_at = now() WHERE g.id = $1 RETURNING " + groupColumns
-	groupDelete    = "DELETE FROM groups WHERE id = $1"
-	groupAddMember = "INSERT INTO group_members (id, group_id, user_id) VALUES ($1, $2, $3) " +
-		"ON CONFLICT (group_id, user_id) DO UPDATE SET source = 'manual'"
-	groupMemberSource = "SELECT source FROM group_members WHERE group_id = $1 AND user_id = $2"
-	groupRemoveMember = "DELETE FROM group_members WHERE group_id = $1 AND user_id = $2 AND source = 'manual'"
-	groupEnsure       = "INSERT INTO groups (id, name) SELECT g.id, g.name FROM unnest($1::uuid[], $2::text[]) AS g(id, name) " +
-		"WHERE NOT EXISTS (SELECT 1 FROM groups x WHERE lower(x.name) = lower(g.name)) ON CONFLICT DO NOTHING"
-	groupSyncAdd = "INSERT INTO group_members (id, group_id, user_id, source) " +
-		"SELECT m.id, x.id, $1, $2 FROM unnest($3::uuid[], $4::text[]) AS m(id, name) " +
-		"JOIN groups x ON lower(x.name) = m.name ON CONFLICT (group_id, user_id) DO NOTHING"
-	groupSyncRemove = "DELETE FROM group_members m USING groups x WHERE m.group_id = x.id AND m.user_id = $1 " +
-		"AND m.source = $2 AND NOT (lower(x.name) = ANY($3::text[]))"
-	groupExists = "SELECT EXISTS (SELECT 1 FROM groups WHERE id = $1)"
-)
-
 func (s *GroupStore) Insert(ctx context.Context, g domain.NewGroup) (domain.Group, error) {
-	group, err := scanGroup(s.pool.QueryRow(ctx, groupInsert, g.ID, g.Name))
+	group, err := scanGroup(s.pool.QueryRow(ctx, `
+		INSERT INTO groups AS g (id, name)
+		VALUES ($1, $2)
+		RETURNING g.id, g.name,
+			(SELECT count(*) FROM group_members m WHERE m.group_id = g.id) AS member_count,
+			rfc3339(g.created_at) AS created_at, rfc3339(g.updated_at) AS updated_at`, g.ID, g.Name))
 	return group, dbErr(err)
 }
 
 func (s *GroupStore) List(ctx context.Context, page domain.PageRequest) (domain.Page[domain.Group], error) {
-	rows, err := s.pool.Query(ctx, groupList, int64(page.Limit), int64(page.Offset))
+	rows, err := s.pool.Query(ctx, `
+		SELECT g.id, g.name, (SELECT count(*) FROM group_members m WHERE m.group_id = g.id) AS member_count,
+			rfc3339(g.created_at) AS created_at, rfc3339(g.updated_at) AS updated_at
+		FROM groups g
+		ORDER BY lower(g.name), g.id
+		LIMIT $1
+		OFFSET $2`, int64(page.Limit), int64(page.Offset))
 	if err != nil {
 		return domain.Page[domain.Group]{}, dbErr(err)
 	}
@@ -54,21 +42,32 @@ func (s *GroupStore) List(ctx context.Context, page domain.PageRequest) (domain.
 		return domain.Page[domain.Group]{}, dbErr(err)
 	}
 	var total int64
-	if err := s.pool.QueryRow(ctx, groupCount).Scan(&total); err != nil {
+	if err := s.pool.QueryRow(ctx, `
+		SELECT count(*)
+		FROM groups`).Scan(&total); err != nil {
 		return domain.Page[domain.Group]{}, dbErr(err)
 	}
 	return domain.Page[domain.Group]{Items: items, Total: uint64(max(total, 0)), Limit: page.Limit, Offset: page.Offset}, nil
 }
 
 func (s *GroupStore) Find(ctx context.Context, id uuid.UUID) (*domain.GroupDetails, error) {
-	group, err := scanGroup(s.pool.QueryRow(ctx, groupFind, id))
+	group, err := scanGroup(s.pool.QueryRow(ctx, `
+		SELECT g.id, g.name, (SELECT count(*) FROM group_members m WHERE m.group_id = g.id) AS member_count,
+			rfc3339(g.created_at) AS created_at, rfc3339(g.updated_at) AS updated_at
+		FROM groups g
+		WHERE g.id = $1`, id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, dbErr(err)
 	}
-	rows, err := s.pool.Query(ctx, groupMembers, id)
+	rows, err := s.pool.Query(ctx, `
+		SELECT u.id, u.email, u.display_name, u.status, m.source
+		FROM group_members m
+		JOIN users u ON u.id = m.user_id
+		WHERE m.group_id = $1
+		ORDER BY u.email`, id)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -90,7 +89,13 @@ func (s *GroupStore) Find(ctx context.Context, id uuid.UUID) (*domain.GroupDetai
 }
 
 func (s *GroupStore) Rename(ctx context.Context, id uuid.UUID, name string) (domain.Group, error) {
-	group, err := scanGroup(s.pool.QueryRow(ctx, groupRename, id, name))
+	group, err := scanGroup(s.pool.QueryRow(ctx, `
+		UPDATE groups AS g
+		SET name = $2, updated_at = now()
+		WHERE g.id = $1
+		RETURNING g.id, g.name,
+			(SELECT count(*) FROM group_members m WHERE m.group_id = g.id) AS member_count,
+			rfc3339(g.created_at) AS created_at, rfc3339(g.updated_at) AS updated_at`, id, name))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Group{}, domain.ErrNotFound
 	}
@@ -98,7 +103,9 @@ func (s *GroupStore) Rename(ctx context.Context, id uuid.UUID, name string) (dom
 }
 
 func (s *GroupStore) Delete(ctx context.Context, id uuid.UUID) error {
-	tag, err := s.pool.Exec(ctx, groupDelete, id)
+	tag, err := s.pool.Exec(ctx, `
+		DELETE FROM groups
+		WHERE id = $1`, id)
 	if err != nil {
 		return dbErr(err)
 	}
@@ -109,12 +116,20 @@ func (s *GroupStore) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s *GroupStore) AddMember(ctx context.Context, id, groupID, userID uuid.UUID) error {
-	_, err := s.pool.Exec(ctx, groupAddMember, id, groupID, userID)
+	_, err := s.pool.Exec(ctx, `
+		INSERT INTO group_members (id, group_id, user_id)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (group_id, user_id)
+		DO UPDATE SET source = 'manual'`, id, groupID, userID)
 	return dbErr(err)
 }
 
 func (s *GroupStore) RemoveMember(ctx context.Context, groupID, userID uuid.UUID) error {
-	tag, err := s.pool.Exec(ctx, groupRemoveMember, groupID, userID)
+	tag, err := s.pool.Exec(ctx, `
+		DELETE FROM group_members
+		WHERE group_id = $1
+			AND user_id = $2
+			AND source = 'manual'`, groupID, userID)
 	if err != nil {
 		return dbErr(err)
 	}
@@ -122,14 +137,19 @@ func (s *GroupStore) RemoveMember(ctx context.Context, groupID, userID uuid.UUID
 		return nil
 	}
 	var source string
-	switch err := s.pool.QueryRow(ctx, groupMemberSource, groupID, userID).Scan(&source); {
+	switch err := s.pool.QueryRow(ctx, `
+		SELECT source
+		FROM group_members
+		WHERE group_id = $1
+			AND user_id = $2`, groupID, userID).Scan(&source); {
 	case err == nil:
 		return domain.ConflictMembershipManaged
 	case !errors.Is(err, pgx.ErrNoRows):
 		return dbErr(err)
 	}
 	var exists bool
-	if err := s.pool.QueryRow(ctx, groupExists, groupID).Scan(&exists); err != nil {
+	if err := s.pool.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM groups WHERE id = $1)`, groupID).Scan(&exists); err != nil {
 		return dbErr(err)
 	}
 	if !exists {
@@ -148,14 +168,31 @@ func (s *GroupStore) SyncManaged(ctx context.Context, userID uuid.UUID, source d
 	}
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		if len(groups) > 0 {
-			if _, err := tx.Exec(ctx, groupEnsure, ids, groups); err != nil {
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO groups (id, name)
+				SELECT g.id, g.name
+				FROM unnest($1::uuid[], $2::text[]) AS g(id, name)
+				WHERE NOT EXISTS (SELECT 1 FROM groups x WHERE lower(x.name) = lower(g.name))
+				ON CONFLICT
+				DO NOTHING`, ids, groups); err != nil {
 				return err
 			}
-			if _, err := tx.Exec(ctx, groupSyncAdd, userID, string(source), memberIDs, lower); err != nil {
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO group_members (id, group_id, user_id, source)
+				SELECT m.id, x.id, $1, $2
+				FROM unnest($3::uuid[], $4::text[]) AS m(id, name)
+				JOIN groups x ON lower(x.name) = m.name
+				ON CONFLICT (group_id, user_id)
+				DO NOTHING`, userID, string(source), memberIDs, lower); err != nil {
 				return err
 			}
 		}
-		_, err := tx.Exec(ctx, groupSyncRemove, userID, string(source), lower)
+		_, err := tx.Exec(ctx, `
+			DELETE FROM group_members m USING groups x
+			WHERE m.group_id = x.id
+				AND m.user_id = $1
+				AND m.source = $2
+				AND NOT (lower(x.name) = ANY($3::text[]))`, userID, string(source), lower)
 		return err
 	})
 	return dbErr(err)

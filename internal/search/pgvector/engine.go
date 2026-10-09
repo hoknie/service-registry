@@ -43,25 +43,48 @@ func (e *Engine) Check(ctx context.Context) error {
 	return nil
 }
 
-func quote(id string) string { return `"` + strings.ReplaceAll(id, `"`, `""`) + `"` }
-
 func (e *Engine) query() string {
-	s := quote(e.schema)
-	return "WITH want AS (SELECT * FROM unnest($1::uuid[], $2::text[]) AS w(project_id, branch)), " +
-		"latest AS (SELECT DISTINCT ON (s.project_id, s.branch) s.id, s.project_id, s.branch, s.commit_sha FROM knowledge_snapshots s " +
-		"JOIN want w ON w.project_id = s.project_id AND w.branch = s.branch WHERE s.status <> 'failed' " +
-		"ORDER BY s.project_id, s.branch, s.collected_at DESC, s.id DESC), " +
-		"scored AS (SELECT DISTINCT ON (l.project_id, l.branch, f.path) l.project_id, l.branch, l.commit_sha, f.path, f.kind, f.sha256, " +
-		"e.chunk_start, e.chunk_end, (e.vector::" + s + ".vector OPERATOR(" + s + ".<=>) $3::real[]::" + s + ".vector) AS d " +
-		"FROM latest l JOIN knowledge_files f ON f.snapshot_id = l.id " +
-		"JOIN knowledge_embeddings e ON e.sha256 = f.sha256 AND e.model = $4 WHERE f.path LIKE $5 ESCAPE '\\' " +
-		"ORDER BY l.project_id, l.branch, f.path, d) " +
-		"SELECT sc.project_id, n.name, (WITH RECURSIVE up AS (SELECT id, parent_id, slug, 0 AS lvl FROM nodes WHERE id = sc.project_id " +
-		"UNION ALL SELECT x.id, x.parent_id, x.slug, up.lvl + 1 FROM nodes x JOIN up ON x.id = up.parent_id) " +
-		"SELECT string_agg(slug, '/' ORDER BY lvl DESC) FROM up), sc.branch, sc.commit_sha, sc.path, sc.kind, " +
-		"left(substring(b.content FROM sc.chunk_start + 1 FOR sc.chunk_end - sc.chunk_start), 300) " +
-		"FROM scored sc JOIN nodes n ON n.id = sc.project_id JOIN knowledge_blobs b ON b.sha256 = sc.sha256 " +
-		"ORDER BY sc.d, sc.project_id, sc.branch, sc.path LIMIT $6 OFFSET $7"
+	return fmt.Sprintf(`
+		WITH want AS (
+			SELECT *
+			FROM unnest($1::uuid[], $2::text[]) AS w(project_id, branch)
+		),
+		latest AS (
+			SELECT DISTINCT ON (s.project_id, s.branch) s.id, s.project_id, s.branch, s.commit_sha
+			FROM knowledge_snapshots s
+			JOIN want w ON w.project_id = s.project_id AND w.branch = s.branch
+			WHERE s.status <> 'failed'
+			ORDER BY s.project_id, s.branch, s.collected_at DESC, s.id DESC
+		),
+		scored AS (
+			SELECT DISTINCT ON (l.project_id, l.branch, f.path) l.project_id, l.branch, l.commit_sha, f.path, f.kind, f.sha256,
+				e.chunk_start, e.chunk_end, (e.vector::%[1]s.vector OPERATOR(%[1]s.<=>) $3::real[]::%[1]s.vector) AS d
+			FROM latest l
+			JOIN knowledge_files f ON f.snapshot_id = l.id
+			JOIN knowledge_embeddings e ON e.sha256 = f.sha256 AND e.model = $4
+			WHERE f.path LIKE $5 ESCAPE '\'
+			ORDER BY l.project_id, l.branch, f.path, d
+		)
+		SELECT sc.project_id, n.name, (
+			WITH RECURSIVE up AS (
+				SELECT id, parent_id, slug, 0 AS lvl
+				FROM nodes
+				WHERE id = sc.project_id
+				UNION ALL
+				SELECT x.id, x.parent_id, x.slug, up.lvl + 1
+				FROM nodes x
+				JOIN up ON x.id = up.parent_id
+			)
+			SELECT string_agg(slug, '/' ORDER BY lvl DESC)
+			FROM up
+		), sc.branch, sc.commit_sha, sc.path, sc.kind,
+			left(substring(b.content FROM sc.chunk_start + 1 FOR sc.chunk_end - sc.chunk_start), 300)
+		FROM scored sc
+		JOIN nodes n ON n.id = sc.project_id
+		JOIN knowledge_blobs b ON b.sha256 = sc.sha256
+		ORDER BY sc.d, sc.project_id, sc.branch, sc.path
+		LIMIT $6
+		OFFSET $7`, pgx.Identifier{e.schema}.Sanitize())
 }
 
 func (e *Engine) Search(ctx context.Context, q knowledge.EngineQuery) ([]knowledge.Hit, bool, error) {

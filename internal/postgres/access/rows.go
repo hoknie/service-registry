@@ -8,21 +8,7 @@ import (
 
 	domain "svc-registry/internal/access"
 	"svc-registry/internal/apperr"
-	"svc-registry/internal/postgres"
 )
-
-var userColumns = "u.id, u.email, u.display_name, u.status, u.is_superadmin, u.password_hash IS NOT NULL AS has_password, " +
-	postgres.RFC3339("u.created_at") + " AS created_at, " + postgres.RFC3339("u.updated_at") + " AS updated_at"
-
-var groupColumns = "g.id, g.name, " +
-	"(SELECT count(*) FROM group_members m WHERE m.group_id = g.id) AS member_count, " +
-	postgres.RFC3339("g.created_at") + " AS created_at, " + postgres.RFC3339("g.updated_at") + " AS updated_at"
-
-var tokenColumns = "t.id, t.user_id, u.email, t.name, t.prefix, t.scopes, " +
-	postgres.RFC3339("t.created_at") + " AS created_at, " + postgres.RFC3339("t.expires_at") + " AS expires_at, " +
-	postgres.RFC3339("t.last_used_at") + " AS last_used_at, " + postgres.RFC3339("t.revoked_at") + " AS revoked_at, " +
-	"CASE WHEN t.revoked_at IS NOT NULL THEN 'revoked' " +
-	"WHEN t.expires_at <= now() THEN 'expired' ELSE 'active' END AS status"
 
 func status(raw string) (domain.UserStatus, error) {
 	s, ok := domain.ParseStatus(raw)

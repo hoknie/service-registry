@@ -14,16 +14,12 @@ type KindStore struct{ pool *pgxpool.Pool }
 
 func NewKindStore(pool *pgxpool.Pool) *KindStore { return &KindStore{pool: pool} }
 
-var (
-	kindList   = "SELECT " + kindColumns + " FROM link_kinds k ORDER BY k.position, k.key"
-	kindInsert = "INSERT INTO link_kinds AS k (id, key, names, icon, position) VALUES ($1, $2, $3, $4, $5) RETURNING " + kindColumns
-	kindUpdate = "UPDATE link_kinds AS k SET names = COALESCE($2, k.names), icon = COALESCE($3, k.icon), " +
-		"position = COALESCE($4, k.position), updated_at = now() WHERE k.key = $1 RETURNING " + kindColumns
-	kindDelete = "DELETE FROM link_kinds WHERE key = $1"
-)
-
 func (s *KindStore) List(ctx context.Context) ([]domain.Kind, error) {
-	rows, err := s.pool.Query(ctx, kindList)
+	rows, err := s.pool.Query(ctx, `
+		SELECT k.id, k.key, k.names, k.icon, k.position, rfc3339(k.created_at) AS created_at,
+			rfc3339(k.updated_at) AS updated_at
+		FROM link_kinds k
+		ORDER BY k.position, k.key`)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -39,7 +35,11 @@ func (s *KindStore) List(ctx context.Context) ([]domain.Kind, error) {
 }
 
 func (s *KindStore) Insert(ctx context.Context, k domain.NewKind) (domain.Kind, error) {
-	rows, err := s.pool.Query(ctx, kindInsert, k.ID, k.Key, map[string]string(k.Names), string(k.Icon), k.Position)
+	rows, err := s.pool.Query(ctx, `
+		INSERT INTO link_kinds AS k (id, key, names, icon, position)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING k.id, k.key, k.names, k.icon, k.position, rfc3339(k.created_at) AS created_at,
+			rfc3339(k.updated_at) AS updated_at`, k.ID, k.Key, map[string]string(k.Names), string(k.Icon), k.Position)
 	if err != nil {
 		return domain.Kind{}, dbErr(err)
 	}
@@ -60,7 +60,13 @@ func (s *KindStore) Update(ctx context.Context, key string, c domain.KindChanges
 		v := string(*c.Icon)
 		icon = &v
 	}
-	rows, err := s.pool.Query(ctx, kindUpdate, key, names, icon, c.Position)
+	rows, err := s.pool.Query(ctx, `
+		UPDATE link_kinds AS k
+		SET names = COALESCE($2, k.names), icon = COALESCE($3, k.icon), position = COALESCE($4, k.position),
+			updated_at = now()
+		WHERE k.key = $1
+		RETURNING k.id, k.key, k.names, k.icon, k.position, rfc3339(k.created_at) AS created_at,
+			rfc3339(k.updated_at) AS updated_at`, key, names, icon, c.Position)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -76,7 +82,9 @@ func (s *KindStore) Update(ctx context.Context, key string, c domain.KindChanges
 }
 
 func (s *KindStore) Delete(ctx context.Context, key string) error {
-	tag, err := s.pool.Exec(ctx, kindDelete, key)
+	tag, err := s.pool.Exec(ctx, `
+		DELETE FROM link_kinds
+		WHERE key = $1`, key)
 	if err != nil {
 		return dbErr(err)
 	}

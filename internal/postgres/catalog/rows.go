@@ -9,20 +9,7 @@ import (
 
 	"svc-registry/internal/apperr"
 	domain "svc-registry/internal/catalog"
-	"svc-registry/internal/postgres"
 )
-
-var nodeColumns = "n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, " +
-	"n.forge, n.repo_url, n.default_branch, n.cluster_observation, " +
-	postgres.RFC3339("n.created_at") + " AS created_at, " + postgres.RFC3339("n.updated_at") + " AS updated_at"
-
-const boundCTE = "bound AS (SELECT node_id, role FROM role_bindings WHERE user_id = $1 " +
-	"UNION ALL SELECT b.node_id, b.role FROM role_bindings b " +
-	"JOIN group_members gm ON gm.group_id = b.group_id WHERE gm.user_id = $1), " +
-	"lineage AS (SELECT n.id, n.parent_id FROM nodes n WHERE n.id IN (SELECT node_id FROM bound) " +
-	"UNION SELECT p.id, p.parent_id FROM nodes p JOIN lineage l ON p.id = l.parent_id)"
-
-const kindRank = "CASE n.kind WHEN 'organization' THEN 0 WHEN 'folder' THEN 1 ELSE 2 END"
 
 type nodeRow struct {
 	ID            *uuid.UUID    `db:"id"`

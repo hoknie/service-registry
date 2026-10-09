@@ -17,40 +17,11 @@ type WorkloadStore struct{ pool *pgxpool.Pool }
 
 func NewWorkloadStore(pool *pgxpool.Pool) *WorkloadStore { return &WorkloadStore{pool: pool} }
 
-const (
-	workloadPrevious = "SELECT uid, version, pending_version, pending_since, state FROM cluster_workloads WHERE cluster_id = $1"
-	workloadUpsert   = "INSERT INTO cluster_workloads (id, cluster_id, uid, namespace, kind, name, project_id, reason, annotation, " +
-		"service, environment, branch, version, images, state, pending_version, pending_since) " +
-		"VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15::jsonb, $16, $17) " +
-		"ON CONFLICT (cluster_id, uid) DO UPDATE SET namespace = EXCLUDED.namespace, kind = EXCLUDED.kind, name = EXCLUDED.name, " +
-		"project_id = EXCLUDED.project_id, reason = EXCLUDED.reason, annotation = EXCLUDED.annotation, service = EXCLUDED.service, " +
-		"environment = EXCLUDED.environment, branch = EXCLUDED.branch, version = EXCLUDED.version, images = EXCLUDED.images, " +
-		"state = EXCLUDED.state, pending_version = EXCLUDED.pending_version, pending_since = EXCLUDED.pending_since, " +
-		"observed_at = now(), gone_at = NULL, updated_at = now()"
-	workloadGone = "UPDATE cluster_workloads SET gone_at = now(), pending_version = NULL, pending_since = NULL, updated_at = now() " +
-		"WHERE cluster_id = $1 AND gone_at IS NULL AND NOT (uid = ANY($2::text[]))"
-	workloadOff = "DELETE FROM cluster_workloads w USING nodes n WHERE w.cluster_id = $1 AND n.id = w.project_id " +
-		"AND NOT n.cluster_observation"
-	workloadUnmatchedWhere = " FROM cluster_workloads w WHERE w.cluster_id = $1 AND w.project_id IS NULL AND w.gone_at IS NULL"
-	workloadPrune          = "DELETE FROM cluster_workloads WHERE gone_at < now() - make_interval(days => $1::int)"
-	projectByID            = "SELECT id, cluster_observation FROM nodes WHERE id = $1 AND kind = 'project'"
-	nodeBySlug             = "SELECT id, kind, cluster_observation FROM nodes WHERE parent_id IS NOT DISTINCT FROM $1 AND slug = $2"
-	currentVersion         = "SELECT d.version FROM service_environments e JOIN service_deployments d ON d.id = e.deployment_id " +
-		"WHERE e.project_id = $1 AND e.service = $2 AND e.environment = $3"
-)
-
-var (
-	workloadUnmatched = "SELECT w.namespace, w.kind, w.name, w.reason, w.annotation, " + postgres.RFC3339("w.observed_at") +
-		" AS observed_at" + workloadUnmatchedWhere + " ORDER BY w.namespace, w.kind, w.name LIMIT $2 OFFSET $3"
-	workloadCount      = "SELECT count(*)" + workloadUnmatchedWhere
-	workloadForProject = "SELECT c.name AS cluster, w.namespace, w.kind, w.name, w.service, w.environment, w.branch, w.version, " +
-		"w.images, w.state, " + postgres.RFC3339("w.observed_at") + " AS observed_at, w.gone_at IS NOT NULL AS gone " +
-		"FROM cluster_workloads w JOIN clusters c ON c.id = w.cluster_id JOIN nodes n ON n.id = w.project_id " +
-		"WHERE w.project_id = $1 AND n.cluster_observation ORDER BY w.service, w.environment, c.name, w.namespace, w.name"
-)
-
 func (s *WorkloadStore) Previous(ctx context.Context, clusterID uuid.UUID) (map[string]domain.Previous, error) {
-	rows, err := s.pool.Query(ctx, workloadPrevious, clusterID)
+	rows, err := s.pool.Query(ctx, `
+		SELECT uid, version, pending_version, pending_since, state
+		FROM cluster_workloads
+		WHERE cluster_id = $1`, clusterID)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -81,7 +52,18 @@ func (s *WorkloadStore) Save(ctx context.Context, clusterID uuid.UUID, obs []dom
 			if images == nil {
 				images = []domain.Image{}
 			}
-			if _, err := tx.Exec(ctx, workloadUpsert, uuid.Must(uuid.NewV7()), clusterID, o.UID, o.Namespace, string(o.Kind), o.Name,
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO cluster_workloads (id, cluster_id, uid, namespace, kind, name, project_id, reason,
+					annotation, service, environment, branch, version, images, state, pending_version, pending_since)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15::jsonb, $16, $17)
+				ON CONFLICT (cluster_id, uid)
+				DO UPDATE SET namespace = EXCLUDED.namespace, kind = EXCLUDED.kind, name = EXCLUDED.name,
+					project_id = EXCLUDED.project_id, reason = EXCLUDED.reason, annotation = EXCLUDED.annotation,
+					service = EXCLUDED.service, environment = EXCLUDED.environment, branch = EXCLUDED.branch,
+					version = EXCLUDED.version, images = EXCLUDED.images, state = EXCLUDED.state,
+					pending_version = EXCLUDED.pending_version, pending_since = EXCLUDED.pending_since,
+					observed_at = now(), gone_at = NULL, updated_at = now()`,
+				uuid.Must(uuid.NewV7()), clusterID, o.UID, o.Namespace, string(o.Kind), o.Name,
 				o.ProjectID, reason, o.Annotation, o.Service, o.Environment, o.Branch, o.Version, images, o.State,
 				o.PendingVersion, o.PendingSince); err != nil {
 				return err
@@ -92,10 +74,19 @@ func (s *WorkloadStore) Save(ctx context.Context, clusterID uuid.UUID, obs []dom
 				}
 			}
 		}
-		if _, err := tx.Exec(ctx, workloadGone, clusterID, uids); err != nil {
+		if _, err := tx.Exec(ctx, `
+			UPDATE cluster_workloads
+			SET gone_at = now(), pending_version = NULL, pending_since = NULL, updated_at = now()
+			WHERE cluster_id = $1
+				AND gone_at IS NULL
+				AND NOT (uid = ANY($2::text[]))`, clusterID, uids); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, workloadOff, clusterID); err != nil {
+		if _, err := tx.Exec(ctx, `
+			DELETE FROM cluster_workloads w USING nodes n
+			WHERE w.cluster_id = $1
+				AND n.id = w.project_id
+				AND NOT n.cluster_observation`, clusterID); err != nil {
 			return err
 		}
 		for _, d := range deployments {
@@ -114,7 +105,15 @@ func (s *WorkloadStore) Save(ctx context.Context, clusterID uuid.UUID, obs []dom
 }
 
 func (s *WorkloadStore) Unmatched(ctx context.Context, clusterID uuid.UUID, limit uint32, offset uint64) ([]domain.Unmatched, uint64, error) {
-	rows, err := s.pool.Query(ctx, workloadUnmatched, clusterID, int64(limit), int64(offset))
+	rows, err := s.pool.Query(ctx, `
+		SELECT w.namespace, w.kind, w.name, w.reason, w.annotation, rfc3339(w.observed_at) AS observed_at
+		FROM cluster_workloads w
+		WHERE w.cluster_id = $1
+			AND w.project_id IS NULL
+			AND w.gone_at IS NULL
+		ORDER BY w.namespace, w.kind, w.name
+		LIMIT $2
+		OFFSET $3`, clusterID, int64(limit), int64(offset))
 	if err != nil {
 		return nil, 0, dbErr(err)
 	}
@@ -129,14 +128,27 @@ func (s *WorkloadStore) Unmatched(ctx context.Context, clusterID uuid.UUID, limi
 		return nil, 0, dbErr(err)
 	}
 	var total int64
-	if err := s.pool.QueryRow(ctx, workloadCount, clusterID).Scan(&total); err != nil {
+	if err := s.pool.QueryRow(ctx, `
+		SELECT count(*)
+		FROM cluster_workloads w
+		WHERE w.cluster_id = $1
+			AND w.project_id IS NULL
+			AND w.gone_at IS NULL`, clusterID).Scan(&total); err != nil {
 		return nil, 0, dbErr(err)
 	}
 	return items, uint64(max(total, 0)), nil
 }
 
 func (s *WorkloadStore) ForProject(ctx context.Context, projectID uuid.UUID) ([]domain.Observed, error) {
-	rows, err := s.pool.Query(ctx, workloadForProject, projectID)
+	rows, err := s.pool.Query(ctx, `
+		SELECT c.name AS cluster, w.namespace, w.kind, w.name, w.service, w.environment, w.branch,
+			w.version, w.images, w.state, rfc3339(w.observed_at) AS observed_at, w.gone_at IS NOT NULL AS gone
+		FROM cluster_workloads w
+		JOIN clusters c ON c.id = w.cluster_id
+		JOIN nodes n ON n.id = w.project_id
+		WHERE w.project_id = $1
+			AND n.cluster_observation
+		ORDER BY w.service, w.environment, c.name, w.namespace, w.name`, projectID)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -152,7 +164,9 @@ func (s *WorkloadStore) ForProject(ctx context.Context, projectID uuid.UUID) ([]
 }
 
 func (s *WorkloadStore) Prune(ctx context.Context, days uint32) (int64, error) {
-	tag, err := s.pool.Exec(ctx, workloadPrune, int(days))
+	tag, err := s.pool.Exec(ctx, `
+		DELETE FROM cluster_workloads
+		WHERE gone_at < now() - make_interval(days => $1::int)`, int(days))
 	if err != nil {
 		return 0, dbErr(err)
 	}
@@ -162,7 +176,11 @@ func (s *WorkloadStore) Prune(ctx context.Context, days uint32) (int64, error) {
 func (s *WorkloadStore) Project(ctx context.Context, ref string) (*domain.ProjectRef, error) {
 	if id, err := uuid.Parse(ref); err == nil {
 		var p domain.ProjectRef
-		err := s.pool.QueryRow(ctx, projectByID, id).Scan(&p.ID, &p.Observe)
+		err := s.pool.QueryRow(ctx, `
+			SELECT id, cluster_observation
+			FROM nodes
+			WHERE id = $1
+				AND kind = 'project'`, id).Scan(&p.ID, &p.Observe)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
@@ -177,7 +195,11 @@ func (s *WorkloadStore) Project(ctx context.Context, ref string) (*domain.Projec
 		var id uuid.UUID
 		var kind string
 		var observe bool
-		err := s.pool.QueryRow(ctx, nodeBySlug, parent, strings.ToLower(seg)).Scan(&id, &kind, &observe)
+		err := s.pool.QueryRow(ctx, `
+			SELECT id, kind, cluster_observation
+			FROM nodes
+			WHERE parent_id IS NOT DISTINCT FROM $1
+				AND slug = $2`, parent, strings.ToLower(seg)).Scan(&id, &kind, &observe)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
 		}
@@ -197,7 +219,13 @@ func (s *WorkloadStore) Project(ctx context.Context, ref string) (*domain.Projec
 
 func (s *WorkloadStore) Current(ctx context.Context, projectID uuid.UUID, service, environment string) (*string, error) {
 	var v string
-	err := s.pool.QueryRow(ctx, currentVersion, projectID, service, environment).Scan(&v)
+	err := s.pool.QueryRow(ctx, `
+		SELECT d.version
+		FROM service_environments e
+		JOIN service_deployments d ON d.id = e.deployment_id
+		WHERE e.project_id = $1
+			AND e.service = $2
+			AND e.environment = $3`, projectID, service, environment).Scan(&v)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
