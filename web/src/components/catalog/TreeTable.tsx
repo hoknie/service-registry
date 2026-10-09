@@ -32,6 +32,7 @@ import { Button } from "../ui/Button";
 import { Input } from "../ui/Field";
 import { Select } from "../ui/Select";
 import { Table, Td, Th, Tr } from "../ui/Table";
+import { LinkIconRow } from "../links/LinkIcons";
 import { ProcessBadges, SummaryBadges } from "./ActivityBadges";
 import { KindIcon } from "./KindIcon";
 import { catalogHref, type CatalogLabels } from "./shared";
@@ -403,7 +404,12 @@ export function TreeTable({ rootId, locale, labels }: Props) {
                       {labelEntries.length > 3 && <Badge tone="outline">+{labelEntries.length - 3}</Badge>}
                     </span>
                   </Td>
-                  <Td>{activityCell(row)}</Td>
+                  <Td>
+                    <span className="grid gap-1.5">
+                      {activityCell(row)}
+                      {row.links?.length > 0 && <LinkIconRow links={row.links} locale={locale} labels={labels.linkIcons} max={6} />}
+                    </span>
+                  </Td>
                   <Td numeric className="hidden text-muted sm:table-cell">
                     {row.kind === "project" ? "" : row.children}
                   </Td>

@@ -5,6 +5,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+
 	"svc-registry/internal/docsource"
 	"svc-registry/internal/testsupport/forgefake"
 )
@@ -177,4 +180,48 @@ func TestLocalGitCollectsIgnoredDocumentationOnRequest(t *testing.T) {
 	commit := a.lastOf(a.project, branch, "commit_sha")
 	eq(t, strings.HasPrefix(commit, head+"+worktree:sha256:"), true, commit)
 	eq(t, files(commit), "README.md,openspec/specs/a/spec.md")
+}
+
+func TestSourceBranchesAreRecordedInTheProjectBranches(t *testing.T) {
+	t.Parallel()
+	a := startSources(t)
+	dir := filepath.Join(a.root, "repo")
+	g := newGitRepo(t, dir)
+	main := g.commit(map[string]string{"README.md": "# Repo"})
+	g.branch("release/1")
+	rel := g.commit(map[string]string{"README.md": "release"})
+	if err := g.wt.Checkout(&git.CheckoutOptions{Branch: plumbing.NewBranchReferenceName("master")}); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, "notes.md"), "uncommitted")
+	a.useSource(a.project, "local_git", dir, "*.md")
+	a.collect()
+	branches := func() map[string]obj {
+		out := map[string]obj{}
+		for _, b := range a.get(nodePath(a.project)+"/branches?state=all", a.admin).json(t)["items"].([]any) {
+			out[b.(obj)["name"].(string)] = b.(obj)
+		}
+		return out
+	}
+	b := branches()
+	eq(t, b["master"]["head_sha"], any(main), "the commit, not the working copy")
+	eq(t, b["master"]["is_default"], any(true))
+	eq(t, jsonText(b["master"]["sources"]), `["repository"]`)
+	eq(t, b["release/1"]["head_sha"], any(rel))
+	eq(t, b["release/1"]["gone_at"], nil)
+
+	if err := g.repo.Storer.RemoveReference(plumbing.NewBranchReferenceName("release/1")); err != nil {
+		t.Fatal(err)
+	}
+	a.collect()
+	b = branches()
+	eq(t, b["release/1"]["gone_at"] != nil, true, "vanished from the source")
+	eq(t, b["master"]["gone_at"], nil)
+
+	other := a.nodeID(a.admin, "project", a.org, "plain")
+	docs := filepath.Join(a.root, "docs")
+	writeFile(t, filepath.Join(docs, "README.md"), "# Docs")
+	a.useSource(other, "local_dir", docs, "*.md")
+	a.collect()
+	eq(t, a.get(nodePath(other)+"/branches?state=all", a.admin).json(t)["total"], any(float64(0)), "a local directory has no branches")
 }

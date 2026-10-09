@@ -29,11 +29,19 @@ type KindChanges struct {
 	Position *int32
 }
 
+type IconInput struct {
+	URL  *string
+	File *string
+	Err  error
+}
+
 type PutTemplate struct {
 	KindKey  string
 	Template *string
 	Disabled *bool
 	Position *int64
+	Title    *string
+	Icon     *IconInput
 }
 
 type NewTemplate struct {
@@ -44,6 +52,9 @@ type NewTemplate struct {
 	Template *string
 	Disabled bool
 	Position int32
+	Title    *string
+	IconURL  *string
+	IconFile *string
 }
 
 type Preview struct {

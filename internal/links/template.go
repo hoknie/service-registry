@@ -2,7 +2,12 @@ package links
 
 import (
 	"cmp"
+	"net/url"
+	"regexp"
 	"slices"
+	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
@@ -18,9 +23,29 @@ type Template struct {
 	Template     *string
 	Disabled     bool
 	Position     int32
+	Title        *string
+	IconURL      *string
+	IconFile     *string
+	KindIcon     string
 	CreatedAt    string
 	UpdatedAt    string
 	Inherited    bool
+}
+
+type LinkIcon struct {
+	Kind string
+	Name string
+	URL  string
+}
+
+func (t Template) LinkIcon() LinkIcon {
+	switch {
+	case t.IconURL != nil:
+		return LinkIcon{Kind: "url", URL: *t.IconURL}
+	case t.IconFile != nil:
+		return LinkIcon{Kind: "file", URL: "/api/v1/link-icons/" + *t.IconFile}
+	}
+	return LinkIcon{Kind: "builtin", Name: t.KindIcon}
 }
 
 func ValidateTemplate(nodeID uuid.UUID, rawLinkKey string, in PutTemplate) (NewTemplate, error) {
@@ -50,7 +75,47 @@ func ValidateTemplate(nodeID uuid.UUID, rawLinkKey string, in PutTemplate) (NewT
 			return NewTemplate{}, err
 		}
 	}
+	if out.Title, err = validateTitle(in.Title); err != nil {
+		return NewTemplate{}, err
+	}
+	if out.IconURL, out.IconFile, err = validateIcon(in.Icon); err != nil {
+		return NewTemplate{}, err
+	}
 	return out, nil
+}
+
+var iconFile = regexp.MustCompile(`^[0-9a-f]{64}\.(png|webp|ico|svg)$`)
+
+func validateTitle(raw *string) (*string, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	title := strings.TrimSpace(*raw)
+	if title == "" {
+		return nil, nil
+	}
+	if utf8.RuneCountInString(title) > 100 || strings.IndexFunc(title, unicode.IsControl) >= 0 {
+		return nil, InvalidLinkTitle
+	}
+	return &title, nil
+}
+
+func validateIcon(in *IconInput) (*string, *string, error) {
+	switch {
+	case in == nil:
+		return nil, nil, nil
+	case in.Err != nil:
+		return nil, nil, in.Err
+	case in.URL != nil && in.File == nil:
+		u, err := url.Parse(*in.URL)
+		if err != nil || u.Scheme != "https" || u.Host == "" || len(*in.URL) > 2048 {
+			return nil, nil, InvalidTemplateIcon
+		}
+		return in.URL, nil, nil
+	case in.File != nil && in.URL == nil && iconFile.MatchString(*in.File):
+		return nil, in.File, nil
+	}
+	return nil, nil, InvalidTemplateIcon
 }
 
 func Effective(byNode [][]Template) []Template {

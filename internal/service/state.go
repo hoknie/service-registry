@@ -40,6 +40,7 @@ type State struct {
 	LinkTemplates links.TemplateStore
 	LinkTargets   links.TargetStore
 	LinkChecker   links.Checker
+	Icons         links.IconStore
 	Environments  deploy.EnvironmentStore
 	Clusters      deploy.ClusterStore
 	Workloads     deploy.WorkloadStore

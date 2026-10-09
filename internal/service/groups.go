@@ -33,6 +33,21 @@ func ListGroups(ctx context.Context, state *State, p Principal, q access.PageQue
 	return out, apperr.Wrap(err)
 }
 
+func UserGroups(ctx context.Context, state *State, p Principal, userID uuid.UUID) ([]access.Group, error) {
+	if err := RequireSuperadmin(p); err != nil {
+		return nil, err
+	}
+	user, err := state.Users.Find(ctx, userID)
+	if err != nil {
+		return nil, apperr.Wrap(err)
+	}
+	if user == nil {
+		return nil, apperr.New(apperr.NotFound)
+	}
+	groups, err := state.Groups.ForUser(ctx, userID)
+	return groups, apperr.Wrap(err)
+}
+
 func GetGroup(ctx context.Context, state *State, p Principal, id uuid.UUID) (access.GroupDetails, error) {
 	if err := RequireSuperadmin(p); err != nil {
 		return access.GroupDetails{}, err

@@ -8,6 +8,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"svc-registry/internal/postgres"
+
 	domain "svc-registry/internal/knowledge"
 )
 
@@ -101,15 +103,23 @@ func (s *SourceStore) Delete(ctx context.Context, projectID uuid.UUID) error {
 	return dbErr(err)
 }
 
-func (s *SourceStore) SetHeads(ctx context.Context, projectID uuid.UUID, heads map[string]string, defaultBranch string) error {
+func (s *SourceStore) SetHeads(ctx context.Context, projectID uuid.UUID, heads map[string]string, defaultBranch string,
+	branches map[string]string) error {
 	if heads == nil {
 		heads = map[string]string{}
 	}
-	_, err := s.pool.Exec(ctx, `
-		UPDATE knowledge_sources
-		SET heads = $2, default_branch = NULLIF($3, '')
-		WHERE project_id = $1`, projectID, heads, defaultBranch)
-	return dbErr(err)
+	return dbErr(pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `
+			UPDATE knowledge_sources
+			SET heads = $2, default_branch = NULLIF($3, '')
+			WHERE project_id = $1`, projectID, heads, defaultBranch); err != nil {
+			return err
+		}
+		if branches == nil {
+			return nil
+		}
+		return postgres.SyncRepositoryBranches(ctx, tx, projectID, branches, defaultBranch)
+	}))
 }
 
 func (s *SourceStore) Secrets(ctx context.Context) ([]domain.SourceSecret, error) {

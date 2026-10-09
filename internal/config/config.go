@@ -17,6 +17,7 @@ type Config struct {
 	LinkCheck    LinkCheckConfig
 	K8s          K8sConfig
 	Knowledge    KnowledgeConfig
+	Uploads      UploadsConfig
 	Search       SearchConfig
 	OAuth        OAuthConfig
 	Bootstrap    BootstrapConfig
@@ -24,7 +25,7 @@ type Config struct {
 
 func (c *Config) check() Errors {
 	var errs Errors
-	for _, s := range []checker{&c.DB, &c.Web, &c.Log, &c.Session, &c.Bootstrap, &c.Secrets, &c.Outbound, &c.LinkCheck, &c.OAuth, &c.Knowledge, &c.Search} {
+	for _, s := range []checker{&c.DB, &c.Web, &c.Log, &c.Session, &c.Bootstrap, &c.Secrets, &c.Outbound, &c.LinkCheck, &c.OAuth, &c.Knowledge, &c.Search, &c.Uploads} {
 		errs = append(errs, s.check()...)
 	}
 	return errs

@@ -10,13 +10,14 @@ import (
 type BranchSource string
 
 const (
-	SourceForge   BranchSource = "forge"
-	SourceIngest  BranchSource = "ingest"
-	SourceCluster BranchSource = "cluster"
-	SourceManual  BranchSource = "manual"
+	SourceForge      BranchSource = "forge"
+	SourceRepository BranchSource = "repository"
+	SourceIngest     BranchSource = "ingest"
+	SourceCluster    BranchSource = "cluster"
+	SourceManual     BranchSource = "manual"
 )
 
-var BranchSources = []BranchSource{SourceForge, SourceIngest, SourceCluster, SourceManual}
+var BranchSources = []BranchSource{SourceForge, SourceRepository, SourceIngest, SourceCluster, SourceManual}
 
 type Branch struct {
 	ProjectID      uuid.UUID

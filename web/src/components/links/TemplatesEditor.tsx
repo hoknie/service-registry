@@ -8,7 +8,19 @@ import { toast } from "sonner";
 import type { Locale } from "@/i18n/config";
 import { errorText } from "@/i18n/errors";
 import { format } from "@/i18n/format";
-import { apiGet, apiSend, errorCode, type CatalogNode, type Items, type LinkKind, type LinkTemplate, type ProjectLink, type Tree } from "@/lib/api";
+import {
+  apiGet,
+  apiSend,
+  apiUpload,
+  errorCode,
+  type CatalogNode,
+  type Items,
+  type LinkGlyph,
+  type LinkKind,
+  type LinkTemplate,
+  type ProjectLink,
+  type Tree,
+} from "@/lib/api";
 
 import { catalogHref, type CatalogLabels } from "../catalog/shared";
 import { useUiText } from "../UiText";
@@ -19,12 +31,13 @@ import { Dialog } from "../ui/Dialog";
 import { EmptyState } from "../ui/EmptyState";
 import { Field, Input, Textarea } from "../ui/Field";
 import { Combobox } from "../ui/Combobox";
+import { Segmented } from "../ui/Segmented";
 import { Select } from "../ui/Select";
 import { Message, type Note } from "../ui/Message";
 import { Panel } from "../ui/Panel";
 import { SkeletonTable } from "../ui/Skeleton";
 import { Table, Td, Th, Tr } from "../ui/Table";
-import { LinkIcon } from "./LinkIcon";
+import { Glyph } from "./LinkIcons";
 import { kindName } from "./shared";
 
 type Props = {
@@ -36,7 +49,26 @@ type Props = {
   onChanged: () => void;
 };
 
-type Draft = { mode: "create" | "edit"; kind_key: string; link_key: string; template: string; position: string };
+type IconMode = "builtin" | "url" | "file";
+
+type Draft = {
+  mode: "create" | "edit";
+  kind_key: string;
+  link_key: string;
+  template: string;
+  position: string;
+  title: string;
+  iconMode: IconMode;
+  iconUrl: string;
+  iconFile: string;
+};
+
+function iconOf(tpl?: LinkTemplate): Pick<Draft, "iconMode" | "iconUrl" | "iconFile"> {
+  const icon = tpl?.icon;
+  if (icon?.kind === "url") return { iconMode: "url", iconUrl: icon.url, iconFile: "" };
+  if (icon?.kind === "file") return { iconMode: "file", iconUrl: "", iconFile: icon.url.split("/").pop() ?? "" };
+  return { iconMode: "builtin", iconUrl: "", iconFile: "" };
+}
 
 export function TemplatesEditor({ node, kinds, locale, labels, canWrite, onChanged }: Props) {
   const { errors, common } = useUiText();
@@ -91,6 +123,8 @@ export function TemplatesEditor({ node, kinds, locale, labels, canWrite, onChang
       link_key: tpl?.link_key ?? kinds[0]?.key ?? "",
       template: tpl?.template ?? "",
       position: String(tpl?.position ?? 0),
+      title: tpl?.title ?? "",
+      ...iconOf(tpl),
     });
 
   return (
@@ -129,8 +163,11 @@ export function TemplatesEditor({ node, kinds, locale, labels, canWrite, onChang
               <Tr key={tpl.link_key}>
                 <Td>
                   <span className="flex items-center gap-2 text-ink">
-                    <LinkIcon icon={kinds.find((k) => k.key === tpl.kind_key)?.icon} />
-                    {kindName(kinds, tpl.kind_key, locale)}
+                    <Glyph icon={tpl.icon} kindIcon={kinds.find((k) => k.key === tpl.kind_key)?.icon} />
+                    <span className="grid">
+                      {tpl.title ?? kindName(kinds, tpl.kind_key, locale)}
+                      {tpl.title && <span className="text-xs text-muted">{kindName(kinds, tpl.kind_key, locale)}</span>}
+                    </span>
                   </span>
                 </Td>
                 <Td>
@@ -279,6 +316,26 @@ function TemplateDialog({ node, kinds, locale, labels, initial, onClose, onSaved
   }, [draft.template, projectId, node.id, fail]);
 
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
+  const [uploading, setUploading] = useState(false);
+  const upload = async (file: File | undefined) => {
+    if (!file) return;
+    setUploading(true);
+    setNote(null);
+    try {
+      const r = await apiUpload<{ id: string; url: string }>(`/v1/catalog/nodes/${node.id}/link-icons`, file);
+      set({ iconFile: r.id });
+    } catch (e) {
+      setNote({ kind: "error", text: fail(e) });
+    } finally {
+      setUploading(false);
+    }
+  };
+  const glyph: LinkGlyph =
+    draft.iconMode === "url" && draft.iconUrl.trim()
+      ? { kind: "url", url: draft.iconUrl.trim() }
+      : draft.iconMode === "file" && draft.iconFile
+        ? { kind: "file", url: `/api/v1/link-icons/${draft.iconFile}` }
+        : { kind: "builtin", name: kinds.find((k) => k.key === draft.kind_key)?.icon ?? "link" };
   const previewing = !!draft.template.trim() && !!projectId;
 
   const save = async () => {
@@ -286,10 +343,13 @@ function TemplateDialog({ node, kinds, locale, labels, initial, onClose, onSaved
     setNote(null);
     try {
       const position = Number(draft.position);
+      const icon = draft.iconMode === "url" ? { url: draft.iconUrl.trim() } : draft.iconMode === "file" && draft.iconFile ? { file: draft.iconFile } : null;
       await apiSend("PUT", `/v1/catalog/nodes/${node.id}/link-templates/${encodeURIComponent(draft.link_key.trim())}` as `/${string}`, {
         kind_key: draft.kind_key,
         template: draft.template,
         position: Number.isInteger(position) ? position : -1,
+        title: draft.title.trim() || null,
+        icon,
       });
       onSaved();
     } catch (e) {
@@ -308,7 +368,11 @@ function TemplateDialog({ node, kinds, locale, labels, initial, onClose, onSaved
       footer={
         <>
           <Button onClick={onClose}>{common.cancel}</Button>
-          <Button variant="primary" disabled={busy || !draft.link_key.trim() || !draft.template.trim()} onClick={() => void save()}>
+          <Button
+            variant="primary"
+            disabled={busy || uploading || !draft.link_key.trim() || !draft.template.trim() || (draft.iconMode === "file" && !draft.iconFile)}
+            onClick={() => void save()}
+          >
             {t.submit}
           </Button>
         </>
@@ -341,6 +405,49 @@ function TemplateDialog({ node, kinds, locale, labels, initial, onClose, onSaved
           <Field label={t.position}>
             {(p) => <Input {...p} type="number" min={0} max={10000} value={draft.position} onChange={(e) => set({ position: e.target.value })} />}
           </Field>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label={t.title} hint={t.titleHint}>
+            {(p) => <Input {...p} maxLength={100} value={draft.title} onChange={(e) => set({ title: e.target.value })} />}
+          </Field>
+          <div className="grid gap-1.5">
+            <span className="text-sm font-medium text-ink-2">{t.icon}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="grid size-9 place-items-center rounded-md border border-line bg-surface">
+                <Glyph key={JSON.stringify(glyph)} icon={glyph} size={20} />
+              </span>
+              <Segmented
+                label={t.icon}
+                value={draft.iconMode}
+                onChange={(v) => set({ iconMode: v as IconMode })}
+                options={[
+                  { value: "builtin", label: t.iconBuiltin },
+                  { value: "url", label: t.iconUrl },
+                  { value: "file", label: t.iconFile },
+                ]}
+              />
+            </div>
+            {draft.iconMode === "url" && (
+              <Input
+                aria-label={t.iconUrl}
+                type="url"
+                placeholder="https://"
+                className="font-mono"
+                value={draft.iconUrl}
+                onChange={(e) => set({ iconUrl: e.target.value })}
+              />
+            )}
+            {draft.iconMode === "file" && (
+              <input
+                aria-label={t.iconFile}
+                type="file"
+                accept="image/png,image/webp,image/x-icon,image/svg+xml,.ico,.svg"
+                onChange={(e) => void upload(e.target.files?.[0])}
+                className="text-sm text-ink-2 file:mr-3 file:rounded-md file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm"
+              />
+            )}
+            <p className="text-xs text-muted">{t.iconHint}</p>
+          </div>
         </div>
         <Field label={t.template} hint={t.templateHint}>
           {(p) => (

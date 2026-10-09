@@ -17,12 +17,10 @@ export default async function SearchPage({ params }: { params: Promise<{ locale:
   return (
     <RequireAuth locale={locale} labels={m.guard}>
       <Crumbs items={[{ label: m.search.title }]} />
-      <div className="mx-auto max-w-4xl">
-        <PageHeader glyph={FileSearch} title={m.search.title} lead={m.search.lead} />
-        <Suspense fallback={<SkeletonRows rows={4} label={m.guard.loading} />}>
-          <SearchView locale={locale} labels={m.search} kinds={m.catalog.docs.kinds} />
-        </Suspense>
-      </div>
+      <PageHeader glyph={FileSearch} title={m.search.title} lead={m.search.lead} />
+      <Suspense fallback={<SkeletonRows rows={4} label={m.guard.loading} />}>
+        <SearchView locale={locale} labels={m.search} kinds={m.catalog.docs.kinds} />
+      </Suspense>
     </RequireAuth>
   );
 }

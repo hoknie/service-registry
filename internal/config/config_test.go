@@ -529,3 +529,21 @@ func TestSearchSettings(t *testing.T) {
 		}
 	}
 }
+
+func TestUploadsDir(t *testing.T) {
+	cfg, err := config.Load[config.UploadsConfig](lookup())
+	if err != nil || cfg.Dir != "data/uploads" {
+		t.Fatalf("default %q %v", cfg.Dir, err)
+	}
+	cfg, err = config.Load[config.UploadsConfig](lookup("UPLOADS_DIR", "off"))
+	if err != nil || cfg.Dir != "" {
+		t.Fatalf("off %q %v", cfg.Dir, err)
+	}
+	cfg, err = config.Load[config.UploadsConfig](lookup("UPLOADS_DIR", "/var/lib/registry/uploads/"))
+	if err != nil || cfg.Dir != "/var/lib/registry/uploads" {
+		t.Fatalf("absolute %q %v", cfg.Dir, err)
+	}
+	if _, err := config.Load[config.UploadsConfig](lookup("UPLOADS_DIR", "data/../../etc")); err == nil || !strings.Contains(err.Error(), "UPLOADS_DIR") {
+		t.Fatalf("dotdot %v", err)
+	}
+}

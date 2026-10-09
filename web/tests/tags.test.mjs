@@ -29,3 +29,13 @@ test("patterns and namespaces", () => {
   assert.equal(validDnsLabel("Kube"), false);
   assert.equal(validDnsLabel("-a"), false);
 });
+
+test("labels are a key or key=value", async () => {
+  const { labelsOf, parseLabel } = await import("../src/lib/tags.ts");
+  assert.deepEqual(parseLabel("critical"), { key: "critical", value: "" });
+  assert.deepEqual(parseLabel("team = payments"), { key: "team", value: "payments" });
+  assert.equal(parseLabel("Team"), null);
+  assert.equal(parseLabel("-x"), null);
+  assert.equal(parseLabel("a=" + "x".repeat(64)), null);
+  assert.deepEqual(labelsOf("critical\nteam=payments", "tier=gold"), { critical: "", team: "payments", tier: "gold" });
+});

@@ -7,9 +7,18 @@ import (
 
 type CatalogTableRow struct {
 	Node
-	Children int64 `json:"children"`
-	Match    bool  `json:"match"`
-	Activity any   `json:"activity"`
+	Children int64       `json:"children"`
+	Match    bool        `json:"match"`
+	Activity any         `json:"activity"`
+	Links    []LinkBadge `json:"links"`
+}
+
+type LinkBadge struct {
+	LinkKey string   `json:"link_key"`
+	KindKey string   `json:"kind_key"`
+	Title   *string  `json:"title"`
+	Icon    LinkIcon `json:"icon"`
+	URL     *string  `json:"url"`
 }
 
 type CatalogTable struct {
@@ -38,7 +47,11 @@ func CatalogTableOf(page service.CatalogTablePage, nodes []Node) CatalogTable {
 		default:
 			activity = SummaryOf(page.Summaries[n.Node.ID])
 		}
-		rows = append(rows, CatalogTableRow{Node: nodes[i], Children: n.Children, Match: n.Match, Activity: activity})
+		badges := []LinkBadge{}
+		for _, b := range page.Links[n.Node.ID] {
+			badges = append(badges, LinkBadge{LinkKey: b.LinkKey, KindKey: b.KindKey, Title: b.Title, Icon: LinkIconOf(b.Icon), URL: b.URL})
+		}
+		rows = append(rows, CatalogTableRow{Node: nodes[i], Children: n.Children, Match: n.Match, Activity: activity, Links: badges})
 	}
 	return CatalogTable{Items: rows, Total: page.Total, Limit: page.Limit, Offset: page.Offset, Truncated: page.Truncated}
 }

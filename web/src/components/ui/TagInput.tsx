@@ -5,7 +5,7 @@ import { useState, type ClipboardEvent, type KeyboardEvent, type ReactNode } fro
 
 import { format } from "@/i18n/format";
 import { cn } from "@/lib/cn";
-import { addTags, fromTags, parseKeyValue, splitTags, toTags } from "@/lib/tags";
+import { addTags, fromTags, parseKeyValue, parseLabel, splitTags, toTags } from "@/lib/tags";
 
 import { useUiText } from "../UiText";
 import { Tooltip } from "./Tooltip";
@@ -13,6 +13,7 @@ import { Tooltip } from "./Tooltip";
 type Props = {
   value: string;
   onChange: (value: string) => void;
+  onDraft?: (draft: string) => void;
   validate?: (tag: string) => string | null;
   render?: (tag: string) => ReactNode;
   id?: string;
@@ -28,10 +29,14 @@ export function hasInvalidTags(value: string, validate: (tag: string) => string 
   return toTags(value).some((t) => validate(t) !== null);
 }
 
-export function TagInput({ value, onChange, validate, render, id, placeholder, disabled, mono = true, className, ...aria }: Props) {
+export function TagInput({ value, onChange, onDraft, validate, render, id, placeholder, disabled, mono = true, className, ...aria }: Props) {
   const { common } = useUiText();
-  const [draft, setDraft] = useState("");
+  const [draft, setDraftState] = useState("");
   const tags = toTags(value);
+  const setDraft = (next: string) => {
+    setDraftState(next);
+    onDraft?.(next);
+  };
 
   const commit = (text: string) => {
     const incoming = splitTags(text);
@@ -128,6 +133,29 @@ export function KeyValueInput(props: Omit<Props, "validate" | "render">) {
         return (
           <>
             <span className="text-muted">{kv.key}:</span> {kv.value}
+          </>
+        );
+      }}
+    />
+  );
+}
+
+export function labelError(tag: string, message: string): string | null {
+  return parseLabel(tag) ? null : message;
+}
+
+export function LabelsInput(props: Omit<Props, "validate" | "render">) {
+  const { common } = useUiText();
+  return (
+    <TagInput
+      {...props}
+      validate={(t) => labelError(t, common.labelFormat)}
+      render={(t) => {
+        const l = parseLabel(t);
+        if (!l || !l.value) return t;
+        return (
+          <>
+            <span className="text-muted">{l.key}:</span> {l.value}
           </>
         );
       }}

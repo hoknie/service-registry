@@ -15,6 +15,7 @@ export type User = {
   display_name: string;
   status: "active" | "disabled";
   is_superadmin: boolean;
+  is_service: boolean;
   has_password: boolean;
   created_at: string;
   updated_at: string;
@@ -89,7 +90,12 @@ export type ProcessState = "running" | "queued" | "failed" | "idle";
 export type Process = { kind: ProcessKind; state: ProcessState; code: string | null; last_at: string | null; pending: number | null };
 export type ActivitySummary = { running: number; queued: number; failed: number };
 export type NodeActivity = { processes?: Process[]; summary?: ActivitySummary };
-export type CatalogTableRow = CatalogNode & { children: number; match: boolean; activity: Process[] | ActivitySummary };
+export type CatalogTableRow = CatalogNode & {
+  children: number;
+  match: boolean;
+  activity: Process[] | ActivitySummary;
+  links: LinkBadge[];
+};
 export type CatalogTable = Page<CatalogTableRow> & { truncated: boolean };
 
 export type ForgeKind = "github" | "gitlab" | "forgejo" | "gitea";
@@ -340,9 +346,15 @@ export type LinkKind = {
   updated_at: string;
 };
 
+export type LinkGlyph = { kind: "builtin"; name: string } | { kind: "url" | "file"; url: string };
+
+export type LinkBadge = { link_key: string; kind_key: string; title: string | null; icon: LinkGlyph; url: string | null };
+
 export type LinkTemplate = {
   link_key: string;
   kind_key: string;
+  title: string | null;
+  icon: LinkGlyph;
   template: string | null;
   disabled: boolean;
   position: number;
@@ -386,6 +398,8 @@ export type LinkCheck = { status: LinkStatus; http_status: number | null; durati
 export type ProjectLink = {
   link_key: string;
   kind_key: string;
+  title: string | null;
+  icon: LinkGlyph;
   node_id: string;
   inherited: boolean;
   service: string | null;
@@ -487,9 +501,9 @@ async function call<T>(method: string, path: `/${string}`, body?: unknown): Prom
       credentials: "same-origin",
       headers: {
         accept: "application/json",
-        ...(body === undefined ? {} : { "content-type": "application/json" }),
+        ...(body === undefined || body instanceof FormData ? {} : { "content-type": "application/json" }),
       },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
     });
   } catch {
     throw new ApiError(0, "network", "network error");
@@ -517,6 +531,12 @@ export function apiSend<T = void>(
   body?: unknown,
 ): Promise<T> {
   return call<T>(method, path, body);
+}
+
+export function apiUpload<T>(path: `/${string}`, file: File): Promise<T> {
+  const form = new FormData();
+  form.append("file", file);
+  return call<T>("POST", path, form);
 }
 
 export function errorCode(e: unknown): string {

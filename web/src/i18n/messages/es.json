@@ -79,7 +79,9 @@
     "keyValueFormat": "Se espera clave=valor",
     "invalidPattern": "No es un patrón válido",
     "invalidName": "Solo minúsculas, dígitos y guiones",
-    "duplicate": "Ya añadido"
+    "duplicate": "Ya añadido",
+    "labelFormat": "Se espera clave o clave=valor (clave: a-z, 0-9, . _ -)",
+    "fixLabels": "Corrige las etiquetas para guardar"
   },
   "home": {
     "title": "Registro de servicios",
@@ -157,7 +159,8 @@
       "oauth_email_unverified": "El proveedor no ha confirmado tu dirección de correo.",
       "oauth_link_required": "Primero el propietario debe vincular esta cuenta en la configuración de la cuenta.",
       "oauth_not_provisioned": "No hay una cuenta del registro para este correo. Pide ayuda a un administrador.",
-      "oauth_identity_taken": "Esta cuenta del proveedor ya está vinculada a otro usuario."
+      "oauth_identity_taken": "Esta cuenta del proveedor ya está vinculada a otro usuario.",
+      "service_account": "Es una cuenta de servicio; no puede iniciar sesión."
     },
     "validation": {
       "invalid_body": "La solicitud no es válida.",
@@ -217,7 +220,10 @@
       "invalid_search": "Escribe de 1 a 200 caracteres para buscar.",
       "invalid_knowledge_source": "La fuente no es válida: revisa el tipo, la dirección o la ruta.",
       "knowledge_path_not_allowed": "Esta ruta está fuera de los directorios que permite el servidor.",
-      "invalid_filter": "Revisa los filtros: búsqueda de hasta 100 caracteres, etiqueta como clave o clave=valor, como máximo 5 etiquetas."
+      "invalid_filter": "Revisa los filtros: búsqueda de hasta 100 caracteres, etiqueta como clave o clave=valor, como máximo 5 etiquetas.",
+      "invalid_link_title": "El título debe tener de 1 a 100 caracteres.",
+      "invalid_icon_format": "El icono debe ser una imagen PNG, WebP, ICO o SVG.",
+      "icon_too_large": "El icono supera los 64 KiB."
     },
     "conflict": {
       "email_taken": "Ya existe un usuario con este correo.",
@@ -240,7 +246,10 @@
       "membership_managed": "Esta pertenencia proviene del proveedor de inicio de sesión y no se puede quitar aquí.",
       "last_login_method": "Es tu única forma de iniciar sesión. Establece primero una contraseña.",
       "knowledge_not_synced": "La documentación solo se recopila en proyectos sincronizados con un forge.",
-      "local_sources_disabled": "Las fuentes locales están desactivadas en este servidor."
+      "local_sources_disabled": "Las fuentes locales están desactivadas en este servidor.",
+      "self_service": "No puedes convertir tu propia cuenta en cuenta de servicio.",
+      "user_disabled": "El usuario está desactivado.",
+      "uploads_disabled": "La subida de archivos está desactivada en el servidor."
     },
     "ingest": {
       "unknown_event_type": "Tipo de evento desconocido.",
@@ -448,7 +457,20 @@
         "empty": "No hay cuentas vinculadas.",
         "lastLogin": "Último inicio de sesión"
       },
-      "noPassword": "Sin contraseña"
+      "noPassword": "Sin contraseña",
+      "page": {
+        "crumb": "Usuario",
+        "back": "Volver a usuarios",
+        "notFound": "Usuario no encontrado.",
+        "profile": "Perfil",
+        "superadmin": "Superadmin",
+        "service": "De servicio",
+        "serviceToggle": "Cuenta de servicio",
+        "serviceHint": "Se desactiva el inicio de sesión con contraseña o proveedor y se cierran las sesiones abiertas; los tokens siguen funcionando.",
+        "serviceCreateHint": "Para integraciones: sin inicio de sesión, los tokens los emite un superadmin. La contraseña es opcional.",
+        "groups": "Grupos",
+        "noGroups": "No pertenece a ningún grupo."
+      }
     },
     "groups": {
       "title": "Grupos",
@@ -484,7 +506,14 @@
         "fromProvider": "De {provider}",
         "managedHint": "Gestionado por el proveedor: cambia cuando el usuario inicia sesión."
       },
-      "lead": "Los grupos reciben roles en el catálogo en nombre de todos sus miembros."
+      "lead": "Los grupos reciben roles en el catálogo en nombre de todos sus miembros.",
+      "page": {
+        "crumb": "Grupo",
+        "back": "Volver a grupos",
+        "notFound": "Grupo no encontrado.",
+        "lead": "Miembros: {n}",
+        "settings": "Grupo"
+      }
     },
     "tokens": {
       "title": "Tokens",
@@ -690,7 +719,9 @@
       "branches": "Ramas",
       "links": "Enlaces",
       "docs": "Documentación",
-      "docsSettings": "Ajustes de documentación"
+      "docsSettings": "Ajustes de documentación",
+      "about": "Descripción",
+      "settings": "Ajustes"
     },
     "create": {
       "title": "Añadir",
@@ -1098,7 +1129,14 @@
           "previewProject": "Vista previa para el proyecto",
           "previewChoose": "Elija un proyecto",
           "previewEmpty": "Escriba una plantilla para ver los enlaces que genera.",
-          "submit": "Guardar"
+          "submit": "Guardar",
+          "title": "Título",
+          "titleHint": "Opcional; se muestra en lugar del nombre del tipo.",
+          "icon": "Icono",
+          "iconBuiltin": "Del tipo",
+          "iconUrl": "Por dirección",
+          "iconFile": "Archivo",
+          "iconHint": "PNG, WebP, ICO o SVG de hasta 64 KiB."
         },
         "saved": "Plantilla guardada.",
         "disabledDone": "La plantilla está desactivada aquí.",
@@ -1291,6 +1329,36 @@
       "noMatch": "Nada coincide con el filtro.",
       "reset": "Restablecer filtros",
       "label_aria": "Árbol del catálogo"
+    },
+    "about": {
+      "title": "Descripción",
+      "empty": "Aún no hay descripción.",
+      "add": "Añadir una descripción",
+      "text": "Texto",
+      "preview": "Vista previa",
+      "markdownHint": "Markdown: títulos, listas, enlaces, tablas, código. El HTML se muestra como texto."
+    },
+    "settings": {
+      "menu": "Secciones de ajustes",
+      "general": "General",
+      "danger": "Zona peligrosa",
+      "moveText": "Mover el nodo con todo su contenido a otra organización o carpeta.",
+      "deleteText": "Eliminar el nodo. Solo se puede eliminar un nodo vacío.",
+      "sections": {
+        "general": "General",
+        "branches": "Ramas",
+        "links": "Enlaces",
+        "docs": "Ajustes de documentación",
+        "keys": "Claves",
+        "access": "Acceso",
+        "connect": "Envío de eventos",
+        "forge": "Forge"
+      }
+    },
+    "linkIcons": {
+      "missing": "Falta: {vars}",
+      "noUrl": "Sin dirección",
+      "links": "Enlaces"
     }
   },
   "notFound": {
@@ -1357,7 +1425,8 @@
       "kind": "Tipo",
       "started": "Inicio",
       "duration": "Duración",
-      "summary": "Resumen"
+      "summary": "Resumen",
+      "docs": "Documentación"
     },
     "summary": {
       "collect": "Ramas: {branches} · archivos: {files}",

@@ -45,6 +45,22 @@ func (a *API) CreateGroup(c fiber.Ctx) error {
 	return c.Status(http.StatusCreated).JSON(response.GroupOf(g))
 }
 
+func (a *API) UserGroups(c fiber.Ctx) error {
+	p, _, err := a.currentUser(c)
+	if err != nil {
+		return Fail(c, err)
+	}
+	id, err := parseID(c, "id")
+	if err != nil {
+		return Fail(c, err)
+	}
+	groups, err := service.UserGroups(c.Context(), a.State, p, id)
+	if err != nil {
+		return Fail(c, err)
+	}
+	return c.Status(http.StatusOK).JSON(response.ItemsOf(groups, response.GroupOf))
+}
+
 func (a *API) GetGroup(c fiber.Ctx) error {
 	p, _, err := a.currentUser(c)
 	if err != nil {

@@ -49,3 +49,28 @@ export function validPattern(tag: string): boolean {
 }
 
 export const validDnsLabel = (tag: string): boolean => /^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$/.test(tag);
+
+const LABEL_KEY = /^[a-z0-9](?:[a-z0-9._-]{0,61}[a-z0-9])?$/;
+
+export function parseLabel(tag: string): { key: string; value: string } | null {
+  const at = tag.indexOf("=");
+  const key = (at < 0 ? tag : tag.slice(0, at)).trim();
+  const value = at < 0 ? "" : tag.slice(at + 1).trim();
+  if (!LABEL_KEY.test(key) || [...value].length > 63 || /\p{Cc}/u.test(value)) return null;
+  return { key, value };
+}
+
+export function labelsOf(lines: string, draft = ""): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const tag of addTags(toTags(lines), splitTags(draft))) {
+    const l = parseLabel(tag);
+    if (l) out[l.key] = l.value;
+  }
+  return out;
+}
+
+export function labelsToLines(labels: Record<string, string> | undefined): string {
+  return Object.entries(labels ?? {})
+    .map(([k, v]) => (v ? `${k}=${v}` : k))
+    .join("\n");
+}

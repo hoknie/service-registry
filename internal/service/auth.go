@@ -33,7 +33,7 @@ func Login(ctx context.Context, state *State, ip string, creds access.Credential
 		state.LoginLimiter.RecordFailure(ip, key, time.Now())
 		return SignedIn{}, apperr.New(apperr.InvalidCredentials)
 	}
-	if !state.Hasher.Verify(creds.Password, found.PasswordHash) || !mode.Allows(found.User.IsSuperadmin) {
+	if !state.Hasher.Verify(creds.Password, found.PasswordHash) || !mode.Allows(found.User.IsSuperadmin) || found.User.IsService {
 		state.LoginLimiter.RecordFailure(ip, key, time.Now())
 		return SignedIn{}, apperr.New(apperr.InvalidCredentials)
 	}

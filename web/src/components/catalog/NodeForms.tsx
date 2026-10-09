@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { errorText } from "@/i18n/errors";
 import { format } from "@/i18n/format";
 import { apiGet, apiSend, errorCode, type CatalogNode, type KnowledgeSource, type NodeKind, type SourceCheck, type SourceKind } from "@/lib/api";
+import { labelsOf, labelsToLines } from "@/lib/tags";
 import { useCatalogTree } from "@/lib/catalogTree";
 
 import { useUiText } from "../UiText";
@@ -14,12 +15,14 @@ import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { Dialog } from "../ui/Dialog";
 import { Checkbox, Field, Input, Textarea } from "../ui/Field";
 import { Combobox } from "../ui/Combobox";
+import { Segmented } from "../ui/Segmented";
 import { Select } from "../ui/Select";
-import { hasInvalidTags, KeyValueInput, keyValueError } from "../ui/TagInput";
+import { hasInvalidTags, LabelsInput, labelError as labelRule } from "../ui/TagInput";
 import { Message, type Note } from "../ui/Message";
 import { draftOf, emptyDraft, SOURCE_KINDS, SourceFields, sourceBody, type SourceDraft } from "../knowledge/SourceFields";
 import { KeyDialog } from "./KeyDialog";
-import { labelsText, parseLabels, type CatalogLabels } from "./shared";
+import { Markdown } from "./Markdown";
+import { type CatalogLabels } from "./shared";
 
 type Fail = (e: unknown) => string;
 type Repo = { forge: string; repo_url: string; default_branch: string };
@@ -122,7 +125,7 @@ function RepoSection({
   );
 }
 
-const labelError = (tag: string) => keyValueError(tag, "key=value");
+const labelError = (tag: string) => labelRule(tag, "label");
 
 const noRepo: Repo = { forge: "", repo_url: "", default_branch: "" };
 
@@ -141,6 +144,7 @@ function Footer({ form, submit, onCancel, busy, disabled }: { form: string; subm
   const { common } = useUiText();
   return (
     <>
+      {disabled && <span className="mr-auto text-sm text-danger">{common.fixLabels}</span>}
       <Button onClick={onCancel}>{common.cancel}</Button>
       <Button type="submit" form={form} variant="primary" busy={busy} disabled={disabled}>
         {submit}
@@ -165,6 +169,7 @@ export function CreateDialog({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [labelLines, setLabelLines] = useState("");
+  const [labelDraft, setLabelDraft] = useState("");
   const [repo, setRepo] = useState(noRepo);
   const [mode, setMode] = useState<RepoMode>("link");
   const [draft, setDraft] = useState<SourceDraft>(emptyDraft);
@@ -179,6 +184,7 @@ export function CreateDialog({
     setName("");
     setDescription("");
     setLabelLines("");
+    setLabelDraft("");
     setRepo(noRepo);
     setMode("link");
     setDraft(emptyDraft);
@@ -197,7 +203,7 @@ export function CreateDialog({
         slug,
         name,
         description,
-        labels: parseLabels(labelLines),
+        labels: labelsOf(labelLines, labelDraft),
         ...(kind === "project"
           ? {
               ...(mode === "link" ? repo : { default_branch: repo.default_branch, source: sourceBody(draft) }),
@@ -271,7 +277,7 @@ export function CreateDialog({
           </Field>
           <Field label={t.description}>{(p) => <Textarea {...p} rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />}</Field>
           <Field label={t.labels} hint={t.labelsHint}>
-            {(p) => <KeyValueInput {...p} value={labelLines} onChange={setLabelLines} />}
+            {(p) => <LabelsInput {...p} value={labelLines} onChange={setLabelLines} onDraft={setLabelDraft} />}
           </Field>
           {kind === "project" && (
             <RepoSection labels={labels} mode={mode} onMode={setMode} repo={repo} onRepo={setRepo} draft={draft} onDraft={setDraft} />
@@ -285,21 +291,27 @@ export function CreateDialog({
   );
 }
 
-export function EditDialog({
-  open,
-  onOpenChange,
+export function EditForm({
   node,
   labels,
   fail,
   onSaved,
-}: OpenProps & { node: CatalogNode; labels: CatalogLabels; fail: Fail; onSaved: () => void }) {
+  readOnly,
+}: {
+  node: CatalogNode;
+  labels: CatalogLabels;
+  fail: Fail;
+  onSaved: () => void;
+  readOnly: boolean;
+}) {
   const t = labels.edit;
-  const { errors } = useUiText();
+  const { errors, common } = useUiText();
   const managed = !!node.managed;
   const [slug, setSlug] = useState(node.slug);
   const [name, setName] = useState(node.name);
   const [description, setDescription] = useState(node.description ?? "");
-  const [labelLines, setLabelLines] = useState(labelsText(node.labels));
+  const [labelLines, setLabelLines] = useState(labelsToLines(node.labels));
+  const [labelDraft, setLabelDraft] = useState("");
   const [repo, setRepo] = useState<Repo>({
     forge: node.forge ?? "",
     repo_url: node.repo_url ?? "",
@@ -312,10 +324,11 @@ export function EditDialog({
   const [mode, setMode] = useState<RepoMode>("link");
   const [draft, setDraft] = useState<SourceDraft>(emptyDraft);
   const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState(false);
   const sourceUrl = `/v1/catalog/nodes/${node.id}/knowledge/source` as const;
 
   useEffect(() => {
-    if (!isProject || !open) return;
+    if (!isProject) return;
     let live = true;
     apiGet<KnowledgeSource | null>(sourceUrl)
       .then((s) => {
@@ -328,7 +341,7 @@ export function EditDialog({
     return () => {
       live = false;
     };
-  }, [isProject, open, sourceUrl]);
+  }, [isProject, sourceUrl]);
 
   const sourceChanged = () => {
     if (mode === "link") return !!source;
@@ -361,7 +374,7 @@ export function EditDialog({
       await apiSend("PATCH", `/v1/catalog/nodes/${node.id}`, {
         slug,
         name,
-        labels: parseLabels(labelLines),
+        labels: labelsOf(labelLines, labelDraft),
         ...(managed ? {} : { description }),
         ...(isProject && !managed ? repoFields : {}),
         ...(isProject ? { cluster_observation: observe } : {}),
@@ -379,7 +392,6 @@ export function EditDialog({
         else await apiSend("PUT", sourceUrl, sourceBody(draft));
         onSaved();
       }
-      onOpenChange(false);
     } catch (e) {
       setNote({ kind: "error", text: errorText(errors, errorCode(e)) });
     } finally {
@@ -387,24 +399,41 @@ export function EditDialog({
     }
   };
 
+  const invalidLabels = hasInvalidTags(labelLines, labelError);
   return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title={format(t.titleOf, { name: node.name })}
-      footer={<Footer form="edit-node" submit={t.submit} busy={busy || source === undefined} disabled={hasInvalidTags(labelLines, labelError)} onCancel={() => onOpenChange(false)} />}
-    >
-      <form id="edit-node" className="grid gap-4" onSubmit={submit}>
+    <form id="edit-node" className="grid gap-4" onSubmit={submit}>
+      <fieldset disabled={readOnly} className="grid gap-4">
         <Field label={labels.create.name}>{(p) => <Input {...p} required value={name} onChange={(e) => setName(e.target.value)} />}</Field>
         <Field label={labels.create.slug} hint={labels.create.slugHint}>
           {(p) => <Input {...p} required className="font-mono" value={slug} onChange={(e) => setSlug(e.target.value)} />}
         </Field>
         {managed && <p className="rounded-md bg-surface-2 px-3 py-2 text-sm text-ink-2">{t.managedNote}</p>}
-        <Field label={labels.create.description} hint={managed ? t.fromForge : undefined}>
-          {(p) => <Textarea {...p} rows={3} readOnly={managed} value={description} onChange={(e) => setDescription(e.target.value)} />}
-        </Field>
+        <div className="grid gap-1.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-medium text-ink-2">{labels.create.description}</span>
+            <Segmented
+              label={labels.create.description}
+              value={preview ? "preview" : "text"}
+              onChange={(v) => setPreview(v === "preview")}
+              options={[
+                { value: "text", label: labels.about.text },
+                { value: "preview", label: labels.about.preview },
+              ]}
+            />
+          </div>
+          {preview ? (
+            <div className="min-h-24 rounded-md border border-line bg-surface p-3">
+              {description.trim() ? <Markdown source={description} /> : <p className="text-sm text-muted">{labels.about.empty}</p>}
+            </div>
+          ) : (
+            <>
+              <Textarea aria-label={labels.create.description} rows={6} readOnly={managed} value={description} onChange={(e) => setDescription(e.target.value)} />
+              <p className="text-xs text-muted">{managed ? t.fromForge : labels.about.markdownHint}</p>
+            </>
+          )}
+        </div>
         <Field label={labels.create.labels} hint={labels.create.labelsHint}>
-          {(p) => <KeyValueInput {...p} value={labelLines} onChange={setLabelLines} />}
+          {(p) => <LabelsInput {...p} value={labelLines} onChange={setLabelLines} onDraft={setLabelDraft} />}
         </Field>
         {isProject && (
           <RepoSection labels={labels} mode={mode} onMode={setMode} repo={repo} onRepo={setRepo} draft={draft} onDraft={setDraft} managed={managed}>
@@ -418,9 +447,17 @@ export function EditDialog({
           </RepoSection>
         )}
         {node.kind === "project" && <ObservationField labels={labels} value={observe} onChange={setObserve} />}
-        <Message note={note} />
-      </form>
-    </Dialog>
+      </fieldset>
+      <Message note={note} />
+      {!readOnly && (
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          {invalidLabels && <span className="mr-auto text-sm text-danger">{common.fixLabels}</span>}
+          <Button type="submit" variant="primary" busy={busy || source === undefined} disabled={invalidLabels}>
+            {t.submit}
+          </Button>
+        </div>
+      )}
+    </form>
   );
 }
 

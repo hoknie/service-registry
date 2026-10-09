@@ -27,3 +27,13 @@ Checks never use the proxy variables and never connect to loopback, link-local (
 multicast or unspecified addresses; private networks are allowed unless
 `LINK_CHECK_ALLOW_PRIVATE=false` (then only `LINK_CHECK_ALLOW_HOSTS`); `LINK_CHECK_DENY_HOSTS` are
 never checked. See `.env.example` for `LINK_CHECK_*`. Specs: `openspec/specs/links/`.
+
+**Title and icon.** A template may carry a title (shown instead of the kind name) and an icon: the
+kind's built-in icon, an `https://` address, or an uploaded PNG, WebP, ICO or SVG file up to 64 KiB.
+Both are inherited with the template, so icons set on an organization show up on every project
+below. Projects show their link icons in the header, in cards, tables and the tree view; a link
+without an address (a variable has no value) is grey. Uploaded files are stored on the server's disk
+in `UPLOADS_DIR` (default `data/uploads` next to the working directory; `off` turns uploads off),
+named by the SHA-256 of their content, and served with a sandboxing `Content-Security-Policy`. In
+Docker the image keeps them in `/data/uploads`; mount a volume there (`docker-compose.yml` does).
+Specs: `openspec/specs/links/templates/`, `openspec/specs/links/icons/`.

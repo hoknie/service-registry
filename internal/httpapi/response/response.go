@@ -32,6 +32,7 @@ type User struct {
 	DisplayName  string    `json:"display_name"`
 	Status       string    `json:"status"`
 	IsSuperadmin bool      `json:"is_superadmin"`
+	IsService    bool      `json:"is_service"`
 	HasPassword  bool      `json:"has_password"`
 	CreatedAt    string    `json:"created_at"`
 	UpdatedAt    string    `json:"updated_at"`
@@ -45,7 +46,7 @@ type Me struct {
 func UserOf(u access.User) User {
 	return User{
 		ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, Status: string(u.Status),
-		IsSuperadmin: u.IsSuperadmin, HasPassword: u.HasPassword, CreatedAt: u.CreatedAt, UpdatedAt: u.UpdatedAt,
+		IsSuperadmin: u.IsSuperadmin, IsService: u.IsService, HasPassword: u.HasPassword, CreatedAt: u.CreatedAt, UpdatedAt: u.UpdatedAt,
 	}
 }
 

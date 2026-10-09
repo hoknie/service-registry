@@ -37,6 +37,9 @@ printf '%s\n' 'a long password' | go run ./cmd/svc-registry user:create --email 
 
 **The whole stack in containers:** `just docker-up` (one image: the binary plus the web export).
 
+**Uploaded files** (link icons) go to `UPLOADS_DIR` — `data/uploads` in the repository when you run
+`just dev` (ignored by git), a volume at `/data/uploads` in Docker; `UPLOADS_DIR=off` turns uploads off.
+
 ## Database
 
 | Command | What it does |

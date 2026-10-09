@@ -197,3 +197,8 @@ type Reader interface {
 type ReaderFactory interface {
 	Open(ctx context.Context, s Source, settings Settings, token string) (Reader, error)
 }
+
+func CommitOf(head string) string {
+	commit, _, _ := strings.Cut(head, "+")
+	return commit
+}

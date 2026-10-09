@@ -34,6 +34,8 @@ type Context struct {
 type Link struct {
 	LinkKey     string
 	KindKey     string
+	Title       *string
+	Icon        LinkIcon
 	NodeID      uuid.UUID
 	Inherited   bool
 	Service     *string
@@ -60,7 +62,7 @@ func Expand(c Context, templates []Template, environment string) []Link {
 		if err != nil {
 			continue
 		}
-		base := Link{LinkKey: t.LinkKey, KindKey: t.KindKey, NodeID: t.NodeID, Inherited: t.Inherited}
+		base := Link{LinkKey: t.LinkKey, KindKey: t.KindKey, Title: t.Title, Icon: t.LinkIcon(), NodeID: t.NodeID, Inherited: t.Inherited}
 		if !usesDeployment(p) || len(deployments) == 0 {
 			out = append(out, expandOne(p, base, c, nil))
 			continue

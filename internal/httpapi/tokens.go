@@ -45,6 +45,26 @@ func (a *API) RevokeOwnToken(c fiber.Ctx) error {
 	return a.revokeToken(c, service.RevokeOwnToken)
 }
 
+func (a *API) IssueUserToken(c fiber.Ctx) error {
+	p, _, err := a.currentUser(c)
+	if err != nil {
+		return Fail(c, err)
+	}
+	id, err := parseID(c, "id")
+	if err != nil {
+		return Fail(c, err)
+	}
+	var in request.CreateToken
+	if err := bindJSON(c, &in); err != nil {
+		return Fail(c, err)
+	}
+	issued, err := service.IssueUserToken(c.Context(), a.State, p, id, in.Token())
+	if err != nil {
+		return Fail(c, err)
+	}
+	return c.Status(http.StatusCreated).JSON(response.IssuedTokenOf(issued))
+}
+
 func (a *API) ListUserTokens(c fiber.Ctx) error {
 	p, _, err := a.currentUser(c)
 	if err != nil {

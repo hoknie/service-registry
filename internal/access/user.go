@@ -23,6 +23,7 @@ type User struct {
 	DisplayName  string
 	Status       UserStatus
 	IsSuperadmin bool
+	IsService    bool
 	HasPassword  bool
 	CreatedAt    string
 	UpdatedAt    string

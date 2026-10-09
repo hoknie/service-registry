@@ -34,8 +34,7 @@ export function UserIdentities({ userId, locale, labels, fail }: Props) {
   }, [userId, fail]);
 
   return (
-    <section className="mt-6 grid gap-3 border-t border-line pt-5">
-      <h3>{labels.title}</h3>
+    <section className="grid gap-3">
       {error && <Message note={{ kind: "error", text: error }} />}
       {!items && !error && <SkeletonTable rows={1} label={common.loading} />}
       {items && items.length === 0 && <p className="text-sm text-muted">{labels.empty}</p>}

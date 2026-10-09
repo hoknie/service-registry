@@ -120,7 +120,14 @@ func RunKnowledgeCollect(ctx context.Context, state *State, id uuid.UUID) error 
 				heads = append(heads, head{name, sha})
 			}
 		}
-		if err := state.Sources.SetHeads(ctx, id, kept, srcDef); err != nil {
+		var branches map[string]string
+		if src.Kind != knowledge.SourceLocalDir {
+			branches = make(map[string]string, len(shown))
+			for name, sha := range shown {
+				branches[name] = knowledge.CommitOf(sha)
+			}
+		}
+		if err := state.Sources.SetHeads(ctx, id, kept, srcDef, branches); err != nil {
 			return apperr.Wrap(err)
 		}
 		if len(heads) == 0 {

@@ -29,6 +29,9 @@ func PutLinkTemplate(ctx context.Context, state *State, p Principal, id uuid.UUI
 	if err != nil {
 		return links.Template{}, apperr.Wrap(err)
 	}
+	if t.IconFile != nil && (state.Icons == nil || !state.Icons.Exists(*t.IconFile)) {
+		return links.Template{}, apperr.Wrap(links.InvalidTemplateIcon)
+	}
 	saved, err := state.LinkTemplates.Put(ctx, t)
 	return saved, apperr.Wrap(err)
 }

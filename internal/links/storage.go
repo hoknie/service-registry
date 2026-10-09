@@ -20,6 +20,7 @@ type TemplateStore interface {
 	EffectiveVars(ctx context.Context, nodeID uuid.UUID) ([]Var, error)
 	ReplaceVars(ctx context.Context, nodeID uuid.UUID, vars map[string]string) error
 	ProjectData(ctx context.Context, projectID uuid.UUID) (ProjectData, error)
+	ProjectsData(ctx context.Context, projectIDs []uuid.UUID) (map[uuid.UUID]ProjectBatch, error)
 	IsUnder(ctx context.Context, node, root uuid.UUID) (bool, error)
 	Projects(ctx context.Context, after uuid.UUID, limit int) ([]uuid.UUID, error)
 }

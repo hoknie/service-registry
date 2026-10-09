@@ -1,24 +1,6 @@
 "use client";
 
-import {
-  Activity,
-  BookOpen,
-  Ellipsis,
-  ExternalLink,
-  FolderInput,
-  FolderTree,
-  GitBranch,
-  KeyRound,
-  LayoutGrid,
-  Link2,
-  Pencil,
-  Plug,
-  Plus,
-  Rocket,
-  Settings2,
-  ShieldCheck,
-  Trash,
-} from "lucide-react";
+import { Activity, BookOpen, ExternalLink, FileText, FolderTree, GitBranch, LayoutGrid, Plus, Rocket, Settings } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -27,14 +9,16 @@ import type { Locale } from "@/i18n/config";
 import { errorText } from "@/i18n/errors";
 import { ago, when } from "@/i18n/time";
 import { busy, isSummary, useActivity } from "@/lib/activity";
-import { apiGet, errorCode, type CatalogNode, type CatalogTable, type NodeActivity, type ProcessKind } from "@/lib/api";
+import { apiGet, errorCode, type CatalogNode, type CatalogTable, type Items, type NodeActivity, type ProcessKind, type ProjectLink } from "@/lib/api";
 import { useChildrenView } from "@/lib/childrenView";
+import { resolveTab, sectionsOf, tabsOf, type NodeTab, type Section } from "@/lib/nodeSettings";
 
 import { ForgeTab } from "../forge/ForgeTab";
 import { DocsTab } from "../knowledge/DocsTab";
 import { DocsSettingsTab } from "../knowledge/DocsSettingsTab";
 import { LinksTab } from "../links/LinksTab";
 import { RepositoryPanel } from "../forge/RepositoryPanel";
+import { LinkIconRow } from "../links/LinkIcons";
 import { useSession } from "../SessionProvider";
 import { Crumbs } from "../shell/crumbs";
 import { useUiText } from "../UiText";
@@ -45,7 +29,6 @@ import { Input } from "../ui/Field";
 import { NodeHero } from "../ui/NodeHero";
 import { Segmented } from "../ui/Segmented";
 import { EmptyState } from "../ui/EmptyState";
-import { Menu, MenuContent, MenuItem, MenuTrigger } from "../ui/Menu";
 import { Message } from "../ui/Message";
 import { PageHeader, Panel } from "../ui/Panel";
 import { Pager } from "../ui/Pager";
@@ -60,33 +43,31 @@ import { DeploymentsTab } from "./DeploymentsTab";
 import { EventsTab } from "./EventsTab";
 import { IngestHowTo } from "./IngestHowTo";
 import { KindIcon } from "./KindIcon";
-import { CreateDialog, DeleteDialog, EditDialog, MoveDialog } from "./NodeForms";
+import { DescriptionTab } from "./DescriptionTab";
+import { Markdown } from "./Markdown";
+import { CreateDialog } from "./NodeForms";
+import { NodeSettings } from "./NodeSettings";
 import { ProjectKeys } from "./ProjectKeys";
 import { ProjectSummary } from "./ProjectSummary";
+import { SettingsGeneral } from "./SettingsGeneral";
 import { TreeTable } from "./TreeTable";
 import { catalogHref, childKinds, FORGE_NAMES, type CatalogLabels } from "./shared";
 
 const PAGE = 50;
 
-const TABS = ["overview", "deployments", "events", "branches", "links", "docs", "docs-settings", "keys", "forge", "access", "connect"] as const;
-type Tab = (typeof TABS)[number];
 const tabIcons = {
   overview: LayoutGrid,
+  about: FileText,
   deployments: Rocket,
   events: Activity,
-  branches: GitBranch,
-  links: Link2,
   docs: BookOpen,
-  "docs-settings": Settings2,
-  keys: KeyRound,
-  forge: GitBranch,
-  access: ShieldCheck,
-  connect: Plug,
+  settings: Settings,
 } as const;
 
 type Props = {
   id: string | null;
   tab: string | null;
+  section: string | null;
   branch: string | null;
   doc: string | null;
   locale: Locale;
@@ -94,9 +75,9 @@ type Props = {
   onChanged: () => void;
 };
 
-type Dialogs = "create" | "edit" | "move" | "delete" | null;
+type Dialogs = "create" | null;
 
-export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, labels, onChanged }: Props) {
+export function NodeView({ id, tab: tabParam, section: sectionParam, branch: branchParam, doc, locale, labels, onChanged }: Props) {
   const { errors, common } = useUiText();
   const { session } = useSession();
   const router = useRouter();
@@ -137,6 +118,28 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
   }, []);
   const { activity, refresh: refreshActivity } = useActivity(id, loadActivity, onSettled);
   const childrenBusy = useRef(false);
+  const [heroLinks, setHeroLinks] = useState<ProjectLink[]>([]);
+  const projectId = node?.kind === "project" && node.access === "read" ? node.id : null;
+
+  useEffect(() => {
+    if (!projectId) return;
+    let live = true;
+    const q = branchParam ? `?branch=${encodeURIComponent(branchParam)}` : "";
+    apiGet<Items<ProjectLink>>(`/v1/catalog/nodes/${projectId}/links${q}` as `/${string}`)
+      .then((r) => {
+        if (!live) return;
+        const first = new Map<string, ProjectLink>();
+        for (const l of r.items) {
+          const seen = first.get(l.link_key);
+          if (!seen || (!seen.url && l.url)) first.set(l.link_key, l);
+        }
+        setHeroLinks([...first.values()]);
+      })
+      .catch(() => live && setHeroLinks([]));
+    return () => {
+      live = false;
+    };
+  }, [projectId, branchParam]);
 
   useEffect(() => {
     if (!activity || node?.kind === "project" || view === "tree") return;
@@ -144,6 +147,14 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
     if (now || childrenBusy.current) void loadChildren().catch(() => undefined);
     childrenBusy.current = now;
   }, [activity, node?.kind, view, loadChildren]);
+
+  const resolved = resolveTab(node, tabParam, sectionParam);
+  const redirect = resolved.redirect;
+  useEffect(() => {
+    if (node && redirect) {
+      router.replace(catalogHref(locale, node.id, redirect.tab, branchParam, null, redirect.section), { scroll: false });
+    }
+  }, [node, redirect, router, locale, branchParam]);
 
   const changed = () => {
     void load();
@@ -184,15 +195,10 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
   const canMove = !!node && !managed && ((node.permissions ?? []).includes("catalog.write") || superadmin);
   const canDelete = !!node && !managed && (node.permissions ?? []).includes("catalog.write");
 
-  const tabs: Tab[] = TABS.filter((name) => {
-    if (name === "overview") return true;
-    if (name === "access") return can("catalog.access");
-    if (name === "keys") return project && can("catalog.keys");
-    if (name === "forge") return !project && readable;
-    if (name === "links" || name === "docs-settings") return readable;
-    return project;
-  });
-  const tab: Tab = tabs.includes(tabParam as Tab) ? (tabParam as Tab) : "overview";
+  const tabs = tabsOf(node);
+  const tab: NodeTab = resolved.tab;
+  const sections = sectionsOf(node);
+  const section: Section = resolved.section ?? "general";
   const selectTab = (next: string) => {
     if (node) router.replace(catalogHref(locale, node.id, next, branchParam), { scroll: false });
   };
@@ -208,40 +214,7 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
     </Button>
   );
 
-  const actions = node && (canWrite || canMove || canDelete) && (
-    <>
-      {addButton}
-      {canWrite && (
-        <Button onClick={() => setDialog("edit")}>
-          <Pencil aria-hidden="true" />
-          {t.edit.title}
-        </Button>
-      )}
-      {(canMove || canDelete) && (
-        <Menu>
-          <MenuTrigger asChild>
-            <Button size="icon" className="h-9 w-9" aria-label={t.actions.more}>
-              <Ellipsis aria-hidden="true" />
-            </Button>
-          </MenuTrigger>
-          <MenuContent>
-            {canMove && (
-              <MenuItem onSelect={() => setDialog("move")}>
-                <FolderInput aria-hidden="true" />
-                {t.move.title}
-              </MenuItem>
-            )}
-            {canDelete && (
-              <MenuItem danger onSelect={() => setDialog("delete")}>
-                <Trash aria-hidden="true" />
-                {t.remove.button}
-              </MenuItem>
-            )}
-          </MenuContent>
-        </Menu>
-      )}
-    </>
-  );
+  const actions = node && addButton;
 
   const labelEntries = Object.entries(node?.labels ?? {});
 
@@ -280,6 +253,7 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
                 </Badge>
               )}
               <span className="mt-3 block empty:hidden">{childActivity(c)}</span>
+              {c.links.length > 0 && <LinkIconRow links={c.links} locale={locale} labels={t.linkIcons} max={6} inert className="mt-3" />}
               {labels.length > 0 && (
                 <span className="mt-3 flex flex-wrap gap-1">
                   {labels.slice(0, 4).map(([k, v]) => (
@@ -333,7 +307,12 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
                   ))}
               </span>
             </Td>
-            <Td>{childActivity(c)}</Td>
+            <Td>
+              <span className="grid gap-1.5">
+                {childActivity(c)}
+                {c.links.length > 0 && <LinkIconRow links={c.links} locale={locale} labels={t.linkIcons} max={6} />}
+              </span>
+            </Td>
           </Tr>
         ))}
       </tbody>
@@ -398,6 +377,11 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
 
   const overview = node && (
     <div className="grid gap-6">
+      {!project && readable && node.description?.trim() && (
+        <Panel title={t.about.title}>
+          <Markdown source={node.description} />
+        </Panel>
+      )}
       {project && readable && <ProjectSummary projectId={node.id} locale={locale} labels={t} />}
       {readable && (
         <div className="grid items-start gap-4 md:grid-cols-2">
@@ -473,7 +457,9 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
               <Badge tone="outline" className="bg-surface/70">
                 {t.kinds[node.kind]}
               </Badge>
-              <code className="rounded-md bg-surface/70 px-1.5 text-xs text-ink-2 ring-1 ring-line ring-inset">{node.slug}</code>
+              <code className="inline-flex h-6 items-center rounded-md bg-surface px-2 font-mono text-xs text-ink ring-1 ring-line ring-inset">
+                {node.slug}
+              </code>
               {!readable && <Badge tone="outline">{t.navigateOnly}</Badge>}
               {readable && activity?.processes && <ProcessBadges processes={activity.processes} labels={t.activity} locale={locale} />}
               {readable && activity?.summary && <SummaryBadges summary={activity.summary} labels={t.activity} />}
@@ -487,9 +473,11 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
             </>
           }
         >
-          {node.description && <p className="max-w-[72ch] whitespace-pre-wrap text-ink-2">{node.description}</p>}
+          {project && readable && heroLinks.length > 0 && (
+            <LinkIconRow links={heroLinks} locale={locale} labels={t.linkIcons} size={20} className={labelEntries.length > 0 ? "mb-3" : undefined} />
+          )}
           {labelEntries.length > 0 && (
-            <ul aria-label={t.node.labels} className={node.description ? "mt-3 flex flex-wrap gap-1.5" : "flex flex-wrap gap-1.5"}>
+            <ul aria-label={t.node.labels} className="flex flex-wrap gap-1.5">
               {labelEntries.map(([k, v]) => (
                 <li key={k}>
                   <LabelChip name={k} value={v} />
@@ -514,7 +502,7 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
               return (
                 <TabsTrigger key={name} value={name}>
                   <Icon aria-hidden="true" />
-                  {name === "docs-settings" ? t.tabs.docsSettings : t.tabs[name]}
+                  {t.tabs[name]}
                 </TabsTrigger>
               );
             })}
@@ -522,6 +510,9 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
           <TabsContent value="overview">{overview}</TabsContent>
           {project && (
             <>
+              <TabsContent value="about">
+                <DescriptionTab node={node} locale={locale} labels={t} canWrite={canWrite} />
+              </TabsContent>
               <TabsContent value="deployments">
                 <DeploymentsTab
                   key={branch ?? ""}
@@ -535,9 +526,6 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
               <TabsContent value="events">
                 <EventsTab projectId={node.id} locale={locale} labels={t} onConnect={() => selectTab("connect")} />
               </TabsContent>
-              <TabsContent value="branches">
-                <BranchesTab projectId={node.id} locale={locale} labels={t} canWrite={can("catalog.write")} />
-              </TabsContent>
               <TabsContent value="docs">
                 <DocsTab
                   node={node}
@@ -545,7 +533,7 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
                   doc={doc}
                   locale={locale}
                   labels={t}
-                  canWrite={can("catalog.write")}
+                  canWrite={canWrite}
                   reload={docsReload}
                   onCollect={refreshActivity}
                   onOpen={(nextBranch, nextDoc) =>
@@ -553,34 +541,43 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
                   }
                 />
               </TabsContent>
-              <TabsContent value="connect">
-                <IngestHowTo projectId={node.id} labels={t.howTo} onKeys={tabs.includes("keys") ? () => selectTab("keys") : undefined} />
-              </TabsContent>
             </>
           )}
-          {tabs.includes("links") && (
-            <TabsContent value="links">
-              <LinksTab node={node} branch={branch} locale={locale} labels={t} canWrite={can("catalog.write")} />
-            </TabsContent>
-          )}
-          {tabs.includes("docs-settings") && (
-            <TabsContent value="docs-settings">
-              <DocsSettingsTab node={node} locale={locale} labels={t} canWrite={can("catalog.write")} onChanged={refreshActivity} />
-            </TabsContent>
-          )}
-          {tabs.includes("keys") && (
-            <TabsContent value="keys">
-              <ProjectKeys projectId={node.id} locale={locale} labels={t} />
-            </TabsContent>
-          )}
-          {tabs.includes("forge") && (
-            <TabsContent value="forge">
-              <ForgeTab nodeId={node.id} locale={locale} labels={t} canWrite={can("catalog.write")} canAccess={can("catalog.access")} onSynced={changed} />
-            </TabsContent>
-          )}
-          {tabs.includes("access") && (
-            <TabsContent value="access">
-              <AccessTab nodeId={node.id} labels={t} />
+          {tabs.includes("settings") && (
+            <TabsContent value="settings">
+              <NodeSettings node={node} sections={sections} section={section} branch={branchParam} locale={locale} labels={t}>
+                {section === "general" && (
+                  <SettingsGeneral
+                    node={node}
+                    labels={t}
+                    fail={fail}
+                    canWrite={canWrite}
+                    canMove={canMove}
+                    canDelete={canDelete}
+                    superadmin={superadmin}
+                    onSaved={changed}
+                    onDeleted={() => {
+                      onChanged();
+                      router.push(catalogHref(locale, node.parent_id));
+                    }}
+                  />
+                )}
+                {section === "branches" && <BranchesTab projectId={node.id} locale={locale} labels={t} canWrite={canWrite} />}
+                {section === "links" && <LinksTab node={node} branch={branch} locale={locale} labels={t} canWrite={canWrite} />}
+                {section === "docs" && <DocsSettingsTab node={node} locale={locale} labels={t} canWrite={canWrite} onChanged={refreshActivity} />}
+                {section === "keys" && <ProjectKeys projectId={node.id} locale={locale} labels={t} />}
+                {section === "access" && <AccessTab nodeId={node.id} labels={t} />}
+                {section === "connect" && (
+                  <IngestHowTo
+                    projectId={node.id}
+                    labels={t.howTo}
+                    onKeys={sections.includes("keys") ? () => router.replace(catalogHref(locale, node.id, "keys"), { scroll: false }) : undefined}
+                  />
+                )}
+                {section === "forge" && (
+                  <ForgeTab nodeId={node.id} locale={locale} labels={t} canWrite={canWrite} canAccess={can("catalog.access")} onSynced={changed} />
+                )}
+              </NodeSettings>
             </TabsContent>
           )}
         </Tabs>
@@ -597,33 +594,6 @@ export function NodeView({ id, tab: tabParam, branch: branchParam, doc, locale, 
           labels={t}
           fail={fail}
           onCreated={changed}
-        />
-      )}
-      {node && canWrite && dialog === "edit" && (
-        <EditDialog open onOpenChange={(open) => setDialog(open ? "edit" : null)} node={node} labels={t} fail={fail} onSaved={changed} />
-      )}
-      {node && canMove && (
-        <MoveDialog
-          open={dialog === "move"}
-          onOpenChange={(open) => setDialog(open ? "move" : null)}
-          node={node}
-          labels={t}
-          fail={fail}
-          superadmin={superadmin}
-          onMoved={changed}
-        />
-      )}
-      {node && canDelete && (
-        <DeleteDialog
-          open={dialog === "delete"}
-          onOpenChange={(open) => setDialog(open ? "delete" : null)}
-          node={node}
-          labels={t}
-          fail={fail}
-          onDeleted={() => {
-            onChanged();
-            router.push(catalogHref(locale, node.parent_id));
-          }}
         />
       )}
     </>

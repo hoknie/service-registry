@@ -110,34 +110,36 @@ export function SearchView({ locale, labels: t, kinds }: Props) {
 
   return (
     <div className="grid gap-6">
-      <form className="flex flex-wrap items-end gap-3" onSubmit={submit} role="search">
-        <Field label={t.title} className="min-w-0 flex-[2_1_20rem]">
-          {(p) => <Input {...p} type="search" value={draft} placeholder={t.placeholder} onChange={(e) => setDraft(e.target.value)} />}
-        </Field>
-        <Field label={t.branch} hint={t.branchHint} className="min-w-0 flex-[1_1_12rem]">
-          {(p) => <Input {...p} value={draftBranch} onChange={(e) => setDraftBranch(e.target.value)} />}
-        </Field>
-        <Button type="submit" variant="primary">
-          <Search aria-hidden="true" />
-          {t.submit}
-        </Button>
-      </form>
-
-      {modes && modes.modes.length > 1 && (
-        <div className="flex flex-wrap items-center gap-3">
-          <Segmented
-            label={t.mode}
-            value={current}
-            options={modes.modes.map((m) => ({ value: m, label: t.modes[m] }))}
-            onChange={(m) => go(m === modes.default ? "" : m)}
-          />
-          {modes.index && modes.index.pending > 0 && (
-            <span className="text-sm text-muted" role="status">
-              {format(t.indexing, { count: modes.index.pending })}
-            </span>
+      <div className="grid gap-2">
+        <form className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end" onSubmit={submit} role="search">
+          <Field label={t.title} className="min-w-0 md:flex-[3_1_24rem]">
+            {(p) => <Input {...p} type="search" value={draft} placeholder={t.placeholder} onChange={(e) => setDraft(e.target.value)} />}
+          </Field>
+          <Field label={t.branch} className="min-w-0 md:flex-[1_1_12rem]">
+            {(p) => <Input {...p} value={draftBranch} title={t.branchHint} onChange={(e) => setDraftBranch(e.target.value)} />}
+          </Field>
+          {modes && modes.modes.length > 1 && (
+            <div className="grid gap-1.5">
+              <span className="text-sm font-medium text-ink-2">{t.mode}</span>
+              <Segmented
+                className="h-9 items-center [&>*]:py-1"
+                label={t.mode}
+                value={current}
+                options={modes.modes.map((m) => ({ value: m, label: t.modes[m] }))}
+                onChange={(m) => go(m === modes.default ? "" : m)}
+              />
+            </div>
           )}
-        </div>
-      )}
+          <Button type="submit" variant="primary">
+            <Search aria-hidden="true" />
+            {t.submit}
+          </Button>
+        </form>
+        <p className="flex flex-wrap gap-x-4 text-xs text-muted">
+          <span>{t.branchHint}</span>
+          {modes?.index && modes.index.pending > 0 && <span role="status">{format(t.indexing, { count: modes.index.pending })}</span>}
+        </p>
+      </div>
 
       {error && <Message note={{ kind: "error", text: error }} />}
       {!q && <EmptyState icon={FileSearch} title={t.start} />}

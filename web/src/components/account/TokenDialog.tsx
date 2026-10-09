@@ -25,6 +25,7 @@ type Props = {
   fail: (e: unknown) => string;
   onIssued: (token: PersonalToken) => void;
   presetScopes?: Scope[];
+  endpoint?: `/${string}`;
 };
 
 function Warning({ children }: { children: string }) {
@@ -36,7 +37,7 @@ function Warning({ children }: { children: string }) {
   );
 }
 
-export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIssued, presetScopes }: Props) {
+export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIssued, presetScopes, endpoint = "/v1/account/tokens" }: Props) {
   const { common } = useUiText();
   const t = labels.dialog;
   const [name, setName] = useState("");
@@ -65,7 +66,7 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
     setNote(null);
     const days = lifetime === "forever" ? null : lifetime === "custom" ? Number(customDays) : Number(lifetime);
     try {
-      const token = await apiSend<PersonalToken>("POST", "/v1/account/tokens", { name, scopes, expires_in_days: days });
+      const token = await apiSend<PersonalToken>("POST", endpoint, { name, scopes, expires_in_days: days });
       reset();
       onIssued(token);
     } catch (e) {

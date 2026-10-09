@@ -8,6 +8,7 @@ import (
 	"svc-registry/internal/access"
 	"svc-registry/internal/apperr"
 	"svc-registry/internal/catalog"
+	"svc-registry/internal/links"
 )
 
 type CatalogTablePage struct {
@@ -18,6 +19,7 @@ type CatalogTablePage struct {
 	Truncated bool
 	Processes map[uuid.UUID][]catalog.Process
 	Summaries map[uuid.UUID]catalog.Summary
+	Links     map[uuid.UUID][]links.Badge
 }
 
 func CatalogTable(ctx context.Context, state *State, p Principal, parent *uuid.UUID, pq access.PageQuery, tq catalog.TableQuery) (CatalogTablePage, error) {
@@ -51,6 +53,22 @@ func CatalogTable(ctx context.Context, state *State, p Principal, parent *uuid.U
 	out.Processes, out.Summaries, err = activities(ctx, state, p, projects, containers)
 	if err != nil {
 		return CatalogTablePage{}, err
+	}
+	if out.Links, err = projectBadges(ctx, state, projects); err != nil {
+		return CatalogTablePage{}, err
+	}
+	return out, nil
+}
+
+func projectBadges(ctx context.Context, state *State, projects []uuid.UUID) (map[uuid.UUID][]links.Badge, error) {
+	data, err := state.LinkTemplates.ProjectsData(ctx, projects)
+	if err != nil {
+		return nil, apperr.Wrap(err)
+	}
+	out := make(map[uuid.UUID][]links.Badge, len(projects))
+	for _, id := range projects {
+		b := data[id]
+		out[id] = links.Badges(b.Context(id), b.Templates)
 	}
 	return out, nil
 }

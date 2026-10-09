@@ -1,6 +1,8 @@
 "use client";
 
-import { Pencil, Plus, UserRound } from "lucide-react";
+import { Plus, UserRound } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -16,15 +18,11 @@ import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { EmptyState } from "../ui/EmptyState";
 import { Checkbox, Field, Input } from "../ui/Field";
-import { Select } from "../ui/Select";
 import { Message, type Note } from "../ui/Message";
 import { PageHeader } from "../ui/Panel";
 import { Pager } from "../ui/Pager";
 import { SkeletonTable } from "../ui/Skeleton";
 import { Table, Td, Th, Tr } from "../ui/Table";
-import type { TokenLabels } from "../account/TokenTable";
-import { UserIdentities } from "./UserIdentities";
-import { UserTokens } from "./UserTokens";
 
 const PAGE_SIZE = 50;
 
@@ -38,13 +36,13 @@ export function StatusBadge({ status, labels }: { status: User["status"]; labels
   );
 }
 
-export function UsersAdmin({ locale, labels, tokenLabels }: { locale: Locale; labels: Labels; tokenLabels: TokenLabels }) {
+export function UsersAdmin({ locale, labels }: { locale: Locale; labels: Labels }) {
   const { errors, common } = useUiText();
+  const router = useRouter();
   const t = labels.users;
   const [offset, setOffset] = useState(0);
   const [page, setPage] = useState<Page<User> | null>(null);
   const [listError, setListError] = useState<string | null>(null);
-  const [editing, setEditing] = useState<User | null>(null);
   const [creating, setCreating] = useState(false);
 
   const fail = useCallback((e: unknown) => errorText(errors, errorCode(e)), [errors]);
@@ -94,32 +92,40 @@ export function UsersAdmin({ locale, labels, tokenLabels }: { locale: Locale; la
             </thead>
             <tbody>
               {page.items.map((u) => (
-                <Tr key={u.id} aria-selected={editing?.id === u.id}>
+                <Tr key={u.id}>
                   <Td>
-                    <span className="flex items-center gap-3">
+                    <Link href={`/${locale}/admin/users/user?id=${u.id}`} className="group flex items-center gap-3">
                       <span aria-hidden="true" className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-3 text-xs font-semibold text-ink-2">
                         {Array.from(u.display_name.trim())[0]?.toUpperCase() ?? "?"}
                       </span>
                       <span className="min-w-0">
-                        <span className="block truncate font-medium text-ink">{u.display_name}</span>
+                        <span className="block truncate font-medium text-ink group-hover:text-signal group-hover:underline">{u.display_name}</span>
                         <span className="block truncate text-xs text-muted">{u.email}</span>
                       </span>
-                      {!u.has_password && (
+                      {u.is_service && (
+                        <Badge tone="cobalt" className="shrink-0">
+                          {t.page.service}
+                        </Badge>
+                      )}
+                      {!u.has_password && !u.is_service && (
                         <Badge tone="outline" className="shrink-0">
                           {t.noPassword}
                         </Badge>
                       )}
-                    </span>
+                    </Link>
                   </Td>
                   <Td>
                     <StatusBadge status={u.status} labels={labels.status} />
                   </Td>
                   <Td>{u.is_superadmin ? <Badge tone="amber">{labels.yes}</Badge> : <span className="text-muted">{labels.no}</span>}</Td>
                   <Td className="text-right">
-                    <Button size="sm" variant="ghost" onClick={() => setEditing(u)} aria-label={format(t.edit.title, { email: u.email })}>
-                      <Pencil aria-hidden="true" />
-                      <span className="hidden sm:inline">{t.table.edit}</span>
-                    </Button>
+                    <Link
+                      href={`/${locale}/admin/users/user?id=${u.id}`}
+                      aria-label={format(t.edit.title, { email: u.email })}
+                      className="text-sm text-signal hover:underline"
+                    >
+                      {t.table.edit}
+                    </Link>
                   </Td>
                 </Tr>
               ))}
@@ -134,24 +140,12 @@ export function UsersAdmin({ locale, labels, tokenLabels }: { locale: Locale; la
         onOpenChange={setCreating}
         labels={labels}
         fail={fail}
-        onCreated={() => {
+        onCreated={(user) => {
           setCreating(false);
           toast.success(t.create.done);
-          void load(offset);
+          router.push(`/${locale}/admin/users/user?id=${user.id}`);
         }}
       />
-      {editing && (
-        <EditUser
-          key={editing.id}
-          user={editing}
-          locale={locale}
-          labels={labels}
-          tokenLabels={tokenLabels}
-          fail={fail}
-          onSaved={() => void load(offset)}
-          onClose={() => setEditing(null)}
-        />
-      )}
     </>
   );
 }
@@ -164,13 +158,14 @@ function CreateUser({
   labels,
   fail,
   onCreated,
-}: FormProps & { open: boolean; onOpenChange: (open: boolean) => void; onCreated: () => void }) {
+}: FormProps & { open: boolean; onOpenChange: (open: boolean) => void; onCreated: (user: User) => void }) {
   const { common } = useUiText();
   const t = labels.users.create;
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [superadmin, setSuperadmin] = useState(false);
+  const [service, setService] = useState(false);
   const [note, setNote] = useState<Note>(null);
   const [busy, setBusy] = useState(false);
 
@@ -179,12 +174,19 @@ function CreateUser({
     setBusy(true);
     setNote(null);
     try {
-      await apiSend("POST", "/v1/users", { email, display_name: name, password, is_superadmin: superadmin });
+      const user = await apiSend<User>("POST", "/v1/users", {
+        email,
+        display_name: name,
+        ...(password || !service ? { password } : {}),
+        is_superadmin: superadmin,
+        is_service: service,
+      });
       setEmail("");
       setName("");
       setPassword("");
       setSuperadmin(false);
-      onCreated();
+      setService(false);
+      onCreated(user);
     } catch (e) {
       setNote({ kind: "error", text: fail(e) });
     } finally {
@@ -215,99 +217,17 @@ function CreateUser({
         </Field>
         <Field label={t.name}>{(p) => <Input {...p} required value={name} onChange={(e) => setName(e.target.value)} />}</Field>
         <Field label={t.password}>
-          {(p) => <Input {...p} type="password" required autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />}
-        </Field>
-        <Checkbox label={t.superadmin} checked={superadmin} onChange={(e) => setSuperadmin(e.target.checked)} />
-        <Message note={note} />
-      </form>
-    </Dialog>
-  );
-}
-
-function EditUser({
-  user,
-  locale,
-  labels,
-  tokenLabels,
-  fail,
-  onSaved,
-  onClose,
-}: FormProps & { user: User; locale: Locale; tokenLabels: TokenLabels; onSaved: () => void; onClose: () => void }) {
-  const { common } = useUiText();
-  const t = labels.users.edit;
-  const r = labels.users.reset;
-  const [name, setName] = useState(user.display_name);
-  const [status, setStatus] = useState<User["status"]>(user.status);
-  const [superadmin, setSuperadmin] = useState(user.is_superadmin);
-  const [password, setPassword] = useState("");
-  const [note, setNote] = useState<Note>(null);
-  const [resetNote, setResetNote] = useState<Note>(null);
-
-  const save = async (event: FormEvent) => {
-    event.preventDefault();
-    setNote(null);
-    try {
-      await apiSend<User>("PATCH", `/v1/users/${user.id}`, { display_name: name, status, is_superadmin: superadmin });
-      toast.success(t.done);
-      onSaved();
-      onClose();
-    } catch (e) {
-      setNote({ kind: "error", text: fail(e) });
-    }
-  };
-
-  const reset = async (event: FormEvent) => {
-    event.preventDefault();
-    try {
-      await apiSend("POST", `/v1/users/${user.id}/password`, { password });
-      setPassword("");
-      setResetNote(null);
-      toast.success(r.done);
-    } catch (e) {
-      setResetNote({ kind: "error", text: fail(e) });
-    }
-  };
-
-  return (
-    <Dialog
-      open
-      size="lg"
-      onOpenChange={(open) => !open && onClose()}
-      title={format(t.title, { email: user.email })}
-      footer={
-        <>
-          <Button onClick={onClose}>{common.cancel}</Button>
-          <Button type="submit" form="edit-user" variant="primary">
-            {t.submit}
-          </Button>
-        </>
-      }
-    >
-      <form id="edit-user" className="grid gap-4" onSubmit={save}>
-        <Field label={t.name}>{(p) => <Input {...p} required value={name} onChange={(e) => setName(e.target.value)} />}</Field>
-        <Field label={t.status}>
           {(p) => (
-            <Select {...p} value={status} onChange={(e) => setStatus(e.target.value as User["status"])}>
-              <option value="active">{labels.status.active}</option>
-              <option value="disabled">{labels.status.disabled}</option>
-            </Select>
+            <Input {...p} type="password" required={!service} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
           )}
         </Field>
         <Checkbox label={t.superadmin} checked={superadmin} onChange={(e) => setSuperadmin(e.target.checked)} />
+        <div className="grid gap-1">
+          <Checkbox label={labels.users.page.serviceToggle} checked={service} onChange={(e) => setService(e.target.checked)} />
+          <p className="pl-6.5 text-xs text-muted">{labels.users.page.serviceCreateHint}</p>
+        </div>
         <Message note={note} />
       </form>
-      <form className="mt-6 grid gap-3 border-t border-line pt-5" onSubmit={reset}>
-        <h3>{r.title}</h3>
-        <div className="flex flex-wrap items-end gap-2">
-          <Field label={r.password} className="min-w-0 flex-1">
-            {(p) => <Input {...p} type="password" required autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />}
-          </Field>
-          <Button type="submit">{r.submit}</Button>
-        </div>
-        <Message note={resetNote} />
-      </form>
-      <UserIdentities userId={user.id} locale={locale} labels={labels.users.identities} fail={fail} />
-      <UserTokens userId={user.id} locale={locale} title={labels.tokens.userTokens} empty={labels.tokens.userTokensEmpty} labels={tokenLabels} fail={fail} />
     </Dialog>
   );
 }

@@ -36,14 +36,14 @@ func (s *IdentityStore) Find(ctx context.Context, provider, subject string) (*do
 	var st string
 	i, err := scanIdentity(s.pool.QueryRow(ctx, `
 		SELECT i.id, i.user_id, i.provider, i.subject, i.email, rfc3339(i.created_at),
-			rfc3339(i.last_login_at), u.id, u.email, u.display_name, u.status, u.is_superadmin,
+			rfc3339(i.last_login_at), u.id, u.email, u.display_name, u.status, u.is_superadmin, u.is_service,
 			u.password_hash IS NOT NULL AS has_password, rfc3339(u.created_at) AS created_at,
 			rfc3339(u.updated_at) AS updated_at
 		FROM user_identities i
 		JOIN users u ON u.id = i.user_id
 		WHERE i.provider = $1
 			AND i.subject = $2`, provider, subject),
-		&u.ID, &u.Email, &u.DisplayName, &st, &u.IsSuperadmin, &u.HasPassword, &u.CreatedAt, &u.UpdatedAt)
+		&u.ID, &u.Email, &u.DisplayName, &st, &u.IsSuperadmin, &u.IsService, &u.HasPassword, &u.CreatedAt, &u.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil, nil
 	}

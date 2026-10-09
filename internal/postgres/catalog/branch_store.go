@@ -201,7 +201,7 @@ func (s *BranchStore) Prune(ctx context.Context, retentionDays, staleDays uint32
 				AND NOT is_default
 				AND (
 					gone_at < now() - make_interval(days => $1::int)
-					OR (NOT 'forge' = ANY(sources) AND last_activity_at < now() - make_interval(days => $1::int + $2::int))
+					OR (NOT sources && ARRAY['forge', 'repository'] AND last_activity_at < now() - make_interval(days => $1::int + $2::int))
 				)
 			RETURNING project_id, name
 		),

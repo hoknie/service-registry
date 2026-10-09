@@ -18,6 +18,7 @@ const (
 	RefuseNotProvisioned  Refusal = "auth.oauth_not_provisioned"
 	RefuseIdentityTaken   Refusal = "auth.oauth_identity_taken"
 	RefuseDisabled        Refusal = "auth.account_disabled"
+	RefuseServiceAccount  Refusal = "auth.service_account"
 )
 
 func (r Refusal) Error() string { return string(r) }
@@ -53,6 +54,9 @@ const (
 
 func Decide(identityUser, emailUser *User, c Claims, p ProviderPolicy) (Outcome, error) {
 	if identityUser != nil {
+		if identityUser.IsService {
+			return 0, RefuseServiceAccount
+		}
 		if identityUser.Status != StatusActive {
 			return 0, RefuseDisabled
 		}
@@ -63,6 +67,8 @@ func Decide(identityUser, emailUser *User, c Claims, p ProviderPolicy) (Outcome,
 	}
 	if emailUser != nil {
 		switch {
+		case emailUser.IsService:
+			return 0, RefuseServiceAccount
 		case emailUser.IsSuperadmin:
 			return 0, RefuseLinkRequired
 		case emailUser.Status != StatusActive:

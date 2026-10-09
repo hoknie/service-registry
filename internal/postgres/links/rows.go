@@ -34,6 +34,10 @@ type templateRow struct {
 	Template     *string   `db:"template"`
 	Disabled     bool      `db:"disabled"`
 	Position     int32     `db:"position"`
+	Title        *string   `db:"title"`
+	IconURL      *string   `db:"icon_url"`
+	IconFile     *string   `db:"icon_file"`
+	KindIcon     string    `db:"kind_icon"`
 	CreatedAt    string    `db:"created_at"`
 	UpdatedAt    string    `db:"updated_at"`
 	Inherited    bool      `db:"inherited"`
@@ -42,6 +46,7 @@ type templateRow struct {
 func (r templateRow) template() domain.Template {
 	return domain.Template{ID: r.ID, NodeID: r.NodeID, LinkKey: r.LinkKey, KindKey: r.KindKey,
 		KindPosition: r.KindPosition, Template: r.Template, Disabled: r.Disabled, Position: r.Position,
+		Title: r.Title, IconURL: r.IconURL, IconFile: r.IconFile, KindIcon: r.KindIcon,
 		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, Inherited: r.Inherited}
 }
 

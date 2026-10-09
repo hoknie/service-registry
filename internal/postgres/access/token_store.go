@@ -135,7 +135,7 @@ func (s *TokenStore) FindValid(ctx context.Context, tokenHash [32]byte) (*domain
 	user, err := scanUserAfter(s.pool.QueryRow(ctx, `
 		SELECT t.id, t.scopes,
 			(t.last_used_at IS NULL OR t.last_used_at < now() - interval '60 seconds') AS stale, u.id, u.email,
-			u.display_name, u.status, u.is_superadmin, u.password_hash IS NOT NULL AS has_password,
+			u.display_name, u.status, u.is_superadmin, u.is_service, u.password_hash IS NOT NULL AS has_password,
 			rfc3339(u.created_at) AS created_at, rfc3339(u.updated_at) AS updated_at
 		FROM personal_access_tokens t
 		JOIN users u ON u.id = t.user_id

@@ -84,6 +84,8 @@ const (
 	ConflictLastSuperadmin
 	ConflictMembershipManaged
 	ConflictLastLoginMethod
+	ConflictSelfService
+	ConflictUserDisabled
 )
 
 func (c Conflict) Code() string {
@@ -98,6 +100,10 @@ func (c Conflict) Code() string {
 		return "conflict.membership_managed"
 	case ConflictLastLoginMethod:
 		return "conflict.last_login_method"
+	case ConflictSelfService:
+		return "conflict.self_service"
+	case ConflictUserDisabled:
+		return "conflict.user_disabled"
 	}
 	return "conflict.unknown"
 }
@@ -114,6 +120,10 @@ func (c Conflict) Message() string {
 		return "the membership is managed by a login provider"
 	case ConflictLastLoginMethod:
 		return "the last way to sign in cannot be removed"
+	case ConflictSelfService:
+		return "you cannot make your own account a service account"
+	case ConflictUserDisabled:
+		return "the user is disabled"
 	}
 	return "conflict"
 }

@@ -24,6 +24,7 @@ import (
 	knowledgestore "svc-registry/internal/postgres/knowledge"
 	linkstore "svc-registry/internal/postgres/links"
 	"svc-registry/internal/service"
+	"svc-registry/internal/uploads"
 	"svc-registry/internal/webui"
 	"svc-registry/pkg/secretbox"
 )
@@ -60,6 +61,7 @@ func BuildState(cfg config.Config) (*service.State, error) {
 		LinkTemplates: linkstore.NewTemplateStore(pool),
 		LinkTargets:   linkstore.NewTargetStore(pool),
 		LinkChecker:   linkcheck.New(cfg.Outbound, cfg.LinkCheck),
+		Icons:         uploads.New(cfg.Uploads.Dir),
 		Environments:  deploystore.NewEnvironmentStore(pool),
 		Clusters:      deploystore.NewClusterStore(pool),
 		Workloads:     deploystore.NewWorkloadStore(pool),
@@ -115,8 +117,9 @@ func BuildRouter(state *service.State, dist webui.Dist) *fiber.App {
 	r.add("/api/v1/users", true, get(api.ListUsers), post(api.CreateUser))
 	r.add("/api/v1/users/:id", true, get(api.GetUser), patch(api.UpdateUser))
 	r.add("/api/v1/users/:id/password", true, post(api.ResetPassword))
-	r.add("/api/v1/users/:id/tokens", true, get(api.ListUserTokens))
+	r.add("/api/v1/users/:id/tokens", true, get(api.ListUserTokens), post(api.IssueUserToken))
 	r.add("/api/v1/users/:id/identities", true, get(api.UserIdentities))
+	r.add("/api/v1/users/:id/groups", true, get(api.UserGroups))
 	r.add("/api/v1/account/identities", true, get(api.OwnIdentities))
 	r.add("/api/v1/account/identities/:id", true, del(api.UnlinkIdentity))
 	r.add("/api/v1/account/tokens", true, get(api.ListOwnTokens), post(api.IssueToken))
@@ -140,6 +143,8 @@ func BuildRouter(state *service.State, dist webui.Dist) *fiber.App {
 	r.add("/api/v1/catalog/nodes/:id", true, get(api.GetNode), patch(api.UpdateNode), del(api.DeleteNode))
 	r.add("/api/v1/catalog/nodes/:id/activity", true, get(api.NodeActivity))
 	r.add("/api/v1/catalog/table", true, get(api.CatalogTable))
+	r.add("/api/v1/catalog/nodes/:id/link-icons", true, post(api.UploadLinkIcon))
+	r.add("/api/v1/link-icons/:id", true, get(api.LinkIcon))
 	r.add("/api/v1/catalog/nodes/:id/move", true, post(api.MoveNode))
 	r.add("/api/v1/catalog/nodes/:id/bindings", true, get(api.ListBindings), post(api.GrantRole))
 	r.add("/api/v1/catalog/nodes/:id/bindings/:binding_id", true, del(api.RevokeBinding))

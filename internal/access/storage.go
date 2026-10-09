@@ -29,6 +29,7 @@ type SessionStore interface {
 type GroupStore interface {
 	Insert(ctx context.Context, group NewGroup) (Group, error)
 	List(ctx context.Context, page PageRequest) (Page[Group], error)
+	ForUser(ctx context.Context, userID uuid.UUID) ([]Group, error)
 	Find(ctx context.Context, id uuid.UUID) (*GroupDetails, error)
 	Rename(ctx context.Context, id uuid.UUID, name string) (Group, error)
 	Delete(ctx context.Context, id uuid.UUID) error

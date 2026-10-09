@@ -131,3 +131,26 @@ func TestCatalogTableVisibilityAndTruncation(t *testing.T) {
 	eq(t, len(items), 502)
 	eq(t, at(items[501], "name"), any("Many 500"))
 }
+
+func TestCatalogTableRowsCarryLinkIcons(t *testing.T) {
+	t.Parallel()
+	a := startTable(t)
+	a.putTemplate(a.admin, a.acme, "grafana", "https://grafana.example/d/{project.slug}")
+	a.putTemplate(a.admin, a.acme, "logs", "https://logs.example/?ns={namespace}")
+	before := scalar[int64](t, a.db, "SELECT count(*) FROM link_targets")
+	r := a.get(tablePath("parent="+a.backend), a.admin)
+	eq(t, r.status, 200, r.text())
+	row := at(r.json(t), "items", 0).(obj)
+	eq(t, row["name"], any("Billing API"))
+	items := row["links"].([]any)
+	eq(t, len(items), 2)
+	byKey := map[string]obj{}
+	for _, it := range items {
+		byKey[it.(obj)["link_key"].(string)] = it.(obj)
+	}
+	eq(t, byKey["grafana"]["url"], any("https://grafana.example/d/billing-api"))
+	eq(t, at(byKey["grafana"], "icon", "kind"), any("builtin"))
+	eq(t, byKey["logs"]["url"], nil)
+	eq(t, scalar[int64](t, a.db, "SELECT count(*) FROM link_targets"), before, "icons do not register addresses")
+	eq(t, jsonText(at(a.get(tablePath(""), a.admin).json(t), "items", 0, "links")), `[]`, "containers have no links")
+}

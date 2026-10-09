@@ -9,6 +9,7 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -36,6 +37,7 @@ func testConfig(t testing.TB, dbURL, dist string, extra ...string) config.Config
 		"WEB_DIST_DIR":                  dist,
 		"PASSWORD_HASH_MEMORY_KIB":      "1024",
 		"PASSWORD_HASH_ITERATIONS":      "1",
+		"UPLOADS_DIR":                   filepath.Join(t.TempDir(), "uploads"),
 	}
 	for i := 0; i+1 < len(extra); i += 2 {
 		vars[extra[i]] = extra[i+1]

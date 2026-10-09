@@ -20,11 +20,11 @@ func NewUserStore(pool *pgxpool.Pool) *UserStore { return &UserStore{pool: pool}
 
 func insertUser(ctx context.Context, db postgres.DB, u domain.NewUser) (domain.User, error) {
 	return scanUser(db.QueryRow(ctx, `
-		INSERT INTO users AS u (id, email, display_name, password_hash, is_superadmin)
-		VALUES ($1, $2, $3, NULLIF($4, ''), $5)
-		RETURNING u.id, u.email, u.display_name, u.status, u.is_superadmin,
+		INSERT INTO users AS u (id, email, display_name, password_hash, is_superadmin, is_service)
+		VALUES ($1, $2, $3, NULLIF($4, ''), $5, $6)
+		RETURNING u.id, u.email, u.display_name, u.status, u.is_superadmin, u.is_service,
 			u.password_hash IS NOT NULL AS has_password, rfc3339(u.created_at) AS created_at,
-			rfc3339(u.updated_at) AS updated_at`, u.ID, u.Email, u.DisplayName, u.PasswordHash, u.IsSuperadmin))
+			rfc3339(u.updated_at) AS updated_at`, u.ID, u.Email, u.DisplayName, u.PasswordHash, u.IsSuperadmin, u.IsService))
 }
 
 func setPassword(ctx context.Context, db postgres.DB, id uuid.UUID, hash string) (pgconn.CommandTag, error) {
@@ -56,7 +56,7 @@ func (s *UserStore) InsertIfNone(ctx context.Context, u domain.NewUser) (bool, e
 
 func (s *UserStore) Find(ctx context.Context, id uuid.UUID) (*domain.User, error) {
 	user, err := scanUser(s.pool.QueryRow(ctx, `
-		SELECT u.id, u.email, u.display_name, u.status, u.is_superadmin,
+		SELECT u.id, u.email, u.display_name, u.status, u.is_superadmin, u.is_service,
 			u.password_hash IS NOT NULL AS has_password, rfc3339(u.created_at) AS created_at,
 			rfc3339(u.updated_at) AS updated_at
 		FROM users u
@@ -85,7 +85,7 @@ func (s *UserStore) credentials(ctx context.Context, query string, arg any) (*do
 
 func (s *UserStore) FindCredentialsByEmail(ctx context.Context, email string) (*domain.UserCredentials, error) {
 	return s.credentials(ctx, `
-		SELECT u.id, u.email, u.display_name, u.status, u.is_superadmin,
+		SELECT u.id, u.email, u.display_name, u.status, u.is_superadmin, u.is_service,
 			u.password_hash IS NOT NULL AS has_password, rfc3339(u.created_at) AS created_at,
 			rfc3339(u.updated_at) AS updated_at, COALESCE(u.password_hash, '')
 		FROM users u
@@ -94,7 +94,7 @@ func (s *UserStore) FindCredentialsByEmail(ctx context.Context, email string) (*
 
 func (s *UserStore) FindCredentials(ctx context.Context, id uuid.UUID) (*domain.UserCredentials, error) {
 	return s.credentials(ctx, `
-		SELECT u.id, u.email, u.display_name, u.status, u.is_superadmin,
+		SELECT u.id, u.email, u.display_name, u.status, u.is_superadmin, u.is_service,
 			u.password_hash IS NOT NULL AS has_password, rfc3339(u.created_at) AS created_at,
 			rfc3339(u.updated_at) AS updated_at, COALESCE(u.password_hash, '')
 		FROM users u
@@ -103,7 +103,7 @@ func (s *UserStore) FindCredentials(ctx context.Context, id uuid.UUID) (*domain.
 
 func (s *UserStore) List(ctx context.Context, page domain.PageRequest) (domain.Page[domain.User], error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT u.id, u.email, u.display_name, u.status, u.is_superadmin,
+		SELECT u.id, u.email, u.display_name, u.status, u.is_superadmin, u.is_service,
 			u.password_hash IS NOT NULL AS has_password, rfc3339(u.created_at) AS created_at,
 			rfc3339(u.updated_at) AS updated_at
 		FROM users u
@@ -170,13 +170,20 @@ func (s *UserStore) Update(ctx context.Context, id uuid.UUID, ch domain.UserChan
 		user, err = scanUser(tx.QueryRow(ctx, `
 			UPDATE users AS u
 			SET display_name = COALESCE($2, u.display_name), status = COALESCE($3, u.status),
-				is_superadmin = COALESCE($4, u.is_superadmin), updated_at = now()
+				is_superadmin = COALESCE($4, u.is_superadmin), is_service = COALESCE($5, u.is_service), updated_at = now()
 			WHERE u.id = $1
-			RETURNING u.id, u.email, u.display_name, u.status, u.is_superadmin,
+			RETURNING u.id, u.email, u.display_name, u.status, u.is_superadmin, u.is_service,
 				u.password_hash IS NOT NULL AS has_password, rfc3339(u.created_at) AS created_at,
-				rfc3339(u.updated_at) AS updated_at`, id, ch.DisplayName, status, ch.IsSuperadmin))
+				rfc3339(u.updated_at) AS updated_at`, id, ch.DisplayName, status, ch.IsSuperadmin, ch.IsService))
 		if err != nil {
 			return err
+		}
+		if ch.IsService != nil && *ch.IsService {
+			if _, err := tx.Exec(ctx, `
+				DELETE FROM sessions
+				WHERE user_id = $1`, id); err != nil {
+				return err
+			}
 		}
 		switch {
 		case ch.Status != nil && *ch.Status == domain.StatusDisabled:

@@ -79,7 +79,9 @@
     "keyValueFormat": "Expected key=value",
     "invalidPattern": "Not a valid pattern",
     "invalidName": "Lowercase letters, digits and hyphens only",
-    "duplicate": "Already added"
+    "duplicate": "Already added",
+    "labelFormat": "Expected key or key=value (key: a-z, 0-9, . _ -)",
+    "fixLabels": "Fix the labels to save"
   },
   "home": {
     "title": "Service registry",
@@ -157,7 +159,8 @@
       "oauth_email_unverified": "The provider has not confirmed your email address.",
       "oauth_link_required": "This account must be linked by its owner in the account settings first.",
       "oauth_not_provisioned": "There is no registry account for this email. Ask an administrator.",
-      "oauth_identity_taken": "This provider account is already linked to another user."
+      "oauth_identity_taken": "This provider account is already linked to another user.",
+      "service_account": "This is a service account; it cannot sign in."
     },
     "validation": {
       "invalid_body": "The request is malformed.",
@@ -217,7 +220,10 @@
       "invalid_search": "Enter 1 to 200 characters to search for.",
       "invalid_knowledge_source": "The source is not valid: check the kind, the address or the path.",
       "knowledge_path_not_allowed": "This path is outside the directories the server allows.",
-      "invalid_filter": "Check the filters: search up to 100 characters, a label as key or key=value, at most 5 labels."
+      "invalid_filter": "Check the filters: search up to 100 characters, a label as key or key=value, at most 5 labels.",
+      "invalid_link_title": "The title must be 1 to 100 characters.",
+      "invalid_icon_format": "The icon must be a PNG, WebP, ICO or SVG image.",
+      "icon_too_large": "The icon is larger than 64 KiB."
     },
     "conflict": {
       "email_taken": "A user with this email already exists.",
@@ -240,7 +246,10 @@
       "membership_managed": "This membership comes from the sign-in provider and cannot be removed here.",
       "last_login_method": "This is your only way to sign in. Set a password first.",
       "knowledge_not_synced": "Documentation is collected only for projects synchronized with a forge.",
-      "local_sources_disabled": "Local sources are turned off on this server."
+      "local_sources_disabled": "Local sources are turned off on this server.",
+      "self_service": "You cannot make your own account a service account.",
+      "user_disabled": "The user is disabled.",
+      "uploads_disabled": "File uploads are turned off on the server."
     },
     "ingest": {
       "unknown_event_type": "Unknown event type.",
@@ -448,7 +457,20 @@
         "empty": "No linked accounts.",
         "lastLogin": "Last sign-in"
       },
-      "noPassword": "No password"
+      "noPassword": "No password",
+      "page": {
+        "crumb": "User",
+        "back": "Back to users",
+        "notFound": "User not found.",
+        "profile": "Profile",
+        "superadmin": "Superadmin",
+        "service": "Service",
+        "serviceToggle": "Service account",
+        "serviceHint": "Signing in with a password or a login provider is turned off and open sessions are closed; tokens keep working.",
+        "serviceCreateHint": "For integrations: no sign-in, tokens are issued by a superadmin. The password is optional.",
+        "groups": "Groups",
+        "noGroups": "Not a member of any group."
+      }
     },
     "groups": {
       "title": "Groups",
@@ -484,7 +506,14 @@
         "fromProvider": "From {provider}",
         "managedHint": "Managed by the provider: it changes when the user signs in."
       },
-      "lead": "Groups receive roles in the catalog on behalf of all their members."
+      "lead": "Groups receive roles in the catalog on behalf of all their members.",
+      "page": {
+        "crumb": "Group",
+        "back": "Back to groups",
+        "notFound": "Group not found.",
+        "lead": "Members: {n}",
+        "settings": "Group"
+      }
     },
     "tokens": {
       "title": "Tokens",
@@ -690,7 +719,9 @@
       "branches": "Branches",
       "links": "Links",
       "docs": "Documentation",
-      "docsSettings": "Documentation settings"
+      "docsSettings": "Documentation settings",
+      "about": "Description",
+      "settings": "Settings"
     },
     "create": {
       "title": "Add",
@@ -1098,7 +1129,14 @@
           "previewProject": "Preview for project",
           "previewChoose": "Choose a project",
           "previewEmpty": "Enter a template to see the links it gives.",
-          "submit": "Save"
+          "submit": "Save",
+          "title": "Title",
+          "titleHint": "Optional; shown instead of the kind name.",
+          "icon": "Icon",
+          "iconBuiltin": "Kind icon",
+          "iconUrl": "By address",
+          "iconFile": "File",
+          "iconHint": "PNG, WebP, ICO or SVG up to 64 KiB."
         },
         "saved": "Template saved.",
         "disabledDone": "The template is disabled here.",
@@ -1291,6 +1329,36 @@
       "noMatch": "Nothing matches the filter.",
       "reset": "Reset filters",
       "label_aria": "Catalog tree"
+    },
+    "about": {
+      "title": "Description",
+      "empty": "No description yet.",
+      "add": "Add a description",
+      "text": "Text",
+      "preview": "Preview",
+      "markdownHint": "Markdown: headings, lists, links, tables, code. HTML is shown as text."
+    },
+    "settings": {
+      "menu": "Settings sections",
+      "general": "General",
+      "danger": "Danger zone",
+      "moveText": "Move the node and everything inside to another organization or folder.",
+      "deleteText": "Delete the node. Only an empty node can be deleted.",
+      "sections": {
+        "general": "General",
+        "branches": "Branches",
+        "links": "Links",
+        "docs": "Documentation settings",
+        "keys": "Keys",
+        "access": "Access",
+        "connect": "Sending events",
+        "forge": "Forge"
+      }
+    },
+    "linkIcons": {
+      "missing": "Missing: {vars}",
+      "noUrl": "No address",
+      "links": "Links"
     }
   },
   "notFound": {
@@ -1357,7 +1425,8 @@
       "kind": "Kind",
       "started": "Started",
       "duration": "Duration",
-      "summary": "Summary"
+      "summary": "Summary",
+      "docs": "Documentation"
     },
     "summary": {
       "collect": "Branches: {branches} · files: {files}",

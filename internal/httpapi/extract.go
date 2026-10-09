@@ -62,7 +62,7 @@ func routeNeed(method, route string) service.Need {
 		return service.NeedRead
 	case route == "/api/mcp":
 		return service.NeedAny
-	case route == "/api/v1/knowledge/search", route == "/api/v1/knowledge/search/modes":
+	case route == "/api/v1/knowledge/search", route == "/api/v1/knowledge/search/modes", route == "/api/v1/link-icons/:id":
 		return service.NeedRead
 	case strings.HasPrefix(route, "/api/v1/catalog/"):
 		if method == fiber.MethodGet || method == fiber.MethodHead {

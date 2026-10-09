@@ -17,12 +17,14 @@ type CreateUser struct {
 	DisplayName  string
 	Password     string
 	IsSuperadmin bool
+	IsService    bool
 }
 
 type UpdateUser struct {
 	DisplayName  *string
 	Status       *string
 	IsSuperadmin *bool
+	IsService    *bool
 }
 
 type GroupName struct {
@@ -52,12 +54,14 @@ type NewUser struct {
 	DisplayName  string
 	PasswordHash string
 	IsSuperadmin bool
+	IsService    bool
 }
 
 type UserChanges struct {
 	DisplayName  *string
 	Status       *UserStatus
 	IsSuperadmin *bool
+	IsService    *bool
 }
 
 type NewSession struct {

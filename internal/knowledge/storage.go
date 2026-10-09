@@ -116,7 +116,7 @@ type SourceStore interface {
 	Get(ctx context.Context, projectID uuid.UUID) (*StoredSource, error)
 	Put(ctx context.Context, projectID uuid.UUID, s NewSource) (Source, error)
 	Delete(ctx context.Context, projectID uuid.UUID) error
-	SetHeads(ctx context.Context, projectID uuid.UUID, heads map[string]string, defaultBranch string) error
+	SetHeads(ctx context.Context, projectID uuid.UUID, heads map[string]string, defaultBranch string, branches map[string]string) error
 	Secrets(ctx context.Context) ([]SourceSecret, error)
 	ReplaceSecret(ctx context.Context, projectID uuid.UUID, enc string) error
 }

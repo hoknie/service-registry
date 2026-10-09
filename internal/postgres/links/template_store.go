@@ -43,8 +43,8 @@ func effectiveTemplates(ctx context.Context, q querier, nodeID uuid.UUID) ([]dom
 			JOIN up ON p.id = up.parent_id
 		)
 		SELECT DISTINCT ON (t.link_key) t.id, t.node_id, t.link_key, k.key AS kind_key,
-			k.position AS kind_position, t.template, t.disabled, t.position,
-			rfc3339(t.created_at) AS created_at, rfc3339(t.updated_at) AS updated_at, up.lvl > 0 AS inherited
+			k.position AS kind_position, t.template, t.disabled, t.position, t.title, t.icon_url, t.icon_file,
+			k.icon AS kind_icon, rfc3339(t.created_at) AS created_at, rfc3339(t.updated_at) AS updated_at, up.lvl > 0 AS inherited
 		FROM up
 		JOIN link_templates t ON t.node_id = up.id
 		JOIN link_kinds k ON k.id = t.kind_id
@@ -120,17 +120,18 @@ func (s *TemplateStore) Put(ctx context.Context, t domain.NewTemplate) (domain.T
 			return domain.TooManyTemplates
 		}
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO link_templates (id, node_id, kind_id, link_key, template, disabled, position)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			INSERT INTO link_templates (id, node_id, kind_id, link_key, template, disabled, position, title, icon_url, icon_file)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 			ON CONFLICT (node_id, link_key)
 			DO UPDATE SET kind_id = EXCLUDED.kind_id, template = EXCLUDED.template,
-				disabled = EXCLUDED.disabled, position = EXCLUDED.position, updated_at = now()`,
-			t.ID, t.NodeID, kindID, t.LinkKey, t.Template, t.Disabled, t.Position); err != nil {
+				disabled = EXCLUDED.disabled, position = EXCLUDED.position, title = EXCLUDED.title,
+				icon_url = EXCLUDED.icon_url, icon_file = EXCLUDED.icon_file, updated_at = now()`,
+			t.ID, t.NodeID, kindID, t.LinkKey, t.Template, t.Disabled, t.Position, t.Title, t.IconURL, t.IconFile); err != nil {
 			return err
 		}
 		rows, err := tx.Query(ctx, `
 			SELECT t.id, t.node_id, t.link_key, k.key AS kind_key, k.position AS kind_position, t.template,
-				t.disabled, t.position, rfc3339(t.created_at) AS created_at, rfc3339(t.updated_at) AS updated_at,
+				t.disabled, t.position, t.title, t.icon_url, t.icon_file, k.icon AS kind_icon, rfc3339(t.created_at) AS created_at, rfc3339(t.updated_at) AS updated_at,
 				false AS inherited
 			FROM link_templates t
 			JOIN link_kinds k ON k.id = t.kind_id

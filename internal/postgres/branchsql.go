@@ -36,7 +36,7 @@ func UpsertIngestBranch(ctx context.Context, db Execer, projectID uuid.UUID, nam
 			SELECT s
 			FROM unnest(b.sources || ARRAY['ingest']::text[]) s
 			GROUP BY s
-			ORDER BY array_position(ARRAY['forge', 'ingest', 'cluster', 'manual']::text[], s)
+			ORDER BY array_position(ARRAY['forge', 'repository', 'ingest', 'cluster', 'manual']::text[], s)
 		),
 			head_sha = CASE
 				WHEN $4::text IS NOT NULL AND ($5::timestamptz > b.last_activity_at OR b.head_sha IS NULL) THEN $4
@@ -55,7 +55,7 @@ func UpsertForgeBranch(ctx context.Context, db Execer, projectID uuid.UUID, name
 			SELECT s
 			FROM unnest(b.sources || ARRAY['forge']::text[]) s
 			GROUP BY s
-			ORDER BY array_position(ARRAY['forge', 'ingest', 'cluster', 'manual']::text[], s)
+			ORDER BY array_position(ARRAY['forge', 'repository', 'ingest', 'cluster', 'manual']::text[], s)
 		), head_sha = COALESCE($4, b.head_sha), protected = COALESCE($5, b.protected),
 			last_activity_at = CASE
 				WHEN $6::timestamptz IS NOT NULL THEN GREATEST(b.last_activity_at, $6)
@@ -74,7 +74,7 @@ func UpsertClusterBranch(ctx context.Context, db Execer, projectID uuid.UUID, na
 			SELECT s
 			FROM unnest(b.sources || ARRAY['cluster']::text[]) s
 			GROUP BY s
-			ORDER BY array_position(ARRAY['forge', 'ingest', 'cluster', 'manual']::text[], s)
+			ORDER BY array_position(ARRAY['forge', 'repository', 'ingest', 'cluster', 'manual']::text[], s)
 		),
 			head_sha = CASE
 				WHEN $5::timestamptz IS NOT NULL AND $4::text IS NOT NULL THEN $4
@@ -83,5 +83,66 @@ func UpsertClusterBranch(ctx context.Context, db Execer, projectID uuid.UUID, na
 				WHEN $5::timestamptz IS NOT NULL THEN GREATEST(b.last_activity_at, $5)
 				ELSE b.last_activity_at END,
 			gone_at = NULL, updated_at = now()`, uuid.Must(uuid.NewV7()), projectID, name, sha(commit), activity)
+	return err
+}
+
+func SyncRepositoryBranches(ctx context.Context, db Execer, projectID uuid.UUID, heads map[string]string, defaultBranch string) error {
+	ids := make([]uuid.UUID, 0, len(heads))
+	names := make([]string, 0, len(heads))
+	shas := make([]*string, 0, len(heads))
+	for name, head := range heads {
+		ids = append(ids, uuid.Must(uuid.NewV7()))
+		names = append(names, name)
+		shas = append(shas, sha(&head))
+	}
+	if _, err := db.Exec(ctx, `
+		WITH incoming AS (
+			SELECT *
+			FROM unnest($2::uuid[], $3::text[], $4::text[]) AS i(id, name, head)
+		),
+		gone AS (
+			UPDATE branches
+			SET gone_at = now(), updated_at = now()
+			WHERE project_id = $1
+				AND 'repository' = ANY(sources)
+				AND gone_at IS NULL
+				AND name <> ALL($3::text[])
+		)
+		INSERT INTO branches AS b (id, project_id, name, head_sha, sources, last_activity_at)
+		SELECT i.id, $1, i.name, i.head, ARRAY['repository'], now()
+		FROM incoming i
+		ON CONFLICT (project_id, name)
+		DO UPDATE SET sources = ARRAY(
+			SELECT s
+			FROM unnest(b.sources || ARRAY['repository']::text[]) s
+			GROUP BY s
+			ORDER BY array_position(ARRAY['forge', 'repository', 'ingest', 'cluster', 'manual']::text[], s)
+		), head_sha = COALESCE(EXCLUDED.head_sha, b.head_sha),
+			last_activity_at = CASE
+				WHEN EXCLUDED.head_sha IS DISTINCT FROM b.head_sha THEN now()
+				ELSE b.last_activity_at END,
+			gone_at = NULL, updated_at = now()`, projectID, ids, names, shas); err != nil {
+		return err
+	}
+	if defaultBranch == "" {
+		return nil
+	}
+	_, err := db.Exec(ctx, `
+		UPDATE branches b
+		SET is_default = true, updated_at = now()
+		WHERE b.project_id = $1
+			AND b.name = $2
+			AND NOT EXISTS (
+				SELECT 1
+				FROM nodes n
+				WHERE n.id = $1
+					AND n.default_branch IS NOT NULL
+			)
+			AND NOT EXISTS (
+				SELECT 1
+				FROM branches d
+				WHERE d.project_id = $1
+					AND d.is_default
+			)`, projectID, defaultBranch)
 	return err
 }

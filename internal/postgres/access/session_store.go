@@ -30,7 +30,7 @@ func (s *SessionStore) FindValid(ctx context.Context, tokenHash [32]byte, idleTi
 	var stale bool
 	row := s.pool.QueryRow(ctx, `
 		SELECT s.id AS session_id, s.last_seen_at < now() - interval '60 seconds' AS stale, s.method, u.id,
-			u.email, u.display_name, u.status, u.is_superadmin, u.password_hash IS NOT NULL AS has_password,
+			u.email, u.display_name, u.status, u.is_superadmin, u.is_service, u.password_hash IS NOT NULL AS has_password,
 			rfc3339(u.created_at) AS created_at, rfc3339(u.updated_at) AS updated_at
 		FROM sessions s
 		JOIN users u ON u.id = s.user_id
@@ -40,7 +40,7 @@ func (s *SessionStore) FindValid(ctx context.Context, tokenHash [32]byte, idleTi
 			AND u.status = 'active'`, tokenHash[:], secs(idleTimeoutSecs))
 	var u domain.User
 	var st string
-	err := row.Scan(&found.SessionID, &stale, &found.Method, &u.ID, &u.Email, &u.DisplayName, &st, &u.IsSuperadmin, &u.HasPassword, &u.CreatedAt, &u.UpdatedAt)
+	err := row.Scan(&found.SessionID, &stale, &found.Method, &u.ID, &u.Email, &u.DisplayName, &st, &u.IsSuperadmin, &u.IsService, &u.HasPassword, &u.CreatedAt, &u.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}

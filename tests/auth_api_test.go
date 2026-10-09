@@ -30,7 +30,7 @@ func TestLoginNormalizesTheEmailAndReturnsTheUser(t *testing.T) {
 	created := body["created_at"].(string)
 	eq(t, len(created) == 20 && strings.HasSuffix(created, "Z") && created[10:11] == "T", true, "RFC 3339 UTC: "+created)
 	eq(t, strings.HasPrefix(r.text(), `{"id":"`), true, r.text())
-	contains(t, r.text(), `","email":"ann@example.com","display_name":"ann","status":"active","is_superadmin":false,"has_password":true,"created_at":"`)
+	contains(t, r.text(), `","email":"ann@example.com","display_name":"ann","status":"active","is_superadmin":false,"is_service":false,"has_password":true,"created_at":"`)
 }
 
 func TestWrongPasswordAndUnknownEmailLookTheSame(t *testing.T) {

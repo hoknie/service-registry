@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import type { Locale } from "@/i18n/config";
 import type { Messages } from "@/i18n/messages";
 import { ago, when } from "@/i18n/time";
@@ -44,7 +46,17 @@ export function TokenTable({ tokens, locale, labels, showOwner, onRevoke }: Prop
         {tokens.map((tok) => (
           <Tr key={tok.id}>
             <Td className="font-medium text-ink">{tok.name}</Td>
-            {showOwner && <Td className="text-ink-2">{tok.user_email}</Td>}
+            {showOwner && (
+              <Td className="text-ink-2">
+                {tok.user_id ? (
+                  <Link href={`/${locale}/admin/users/user?id=${tok.user_id}`} className="hover:text-signal hover:underline">
+                    {tok.user_email}
+                  </Link>
+                ) : (
+                  tok.user_email
+                )}
+              </Td>
+            )}
             <Td>
               <code className="text-ink">{tok.prefix}…</code>
             </Td>

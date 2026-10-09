@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, ChevronDown, CircleMinus, ScanSearch, TriangleAlert, XCircle } from "lucide-react";
+import { BookOpen, CheckCircle2, ChevronDown, CircleMinus, ScanSearch, TriangleAlert, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useEffect, useMemo, useState } from "react";
@@ -210,9 +210,19 @@ export function ScansAdmin({ locale, labels: t }: { locale: Locale; labels: Labe
                         {first && <p className="mt-1 max-w-[18rem] truncate text-xs text-muted">{scanCodeText(codes, first, s.source).title}</p>}
                       </Td>
                       <Td>
-                        <Link href={catalogHref(locale, s.project.id, "docs")} className="font-medium text-ink hover:underline">
-                          {s.project.name}
-                        </Link>
+                        <span className="flex items-center gap-1.5">
+                          <Link href={catalogHref(locale, s.project.id)} className="font-medium text-ink hover:underline">
+                            {s.project.name}
+                          </Link>
+                          <Link
+                            href={catalogHref(locale, s.project.id, "docs")}
+                            className="text-muted hover:text-signal"
+                            aria-label={t.columns.docs}
+                            title={t.columns.docs}
+                          >
+                            <BookOpen aria-hidden="true" className="size-3.5" />
+                          </Link>
+                        </span>
                         <span className="block font-mono text-xs text-muted">{s.project.path}</span>
                       </Td>
                       <Td className="hidden md:table-cell">

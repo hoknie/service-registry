@@ -50,6 +50,21 @@ func (s *GroupStore) List(ctx context.Context, page domain.PageRequest) (domain.
 	return domain.Page[domain.Group]{Items: items, Total: uint64(max(total, 0)), Limit: page.Limit, Offset: page.Offset}, nil
 }
 
+func (s *GroupStore) ForUser(ctx context.Context, userID uuid.UUID) ([]domain.Group, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT g.id, g.name, (SELECT count(*) FROM group_members m WHERE m.group_id = g.id) AS member_count,
+			rfc3339(g.created_at) AS created_at, rfc3339(g.updated_at) AS updated_at
+		FROM groups g
+		JOIN group_members gm ON gm.group_id = g.id
+		WHERE gm.user_id = $1
+		ORDER BY lower(g.name), g.id`, userID)
+	if err != nil {
+		return nil, dbErr(err)
+	}
+	items, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (domain.Group, error) { return scanGroup(r) })
+	return items, dbErr(err)
+}
+
 func (s *GroupStore) Find(ctx context.Context, id uuid.UUID) (*domain.GroupDetails, error) {
 	group, err := scanGroup(s.pool.QueryRow(ctx, `
 		SELECT g.id, g.name, (SELECT count(*) FROM group_members m WHERE m.group_id = g.id) AS member_count,

@@ -33,7 +33,31 @@ func IssueToken(ctx context.Context, state *State, p Principal, in access.Create
 	if err := requireSession(p); err != nil {
 		return IssuedToken{}, err
 	}
-	valid, err := access.ValidateCreateToken(in, p.IsSuperadmin, state.Config.Pat.MaxLifetimeDays)
+	return issueFor(ctx, state, p.UserID, p.IsSuperadmin, in)
+}
+
+func IssueUserToken(ctx context.Context, state *State, p Principal, userID uuid.UUID, in access.CreateToken) (IssuedToken, error) {
+	if err := requireSession(p); err != nil {
+		return IssuedToken{}, err
+	}
+	if err := RequireSuperadmin(p); err != nil {
+		return IssuedToken{}, err
+	}
+	user, err := state.Users.Find(ctx, userID)
+	if err != nil {
+		return IssuedToken{}, apperr.Wrap(err)
+	}
+	if user == nil {
+		return IssuedToken{}, apperr.New(apperr.NotFound)
+	}
+	if user.Status != access.StatusActive {
+		return IssuedToken{}, apperr.Wrap(access.ConflictUserDisabled)
+	}
+	return issueFor(ctx, state, user.ID, user.IsSuperadmin, in)
+}
+
+func issueFor(ctx context.Context, state *State, userID uuid.UUID, superadmin bool, in access.CreateToken) (IssuedToken, error) {
+	valid, err := access.ValidateCreateToken(in, superadmin, state.Config.Pat.MaxLifetimeDays)
 	if err != nil {
 		return IssuedToken{}, apperr.Wrap(err)
 	}
@@ -42,7 +66,7 @@ func IssueToken(ctx context.Context, state *State, p Principal, in access.Create
 		return IssuedToken{}, apperr.Internalf("no randomness: %v", err)
 	}
 	token, err := state.Tokens.Insert(ctx, access.NewToken{
-		ID: uuid.Must(uuid.NewV7()), UserID: p.UserID, Name: valid.Name, Prefix: fresh.Prefix,
+		ID: uuid.Must(uuid.NewV7()), UserID: userID, Name: valid.Name, Prefix: fresh.Prefix,
 		Hash: fresh.Hash, Scopes: valid.Scopes, ExpiresInDays: valid.ExpiresInDays,
 	})
 	if err != nil {

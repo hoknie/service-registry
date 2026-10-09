@@ -20,7 +20,7 @@ import { Select } from "../ui/Select";
 import { Message } from "../ui/Message";
 import { Panel } from "../ui/Panel";
 import { SkeletonTable } from "../ui/Skeleton";
-import { LinkIcon } from "./LinkIcon";
+import { Glyph } from "./LinkIcons";
 import { kindName, linkQuery, statusTone } from "./shared";
 
 type Props = {
@@ -109,10 +109,10 @@ export function LinksPanel({ projectId, branch, kinds, locale, labels }: Props) 
           {items.map((l) => {
             const id = `${l.link_key}/${l.service}/${l.environment}`;
             const kind = kinds.find((k) => k.key === l.kind_key);
-            const name = kindName(kinds, l.kind_key, locale);
+            const name = l.title ?? kindName(kinds, l.kind_key, locale);
             return (
               <li key={id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2.5">
-                <LinkIcon icon={kind?.icon} className={l.url ? "text-ink-2" : undefined} />
+                <Glyph icon={l.icon} kindIcon={kind?.icon} className={l.url ? undefined : "opacity-45 grayscale"} />
                 <span className="min-w-0 flex-1">
                   {l.url ? (
                     <a

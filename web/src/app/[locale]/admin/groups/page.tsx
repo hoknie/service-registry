@@ -13,7 +13,7 @@ export default async function GroupsPage({ params }: { params: Promise<{ locale:
   return (
     <RequireAuth locale={locale} labels={m.guard} superadmin>
       <Crumbs items={[{ label: m.header.nav.admin }, { label: m.header.nav.groups }]} />
-      <GroupsAdmin labels={m.admin} />
+      <GroupsAdmin locale={locale} labels={m.admin} />
     </RequireAuth>
   );
 }

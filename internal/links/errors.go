@@ -19,6 +19,9 @@ const (
 	TooManyTemplates
 	InvalidProject
 	InvalidVars
+	InvalidTemplateIcon
+	InvalidLinkTitle
+	InvalidIconFormat
 )
 
 func (i Invalid) Code() string {
@@ -45,6 +48,12 @@ func (i Invalid) Code() string {
 		return "validation.invalid_project"
 	case InvalidVars:
 		return "validation.invalid_vars"
+	case InvalidTemplateIcon:
+		return "validation.invalid_link_icon"
+	case InvalidLinkTitle:
+		return "validation.invalid_link_title"
+	case InvalidIconFormat:
+		return "validation.invalid_icon_format"
 	}
 	return "validation.invalid"
 }
@@ -73,6 +82,12 @@ func (i Invalid) Message() string {
 		return "project_id must name a project in this subtree"
 	case InvalidVars:
 		return "vars must be at most 32 pairs with label-like keys and values of at most 1024 characters without control characters"
+	case InvalidTemplateIcon:
+		return `icon must be null, {"url": "https://…"} of at most 2048 characters or {"file": "<uploaded id>"}`
+	case InvalidLinkTitle:
+		return "title must be null or 1 to 100 characters without control characters"
+	case InvalidIconFormat:
+		return "the icon must be a PNG, WebP, ICO or SVG image"
 	}
 	return "invalid input"
 }
@@ -98,6 +113,7 @@ type Conflict int
 const (
 	ConflictKindTaken Conflict = iota + 1
 	ConflictKindInUse
+	ConflictUploadsDisabled
 )
 
 func (c Conflict) Code() string {
@@ -106,6 +122,8 @@ func (c Conflict) Code() string {
 		return "conflict.link_kind_taken"
 	case ConflictKindInUse:
 		return "conflict.link_kind_in_use"
+	case ConflictUploadsDisabled:
+		return "conflict.uploads_disabled"
 	}
 	return "conflict.unknown"
 }
@@ -116,6 +134,8 @@ func (c Conflict) Message() string {
 		return "a link kind with this key already exists"
 	case ConflictKindInUse:
 		return "the link kind is used by a link template"
+	case ConflictUploadsDisabled:
+		return "file uploads are disabled (UPLOADS_DIR=off)"
 	}
 	return "conflict"
 }
@@ -123,8 +143,9 @@ func (c Conflict) Message() string {
 func (c Conflict) Error() string { return c.Message() }
 
 var (
-	ErrNotFound    = errors.New("not found")
-	ErrUnavailable = errors.New("database is unavailable")
+	ErrIconTooLarge = errors.New("the icon is larger than 64 KiB")
+	ErrNotFound     = errors.New("not found")
+	ErrUnavailable  = errors.New("database is unavailable")
 )
 
 type InternalError struct{ Detail string }

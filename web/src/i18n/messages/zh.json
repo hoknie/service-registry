@@ -79,7 +79,9 @@
     "keyValueFormat": "应为 键=值",
     "invalidPattern": "无效的模式",
     "invalidName": "仅限小写字母、数字和连字符",
-    "duplicate": "已添加"
+    "duplicate": "已添加",
+    "labelFormat": "应为 键 或 键=值（键：a-z、0-9、. _ -）",
+    "fixLabels": "请先修正标签再保存"
   },
   "home": {
     "title": "服务注册中心",
@@ -157,7 +159,8 @@
       "oauth_email_unverified": "提供方尚未确认你的邮箱地址。",
       "oauth_link_required": "此账号需先由其所有者在账号设置中关联。",
       "oauth_not_provisioned": "该邮箱没有注册中心账号，请联系管理员。",
-      "oauth_identity_taken": "该提供方账号已关联到其他用户。"
+      "oauth_identity_taken": "该提供方账号已关联到其他用户。",
+      "service_account": "这是服务账号，无法登录。"
     },
     "validation": {
       "invalid_body": "请求格式错误。",
@@ -217,7 +220,10 @@
       "invalid_search": "请输入 1–200 个字符进行搜索。",
       "invalid_knowledge_source": "来源无效：请检查类型、地址或路径。",
       "knowledge_path_not_allowed": "此路径不在服务器允许的目录内。",
-      "invalid_filter": "请检查筛选条件：搜索最多 100 个字符，标签为 键 或 键=值，最多 5 个标签。"
+      "invalid_filter": "请检查筛选条件：搜索最多 100 个字符，标签为 键 或 键=值，最多 5 个标签。",
+      "invalid_link_title": "标题应为 1 到 100 个字符。",
+      "invalid_icon_format": "图标必须是 PNG、WebP、ICO 或 SVG 图片。",
+      "icon_too_large": "图标超过 64 KiB。"
     },
     "conflict": {
       "email_taken": "该邮箱已被其他用户使用。",
@@ -240,7 +246,10 @@
       "membership_managed": "该成员关系来自登录提供方，不能在此移除。",
       "last_login_method": "这是你唯一的登录方式，请先设置密码。",
       "knowledge_not_synced": "只有与 forge 同步的项目才会收集文档。",
-      "local_sources_disabled": "此服务器已关闭本地来源。"
+      "local_sources_disabled": "此服务器已关闭本地来源。",
+      "self_service": "不能将自己的账号设为服务账号。",
+      "user_disabled": "该用户已停用。",
+      "uploads_disabled": "服务器已关闭文件上传。"
     },
     "ingest": {
       "unknown_event_type": "未知的事件类型。",
@@ -448,7 +457,20 @@
         "empty": "没有已关联的账号。",
         "lastLogin": "上次登录"
       },
-      "noPassword": "无密码"
+      "noPassword": "无密码",
+      "page": {
+        "crumb": "用户",
+        "back": "返回用户列表",
+        "notFound": "未找到用户。",
+        "profile": "资料",
+        "superadmin": "超级管理员",
+        "service": "服务账号",
+        "serviceToggle": "服务账号",
+        "serviceHint": "将禁用密码和登录提供方登录，并关闭已打开的会话；令牌继续有效。",
+        "serviceCreateHint": "用于集成：不能登录，令牌由超级管理员签发。密码可选。",
+        "groups": "群组",
+        "noGroups": "不属于任何群组。"
+      }
     },
     "groups": {
       "title": "用户组",
@@ -484,7 +506,14 @@
         "fromProvider": "来自 {provider}",
         "managedHint": "由身份提供方管理：用户登录时更新。"
       },
-      "lead": "用户组代表其全部成员在目录中获得角色。"
+      "lead": "用户组代表其全部成员在目录中获得角色。",
+      "page": {
+        "crumb": "群组",
+        "back": "返回群组列表",
+        "notFound": "未找到群组。",
+        "lead": "成员：{n}",
+        "settings": "群组"
+      }
     },
     "tokens": {
       "title": "令牌",
@@ -690,7 +719,9 @@
       "branches": "分支",
       "links": "链接",
       "docs": "文档",
-      "docsSettings": "文档设置"
+      "docsSettings": "文档设置",
+      "about": "描述",
+      "settings": "设置"
     },
     "create": {
       "title": "添加",
@@ -1098,7 +1129,14 @@
           "previewProject": "预览项目",
           "previewChoose": "选择项目",
           "previewEmpty": "输入模板以查看生成的链接。",
-          "submit": "保存"
+          "submit": "保存",
+          "title": "标题",
+          "titleHint": "可选；显示以替代类型名称。",
+          "icon": "图标",
+          "iconBuiltin": "类型图标",
+          "iconUrl": "按地址",
+          "iconFile": "文件",
+          "iconHint": "PNG、WebP、ICO 或 SVG，最大 64 KiB。"
         },
         "saved": "模板已保存。",
         "disabledDone": "模板已在此停用。",
@@ -1291,6 +1329,36 @@
       "noMatch": "没有符合筛选条件的项目。",
       "reset": "重置筛选",
       "label_aria": "目录树"
+    },
+    "about": {
+      "title": "描述",
+      "empty": "暂无描述。",
+      "add": "添加描述",
+      "text": "文本",
+      "preview": "预览",
+      "markdownHint": "Markdown：标题、列表、链接、表格、代码。HTML 按文本显示。"
+    },
+    "settings": {
+      "menu": "设置分区",
+      "general": "常规",
+      "danger": "危险区域",
+      "moveText": "将节点及其全部内容移动到其他组织或文件夹。",
+      "deleteText": "删除节点。只能删除空节点。",
+      "sections": {
+        "general": "常规",
+        "branches": "分支",
+        "links": "链接",
+        "docs": "文档设置",
+        "keys": "密钥",
+        "access": "访问",
+        "connect": "发送事件",
+        "forge": "Forge"
+      }
+    },
+    "linkIcons": {
+      "missing": "缺少：{vars}",
+      "noUrl": "没有地址",
+      "links": "链接"
     }
   },
   "notFound": {
@@ -1357,7 +1425,8 @@
       "kind": "类型",
       "started": "开始",
       "duration": "耗时",
-      "summary": "摘要"
+      "summary": "摘要",
+      "docs": "文档"
     },
     "summary": {
       "collect": "分支：{branches} · 文件：{files}",

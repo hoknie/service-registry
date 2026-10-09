@@ -15,13 +15,14 @@ export function CatalogBrowser({ locale, labels }: Props) {
   const params = useSearchParams();
   const nodeId = params.get("node");
   const tab = params.get("tab");
+  const section = params.get("section");
   const branch = params.get("branch");
   const doc = params.get("doc");
   const changed = useCallback(() => reloadCatalogTree(), []);
 
   return (
     <section className="min-w-0">
-      <NodeView key={nodeId ?? "top"} id={nodeId} tab={tab} branch={branch} doc={doc} locale={locale} labels={labels} onChanged={changed} />
+      <NodeView key={nodeId ?? "top"} id={nodeId} tab={tab} section={section} branch={branch} doc={doc} locale={locale} labels={labels} onChanged={changed} />
     </section>
   );
 }

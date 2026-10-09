@@ -21,7 +21,7 @@ func status(raw string) (domain.UserStatus, error) {
 func scanUser(row pgx.Row, extra ...any) (domain.User, error) {
 	var u domain.User
 	var st string
-	dest := append([]any{&u.ID, &u.Email, &u.DisplayName, &st, &u.IsSuperadmin, &u.HasPassword, &u.CreatedAt, &u.UpdatedAt}, extra...)
+	dest := append([]any{&u.ID, &u.Email, &u.DisplayName, &st, &u.IsSuperadmin, &u.IsService, &u.HasPassword, &u.CreatedAt, &u.UpdatedAt}, extra...)
 	if err := row.Scan(dest...); err != nil {
 		return domain.User{}, err
 	}
@@ -33,7 +33,7 @@ func scanUser(row pgx.Row, extra ...any) (domain.User, error) {
 func scanUserAfter(row pgx.Row, leading ...any) (domain.User, error) {
 	var u domain.User
 	var st string
-	dest := append(leading, &u.ID, &u.Email, &u.DisplayName, &st, &u.IsSuperadmin, &u.HasPassword, &u.CreatedAt, &u.UpdatedAt)
+	dest := append(leading, &u.ID, &u.Email, &u.DisplayName, &st, &u.IsSuperadmin, &u.IsService, &u.HasPassword, &u.CreatedAt, &u.UpdatedAt)
 	if err := row.Scan(dest...); err != nil {
 		return domain.User{}, err
 	}

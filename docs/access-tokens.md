@@ -15,3 +15,10 @@ Any bad token — malformed, revoked, expired, a disabled user's, a project key 
 `401 auth.invalid_token`; a missing scope is `403 auth.insufficient_scope`. Superadmins find
 leaked tokens by prefix under **Administration → Tokens**. Spec:
 `openspec/specs/access/personal-access-tokens/`.
+
+**Service accounts.** For integrations, create a user with "Service account" (password optional)
+under **Administration → Users**, or turn it on for an existing user. A service account cannot sign
+in with a password or through a login provider (turning it on closes its sessions); it works only
+with tokens, which a superadmin issues on the user's page (**Issue token**, `POST
+/api/v1/users/{id}/tokens`, shown once). Its rights are its roles and groups, like any user. Spec:
+`openspec/specs/access/service-users/`.

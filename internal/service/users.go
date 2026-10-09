@@ -19,6 +19,11 @@ func NewUser(hasher *auth.PasswordHasher, in access.CreateUser) (access.NewUser,
 	if err != nil {
 		return access.NewUser{}, apperr.Wrap(err)
 	}
+	out := access.NewUser{ID: uuid.Must(uuid.NewV7()), Email: email, DisplayName: name, IsSuperadmin: in.IsSuperadmin,
+		IsService: in.IsService}
+	if in.IsService && in.Password == "" {
+		return out, nil
+	}
 	if err := access.ValidatePassword(in.Password); err != nil {
 		return access.NewUser{}, apperr.Wrap(err)
 	}
@@ -26,10 +31,8 @@ func NewUser(hasher *auth.PasswordHasher, in access.CreateUser) (access.NewUser,
 	if err != nil {
 		return access.NewUser{}, apperr.Internalf("%v", err)
 	}
-	return access.NewUser{
-		ID: uuid.Must(uuid.NewV7()), Email: email, DisplayName: name,
-		PasswordHash: hash, IsSuperadmin: in.IsSuperadmin,
-	}, nil
+	out.PasswordHash = hash
+	return out, nil
 }
 
 func CreateUserWith(ctx context.Context, users access.UserStore, hasher *auth.PasswordHasher, in access.CreateUser) (access.User, error) {
@@ -94,6 +97,10 @@ func UpdateUser(ctx context.Context, state *State, p Principal, id uuid.UUID, in
 		changes.Status = &st
 	}
 	changes.IsSuperadmin = in.IsSuperadmin
+	changes.IsService = in.IsService
+	if in.IsService != nil && *in.IsService && id == p.UserID {
+		return access.User{}, apperr.Wrap(access.ConflictSelfService)
+	}
 	user, err := state.Users.Update(ctx, id, changes)
 	if err != nil {
 		return access.User{}, apperr.Wrap(err)

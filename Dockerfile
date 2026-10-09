@@ -28,14 +28,16 @@ COPY migrations ./migrations
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go build -trimpath -ldflags "-s -w" -o /svc-registry ./cmd/svc-registry
+RUN mkdir -p /out/data/uploads
 
 # ---- the image: one process, `svc-registry serve` -----------------------------------------
 FROM scratch
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build /svc-registry /svc-registry
 COPY --from=web /web/out /web
+COPY --from=build --chown=65534:65534 /out/data /data
 USER 65534:65534
 EXPOSE 8080
-ENV HTTP_ADDR=0.0.0.0:8080 WEB_DIST_DIR=/web
+ENV HTTP_ADDR=0.0.0.0:8080 WEB_DIST_DIR=/web UPLOADS_DIR=/data/uploads
 ENTRYPOINT ["/svc-registry"]
 CMD ["serve"]
