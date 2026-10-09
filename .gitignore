@@ -1,0 +1,12 @@
+/bin
+/data
+.env
+.DS_Store
+.idea
+*.log
+.*
+# web (Next.js)
+/web/node_modules
+/web/.next
+/web/out
+/web/next-env.d.ts
