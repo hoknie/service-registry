@@ -1,0 +1,35 @@
+# A job to add to .gitlab-ci.yml after your deploy job (spec ingest/events).
+# Settings → CI/CD → Variables:
+#   SVCR_URL         = https://registry.example.com
+#   SVCR_PROJECT_ID  = <project id from the catalog page>
+#   SVCR_PROJECT_KEY = svcr_… (a key of that project; Masked, Protected)
+register-deployment:
+  stage: deploy
+  image: curlimages/curl:8.11.1
+  needs: [deploy-production]
+  variables:
+    ENVIRONMENT: production
+  script:
+    - |
+      OCCURRED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      curl --fail-with-body --retry 3 --retry-all-errors -X POST \
+        "$SVCR_URL/api/v1/ingest/projects/$SVCR_PROJECT_ID/events" \
+        -H "Authorization: Bearer $SVCR_PROJECT_KEY" \
+        -H "Content-Type: application/json" \
+        --data @- <<EOF
+      {
+        "type": "service.deployed",
+        "version": 1,
+        "occurred_at": "$OCCURRED_AT",
+        "idempotency_key": "gl-$CI_PIPELINE_ID-$CI_JOB_ID-$ENVIRONMENT",
+        "payload": {
+          "service": "my-service",
+          "version": "$CI_COMMIT_SHORT_SHA",
+          "environment": "$ENVIRONMENT",
+          "commit_sha": "$CI_COMMIT_SHA",
+          "branch": "$CI_COMMIT_REF_NAME",
+          "deployed_by": "$GITLAB_USER_LOGIN",
+          "metadata": { "pipeline_url": "$CI_PIPELINE_URL" }
+        }
+      }
+      EOF

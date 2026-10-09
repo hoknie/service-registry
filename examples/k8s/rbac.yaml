@@ -1,0 +1,56 @@
+# Read-only access of svc-registry to a Kubernetes cluster (spec deploy/clusters, ADR-0040).
+# The registry only lists workloads, their ReplicaSets, pods and jobs — no Secrets, ConfigMaps or
+# logs. Bind the ClusterRole in the namespaces you want observed (RoleBinding, below) or in all of
+# them (replace the RoleBinding with a ClusterRoleBinding).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: svc-registry
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: svc-registry-reader
+  namespace: svc-registry
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: svc-registry-reader
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+    verbs: ["get", "list"]
+  - apiGroups: ["batch"]
+    resources: ["cronjobs", "jobs"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+# One RoleBinding per observed namespace (here: backend).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: svc-registry-reader
+  namespace: backend
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: svc-registry-reader
+subjects:
+  - kind: ServiceAccount
+    name: svc-registry-reader
+    namespace: svc-registry
+---
+# A long-lived token of the ServiceAccount: `kubectl -n svc-registry get secret
+# svc-registry-reader-token -o jsonpath='{.data.token}' | base64 -d` — paste it into the cluster
+# in the registry (Administration → Clusters) or keep it in a file and use file:/path.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: svc-registry-reader-token
+  namespace: svc-registry
+  annotations:
+    kubernetes.io/service-account.name: svc-registry-reader
+type: kubernetes.io/service-account-token
