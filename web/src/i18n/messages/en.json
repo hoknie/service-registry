@@ -1215,7 +1215,10 @@
         "workingTree": "Include uncommitted files of the current branch",
         "workingTreeHint": "The checked-out branch is read from the working copy: new and edited files are collected, files excluded by .gitignore are not.",
         "workingTreeOn": "commits and uncommitted files of the current branch",
-        "workingTreeOff": "commits only"
+        "workingTreeOff": "commits only",
+        "includeIgnored": "Collect files hidden by .gitignore",
+        "includeIgnoredHint": "Files matching the include patterns are collected even when git ignores them; other ignored files stay out. Prefer narrow patterns like openspec/**/*.md.",
+        "includeIgnoredOn": "commits, uncommitted and git-ignored files matching the patterns"
       },
       "onlyReadme": "Only the README at the root is collected — choose folders in the documentation settings.",
       "toSettings": "Open documentation settings",

@@ -101,3 +101,33 @@ func TestValidateNodeSettingsChecksTheSetFields(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestSettingsMayContain(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		include []string
+		dir     string
+		want    bool
+	}{
+		{[]string{"openspec/**/*.md"}, "openspec", true},
+		{[]string{"openspec/**/*.md"}, "openspec/specs/a", true},
+		{[]string{"openspec/**/*.md"}, "target", false},
+		{[]string{"openspec/**/*.md"}, "target/openspec", false},
+		{[]string{"**/*.md"}, "node_modules/x", true},
+		{[]string{"*.md"}, "docs", false},
+		{[]string{"docs/*.md"}, "docs", true},
+		{[]string{"docs/*.md"}, "docs/a", false},
+		{[]string{"docs/**"}, "docs/a/b", true},
+		{[]string{"d?cs/*/x.md"}, "docs/a", true},
+		{[]string{"{docs/a,b}/x.md"}, "c", true},
+		{[]string{"{docs,b}/x.md"}, "c", false},
+		{[]string{"/openspec/*.md"}, "openspec", true},
+		{nil, "docs", false},
+		{nil, "", true},
+	}
+	for _, c := range cases {
+		if got := (Settings{Include: c.include}).MayContain(c.dir); got != c.want {
+			t.Errorf("%v in %q: got %v, want %v", c.include, c.dir, got, c.want)
+		}
+	}
+}

@@ -34,16 +34,17 @@ type Credentials struct {
 }
 
 type Source struct {
-	Kind          SourceKind
-	Forge         string
-	URL           string
-	APIURL        string
-	Path          string
-	Credentials   Credentials
-	Heads         map[string]string
-	DefaultBranch string
-	WorkingTree   bool
-	UpdatedAt     string
+	Kind           SourceKind
+	Forge          string
+	URL            string
+	APIURL         string
+	Path           string
+	Credentials    Credentials
+	Heads          map[string]string
+	DefaultBranch  string
+	WorkingTree    bool
+	IncludeIgnored bool
+	UpdatedAt      string
 }
 
 func (s Source) IsLocal() bool { return s.Kind == SourceLocalDir || s.Kind == SourceLocalGit }
@@ -57,16 +58,17 @@ func (s Source) FullPath() string {
 }
 
 type SourceInput struct {
-	Kind          string
-	Forge         string
-	URL           string
-	APIURL        string
-	Path          string
-	Token         *string
-	Reference     *string
-	HasCredential bool
-	NoCredentials bool
-	WorkingTree   *bool
+	Kind           string
+	Forge          string
+	URL            string
+	APIURL         string
+	Path           string
+	Token          *string
+	Reference      *string
+	HasCredential  bool
+	NoCredentials  bool
+	WorkingTree    *bool
+	IncludeIgnored *bool
 }
 
 type ValidSource struct {
@@ -84,6 +86,10 @@ func ValidateSource(in SourceInput) (ValidSource, error) {
 		return ValidSource{}, InvalidSource
 	}
 	out.WorkingTree = out.Kind == SourceLocalGit && (in.WorkingTree == nil || *in.WorkingTree)
+	out.IncludeIgnored = in.IncludeIgnored != nil && *in.IncludeIgnored
+	if out.IncludeIgnored && !out.WorkingTree {
+		return ValidSource{}, InvalidSource
+	}
 	switch out.Kind {
 	case SourceRemote:
 		if !forges[in.Forge] || strings.TrimSpace(in.Path) != "" {

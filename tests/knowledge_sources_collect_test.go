@@ -153,3 +153,28 @@ func TestLocalGitCollectsTheWorkingTreeOfTheCheckedOutBranch(t *testing.T) {
 	a.collect()
 	eq(t, a.lastOf(a.project, branch, "commit_sha"), head, "commits only")
 }
+
+func TestLocalGitCollectsIgnoredDocumentationOnRequest(t *testing.T) {
+	t.Parallel()
+	a := startSources(t)
+	dir := filepath.Join(a.root, "repo")
+	g := newGitRepo(t, dir)
+	head := g.commit(map[string]string{"README.md": "# Repo", ".gitignore": "*.md\n"})
+	writeFile(t, filepath.Join(dir, "openspec", "specs", "a", "spec.md"), "## Purpose\nKept out of git.")
+	a.useSource(a.project, "local_git", dir, "openspec/**/*.md", "*.md")
+	a.collect()
+	branch := scalar[string](t, a.db, "SELECT branch FROM knowledge_snapshots WHERE project_id = $1 ORDER BY collected_at DESC LIMIT 1", a.project)
+	files := func(commit string) string {
+		return scalar[string](t, a.db, "SELECT string_agg(f.path, ',' ORDER BY f.path COLLATE \"C\") FROM knowledge_files f "+
+			"JOIN knowledge_snapshots s ON s.id = f.snapshot_id WHERE s.project_id = $1 AND s.commit_sha = $2", a.project, commit)
+	}
+	eq(t, a.lastOf(a.project, branch, "commit_sha"), head, "ignored files stay out")
+	eq(t, files(head), "README.md")
+
+	r := a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "local_git", "path": dir, "include_ignored": true})
+	eq(t, r.status, 200, r.text())
+	a.collect()
+	commit := a.lastOf(a.project, branch, "commit_sha")
+	eq(t, strings.HasPrefix(commit, head+"+worktree:sha256:"), true, commit)
+	eq(t, files(commit), "README.md,openspec/specs/a/spec.md")
+}

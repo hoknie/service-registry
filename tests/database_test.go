@@ -85,10 +85,10 @@ func TestEmbeddedMigrationsApplyThroughTheBinary(t *testing.T) {
 	tdb := testsupport.NewTestDB(t)
 	code, out, errOut := run(t, []string{"db:migrate"}, "", "DATABASE_URL", tdb.URL)
 	eq(t, code, 0, errOut)
-	contains(t, out, "applied 45 migration(s)")
+	contains(t, out, "applied 46 migration(s)")
 	versions, err := embedded(t).Versions()
 	must(t, err)
-	eq(t, len(versions), 45)
+	eq(t, len(versions), 46)
 	_, out, _ = run(t, []string{"db:migrate"}, "", "DATABASE_URL", tdb.URL)
 	contains(t, out, "applied 0 migration(s)")
 	code, out, errOut = run(t, []string{"db:rollback", "--count=4"}, "", "DATABASE_URL", tdb.URL)
@@ -165,7 +165,7 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	m := embedded(t)
 	n, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	eq(t, n, 45)
+	eq(t, n, 46)
 	knowledge := []string{"knowledge_blobs", "knowledge_files", "knowledge_settings", "knowledge_snapshots"}
 	oauth := []string{"oauth_login_states", "user_identities"}
 	deploy := []string{"cluster_workloads", "clusters", "environments"}
@@ -190,6 +190,10 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	slices.Sort(everything)
 	withScans := append([]string{"knowledge_scans"}, everything...)
 	slices.Sort(withScans)
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withScans, ","))
+	n, err = m.Rollback(ctx, tdb.Pool, 1)
+	must(t, err)
+	eq(t, n, 1)
 	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withScans, ","))
 	n, err = m.Rollback(ctx, tdb.Pool, 1)
 	must(t, err)
@@ -263,13 +267,13 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	must(t, err)
 	eq(t, n, 3)
 	eq(t, strings.Join(embeddedTables(t, tdb), ","), "group_members,groups,sessions,users")
-	n, err = m.Rollback(ctx, tdb.Pool, 45)
+	n, err = m.Rollback(ctx, tdb.Pool, 46)
 	must(t, err)
 	eq(t, n, 4)
 	eq(t, len(embeddedTables(t, tdb)), 0)
 	n, err = m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	eq(t, n, 45)
+	eq(t, n, 46)
 }
 
 func execErr(t *testing.T, tdb *testsupport.TestDB, query string, args ...any) string {
@@ -388,7 +392,7 @@ func TestBranchesTableHoldsItsRulesAndBackfillsDefaults(t *testing.T) {
 	m := embedded(t)
 	_, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	_, err = m.Rollback(ctx, tdb.Pool, 29)
+	_, err = m.Rollback(ctx, tdb.Pool, 30)
 	must(t, err)
 	org, project, other := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, slug, name) VALUES ($1, 'organization', 'o', 'O')", org)
@@ -396,7 +400,7 @@ func TestBranchesTableHoldsItsRulesAndBackfillsDefaults(t *testing.T) {
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, parent_id, slug, name) VALUES ($1, 'project', $2, 'q', 'Q')", other, org)
 	n, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	eq(t, n, 29)
+	eq(t, n, 30)
 	eq(t, scalar[string](t, tdb, "SELECT name FROM branches WHERE project_id = $1 AND is_default", project), "main")
 	eq(t, scalar[string](t, tdb, "SELECT substr(id::text, 15, 1) FROM branches"), "7", "UUID v7")
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM branches"), int64(1))
@@ -492,7 +496,7 @@ func TestClusterTablesHoldTheirRulesWithoutTheService(t *testing.T) {
 		"VALUES ($1, $2, 'api', 'production', '1.0.0', now(), 'manual')", uuid.Must(uuid.NewV7()), project), "service_deployments_source_check")
 	execSQL(t, tdb, "INSERT INTO branches (id, project_id, name, sources) VALUES ($1, $2, 'main', '{cluster}')", uuid.Must(uuid.NewV7()), project)
 	m := embedded(t)
-	if _, err := m.Rollback(ctx, tdb.Pool, 17); err == nil {
+	if _, err := m.Rollback(ctx, tdb.Pool, 18); err == nil {
 		t.Fatal("branches rollback with a cluster source succeeded")
 	}
 }
@@ -506,7 +510,7 @@ func TestDeploymentsFromClustersBlockTheSourceRollback(t *testing.T) {
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, parent_id, slug, name) VALUES ($1, 'project', $2, 'p', 'P')", project, org)
 	execSQL(t, tdb, "INSERT INTO service_deployments (id, project_id, service, environment, version, occurred_at, source) "+
 		"VALUES ($1, $2, 'api', 'production', '1.0.0', now(), 'cluster')", uuid.Must(uuid.NewV7()), project)
-	if _, err := embedded(t).Rollback(ctx, tdb.Pool, 18); err == nil {
+	if _, err := embedded(t).Rollback(ctx, tdb.Pool, 19); err == nil {
 		t.Fatal("rollback of service_deployments.source succeeded")
 	}
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM service_deployments WHERE source = 'cluster'"), int64(1), "nothing lost")
@@ -531,7 +535,7 @@ func TestProviderLoginTablesHoldTheirRules(t *testing.T) {
 	contains(t, execErr(t, tdb, "INSERT INTO group_members (id, group_id, user_id, source) VALUES ($1, $2, $3, 'idp')",
 		uuid.Must(uuid.NewV7()), group, user), "group_members_source_check")
 	execSQL(t, tdb, "INSERT INTO group_members (id, group_id, user_id, source) VALUES ($1, $2, $3, 'oauth:corp')", uuid.Must(uuid.NewV7()), group, user)
-	if _, err := embedded(t).Rollback(context.Background(), tdb.Pool, 13); err == nil {
+	if _, err := embedded(t).Rollback(context.Background(), tdb.Pool, 14); err == nil {
 		t.Fatal("rollback with managed memberships succeeded")
 	}
 }
@@ -540,7 +544,7 @@ func TestUsersWithoutPasswordBlockTheRollback(t *testing.T) {
 	t.Parallel()
 	tdb := migrated(t)
 	execSQL(t, tdb, "INSERT INTO users (id, email, display_name, password_hash) VALUES ($1, 'a@example.com', 'A', NULL)", uuid.Must(uuid.NewV7()))
-	if _, err := embedded(t).Rollback(context.Background(), tdb.Pool, 14); err == nil {
+	if _, err := embedded(t).Rollback(context.Background(), tdb.Pool, 15); err == nil {
 		t.Fatal("rollback with users without a password succeeded")
 	}
 }
@@ -596,7 +600,7 @@ func TestKnowledgePatternsMoveAndHoldTheirRules(t *testing.T) {
 	m := embedded(t)
 	_, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	_, err = m.Rollback(ctx, tdb.Pool, 6)
+	_, err = m.Rollback(ctx, tdb.Pool, 7)
 	must(t, err)
 	org, docs, plain := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, slug, name) VALUES ($1, 'organization', 'o', 'O')", org)
@@ -612,7 +616,7 @@ func TestKnowledgePatternsMoveAndHoldTheirRules(t *testing.T) {
 		"AND table_name = 'knowledge_settings' AND column_name IN ('include', 'exclude', 'branches')"), int64(0))
 	contains(t, execErr(t, tdb, "INSERT INTO knowledge_patterns (node_id, include_set, include) VALUES ($1, false, '{x}')", org), "knowledge_patterns_include_check")
 	execSQL(t, tdb, "INSERT INTO knowledge_patterns (node_id, exclude) VALUES ($1, '{tmp/**}')", org)
-	_, err = m.Rollback(ctx, tdb.Pool, 6)
+	_, err = m.Rollback(ctx, tdb.Pool, 7)
 	must(t, err)
 	eq(t, scalar[bool](t, tdb, "SELECT include = '{docs/**}' AND exclude = '{}' AND branches = '{release/*}' FROM knowledge_settings WHERE project_id = $1", docs), true)
 	eq(t, scalar[bool](t, tdb, "SELECT include IS NULL AND exclude = '{}' FROM knowledge_settings WHERE project_id = $1", plain), true)
@@ -629,7 +633,7 @@ func TestKnowledgeIndexHoldsStemsAndExactForms(t *testing.T) {
 	m := embedded(t)
 	_, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	_, err = m.Rollback(ctx, tdb.Pool, 5)
+	_, err = m.Rollback(ctx, tdb.Pool, 6)
 	must(t, err)
 	execSQL(t, tdb, "INSERT INTO knowledge_blobs (sha256, content, bytes) VALUES (sha256('a'::bytea), 'deployments', 11)")
 	eq(t, scalar[bool](t, tdb, "SELECT tsv @@ to_tsquery('russian', 'deploy') FROM knowledge_blobs"), false, "exact forms only")
@@ -640,7 +644,7 @@ func TestKnowledgeIndexHoldsStemsAndExactForms(t *testing.T) {
 	branch := "SELECT tsv @@ to_tsquery($1::regconfig, $2) FROM knowledge_blobs WHERE content LIKE 'ветка%'"
 	eq(t, scalar[bool](t, tdb, branch, "russian", "ветки"), true, "stem")
 	eq(t, scalar[bool](t, tdb, branch, "simple", "по"), true, "exact stop word")
-	_, err = m.Rollback(ctx, tdb.Pool, 5)
+	_, err = m.Rollback(ctx, tdb.Pool, 6)
 	must(t, err)
 	eq(t, scalar[bool](t, tdb, branch, "russian", "ветки"), false, "rolled back")
 	eq(t, scalar[bool](t, tdb, branch, "simple", "ветка"), true)
@@ -675,9 +679,9 @@ func TestRFC3339FunctionFormatsInUTC(t *testing.T) {
 	eq(t, scalar[string](t, tdb, "SELECT rfc3339('2025-06-01 12:00:00.75+03'::timestamptz)"), "2025-06-01T09:00:00Z")
 	eq(t, scalar[bool](t, tdb, "SELECT rfc3339(NULL::timestamptz) IS NULL"), true)
 	eq(t, scalar[bool](t, tdb, "SELECT rfc3339(now()) = to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')"), true)
-	n, err := m.Rollback(ctx, tdb.Pool, 3)
+	n, err := m.Rollback(ctx, tdb.Pool, 4)
 	must(t, err)
-	eq(t, n, 3)
+	eq(t, n, 4)
 	contains(t, execErr(t, tdb, "SELECT rfc3339(now())"), "rfc3339")
 }
 
@@ -696,9 +700,9 @@ func TestKnowledgeScansTableHoldsItsRules(t *testing.T) {
 	contains(t, execErr(t, tdb, insert, uuid.Must(uuid.NewV7()), project, "broken"), "knowledge_scans_status_check")
 	execSQL(t, tdb, "DELETE FROM nodes WHERE id = $1", project)
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM knowledge_scans"), int64(0), "cascade")
-	n, err := m.Rollback(ctx, tdb.Pool, 2)
+	n, err := m.Rollback(ctx, tdb.Pool, 3)
 	must(t, err)
-	eq(t, n, 2)
+	eq(t, n, 3)
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'knowledge_scans'"), int64(0))
 	eq(t, scalar[string](t, tdb, "SELECT rfc3339('2025-06-01 12:00:00+00'::timestamptz)"), "2025-06-01T12:00:00Z")
 }
@@ -710,7 +714,7 @@ func TestKnowledgeSourcesWorkingTreeColumn(t *testing.T) {
 	m := embedded(t)
 	_, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	_, err = m.Rollback(ctx, tdb.Pool, 1)
+	_, err = m.Rollback(ctx, tdb.Pool, 2)
 	must(t, err)
 	org, project := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, slug, name) VALUES ($1, 'organization', 'o', 'O')", org)
@@ -719,9 +723,37 @@ func TestKnowledgeSourcesWorkingTreeColumn(t *testing.T) {
 	_, err = m.Migrate(ctx, tdb.Pool)
 	must(t, err)
 	eq(t, scalar[bool](t, tdb, "SELECT working_tree FROM knowledge_sources WHERE project_id = $1", project), true)
+	n, err := m.Rollback(ctx, tdb.Pool, 2)
+	must(t, err)
+	eq(t, n, 2)
+	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() "+
+		"AND table_name = 'knowledge_sources' AND column_name = 'working_tree'"), int64(0))
+}
+
+func TestKnowledgeSourcesIncludeIgnoredColumn(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	tdb := testsupport.NewTestDB(t)
+	m := embedded(t)
+	_, err := m.Migrate(ctx, tdb.Pool)
+	must(t, err)
+	_, err = m.Rollback(ctx, tdb.Pool, 1)
+	must(t, err)
+	org, project, dir := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
+	execSQL(t, tdb, "INSERT INTO nodes (id, kind, slug, name) VALUES ($1, 'organization', 'o', 'O')", org)
+	execSQL(t, tdb, "INSERT INTO nodes (id, kind, parent_id, slug, name) VALUES ($1, 'project', $2, 'p', 'P')", project, org)
+	execSQL(t, tdb, "INSERT INTO nodes (id, kind, parent_id, slug, name) VALUES ($1, 'project', $2, 'd', 'D')", dir, org)
+	execSQL(t, tdb, "INSERT INTO knowledge_sources (project_id, kind, path) VALUES ($1, 'local_git', '/srv/repo')", project)
+	execSQL(t, tdb, "INSERT INTO knowledge_sources (project_id, kind, path) VALUES ($1, 'local_dir', '/srv/docs')", dir)
+	_, err = m.Migrate(ctx, tdb.Pool)
+	must(t, err)
+	eq(t, scalar[bool](t, tdb, "SELECT include_ignored FROM knowledge_sources WHERE project_id = $1", project), false)
+	execSQL(t, tdb, "UPDATE knowledge_sources SET include_ignored = true WHERE project_id = $1", project)
+	contains(t, execErr(t, tdb, "UPDATE knowledge_sources SET working_tree = false WHERE project_id = $1", project), "check")
+	contains(t, execErr(t, tdb, "UPDATE knowledge_sources SET include_ignored = true WHERE project_id = $1", dir), "check")
 	n, err := m.Rollback(ctx, tdb.Pool, 1)
 	must(t, err)
 	eq(t, n, 1)
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() "+
-		"AND table_name = 'knowledge_sources' AND column_name = 'working_tree'"), int64(0))
+		"AND table_name = 'knowledge_sources' AND column_name IN ('include_ignored', 'working_tree')"), int64(1))
 }

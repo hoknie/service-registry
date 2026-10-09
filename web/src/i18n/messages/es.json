@@ -1215,7 +1215,10 @@
         "workingTree": "Incluir archivos sin confirmar de la rama actual",
         "workingTreeHint": "La rama actual se lee de la copia de trabajo: se recopilan archivos nuevos y modificados, no los excluidos por .gitignore.",
         "workingTreeOn": "commits y archivos sin confirmar de la rama actual",
-        "workingTreeOff": "solo commits"
+        "workingTreeOff": "solo commits",
+        "includeIgnored": "Recopilar archivos ocultos por .gitignore",
+        "includeIgnoredHint": "Los archivos que coinciden con los patrones de inclusión se recopilan aunque git los ignore; los demás ignorados no. Mejor patrones acotados como openspec/**/*.md.",
+        "includeIgnoredOn": "commits, archivos sin confirmar y archivos ignorados por git según los patrones"
       },
       "onlyReadme": "Solo se recopila el README de la raíz: elige carpetas en los ajustes de documentación.",
       "toSettings": "Abrir ajustes de documentación",

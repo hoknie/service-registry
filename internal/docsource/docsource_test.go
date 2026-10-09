@@ -262,3 +262,59 @@ func TestLocalGitWorkingTreeOfTheCheckedOutBranch(t *testing.T) {
 		t.Fatal("a detached HEAD reads commits", detached, def)
 	}
 }
+
+func TestLocalGitIgnoredFilesMatchingTheIncludePatterns(t *testing.T) {
+	ctx := context.Background()
+	root := realDir(t)
+	dir := filepath.Join(root, "repo")
+	repo, err := git.PlainInit(dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wt, _ := repo.Worktree()
+	head := commit(t, wt, dir, map[string]string{"README.md": "# Repo", ".gitignore": "*.md\n/target/\n"}, "first")
+	write(t, filepath.Join(dir, "openspec/specs/a/spec.md"), "ignored spec")
+	write(t, filepath.Join(dir, "other.md"), "ignored root file")
+	write(t, filepath.Join(dir, "target/notes.md"), "build output")
+	if err := os.Chmod(filepath.Join(dir, "target"), 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(filepath.Join(dir, "target"), 0o755) })
+	settings := knowledge.Settings{Include: []string{"openspec/**/*.md", "*.md"}}
+	f := &Factory{Roots: []string{root}, MaxFileBytes: 1 << 20}
+	open := func(include bool) knowledge.Reader {
+		src := knowledge.Source{Kind: knowledge.SourceLocalGit, Path: dir, WorkingTree: true, IncludeIgnored: include}
+		r, err := f.Open(ctx, src, settings, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+
+	plain := open(false)
+	committed, _, err := plain.Tree(ctx, "master", head.String())
+	if err != nil || len(committed) != 2 {
+		t.Fatalf("README.md is committed despite *.md: %v %v", committed, err)
+	}
+	heads, _, err := plain.Heads(ctx)
+	if err != nil || heads["master"] != head.String() {
+		t.Fatalf("a committed file under an ignore rule is not ignored, the rest stays out: %v %v", heads, err)
+	}
+
+	r := open(true)
+	heads, _, err = r.Heads(ctx)
+	if err != nil || !strings.HasPrefix(heads["master"], head.String()+"+worktree:sha256:") {
+		t.Fatalf("ignored target/ must not be walked: %v %v", heads, err)
+	}
+	tree, _, err := r.Tree(ctx, "master", heads["master"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var paths []string
+	for _, e := range tree {
+		paths = append(paths, e.Path)
+	}
+	if got := strings.Join(paths, ","); got != "README.md,openspec/specs/a/spec.md,other.md" {
+		t.Fatalf("got %s", got)
+	}
+}

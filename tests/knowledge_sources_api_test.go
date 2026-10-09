@@ -164,3 +164,31 @@ func TestSourceWorkingTreeFlag(t *testing.T) {
 	eq(t, r.status, 200, r.text())
 	eq(t, r.json(t)["working_tree"], any(false), "other kinds report false")
 }
+
+func TestSourceIncludeIgnoredFlag(t *testing.T) {
+	t.Parallel()
+	a := startSources(t)
+	repo := filepath.Join(a.root, "repo")
+	newGitRepo(t, repo).commit(map[string]string{"README.md": "# Repo"})
+	r := a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "local_git", "path": repo})
+	eq(t, r.status, 200, r.text())
+	eq(t, r.json(t)["include_ignored"], any(false), "off by default")
+	r = a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "local_git", "path": repo, "include_ignored": true})
+	eq(t, r.status, 200, r.text())
+	eq(t, r.json(t)["include_ignored"], any(true))
+	eq(t, a.get(sourcePath(a.project), a.admin).json(t)["include_ignored"], any(true), "stored")
+	eq(t, a.send("POST", sourcePath(a.project)+"/check", a.admin, obj{"kind": "local_git", "path": repo, "include_ignored": true}).status, 200)
+
+	r = a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "local_git", "path": repo, "working_tree": false, "include_ignored": true})
+	eq(t, r.status, 400)
+	eq(t, code(t, r), any("validation.invalid_knowledge_source"))
+	eq(t, a.get(sourcePath(a.project), a.admin).json(t)["include_ignored"], any(true), "unchanged")
+
+	dir := filepath.Join(a.root, "docs")
+	writeFile(t, filepath.Join(dir, "README.md"), "# Docs")
+	r = a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "local_dir", "path": dir, "include_ignored": true})
+	eq(t, r.status, 400)
+	eq(t, code(t, r), any("validation.invalid_knowledge_source"))
+	r = a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "local_dir", "path": dir})
+	eq(t, r.json(t)["include_ignored"], any(false), "other kinds report false")
+}

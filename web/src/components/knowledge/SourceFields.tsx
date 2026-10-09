@@ -18,6 +18,7 @@ export type SourceDraft = {
   noToken: boolean;
   path: string;
   workingTree: boolean;
+  includeIgnored: boolean;
 };
 
 export const emptyDraft: SourceDraft = {
@@ -29,6 +30,7 @@ export const emptyDraft: SourceDraft = {
   noToken: false,
   path: "",
   workingTree: true,
+  includeIgnored: false,
 };
 
 export function draftOf(s: KnowledgeSource | null): SourceDraft {
@@ -42,11 +44,14 @@ export function draftOf(s: KnowledgeSource | null): SourceDraft {
     noToken: s.credentials.mode === "none",
     path: s.path ?? "",
     workingTree: s.kind === "local_git" ? s.working_tree : true,
+    includeIgnored: s.kind === "local_git" && s.include_ignored,
   };
 }
 
 export function sourceBody(d: SourceDraft): Record<string, unknown> {
-  if (d.kind === "local_git") return { kind: d.kind, path: d.path, working_tree: d.workingTree };
+  if (d.kind === "local_git") {
+    return { kind: d.kind, path: d.path, working_tree: d.workingTree, include_ignored: d.workingTree && d.includeIgnored };
+  }
   if (d.kind !== "remote") return { kind: d.kind, path: d.path };
   const out: Record<string, unknown> = { kind: d.kind, forge: d.forge, url: d.url, api_url: d.apiUrl };
   if (d.noToken) out.credentials = null;
@@ -72,8 +77,20 @@ export function SourceFields({
         </Field>
         {value.kind === "local_git" && (
           <div className="grid gap-1">
-            <Checkbox label={t.workingTree} checked={value.workingTree} onChange={(e) => set({ workingTree: e.target.checked })} />
+            <Checkbox
+              label={t.workingTree}
+              checked={value.workingTree}
+              onChange={(e) => set({ workingTree: e.target.checked, includeIgnored: e.target.checked && value.includeIgnored })}
+            />
             <p className="pl-6.5 text-xs text-muted">{t.workingTreeHint}</p>
+            <Checkbox
+              label={t.includeIgnored}
+              checked={value.workingTree && value.includeIgnored}
+              disabled={!value.workingTree}
+              onChange={(e) => set({ includeIgnored: e.target.checked })}
+              className="mt-1 has-disabled:cursor-not-allowed has-disabled:opacity-60"
+            />
+            <p className="pl-6.5 text-xs text-muted">{t.includeIgnoredHint}</p>
           </div>
         )}
       </>

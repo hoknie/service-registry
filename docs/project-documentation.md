@@ -33,10 +33,18 @@ project's repository link:
   Branches are read from their commits. The checked-out branch is read from the working copy by
   default ("Include uncommitted files of the current branch"):
   - new and edited files are collected, deleted ones are not;
-  - files excluded by `.gitignore` or `.git/info/exclude` are skipped;
+  - files excluded by `.gitignore` or `.git/info/exclude` are skipped, except files committed to
+    the branch (git keeps tracking them too);
   - such a snapshot shows its commit with the mark "working copy".
 
   Turn the flag off to collect commits only.
+
+  "Collect files hidden by .gitignore" (off by default, needs the working copy flag) collects files
+  that match the include patterns even when git ignores them — for documentation kept out of git,
+  such as `openspec/` in a repository whose `.gitignore` has `*.md`. Other ignored files stay out,
+  and an ignored folder is walked only when an include pattern can match inside it: with
+  `openspec/**/*.md`, `target/` and `node_modules/` are not read at all. Prefer narrow patterns; a
+  pattern like `**/*.md` also picks up ignored dependency folders unless you exclude them.
 
 Local paths must lie inside `KNOWLEDGE_LOCAL_ROOTS` (absolute directories; empty — local sources
 are off), checked by the real path on save and on every collection.
@@ -54,7 +62,8 @@ has:
 - an error with an explanation and a hint what to do;
 - warnings:
   - `collect.no_files_matched` — nothing fits the include patterns; a local git source with
-    "Include uncommitted files" off reads only committed files;
+    "Include uncommitted files" off reads only committed files, and without "Collect files hidden
+    by .gitignore" skips files git ignores;
   - `collect.files_skipped`, `collect.truncated`, `collect.no_branches`, `collect.no_source`.
 
 Filters (project, kind, result, how it started) live in the page address. Repeated runs without

@@ -34,18 +34,19 @@ type SourceCredentials struct {
 }
 
 type KnowledgeSource struct {
-	Kind        *string                     `json:"kind" validate:"required"`
-	Forge       string                      `json:"forge"`
-	URL         string                      `json:"url"`
-	APIURL      string                      `json:"api_url"`
-	Path        string                      `json:"path"`
-	Credentials Optional[SourceCredentials] `json:"credentials"`
-	WorkingTree *bool                       `json:"working_tree"`
+	Kind           *string                     `json:"kind" validate:"required"`
+	Forge          string                      `json:"forge"`
+	URL            string                      `json:"url"`
+	APIURL         string                      `json:"api_url"`
+	Path           string                      `json:"path"`
+	Credentials    Optional[SourceCredentials] `json:"credentials"`
+	WorkingTree    *bool                       `json:"working_tree"`
+	IncludeIgnored *bool                       `json:"include_ignored"`
 }
 
 func (r KnowledgeSource) Input() knowledge.SourceInput {
 	in := knowledge.SourceInput{Kind: *r.Kind, Forge: r.Forge, URL: r.URL, APIURL: r.APIURL, Path: r.Path,
-		HasCredential: r.Credentials.Present, WorkingTree: r.WorkingTree}
+		HasCredential: r.Credentials.Present, WorkingTree: r.WorkingTree, IncludeIgnored: r.IncludeIgnored}
 	if r.Credentials.Present && r.Credentials.Value == nil {
 		in.NoCredentials = true
 	}

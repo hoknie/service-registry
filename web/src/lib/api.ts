@@ -442,6 +442,7 @@ export type KnowledgeSource = {
   path: string | null;
   credentials: { mode: "stored" | "reference" | "none"; fingerprint: string | null };
   working_tree: boolean;
+  include_ignored: boolean;
   updated_at: string;
 };
 

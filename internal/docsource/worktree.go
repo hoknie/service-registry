@@ -27,6 +27,21 @@ type worktree struct {
 	content map[string][]byte
 }
 
+type worktreeOptions struct {
+	includeIgnored bool
+	tracked        map[string]bool
+}
+
+func trackedDirs(tracked map[string]bool) map[string]bool {
+	dirs := map[string]bool{}
+	for p := range tracked {
+		for d := path.Dir(p); d != "." && !dirs[d]; d = path.Dir(d) {
+			dirs[d] = true
+		}
+	}
+	return dirs
+}
+
 func streamBlobSHA(head []byte, size int64, rest io.Reader) (string, error) {
 	h := sha1.New()
 	fmt.Fprintf(h, "blob %d\x00", size)
@@ -37,9 +52,11 @@ func streamBlobSHA(head []byte, size int64, rest io.Reader) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-func readWorktree(ctx context.Context, dir string, settings knowledge.Settings, maxFile int64) (worktree, error) {
+func readWorktree(ctx context.Context, dir string, settings knowledge.Settings, maxFile int64, o worktreeOptions) (worktree, error) {
 	patterns, _ := gitignore.ReadPatterns(osfs.New(dir, osfs.WithBoundOS()), nil)
 	ignored := gitignore.NewMatcher(patterns)
+	keptDirs := trackedDirs(o.tracked)
+	ignoredDirs := map[string]bool{}
 	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return worktree{}, unreadable(err)
@@ -58,15 +75,22 @@ func readWorktree(ctx context.Context, dir string, settings knowledge.Settings, 
 		}
 		parts := strings.Split(p, "/")
 		if e.IsDir() {
-			if e.Name() == ".git" || ignored.Match(parts, true) {
+			if e.Name() == ".git" {
 				return fs.SkipDir
 			}
 			if _, err := root.Lstat(path.Join(p, ".git")); err == nil {
 				return fs.SkipDir
 			}
+			if ignoredDirs[path.Dir(p)] || ignored.Match(parts, true) {
+				if !keptDirs[p] && !(o.includeIgnored && settings.MayContain(p)) {
+					return fs.SkipDir
+				}
+				ignoredDirs[p] = true
+			}
 			return nil
 		}
-		if !e.Type().IsRegular() || ignored.Match(parts, false) || !settings.Collects(p) {
+		skipped := (ignoredDirs[path.Dir(p)] || ignored.Match(parts, false)) && !o.tracked[p]
+		if !e.Type().IsRegular() || (skipped && !o.includeIgnored) || !settings.Collects(p) {
 			return nil
 		}
 		f, err := root.Open(p)

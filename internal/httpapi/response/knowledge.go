@@ -263,14 +263,15 @@ type SourceCredentials struct {
 }
 
 type KnowledgeSource struct {
-	Kind        string            `json:"kind"`
-	Forge       *string           `json:"forge"`
-	URL         *string           `json:"url"`
-	APIURL      *string           `json:"api_url"`
-	Path        *string           `json:"path"`
-	Credentials SourceCredentials `json:"credentials"`
-	WorkingTree bool              `json:"working_tree"`
-	UpdatedAt   string            `json:"updated_at"`
+	Kind           string            `json:"kind"`
+	Forge          *string           `json:"forge"`
+	URL            *string           `json:"url"`
+	APIURL         *string           `json:"api_url"`
+	Path           *string           `json:"path"`
+	Credentials    SourceCredentials `json:"credentials"`
+	WorkingTree    bool              `json:"working_tree"`
+	IncludeIgnored bool              `json:"include_ignored"`
+	UpdatedAt      string            `json:"updated_at"`
 }
 
 func KnowledgeSourceOf(s *knowledge.Source) *KnowledgeSource {
@@ -279,7 +280,7 @@ func KnowledgeSourceOf(s *knowledge.Source) *KnowledgeSource {
 	}
 	return &KnowledgeSource{Kind: string(s.Kind), Forge: nonEmpty(s.Forge), URL: nonEmpty(s.URL), APIURL: nonEmpty(s.APIURL),
 		Path: nonEmpty(s.Path), Credentials: SourceCredentials{Mode: s.Credentials.Mode, Fingerprint: s.Credentials.Fingerprint},
-		WorkingTree: s.WorkingTree, UpdatedAt: s.UpdatedAt}
+		WorkingTree: s.WorkingTree, IncludeIgnored: s.IncludeIgnored, UpdatedAt: s.UpdatedAt}
 }
 
 type SourceCheck struct {

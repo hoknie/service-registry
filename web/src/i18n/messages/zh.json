@@ -1215,7 +1215,10 @@
         "workingTree": "包含当前分支未提交的文件",
         "workingTreeHint": "当前检出的分支从工作区读取：收集新建和修改的文件，跳过 .gitignore 排除的文件。",
         "workingTreeOn": "提交以及当前分支未提交的文件",
-        "workingTreeOff": "仅提交"
+        "workingTreeOff": "仅提交",
+        "includeIgnored": "收集被 .gitignore 隐藏的文件",
+        "includeIgnoredHint": "匹配包含模式的文件即使被 git 忽略也会被收集；其他被忽略的文件不会。建议使用较窄的模式，例如 openspec/**/*.md。",
+        "includeIgnoredOn": "提交、未提交的文件以及按模式匹配的被 git 忽略的文件"
       },
       "onlyReadme": "只收集根目录的 README——请在文档设置中选择目录。",
       "toSettings": "打开文档设置",

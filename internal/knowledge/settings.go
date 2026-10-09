@@ -92,3 +92,48 @@ func (s Settings) CollectsBranch(name, defaultBranch string) bool {
 	}
 	return false
 }
+
+func (s Settings) MayContain(dir string) bool {
+	dir = strings.Trim(path.Clean("/"+dir), "/")
+	if dir == "" {
+		return true
+	}
+	parts := strings.Split(dir, "/")
+	for _, pattern := range s.Include {
+		pattern = strings.TrimPrefix(pattern, "/")
+		if braceSpansSlash(pattern) || patternMayContain(strings.Split(pattern, "/"), parts) {
+			return true
+		}
+	}
+	return false
+}
+
+func patternMayContain(pattern, dir []string) bool {
+	for i, d := range dir {
+		if i < len(pattern) && pattern[i] == "**" {
+			return true
+		}
+		if i >= len(pattern)-1 {
+			return false
+		}
+		if ok, _ := doublestar.Match(pattern[i], d); !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func braceSpansSlash(pattern string) bool {
+	depth := 0
+	for _, r := range pattern {
+		switch {
+		case r == '{':
+			depth++
+		case r == '}' && depth > 0:
+			depth--
+		case r == '/' && depth > 0:
+			return true
+		}
+	}
+	return false
+}

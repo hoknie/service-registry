@@ -15,15 +15,16 @@ import (
 )
 
 type localGit struct {
-	path        string
-	roots       []string
-	settings    knowledge.Settings
-	maxFile     int64
-	workingTree bool
-	dir         string
-	repo        *git.Repository
-	wtHead      string
-	wt          worktree
+	path           string
+	roots          []string
+	settings       knowledge.Settings
+	maxFile        int64
+	workingTree    bool
+	includeIgnored bool
+	dir            string
+	repo           *git.Repository
+	wtHead         string
+	wt             worktree
 }
 
 func (g *localGit) open() error {
@@ -97,11 +98,15 @@ func (g *localGit) Heads(ctx context.Context) (map[string]string, string, error)
 	}
 	g.wtHead = ""
 	if g.checkedOut(heads, def) {
-		wt, err := readWorktree(ctx, g.dir, g.settings, g.maxFile)
+		committed, err := g.commitEntries(heads[def])
 		if err != nil {
 			return nil, "", err
 		}
-		committed, err := g.commitEntries(heads[def])
+		tracked := make(map[string]bool, len(committed))
+		for _, e := range committed {
+			tracked[e.Path] = true
+		}
+		wt, err := readWorktree(ctx, g.dir, g.settings, g.maxFile, worktreeOptions{includeIgnored: g.includeIgnored, tracked: tracked})
 		if err != nil {
 			return nil, "", err
 		}
