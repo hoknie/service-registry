@@ -37,7 +37,7 @@ func (e *Engine) Check(ctx context.Context) error {
 		return ErrNoExtension
 	}
 	if err != nil {
-		return fmt.Errorf("%w: %v", knowledge.ErrSearchUnavailable, err)
+		return fmt.Errorf("%w: %v", knowledge.ErrEngineUnavailable, err)
 	}
 	e.schema = schema
 	return nil
@@ -99,7 +99,7 @@ func (e *Engine) Search(ctx context.Context, q knowledge.EngineQuery) ([]knowled
 	}
 	rows, err := e.pool.Query(ctx, e.query(), projects, branches, q.Vector, e.model, Like(q.Path)+"%", q.Limit+1, q.Offset)
 	if err != nil {
-		return nil, false, fmt.Errorf("%w: %v", knowledge.ErrSearchUnavailable, err)
+		return nil, false, fmt.Errorf("%w: %v", knowledge.ErrEngineUnavailable, err)
 	}
 	hits, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (knowledge.Hit, error) {
 		var h knowledge.Hit
@@ -110,7 +110,7 @@ func (e *Engine) Search(ctx context.Context, q knowledge.EngineQuery) ([]knowled
 		return h, err
 	})
 	if err != nil {
-		return nil, false, fmt.Errorf("%w: %v", knowledge.ErrSearchUnavailable, err)
+		return nil, false, fmt.Errorf("%w: %v", knowledge.ErrEngineUnavailable, err)
 	}
 	more := len(hits) > q.Limit
 	if more {

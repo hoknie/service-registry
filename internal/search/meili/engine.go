@@ -60,7 +60,7 @@ func (e *Engine) DefaultMode() knowledge.Mode {
 func (e *Engine) Handles(knowledge.Mode) bool { return true }
 
 func unavailable(op string, err error) error {
-	return fmt.Errorf("%w: meilisearch %s: %v", knowledge.ErrSearchUnavailable, op, err)
+	return fmt.Errorf("%w: meilisearch %s: %v", knowledge.ErrEngineUnavailable, op, err)
 }
 
 func (e *Engine) wait(ctx context.Context, op string, info *meilisearch.TaskInfo, err error) error {

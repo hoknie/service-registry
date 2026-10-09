@@ -29,10 +29,35 @@ project's repository link:
   SSH keys are not supported.
 - **Local directory** — files as they are on disk; one branch `local`, a new snapshot when the
   content changes.
-- **Local git repository** — a working copy or a bare repository read without the network:
-  branches and commits only, uncommitted changes are not collected.
+- **Local git repository** — a working copy or a bare repository read without the network.
+  Branches are read from their commits. The checked-out branch is read from the working copy by
+  default ("Include uncommitted files of the current branch"):
+  - new and edited files are collected, deleted ones are not;
+  - files excluded by `.gitignore` or `.git/info/exclude` are skipped;
+  - such a snapshot shows its commit with the mark "working copy".
+
+  Turn the flag off to collect commits only.
 
 Local paths must lie inside `KNOWLEDGE_LOCAL_ROOTS` (absolute directories; empty — local sources
 are off), checked by the real path on save and on every collection.
 
 Searching the collected documentation by words or by meaning: [search-engines.md](search-engines.md).
+
+## Scan history
+
+Every collection run and every search indexing run of a project is recorded and shown to superadmins
+under **Administration → Scans** (`/<locale>/admin/scans`, API `GET /api/v1/knowledge/scans`). A run
+has:
+
+- a result: success, no changes, warning or error;
+- per branch: the commit, collected and skipped files with the reason;
+- an error with an explanation and a hint what to do;
+- warnings:
+  - `collect.no_files_matched` — nothing fits the include patterns; a local git source reads only
+    committed files;
+  - `collect.files_skipped`, `collect.truncated`, `collect.no_branches`, `collect.no_source`.
+
+Filters (project, kind, result, how it started) live in the page address. Repeated runs without
+changes collapse into one row with a counter. The last `KNOWLEDGE_SCAN_HISTORY` (20) runs are kept
+per project for collection and for indexing. Spec: `openspec/specs/knowledge/scan-history/`.
+

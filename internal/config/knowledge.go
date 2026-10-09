@@ -12,6 +12,7 @@ type KnowledgeConfig struct {
 	RetrySecs          uint32   `env:"KNOWLEDGE_RETRY_SECS" envDefault:"900" validate:"min=60,max=86400"`
 	CollectConcurrency uint32   `env:"KNOWLEDGE_COLLECT_CONCURRENCY" envDefault:"2" validate:"min=1,max=16"`
 	Keep               uint32   `env:"KNOWLEDGE_KEEP" envDefault:"5" validate:"max=100"`
+	ScanHistory        uint32   `env:"KNOWLEDGE_SCAN_HISTORY" envDefault:"20" validate:"min=1,max=1000"`
 	MaxFileBytes       int64    `env:"KNOWLEDGE_MAX_FILE_BYTES" envDefault:"524288" validate:"min=1024,max=10485760"`
 	MaxFiles           uint32   `env:"KNOWLEDGE_MAX_FILES" envDefault:"2000" validate:"min=1,max=50000"`
 	MaxSnapshotBytes   int64    `env:"KNOWLEDGE_MAX_SNAPSHOT_BYTES" envDefault:"16777216" validate:"min=65536,max=268435456"`

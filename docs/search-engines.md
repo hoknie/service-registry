@@ -226,6 +226,15 @@ If the embeddings API or the engine is down, files stay queued and are retried a
 Documentation collection and the `text` mode of `pgvector` and `qdrant` keep working. Modes that
 depend on the failed component answer `503 search.unavailable`.
 
+Every indexing run is recorded in the scan history (**Administration → Scans**, `/<locale>/admin/scans`)
+with its counters and, on failure, one of these codes and the technical details:
+
+| Code | Meaning |
+|---|---|
+| `search.embeddings_unavailable` | the embeddings API did not answer or answered with an error |
+| `search.embeddings_dimensions` | the model returns vectors of another size than `EMBEDDINGS_DIMENSIONS` |
+| `search.engine_unavailable` | Qdrant, Meilisearch or the `vector` extension did not answer |
+
 ## 5. Checking that it works
 
 1. **The `serve` startup log** has one line with the engine and whether indexing runs:

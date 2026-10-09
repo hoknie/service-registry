@@ -2,6 +2,7 @@ package tests
 
 import (
 	"net/http"
+	"strconv"
 	"testing"
 
 	"svc-registry/internal/embeddings"
@@ -33,9 +34,39 @@ func TestIndexFailureLeavesFilesPending(t *testing.T) {
 	s.embed.Break(true)
 	s.index()
 	eq(t, scalar[int64](t, s.db, "SELECT count(*) FROM knowledge_embeddings"), int64(0))
-	eq(t, scalar[string](t, s.db, "SELECT COALESCE(failure, '') FROM knowledge_index_state"), "search.unavailable")
+	eq(t, scalar[string](t, s.db, "SELECT COALESCE(failure, '') FROM knowledge_index_state"), "search.embeddings_unavailable")
+	idx := s.scans(s.project, "index")
+	eq(t, idx[0].Status, "failed")
+	eq(t, idx[0].Code, "search.embeddings_unavailable")
 	s.embed.Break(false)
 	s.index()
 	eq(t, scalar[int64](t, s.db, "SELECT count(*) FROM knowledge_embeddings") > 0, true)
 	eq(t, scalar[string](t, s.db, "SELECT COALESCE(failure, '') FROM knowledge_index_state"), "")
+}
+
+func TestIndexScansNameDimensionMismatchesAndCollapseIdlePasses(t *testing.T) {
+	t.Parallel()
+	s := startSearch(t, "pgvector")
+	s.docs(map[string]string{"README.md": "# Registry\nThe service registry."})
+	s.collect()
+	s.state.Embedder = embeddings.New(s.embed.URL, "", "fake-1", embedDims*2, 8, http.DefaultClient)
+	s.index()
+	idx := s.scans(s.project, "index")
+	eq(t, idx[0].Status, "failed")
+	eq(t, idx[0].Code, "search.embeddings_dimensions")
+	detail := scalar[string](t, s.db, "SELECT error_detail FROM knowledge_scans WHERE kind = 'index' ORDER BY started_at DESC LIMIT 1")
+	contains(t, detail, strconv.Itoa(embedDims))
+	contains(t, detail, strconv.Itoa(embedDims*2))
+
+	s.state.Embedder = embeddings.New(s.embed.URL, "", "fake-1", embedDims, 8, http.DefaultClient)
+	s.index()
+	eq(t, s.scans(s.project, "index")[0].Status, "ok")
+	s.index()
+	s.index()
+	s.index()
+	idx = s.scans(s.project, "index")
+	eq(t, len(idx), 3, idx)
+	eq(t, idx[0].Status, "unchanged")
+	eq(t, idx[0].Repeats, 2)
+	contains(t, scalar[string](t, s.db, "SELECT index::text FROM knowledge_scans WHERE kind = 'index' ORDER BY started_at DESC LIMIT 1 OFFSET 1"), `"engine": "pgvector"`)
 }

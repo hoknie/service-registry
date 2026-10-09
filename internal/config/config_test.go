@@ -411,7 +411,7 @@ func TestKnowledgeSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.IntervalSecs != 300 || cfg.RetrySecs != 900 || cfg.CollectConcurrency != 2 || cfg.Keep != 5 ||
+	if cfg.IntervalSecs != 300 || cfg.RetrySecs != 900 || cfg.CollectConcurrency != 2 || cfg.Keep != 5 || cfg.ScanHistory != 20 ||
 		cfg.MaxFileBytes != 524288 || cfg.MaxFiles != 2000 || cfg.MaxSnapshotBytes != 16777216 || cfg.MCPMaxResultBytes != 262144 {
 		t.Fatalf("defaults %+v", cfg)
 	}
@@ -420,9 +420,9 @@ func TestKnowledgeSettings(t *testing.T) {
 	}
 	_, err = config.Load[config.KnowledgeConfig](lookup("KNOWLEDGE_INTERVAL_SECS", "29", "KNOWLEDGE_RETRY_SECS", "59",
 		"KNOWLEDGE_COLLECT_CONCURRENCY", "17", "KNOWLEDGE_KEEP", "101", "KNOWLEDGE_MAX_FILES", "0",
-		"KNOWLEDGE_MAX_SNAPSHOT_BYTES", "1", "KNOWLEDGE_MCP_MAX_RESULT_BYTES", "4095"))
+		"KNOWLEDGE_MAX_SNAPSHOT_BYTES", "1", "KNOWLEDGE_MCP_MAX_RESULT_BYTES", "4095", "KNOWLEDGE_SCAN_HISTORY", "0"))
 	want := []string{"KNOWLEDGE_COLLECT_CONCURRENCY", "KNOWLEDGE_INTERVAL_SECS", "KNOWLEDGE_KEEP", "KNOWLEDGE_MAX_FILES",
-		"KNOWLEDGE_MAX_SNAPSHOT_BYTES", "KNOWLEDGE_MCP_MAX_RESULT_BYTES", "KNOWLEDGE_RETRY_SECS"}
+		"KNOWLEDGE_MAX_SNAPSHOT_BYTES", "KNOWLEDGE_MCP_MAX_RESULT_BYTES", "KNOWLEDGE_RETRY_SECS", "KNOWLEDGE_SCAN_HISTORY"}
 	if got := vars(t, err); !reflect.DeepEqual(got, want) {
 		t.Fatalf("vars %v", got)
 	}

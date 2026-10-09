@@ -19,7 +19,8 @@
       "linkKinds": "链接类型",
       "clusters": "集群",
       "environments": "环境",
-      "docsSearch": "文档搜索"
+      "docsSearch": "文档搜索",
+      "scans": "扫描"
     },
     "language": "语言",
     "user": {
@@ -1190,7 +1191,7 @@
         "noToken": "不使用令牌（公开仓库）",
         "path": "路径",
         "pathHint": "服务器允许的目录内的绝对路径。",
-        "gitHint": "只收集分支中已提交的更改。",
+        "gitHint": "分支从提交中读取；当前分支也可以包含未提交的文件。",
         "credentials": {
           "stored": "已保存令牌（{fingerprint}）",
           "reference": "来自服务器引用的令牌",
@@ -1203,7 +1204,11 @@
         "remove": "删除来源",
         "removeTitle": "删除来源",
         "confirmRemove": "删除文档来源？已收集的快照会保留。",
-        "removed": "来源已删除。"
+        "removed": "来源已删除。",
+        "workingTree": "包含当前分支未提交的文件",
+        "workingTreeHint": "当前检出的分支从工作区读取：收集新建和修改的文件，跳过 .gitignore 排除的文件。",
+        "workingTreeOn": "提交以及当前分支未提交的文件",
+        "workingTreeOff": "仅提交"
       },
       "onlyReadme": "只收集根目录的 README——请在文档设置中选择目录。",
       "toSettings": "打开文档设置",
@@ -1215,7 +1220,8 @@
         "parseFailed": "无法解析该文件——以文本显示。",
         "items": "{n} 项",
         "document": "文档 {n}"
-      }
+      },
+      "workingTree": "工作区"
     },
     "summary": {
       "environments": "环境",
@@ -1250,5 +1256,203 @@
       "hybrid": "混合"
     },
     "indexing": "仍在索引的文件：{count}"
+  },
+  "scans": {
+    "title": "扫描历史",
+    "lead": "各项目最近的文档收集与搜索索引运行：出了什么问题、应该怎么做。",
+    "filters": {
+      "label": "筛选",
+      "project": "项目",
+      "projectAny": "全部项目",
+      "projectSearch": "查找项目",
+      "kind": "类型",
+      "status": "结果",
+      "trigger": "触发方式",
+      "all": "全部",
+      "reset": "重置"
+    },
+    "kinds": {
+      "collect": "收集",
+      "index": "索引"
+    },
+    "statuses": {
+      "ok": "成功",
+      "unchanged": "无变化",
+      "warning": "警告",
+      "failed": "错误"
+    },
+    "triggers": {
+      "schedule": "定时",
+      "manual": "手动"
+    },
+    "sources": {
+      "forge": "Forge 同步",
+      "remote": "按地址的仓库",
+      "local_dir": "本地目录",
+      "local_git": "本地 git",
+      "none": "无来源"
+    },
+    "columns": {
+      "status": "结果",
+      "project": "项目",
+      "kind": "类型",
+      "started": "开始",
+      "duration": "耗时",
+      "summary": "摘要"
+    },
+    "summary": {
+      "collect": "分支：{branches} · 文件：{files}",
+      "skipped": "已跳过：{skipped}",
+      "index": "片段：{chunks} · 文档：{documents}",
+      "repeats": "×{n}，最近检查 {when}"
+    },
+    "details": {
+      "expand": "显示详情",
+      "collapse": "隐藏详情",
+      "source": "来源",
+      "branches": "分支",
+      "branch": "分支",
+      "commit": "提交",
+      "result": "结果",
+      "files": "文件",
+      "skipped": "已跳过",
+      "truncated": "树已截断",
+      "engine": "引擎",
+      "model": "模型",
+      "embeddedFiles": "生成嵌入的文件",
+      "embeddedChunks": "生成嵌入的片段",
+      "documents": "引擎中的文档",
+      "technical": "技术详情",
+      "whatToDo": "处理建议",
+      "none": "—",
+      "workingTree": "工作区"
+    },
+    "results": {
+      "collected": "已收集",
+      "unchanged": "无变化",
+      "failed": "错误"
+    },
+    "skipReasons": {
+      "too_large": "过大",
+      "binary": "二进制",
+      "limit": "超出上限"
+    },
+    "empty": "暂无扫描记录。",
+    "emptyText": "项目运行文档收集或搜索索引后，记录会显示在这里。",
+    "emptyFiltered": "没有符合筛选条件的记录。",
+    "pager": {
+      "label": "分页",
+      "prev": "上一页",
+      "next": "下一页",
+      "range": "第 {from}–{to} 条，共 {total} 条"
+    },
+    "codes": {
+      "collect": {
+        "no_files_matched": {
+          "title": "没有文件符合收集模式",
+          "text": "已读取分支，但没有文件符合包含模式，快照为空。",
+          "hint": "检查项目或其文件夹“文档设置”选项卡中的包含与排除模式。",
+          "hintGit": "本地 git 来源只读取已提交的文件：请提交文档（git add + commit）或检查包含模式。"
+        },
+        "files_skipped": {
+          "title": "部分文件被跳过",
+          "text": "符合模式的文件未保存：过大、二进制或超出文件数上限。",
+          "hint": "调大 KNOWLEDGE_MAX_FILE_BYTES / KNOWLEDGE_MAX_FILES，或排除这些文件。"
+        },
+        "truncated": {
+          "title": "仓库文件树被截断",
+          "text": "Forge 只返回了部分文件树，可能缺少一些文件。",
+          "hint": "缩小包含模式，或从更小的仓库收集。"
+        },
+        "no_branches": {
+          "title": "没有可收集的分支",
+          "text": "来源已响应，但没有分支符合默认分支或分支模式。",
+          "hint": "设置项目的默认分支，或在“文档设置”选项卡的“分支”中添加模式。"
+        },
+        "no_source": {
+          "title": "项目没有文档来源",
+          "text": "既没有文档来源，也没有 forge 同步，因此没有可收集的内容。",
+          "hint": "在“文档设置”→“来源”中设置来源，或将文件夹连接到 forge。"
+        }
+      },
+      "source": {
+        "not_found": {
+          "title": "目录或仓库不存在",
+          "text": "来源的路径或地址上没有内容。",
+          "hint": "检查来源的路径或地址；如果目录已移动，请恢复或修正路径。"
+        },
+        "not_a_repository": {
+          "title": "该路径不是 git 仓库",
+          "text": "路径存在，但不是 git 仓库。",
+          "hint": "将来源指向仓库根目录，或改为本地目录来源。"
+        },
+        "unreadable": {
+          "title": "无法读取来源",
+          "text": "注册表无权访问这些文件（权限问题或仓库损坏）。",
+          "hint": "检查服务器进程的文件权限和仓库状态。"
+        },
+        "not_allowed": {
+          "title": "路径不在允许的根目录内",
+          "text": "本地来源只允许位于 KNOWLEDGE_LOCAL_ROOTS 之内。",
+          "hint": "将文档移到允许的根目录下，或扩展 KNOWLEDGE_LOCAL_ROOTS。"
+        }
+      },
+      "forge": {
+        "credentials_unavailable": {
+          "title": "访问令牌不可用",
+          "text": "已保存的令牌无法解密，或 env:/file: 引用无法解析。",
+          "hint": "重新输入令牌，或检查 SECRETS_KEYS 以及所引用的变量或文件。"
+        },
+        "unauthorized": {
+          "title": "Forge 拒绝了令牌",
+          "text": "令牌无效、已过期或没有该仓库的权限。",
+          "hint": "签发具有仓库读取权限的令牌，并保存到来源或连接中。"
+        },
+        "not_found": {
+          "title": "Forge 上找不到该仓库",
+          "text": "Forge 不认识该仓库，或对该令牌隐藏了它。",
+          "hint": "检查地址以及令牌能否看到该仓库。"
+        },
+        "owner_not_found": {
+          "title": "Forge 上找不到所有者",
+          "text": "连接所指的组织、群组或用户不存在或被隐藏。",
+          "hint": "检查 forge 连接中的所有者路径。"
+        },
+        "rate_limited": {
+          "title": "Forge 请求配额已用完",
+          "text": "API 请求过多；下一次运行会等待配额重置。",
+          "hint": "使用配额更高的令牌，或减少收集的分支。"
+        },
+        "upstream_error": {
+          "title": "Forge 或存储出错",
+          "text": "Forge 返回了错误，或快照未能保存。",
+          "hint": "查看技术详情；运行会自动重试。"
+        }
+      },
+      "search": {
+        "embeddings_unavailable": {
+          "title": "嵌入 API 不可用",
+          "text": "嵌入 API 未响应或返回错误；文件仍在队列中。",
+          "hint": "检查 EMBEDDINGS_URL、EMBEDDINGS_MODEL，以及模型服务（如 Ollama）是否在运行。"
+        },
+        "embeddings_dimensions": {
+          "title": "嵌入维度不正确",
+          "text": "模型返回的向量长度与 EMBEDDINGS_DIMENSIONS 不同。",
+          "hint": "将 EMBEDDINGS_DIMENSIONS 设为模型的原生维度（见技术详情）。"
+        },
+        "engine_unavailable": {
+          "title": "搜索引擎不可用",
+          "text": "Qdrant、Meilisearch 或 vector 扩展未响应。",
+          "hint": "检查 QDRANT_URL / MEILISEARCH_URL 以及引擎是否在运行。"
+        }
+      },
+      "other": {
+        "internal": {
+          "title": "内部错误",
+          "text": "发生了意外情况。",
+          "hint": "查看技术详情和服务器日志。"
+        }
+      }
+    }
   }
 }

@@ -2,6 +2,7 @@ package tests
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"svc-registry/internal/docsource"
@@ -44,7 +45,7 @@ func TestALocalGitRepositoryIsCollectedByBranch(t *testing.T) {
 	rel := g.commit(map[string]string{"README.md": "release one"})
 	g.branch("dev")
 	g.commit(map[string]string{"README.md": "dev"})
-	eq(t, a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "local_git", "path": g.dir}).status, 200)
+	eq(t, a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "local_git", "path": g.dir, "working_tree": false}).status, 200)
 	a.send("PUT", knowledgePath(a.project)+"/settings", a.admin, obj{"include": nil, "branches": []string{"release/*"}})
 	a.collect()
 	eq(t, a.lastOf(a.project, "release/1", "commit_sha"), rel)
@@ -119,4 +120,36 @@ func TestASourceWinsOverTheForgeAndFailuresAreRecorded(t *testing.T) {
 	d.app.collect()
 	eq(t, d.app.get(knowledgePath(d.id), d.admin).json(t)["source"], any("forge"))
 	eq(t, d.app.get(knowledgePath(d.id)+"/file?path=README.md", d.admin).json(t)["content"], any("from the forge"))
+}
+
+func TestLocalGitCollectsTheWorkingTreeOfTheCheckedOutBranch(t *testing.T) {
+	t.Parallel()
+	a := startSources(t)
+	dir := filepath.Join(a.root, "repo")
+	g := newGitRepo(t, dir)
+	head := g.commit(map[string]string{"README.md": "# Repo", ".gitignore": "build/\n"})
+	writeFile(t, filepath.Join(dir, "openspec", "specs", "a", "spec.md"), "## Purpose\nNot committed yet.")
+	writeFile(t, filepath.Join(dir, "build", "out.md"), "ignored")
+	a.useSource(a.project, "local_git", dir, "**/*.md")
+	a.collect()
+	branch := scalar[string](t, a.db, "SELECT branch FROM knowledge_snapshots WHERE project_id = $1 ORDER BY collected_at DESC LIMIT 1", a.project)
+	commit := a.lastOf(a.project, branch, "commit_sha")
+	eq(t, strings.HasPrefix(commit, head+"+worktree:sha256:"), true, commit)
+	files := scalar[string](t, a.db, "SELECT string_agg(f.path, ',' ORDER BY f.path COLLATE \"C\") FROM knowledge_files f JOIN knowledge_snapshots s ON s.id = f.snapshot_id "+
+		"WHERE s.project_id = $1 AND s.commit_sha = $2", a.project, commit)
+	eq(t, files, "README.md,openspec/specs/a/spec.md")
+	s := a.scans(a.project, "collect")
+	eq(t, s[0].Status, "ok")
+	contains(t, s[0].Branches, `"working_tree": true`)
+
+	before := a.snapshotsOf(a.project, branch)
+	a.collect()
+	eq(t, a.snapshotsOf(a.project, branch), before, "no edits, no new snapshot")
+	writeFile(t, filepath.Join(dir, "openspec", "specs", "a", "spec.md"), "## Purpose\nEdited.")
+	a.collect()
+	eq(t, a.snapshotsOf(a.project, branch), before+1, "an edit makes a snapshot")
+
+	eq(t, a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "local_git", "path": dir, "working_tree": false}).status, 200)
+	a.collect()
+	eq(t, a.lastOf(a.project, branch, "commit_sha"), head, "commits only")
 }

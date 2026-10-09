@@ -38,7 +38,7 @@ func (e *Engine) DefaultMode() knowledge.Mode   { return knowledge.ModeHybrid }
 func (e *Engine) Handles(m knowledge.Mode) bool { return m == knowledge.ModeSemantic }
 
 func unavailable(op string, err error) error {
-	return fmt.Errorf("%w: qdrant %s: %v", knowledge.ErrSearchUnavailable, op, err)
+	return fmt.Errorf("%w: qdrant %s: %v", knowledge.ErrEngineUnavailable, op, err)
 }
 
 func (e *Engine) conn(ctx context.Context) (*qd.Client, error) {

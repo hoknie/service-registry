@@ -433,6 +433,7 @@ export type KnowledgeSource = {
   api_url: string | null;
   path: string | null;
   credentials: { mode: "stored" | "reference" | "none"; fingerprint: string | null };
+  working_tree: boolean;
   updated_at: string;
 };
 
@@ -512,3 +513,37 @@ export function apiSend<T = void>(
 export function errorCode(e: unknown): string {
   return e instanceof ApiError ? e.code : "unknown";
 }
+
+export type ScanStatus = "ok" | "unchanged" | "warning" | "failed";
+export type ScanKind = "collect" | "index";
+export type ScanTrigger = "schedule" | "manual";
+export type ScanSource = "forge" | "remote" | "local_dir" | "local_git";
+
+export type ScanBranch = {
+  name: string;
+  commit: string;
+  result: "collected" | "unchanged" | "failed";
+  files: number;
+  skipped: Record<string, number>;
+  truncated: boolean;
+  working_tree: boolean;
+  error: string | null;
+};
+
+export type Scan = {
+  id: string;
+  project: { id: string; path: string; name: string };
+  kind: ScanKind;
+  trigger: ScanTrigger;
+  source: ScanSource | null;
+  status: ScanStatus;
+  started_at: string;
+  finished_at: string;
+  duration_ms: number;
+  repeats: number;
+  branches: ScanBranch[];
+  index: { embedded_files: number; embedded_chunks: number; documents: number; engine: string; model: string } | null;
+  error: { code: string; detail: string } | null;
+  warnings: string[];
+};
+

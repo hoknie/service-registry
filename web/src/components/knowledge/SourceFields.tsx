@@ -17,9 +17,19 @@ export type SourceDraft = {
   token: string;
   noToken: boolean;
   path: string;
+  workingTree: boolean;
 };
 
-export const emptyDraft: SourceDraft = { kind: "remote", forge: "gitlab", url: "", apiUrl: "", token: "", noToken: false, path: "" };
+export const emptyDraft: SourceDraft = {
+  kind: "remote",
+  forge: "gitlab",
+  url: "",
+  apiUrl: "",
+  token: "",
+  noToken: false,
+  path: "",
+  workingTree: true,
+};
 
 export function draftOf(s: KnowledgeSource | null): SourceDraft {
   if (!s) return emptyDraft;
@@ -31,10 +41,12 @@ export function draftOf(s: KnowledgeSource | null): SourceDraft {
     token: "",
     noToken: s.credentials.mode === "none",
     path: s.path ?? "",
+    workingTree: s.kind === "local_git" ? s.working_tree : true,
   };
 }
 
 export function sourceBody(d: SourceDraft): Record<string, unknown> {
+  if (d.kind === "local_git") return { kind: d.kind, path: d.path, working_tree: d.workingTree };
   if (d.kind !== "remote") return { kind: d.kind, path: d.path };
   const out: Record<string, unknown> = { kind: d.kind, forge: d.forge, url: d.url, api_url: d.apiUrl };
   if (d.noToken) out.credentials = null;
@@ -54,9 +66,17 @@ export function SourceFields({
   const set = (patch: Partial<SourceDraft>) => onChange({ ...value, ...patch });
   if (value.kind !== "remote") {
     return (
-      <Field label={t.path} hint={value.kind === "local_git" ? `${t.pathHint} ${t.gitHint}` : t.pathHint}>
-        {(p) => <Input {...p} required className="font-mono" value={value.path} onChange={(e) => set({ path: e.target.value })} />}
-      </Field>
+      <>
+        <Field label={t.path} hint={value.kind === "local_git" ? `${t.pathHint} ${t.gitHint}` : t.pathHint}>
+          {(p) => <Input {...p} required className="font-mono" value={value.path} onChange={(e) => set({ path: e.target.value })} />}
+        </Field>
+        {value.kind === "local_git" && (
+          <div className="grid gap-1">
+            <Checkbox label={t.workingTree} checked={value.workingTree} onChange={(e) => set({ workingTree: e.target.checked })} />
+            <p className="pl-6.5 text-xs text-muted">{t.workingTreeHint}</p>
+          </div>
+        )}
+      </>
     );
   }
   return (

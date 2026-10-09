@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -27,6 +28,17 @@ func ExtendKnowledge(ctx context.Context, state *State, id uuid.UUID, leaseSecs 
 
 type head struct{ name, sha string }
 
+func recordScan(ctx context.Context, state *State, scan *knowledge.Scan) {
+	if ctx.Err() != nil || state.Scans == nil {
+		return
+	}
+	scan.FinishedAt = time.Now()
+	scan.Settle()
+	if err := state.Scans.Record(context.WithoutCancel(ctx), *scan, int(state.Config.Knowledge.ScanHistory)); err != nil {
+		slog.Warn("documentation scan not recorded", "project", scan.ProjectID, "kind", scan.Kind, "error", err)
+	}
+}
+
 func RunKnowledgeCollect(ctx context.Context, state *State, id uuid.UUID) error {
 	cfg := state.Config.Knowledge
 	next := cfg.IntervalSecs
@@ -36,6 +48,8 @@ func RunKnowledgeCollect(ctx context.Context, state *State, id uuid.UUID) error 
 		}
 		return apperr.Wrap(state.Knowledge.Release(context.WithoutCancel(ctx), id, next, true))
 	}
+	scan := &knowledge.Scan{ID: uuid.Must(uuid.NewV7()), ProjectID: id, Kind: knowledge.CollectScan,
+		Trigger: knowledge.TriggerSchedule, StartedAt: time.Now()}
 	p, err := state.Knowledge.Project(ctx, id)
 	if errors.Is(err, knowledge.ErrNotFound) {
 		return nil
@@ -43,6 +57,10 @@ func RunKnowledgeCollect(ctx context.Context, state *State, id uuid.UUID) error 
 	if err != nil {
 		return apperr.Wrap(err)
 	}
+	if p.Force {
+		scan.Trigger = knowledge.TriggerManual
+	}
+	defer recordScan(ctx, state, scan)
 	if p.Settings, err = effectiveSettings(ctx, state, id); err != nil {
 		return err
 	}
@@ -55,6 +73,7 @@ func RunKnowledgeCollect(ctx context.Context, state *State, id uuid.UUID) error 
 			return nil
 		}
 		code, reset := failureOf(err)
+		scan.Fail(code, err)
 		if reset != nil {
 			if secs := time.Until(*reset).Seconds(); secs > 0 {
 				next = uint32(secs) + 1
@@ -63,6 +82,7 @@ func RunKnowledgeCollect(ctx context.Context, state *State, id uuid.UUID) error 
 			next = max(next, cfg.RetrySecs)
 		}
 		for _, b := range branches {
+			scan.Branches = append(scan.Branches, knowledge.ScanBranch{Name: b, Result: knowledge.BranchFailed, Error: code})
 			if err := recordFailure(ctx, state, id, b, code); err != nil {
 				return err
 			}
@@ -75,6 +95,7 @@ func RunKnowledgeCollect(ctx context.Context, state *State, id uuid.UUID) error 
 	def := p.DefaultBranch
 	switch {
 	case src != nil:
+		scan.Source = string(src.Kind)
 		known := knownBranches(src, def)
 		token, err := sourceToken(state, id, src)
 		if err != nil {
@@ -102,7 +123,11 @@ func RunKnowledgeCollect(ctx context.Context, state *State, id uuid.UUID) error 
 		if err := state.Sources.SetHeads(ctx, id, kept, srcDef); err != nil {
 			return apperr.Wrap(err)
 		}
+		if len(heads) == 0 {
+			scan.Warn(knowledge.WarnNoBranches)
+		}
 	case p.Synced:
+		scan.Source = "forge"
 		repo, client, code := projectClient(ctx, state, id)
 		branches, err := state.Snapshots.Branches(ctx, id)
 		if err != nil {
@@ -121,7 +146,11 @@ func RunKnowledgeCollect(ctx context.Context, state *State, id uuid.UUID) error 
 			return fail(names, knowledge.Failure(code))
 		}
 		reader = &syncedReader{client: client, repo: repo}
+		if len(heads) == 0 {
+			scan.Warn(knowledge.WarnNoBranches)
+		}
 	default:
+		scan.Warn(knowledge.WarnNoSource)
 		return release()
 	}
 	slices.SortFunc(heads, func(a, b head) int { return compareNames(a.name, b.name) })
@@ -136,14 +165,17 @@ func RunKnowledgeCollect(ctx context.Context, state *State, id uuid.UUID) error 
 				return apperr.Wrap(err)
 			}
 			if last != nil && last.Commit == h.sha && last.Status != knowledge.StatusFailed {
+				scan.Branches = append(scan.Branches, knowledge.ScanBranch{Name: h.name, Commit: h.sha, Result: knowledge.BranchUnchanged})
 				continue
 			}
 		}
-		if err := collectBranch(ctx, state, p, reader, h); err != nil {
+		if err := collectBranch(ctx, state, p, reader, h, scan); err != nil {
 			if ctx.Err() != nil {
 				return nil
 			}
 			code, reset := failureOf(err)
+			scan.Fail(code, err)
+			scan.Branches = append(scan.Branches, knowledge.ScanBranch{Name: h.name, Commit: h.sha, Result: knowledge.BranchFailed, Error: code})
 			slog.Info("documentation collection failed", "project", id, "branch", h.name, "code", code)
 			if err := recordFailure(ctx, state, id, h.name, code, h.sha); err != nil {
 				return err
@@ -285,7 +317,7 @@ func projectClient(ctx context.Context, state *State, id uuid.UUID) (forge.Remot
 	return repo, client, ""
 }
 
-func collectBranch(ctx context.Context, state *State, p knowledge.Project, reader knowledge.Reader, h head) error {
+func collectBranch(ctx context.Context, state *State, p knowledge.Project, reader knowledge.Reader, h head, scan *knowledge.Scan) error {
 	cfg := state.Config.Knowledge
 	entries, truncated, err := reader.Tree(ctx, h.name, h.sha)
 	if err != nil {
@@ -321,6 +353,25 @@ func collectBranch(ctx context.Context, state *State, p knowledge.Project, reade
 	if err := state.Snapshots.Save(ctx, snap, cfg.Keep); err != nil {
 		slog.Warn("documentation snapshot not saved", "project", p.ID, "branch", h.name, "error", err)
 		return knowledge.Failure("forge.upstream_error")
+	}
+	b := knowledge.ScanBranch{Name: h.name, Commit: h.sha, Result: knowledge.BranchCollected, Skipped: map[string]int{}, Truncated: truncated,
+		WorkingTree: strings.Contains(h.sha, "+worktree:")}
+	for _, f := range files {
+		if f.Skip == "" {
+			b.Files++
+		} else {
+			b.Skipped[string(f.Skip)]++
+		}
+	}
+	scan.Branches = append(scan.Branches, b)
+	switch {
+	case len(files) == 0 && len(entries) > 0:
+		scan.Warn(knowledge.WarnNoFilesMatched)
+	case len(b.Skipped) > 0:
+		scan.Warn(knowledge.WarnFilesSkipped)
+	}
+	if truncated {
+		scan.Warn(knowledge.WarnTruncated)
 	}
 	return nil
 }

@@ -1,4 +1,4 @@
-import { Boxes, FileSearch, FolderTree, KeyRound, Layers, LayoutDashboard, Link2, UserRound, UsersRound, type LucideIcon } from "lucide-react";
+import { Boxes, FileSearch, FolderTree, KeyRound, Layers, LayoutDashboard, Link2, ScanSearch, UserRound, UsersRound, type LucideIcon } from "lucide-react";
 
 import type { Locale } from "@/i18n/config";
 import type { Messages } from "@/i18n/messages";
@@ -19,6 +19,7 @@ export function navItems(locale: Locale, nav: Messages["header"]["nav"], superad
       { key: "linkKinds", href: `/${locale}/admin/link-kinds`, label: nav.linkKinds, icon: Link2, admin: true },
       { key: "clusters", href: `/${locale}/admin/clusters`, label: nav.clusters, icon: Boxes, admin: true },
       { key: "environments", href: `/${locale}/admin/environments`, label: nav.environments, icon: Layers, admin: true },
+      { key: "scans", href: `/${locale}/admin/scans`, label: nav.scans, icon: ScanSearch, admin: true },
     );
   }
   return items;

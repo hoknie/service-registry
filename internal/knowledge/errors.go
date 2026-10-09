@@ -1,6 +1,9 @@
 package knowledge
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 type Invalid int
 
@@ -11,6 +14,7 @@ const (
 	InvalidSource
 	InvalidPath
 	InvalidSearchMode
+	InvalidScanFilter
 )
 
 func (i Invalid) Code() string {
@@ -27,6 +31,8 @@ func (i Invalid) Code() string {
 		return "validation.knowledge_path_not_allowed"
 	case InvalidSearchMode:
 		return "validation.search_mode_unavailable"
+	case InvalidScanFilter:
+		return "validation.invalid_scan_filter"
 	}
 	return "validation.invalid"
 }
@@ -45,6 +51,8 @@ func (i Invalid) Message() string {
 		return "path must be an absolute path inside one of KNOWLEDGE_LOCAL_ROOTS"
 	case InvalidSearchMode:
 		return "mode must be one of the modes the search engine offers (GET /api/v1/knowledge/search/modes)"
+	case InvalidScanFilter:
+		return "project must be a UUID, kind collect|index, trigger schedule|manual, status a comma-separated list of ok, unchanged, warning, failed"
 	}
 	return "invalid input"
 }
@@ -85,6 +93,10 @@ var (
 	ErrUnavailable = errors.New("database is unavailable")
 
 	ErrSearchUnavailable = errors.New("search engine is unavailable")
+
+	ErrEmbeddingsUnavailable = fmt.Errorf("%w: embeddings API", ErrSearchUnavailable)
+	ErrEmbeddingsDimensions  = fmt.Errorf("%w: embedding dimensions", ErrEmbeddingsUnavailable)
+	ErrEngineUnavailable     = fmt.Errorf("%w: search engine", ErrSearchUnavailable)
 )
 
 type InternalError struct{ Detail string }

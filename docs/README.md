@@ -8,7 +8,7 @@
 | [forge-sync.md](forge-sync.md) | importing repositories from GitHub, GitLab, Forgejo, Gitea; branches |
 | [observability-links.md](observability-links.md) | link kinds, templates and variables, availability checks |
 | [kubernetes.md](kubernetes.md) | polling clusters, matching workloads to projects, drift |
-| [project-documentation.md](project-documentation.md) | collecting docs from repositories and local sources |
+| [project-documentation.md](project-documentation.md) | collecting docs from repositories and local sources, scan history |
 | [search-engines.md](search-engines.md) | `KNOWLEDGE_SEARCH_ENGINE`: Postgres, pgvector, Qdrant, Meilisearch, embeddings |
 | [mcp.md](mcp.md) | the MCP server for AI agents and the stdio bridge |
 | [sign-in.md](sign-in.md) | sign-in through OIDC providers and GitLab |

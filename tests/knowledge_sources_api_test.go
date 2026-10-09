@@ -141,3 +141,26 @@ func TestSourceBecomesProjectLink(t *testing.T) {
 	eq(t, d.app.get(nodePath(d.id), d.admin).json(t)["repo_url"], before)
 	eq(t, d.app.get(sourcePath(d.id), d.admin).json(t)["url"], any("https://gitlab.example.com/platform/api"))
 }
+
+func TestSourceWorkingTreeFlag(t *testing.T) {
+	t.Parallel()
+	a := startSources(t)
+	repo := filepath.Join(a.root, "repo")
+	newGitRepo(t, repo).commit(map[string]string{"README.md": "# Repo"})
+	r := a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "local_git", "path": repo})
+	eq(t, r.status, 200, r.text())
+	eq(t, r.json(t)["working_tree"], any(true), "on by default")
+	r = a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "local_git", "path": repo, "working_tree": false})
+	eq(t, r.status, 200, r.text())
+	eq(t, r.json(t)["working_tree"], any(false))
+	eq(t, a.get(sourcePath(a.project), a.admin).json(t)["working_tree"], any(false), "stored")
+
+	dir := filepath.Join(a.root, "docs")
+	writeFile(t, filepath.Join(dir, "README.md"), "# Docs")
+	r = a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "local_dir", "path": dir, "working_tree": true})
+	eq(t, r.status, 400)
+	eq(t, code(t, r), any("validation.invalid_knowledge_source"))
+	r = a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "local_dir", "path": dir})
+	eq(t, r.status, 200, r.text())
+	eq(t, r.json(t)["working_tree"], any(false), "other kinds report false")
+}

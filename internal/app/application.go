@@ -67,6 +67,7 @@ func BuildState(cfg config.Config) (*service.State, error) {
 		Snapshots:     knowledgestore.NewSnapshotStore(pool),
 		DocSearch:     knowledgestore.NewSearchStore(pool),
 		DocIndex:      knowledgestore.NewIndexStore(pool),
+		Scans:         knowledgestore.NewScanStore(pool),
 		Sources:       knowledgestore.NewSourceStore(pool),
 		K8s:           k8s.NewFactory(cfg.Outbound, cfg.K8s),
 		Secrets:       secretbox.New(cfg.Secrets.Keys),
@@ -160,6 +161,7 @@ func BuildRouter(state *service.State, dist webui.Dist) *fiber.App {
 	r.add("/api/v1/catalog/nodes/:id/knowledge/source/check", true, post(api.CheckKnowledgeSource))
 	r.add("/api/v1/knowledge/search", true, get(api.SearchKnowledge))
 	r.add("/api/v1/knowledge/search/modes", true, get(api.KnowledgeSearchModes))
+	r.add("/api/v1/knowledge/scans", true, get(api.ListKnowledgeScans))
 	r.add("/api/mcp", false, post(api.MCP))
 	r.add("/api/v1/catalog/nodes/:id/link-templates", true, get(api.ListLinkTemplates))
 	r.add("/api/v1/catalog/nodes/:id/link-templates/preview", true, post(api.PreviewLinkTemplate))

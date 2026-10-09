@@ -73,7 +73,8 @@ func routeNeed(method, route string) service.Need {
 		return service.NeedSession
 	case route == "/api/v1/users", strings.HasPrefix(route, "/api/v1/users/"),
 		route == "/api/v1/groups", strings.HasPrefix(route, "/api/v1/groups/"),
-		route == "/api/v1/clusters", strings.HasPrefix(route, "/api/v1/clusters/"):
+		route == "/api/v1/clusters", strings.HasPrefix(route, "/api/v1/clusters/"),
+		route == "/api/v1/knowledge/scans":
 		return service.NeedAdmin
 	case route == "/api/v1/link-kinds", strings.HasPrefix(route, "/api/v1/link-kinds/"),
 		route == "/api/v1/environments", strings.HasPrefix(route, "/api/v1/environments/"):

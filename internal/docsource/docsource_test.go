@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -165,5 +166,99 @@ func TestLocalGitReadsBranchesAndCommits(t *testing.T) {
 	rp, _ := f.Open(context.Background(), knowledge.Source{Kind: knowledge.SourceLocalGit, Path: plain}, all, "")
 	if _, _, err := rp.Heads(context.Background()); !errors.Is(err, knowledge.FailNotARepository) {
 		t.Fatal(err)
+	}
+}
+
+func TestLocalGitWorkingTreeOfTheCheckedOutBranch(t *testing.T) {
+	ctx := context.Background()
+	root := realDir(t)
+	dir := filepath.Join(root, "repo")
+	repo, err := git.PlainInit(dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wt, _ := repo.Worktree()
+	head := commit(t, wt, dir, map[string]string{"README.md": "one", "docs/old.md": "old", ".gitignore": "docs/build/\n*.tmp.md\n"}, "first")
+	if err := wt.Checkout(&git.CheckoutOptions{Branch: plumbing.NewBranchReferenceName("release/1"), Create: true, Hash: head}); err != nil {
+		t.Fatal(err)
+	}
+	if err := wt.Checkout(&git.CheckoutOptions{Branch: plumbing.NewBranchReferenceName("master")}); err != nil {
+		t.Fatal(err)
+	}
+	f := &Factory{Roots: []string{root}, MaxFileBytes: 1 << 20}
+	open := func(working bool) knowledge.Reader {
+		r, err := f.Open(ctx, knowledge.Source{Kind: knowledge.SourceLocalGit, Path: dir, WorkingTree: working}, all, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+
+	heads, _, err := open(true).Heads(ctx)
+	if err != nil || heads["master"] != head.String() {
+		t.Fatalf("a clean working tree keeps the commit: %v %v", heads, err)
+	}
+
+	write(t, filepath.Join(dir, "openspec/specs/a/spec.md"), "new spec")
+	write(t, filepath.Join(dir, "README.md"), "edited")
+	write(t, filepath.Join(dir, "docs/build/out.md"), "ignored dir")
+	write(t, filepath.Join(dir, "notes.tmp.md"), "ignored file")
+	write(t, filepath.Join(dir, "local.md"), "excluded")
+	write(t, filepath.Join(dir, ".git/info/exclude"), "local.md\n")
+	write(t, filepath.Join(dir, "sub/.gitignore"), "secret.md\n")
+	write(t, filepath.Join(dir, "sub/secret.md"), "nested ignore")
+	write(t, filepath.Join(dir, "vendor/mod/.git"), "gitdir: elsewhere")
+	write(t, filepath.Join(dir, "vendor/mod/x.md"), "submodule")
+	if err := os.Remove(filepath.Join(dir, "docs/old.md")); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(t.TempDir(), "outside.md")
+	write(t, outside, "outside")
+	if err := os.Symlink(outside, filepath.Join(dir, "escape.md")); err != nil {
+		t.Fatal(err)
+	}
+
+	r := open(true)
+	heads, def, err := r.Heads(ctx)
+	if err != nil || def != "master" || !strings.HasPrefix(heads["master"], head.String()+"+worktree:sha256:") || heads["release/1"] != head.String() {
+		t.Fatalf("%v %s %v", heads, def, err)
+	}
+	tree, _, err := r.Tree(ctx, "master", heads["master"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var paths []string
+	for _, e := range tree {
+		paths = append(paths, e.Path)
+		if e.Path == "README.md" {
+			if c, err := r.Read(ctx, e, 100); err != nil || string(c) != "edited" {
+				t.Fatal(string(c), err)
+			}
+		}
+	}
+	if got := strings.Join(paths, ","); got != ".gitignore,README.md,openspec/specs/a/spec.md,sub/.gitignore" {
+		t.Fatalf("working tree files: %s", got)
+	}
+	if tree, _, err := r.Tree(ctx, "release/1", heads["release/1"]); err != nil || len(tree) != 3 {
+		t.Fatalf("other branches come from commits: %+v %v", tree, err)
+	}
+
+	again, _, _ := open(true).Heads(ctx)
+	if again["master"] != heads["master"] {
+		t.Fatal("an unchanged working tree keeps its head")
+	}
+	write(t, filepath.Join(dir, "openspec/specs/a/spec.md"), "changed spec")
+	if changed, _, _ := open(true).Heads(ctx); changed["master"] == heads["master"] {
+		t.Fatal("an edit moves the head")
+	}
+	if off, _, _ := open(false).Heads(ctx); off["master"] != head.String() {
+		t.Fatal("the flag off reads commits", off)
+	}
+
+	if err := wt.Checkout(&git.CheckoutOptions{Hash: head, Force: true}); err != nil {
+		t.Fatal(err)
+	}
+	if detached, def, _ := open(true).Heads(ctx); def != "" || detached["master"] != head.String() {
+		t.Fatal("a detached HEAD reads commits", detached, def)
 	}
 }

@@ -19,7 +19,7 @@ func (f *Factory) Open(_ context.Context, s knowledge.Source, settings knowledge
 	case knowledge.SourceLocalDir:
 		return &localDir{path: s.Path, roots: f.Roots, settings: settings, maxFile: f.MaxFileBytes}, nil
 	case knowledge.SourceLocalGit:
-		return &localGit{path: s.Path, roots: f.Roots}, nil
+		return &localGit{path: s.Path, roots: f.Roots, settings: settings, maxFile: f.MaxFileBytes, workingTree: s.WorkingTree}, nil
 	case knowledge.SourceRemote:
 		full := s.FullPath()
 		client, err := f.Forges.New(forge.Endpoint{Kind: forge.Kind(s.Forge), APIURL: s.APIURL, Owner: owner(full), Token: token})

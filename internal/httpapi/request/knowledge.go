@@ -40,11 +40,12 @@ type KnowledgeSource struct {
 	APIURL      string                      `json:"api_url"`
 	Path        string                      `json:"path"`
 	Credentials Optional[SourceCredentials] `json:"credentials"`
+	WorkingTree *bool                       `json:"working_tree"`
 }
 
 func (r KnowledgeSource) Input() knowledge.SourceInput {
 	in := knowledge.SourceInput{Kind: *r.Kind, Forge: r.Forge, URL: r.URL, APIURL: r.APIURL, Path: r.Path,
-		HasCredential: r.Credentials.Present}
+		HasCredential: r.Credentials.Present, WorkingTree: r.WorkingTree}
 	if r.Credentials.Present && r.Credentials.Value == nil {
 		in.NoCredentials = true
 	}

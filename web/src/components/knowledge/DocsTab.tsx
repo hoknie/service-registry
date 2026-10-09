@@ -10,6 +10,7 @@ import { errorText } from "@/i18n/errors";
 import { format } from "@/i18n/format";
 import { when } from "@/i18n/time";
 import { apiGet, apiSend, errorCode, type CatalogNode, type Knowledge, type KnowledgeFiles } from "@/lib/api";
+import { shortCommit } from "@/lib/commit";
 
 import { useUiText } from "../UiText";
 import { Badge } from "../ui/Badge";
@@ -108,7 +109,6 @@ export function DocsTab({ node, branch: branchParam, doc, locale, labels, canWri
   const failed = state?.last?.status === "failed" ? state.last : null;
   const readme = files?.items.find((f) => !f.path.includes("/") && /^readme(\..+)?$/i.test(f.path));
   const open = doc ?? readme?.path ?? null;
-  const short = (sha: string) => sha.slice(0, 7);
 
   const actions = canWrite && (
     <Button onClick={() => void collect()} disabled={busy}>
@@ -138,7 +138,14 @@ export function DocsTab({ node, branch: branchParam, doc, locale, labels, canWri
             <dl className="flex flex-wrap items-center gap-x-6 gap-y-2">
               <div className="flex gap-2">
                 <dt className="text-muted">{t.commit}</dt>
-                <dd className="font-mono text-ink">{short(snapshot.commit)}</dd>
+                <dd className="flex items-center gap-2 font-mono text-ink">
+                  {shortCommit(snapshot.commit).short}
+                  {shortCommit(snapshot.commit).worktree && (
+                    <Badge tone="amber" className="font-sans">
+                      {t.workingTree}
+                    </Badge>
+                  )}
+                </dd>
               </div>
               <div className="flex gap-2">
                 <dt className="text-muted">{t.collectedAt}</dt>

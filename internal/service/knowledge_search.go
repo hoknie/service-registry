@@ -101,7 +101,7 @@ func engineQuery(ctx context.Context, state *State, v knowledge.Viewer, q knowle
 	}
 	if mode != knowledge.ModeText {
 		if state.Embedder == nil {
-			return knowledge.EngineQuery{}, knowledge.ErrSearchUnavailable
+			return knowledge.EngineQuery{}, knowledge.ErrEmbeddingsUnavailable
 		}
 		vectors, err := state.Embedder.Embed(ctx, []string{q.Q})
 		if err != nil {

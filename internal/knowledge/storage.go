@@ -4,7 +4,14 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+
+	"svc-registry/internal/access"
 )
+
+type ScanStore interface {
+	Record(ctx context.Context, s Scan, keep int) error
+	List(ctx context.Context, f ScanFilter, page access.PageRequest) (access.Page[ScanItem], error)
+}
 
 type PatternStore interface {
 	Chain(ctx context.Context, nodeID uuid.UUID) ([]ChainNode, error)

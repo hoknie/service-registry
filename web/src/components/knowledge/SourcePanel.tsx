@@ -89,9 +89,13 @@ export function SourcePanel({ projectId, synced, canWrite, labels: t, onChanged 
       ? null
       : source
         ? `${t.kinds[source.kind]}: ${source.url ?? source.path ?? ""} · ${
-            source.credentials.mode === "stored"
-              ? format(t.credentials.stored, { fingerprint: source.credentials.fingerprint ?? "" })
-              : t.credentials[source.credentials.mode]
+            source.kind === "local_git"
+              ? source.working_tree
+                ? t.workingTreeOn
+                : t.workingTreeOff
+              : source.credentials.mode === "stored"
+                ? format(t.credentials.stored, { fingerprint: source.credentials.fingerprint ?? "" })
+                : t.credentials[source.credentials.mode]
           }`
         : synced
           ? t.forgeSync

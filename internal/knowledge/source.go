@@ -42,6 +42,7 @@ type Source struct {
 	Credentials   Credentials
 	Heads         map[string]string
 	DefaultBranch string
+	WorkingTree   bool
 	UpdatedAt     string
 }
 
@@ -65,6 +66,7 @@ type SourceInput struct {
 	Reference     *string
 	HasCredential bool
 	NoCredentials bool
+	WorkingTree   *bool
 }
 
 type ValidSource struct {
@@ -78,6 +80,10 @@ var forges = map[string]bool{"github": true, "gitlab": true, "gitea": true, "for
 
 func ValidateSource(in SourceInput) (ValidSource, error) {
 	out := ValidSource{Source: Source{Kind: SourceKind(in.Kind)}}
+	if in.WorkingTree != nil && *in.WorkingTree && out.Kind != SourceLocalGit {
+		return ValidSource{}, InvalidSource
+	}
+	out.WorkingTree = out.Kind == SourceLocalGit && (in.WorkingTree == nil || *in.WorkingTree)
 	switch out.Kind {
 	case SourceRemote:
 		if !forges[in.Forge] || strings.TrimSpace(in.Path) != "" {

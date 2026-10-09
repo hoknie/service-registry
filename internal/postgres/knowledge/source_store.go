@@ -19,7 +19,8 @@ func scanSource(row pgx.Row) (domain.StoredSource, error) {
 	var s domain.StoredSource
 	var kind string
 	var fp *string
-	err := row.Scan(&kind, &s.Forge, &s.URL, &s.APIURL, &s.Path, &s.CredentialsEnc, &s.CredentialsRef, &fp, &s.Heads, &s.DefaultBranch, &s.UpdatedAt)
+	err := row.Scan(&kind, &s.Forge, &s.URL, &s.APIURL, &s.Path, &s.CredentialsEnc, &s.CredentialsRef, &fp, &s.Heads, &s.DefaultBranch,
+		&s.WorkingTree, &s.UpdatedAt)
 	s.Kind = domain.SourceKind(kind)
 	switch {
 	case s.CredentialsEnc != nil:
@@ -39,7 +40,7 @@ func (s *SourceStore) Get(ctx context.Context, projectID uuid.UUID) (*domain.Sto
 	src, err := scanSource(s.pool.QueryRow(ctx, `
 		SELECT s.kind, COALESCE(s.forge, ''), COALESCE(s.url, ''), COALESCE(s.api_url, ''),
 			COALESCE(s.path, ''), s.credentials_enc, s.credentials_ref, s.credentials_fingerprint, s.heads,
-			COALESCE(s.default_branch, ''), rfc3339(s.updated_at)
+			COALESCE(s.default_branch, ''), s.working_tree, rfc3339(s.updated_at)
 		FROM knowledge_sources s
 		WHERE s.project_id = $1`, projectID))
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -57,11 +58,11 @@ func (s *SourceStore) Put(ctx context.Context, projectID uuid.UUID, n domain.New
 		var err error
 		out, err = scanSource(tx.QueryRow(ctx, `
 			INSERT INTO knowledge_sources AS s (project_id, kind, forge, url, api_url, path, credentials_enc,
-				credentials_ref, credentials_fingerprint)
-			VALUES ($1, $2, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), $7, $8, $9)
+				credentials_ref, credentials_fingerprint, working_tree)
+			VALUES ($1, $2, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), $7, $8, $9, $11)
 			ON CONFLICT (project_id)
 			DO UPDATE SET kind = EXCLUDED.kind, forge = EXCLUDED.forge, url = EXCLUDED.url,
-				api_url = EXCLUDED.api_url, path = EXCLUDED.path,
+				api_url = EXCLUDED.api_url, path = EXCLUDED.path, working_tree = EXCLUDED.working_tree,
 				credentials_enc = CASE
 					WHEN $10 AND s.kind = EXCLUDED.kind AND s.url IS NOT DISTINCT FROM EXCLUDED.url THEN s.credentials_enc
 					ELSE EXCLUDED.credentials_enc END,
@@ -77,8 +78,8 @@ func (s *SourceStore) Put(ctx context.Context, projectID uuid.UUID, n domain.New
 				updated_at = now()
 			RETURNING s.kind, COALESCE(s.forge, ''), COALESCE(s.url, ''), COALESCE(s.api_url, ''),
 				COALESCE(s.path, ''), s.credentials_enc, s.credentials_ref, s.credentials_fingerprint, s.heads,
-				COALESCE(s.default_branch, ''), rfc3339(s.updated_at)`, projectID, string(n.Kind), n.Forge, n.URL, n.APIURL, n.Path,
-			n.CredentialsEnc, n.CredentialsRef, n.Fingerprint, n.Keep))
+				COALESCE(s.default_branch, ''), s.working_tree, rfc3339(s.updated_at)`, projectID, string(n.Kind), n.Forge, n.URL,
+			n.APIURL, n.Path, n.CredentialsEnc, n.CredentialsRef, n.Fingerprint, n.Keep, n.WorkingTree))
 		if err != nil {
 			return err
 		}

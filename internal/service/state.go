@@ -48,6 +48,7 @@ type State struct {
 	Snapshots     knowledge.SnapshotStore
 	DocSearch     knowledge.SearchStore
 	DocIndex      knowledge.IndexStore
+	Scans         knowledge.ScanStore
 	SearchEngine  knowledge.Engine
 	ExternalIndex knowledge.ExternalIndex
 	Embedder      knowledge.Embedder

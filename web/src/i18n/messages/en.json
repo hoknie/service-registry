@@ -19,7 +19,8 @@
       "linkKinds": "Link kinds",
       "clusters": "Clusters",
       "environments": "Environments",
-      "docsSearch": "Documentation search"
+      "docsSearch": "Documentation search",
+      "scans": "Scans"
     },
     "language": "Language",
     "user": {
@@ -1190,7 +1191,7 @@
         "noToken": "Without a token (public repository)",
         "path": "Path",
         "pathHint": "An absolute path inside the directories allowed by the server.",
-        "gitHint": "Only committed changes of the branches are collected.",
+        "gitHint": "Branches are read from commits; the checked-out branch can also include uncommitted files.",
         "credentials": {
           "stored": "Token stored ({fingerprint})",
           "reference": "Token from a server reference",
@@ -1203,7 +1204,11 @@
         "remove": "Remove source",
         "removeTitle": "Remove the source",
         "confirmRemove": "Remove the documentation source? The collected snapshots stay.",
-        "removed": "Source removed."
+        "removed": "Source removed.",
+        "workingTree": "Include uncommitted files of the current branch",
+        "workingTreeHint": "The checked-out branch is read from the working copy: new and edited files are collected, files excluded by .gitignore are not.",
+        "workingTreeOn": "commits and uncommitted files of the current branch",
+        "workingTreeOff": "commits only"
       },
       "onlyReadme": "Only the README at the root is collected — choose folders in the documentation settings.",
       "toSettings": "Open documentation settings",
@@ -1215,7 +1220,8 @@
         "parseFailed": "Could not parse the file — shown as text.",
         "items": "{n} items",
         "document": "Document {n}"
-      }
+      },
+      "workingTree": "working copy"
     },
     "summary": {
       "environments": "Environments",
@@ -1250,5 +1256,203 @@
       "hybrid": "Mixed"
     },
     "indexing": "Files still being indexed: {count}"
+  },
+  "scans": {
+    "title": "Scan history",
+    "lead": "Recent documentation collection and search indexing runs of every project, with what went wrong and what to do.",
+    "filters": {
+      "label": "Filters",
+      "project": "Project",
+      "projectAny": "All projects",
+      "projectSearch": "Find a project",
+      "kind": "Kind",
+      "status": "Result",
+      "trigger": "Started",
+      "all": "All",
+      "reset": "Reset"
+    },
+    "kinds": {
+      "collect": "Collection",
+      "index": "Indexing"
+    },
+    "statuses": {
+      "ok": "Success",
+      "unchanged": "No changes",
+      "warning": "Warning",
+      "failed": "Error"
+    },
+    "triggers": {
+      "schedule": "On schedule",
+      "manual": "Manually"
+    },
+    "sources": {
+      "forge": "Forge sync",
+      "remote": "Repository by address",
+      "local_dir": "Local directory",
+      "local_git": "Local git",
+      "none": "No source"
+    },
+    "columns": {
+      "status": "Result",
+      "project": "Project",
+      "kind": "Kind",
+      "started": "Started",
+      "duration": "Duration",
+      "summary": "Summary"
+    },
+    "summary": {
+      "collect": "Branches: {branches} · files: {files}",
+      "skipped": "skipped: {skipped}",
+      "index": "Chunks: {chunks} · documents: {documents}",
+      "repeats": "×{n}, last check {when}"
+    },
+    "details": {
+      "expand": "Show details",
+      "collapse": "Hide details",
+      "source": "Source",
+      "branches": "Branches",
+      "branch": "Branch",
+      "commit": "Commit",
+      "result": "Result",
+      "files": "Files",
+      "skipped": "Skipped",
+      "truncated": "Tree truncated",
+      "engine": "Engine",
+      "model": "Model",
+      "embeddedFiles": "Files embedded",
+      "embeddedChunks": "Chunks embedded",
+      "documents": "Documents in the engine",
+      "technical": "Technical details",
+      "whatToDo": "What to do",
+      "none": "—",
+      "workingTree": "working copy"
+    },
+    "results": {
+      "collected": "Collected",
+      "unchanged": "No changes",
+      "failed": "Error"
+    },
+    "skipReasons": {
+      "too_large": "too large",
+      "binary": "binary",
+      "limit": "over the limit"
+    },
+    "empty": "No scans yet.",
+    "emptyText": "Runs appear here once documentation collection or search indexing runs for a project.",
+    "emptyFiltered": "Nothing matches the filters.",
+    "pager": {
+      "label": "Pages",
+      "prev": "Previous",
+      "next": "Next",
+      "range": "{from}–{to} of {total}"
+    },
+    "codes": {
+      "collect": {
+        "no_files_matched": {
+          "title": "No file matched the collection patterns",
+          "text": "The branch was read, but none of its files fit the include patterns, so the snapshot is empty.",
+          "hint": "Check the include and exclude patterns on the Documentation settings tab of the project or its folder.",
+          "hintGit": "A local git source reads only committed files: commit the documentation (git add + commit) or check the include patterns."
+        },
+        "files_skipped": {
+          "title": "Some files were skipped",
+          "text": "Files that match the patterns were not stored: too large, binary or over the file limit.",
+          "hint": "Raise KNOWLEDGE_MAX_FILE_BYTES / KNOWLEDGE_MAX_FILES or exclude these files."
+        },
+        "truncated": {
+          "title": "The repository tree was truncated",
+          "text": "The forge returned only part of the file tree, so some files may be missing.",
+          "hint": "Narrow the include patterns or collect from a smaller repository."
+        },
+        "no_branches": {
+          "title": "No branch to collect",
+          "text": "The source answered, but no branch matches the default branch or the branch patterns.",
+          "hint": "Set the project's default branch or add a pattern under Branches on the Documentation settings tab."
+        },
+        "no_source": {
+          "title": "The project has no documentation source",
+          "text": "There is neither a documentation source nor a forge synchronization, so there is nothing to collect.",
+          "hint": "Set a source on the Documentation settings tab → Source, or connect the folder to a forge."
+        }
+      },
+      "source": {
+        "not_found": {
+          "title": "The directory or repository is missing",
+          "text": "Nothing exists at the source path or address.",
+          "hint": "Check the path or address of the source; restore the directory if it moved."
+        },
+        "not_a_repository": {
+          "title": "No git repository at the path",
+          "text": "The path exists, but it is not a git repository.",
+          "hint": "Point the source at the repository root or switch it to a local directory."
+        },
+        "unreadable": {
+          "title": "The source cannot be read",
+          "text": "The registry has no access to the files (permissions, a broken repository).",
+          "hint": "Check the file permissions of the server process and the repository state."
+        },
+        "not_allowed": {
+          "title": "The path is outside the allowed roots",
+          "text": "Local sources are allowed only inside KNOWLEDGE_LOCAL_ROOTS.",
+          "hint": "Move the documentation under an allowed root or extend KNOWLEDGE_LOCAL_ROOTS."
+        }
+      },
+      "forge": {
+        "credentials_unavailable": {
+          "title": "The access token is unavailable",
+          "text": "The stored token cannot be decrypted or the env:/file: reference does not resolve.",
+          "hint": "Enter the token again or check SECRETS_KEYS and the referenced variable or file."
+        },
+        "unauthorized": {
+          "title": "The forge rejected the token",
+          "text": "The token is invalid, expired or lacks rights to the repository.",
+          "hint": "Issue a token with read access to the repository and save it in the source or connection."
+        },
+        "not_found": {
+          "title": "The repository was not found on the forge",
+          "text": "The forge does not know the repository or hides it from the token.",
+          "hint": "Check the address and that the token can see the repository."
+        },
+        "owner_not_found": {
+          "title": "The forge owner was not found",
+          "text": "The organization, group or user of the connection does not exist or is hidden.",
+          "hint": "Check the owner path of the forge connection."
+        },
+        "rate_limited": {
+          "title": "The forge rate limit is exhausted",
+          "text": "Too many API requests; the next run waits for the limit to reset.",
+          "hint": "Use a token with a higher limit or collect fewer branches."
+        },
+        "upstream_error": {
+          "title": "The forge or storage failed",
+          "text": "The forge answered with an error or the snapshot could not be saved.",
+          "hint": "Look at the technical details; the run is retried automatically."
+        }
+      },
+      "search": {
+        "embeddings_unavailable": {
+          "title": "The embeddings API is unavailable",
+          "text": "The embeddings API did not answer or answered with an error; the files stay queued.",
+          "hint": "Check EMBEDDINGS_URL, EMBEDDINGS_MODEL and that the model server (e.g. Ollama) is running."
+        },
+        "embeddings_dimensions": {
+          "title": "Wrong embedding size",
+          "text": "The model returns vectors of a different length than EMBEDDINGS_DIMENSIONS.",
+          "hint": "Set EMBEDDINGS_DIMENSIONS to the model's native size (see the technical details)."
+        },
+        "engine_unavailable": {
+          "title": "The search engine is unavailable",
+          "text": "Qdrant, Meilisearch or the vector extension did not answer.",
+          "hint": "Check QDRANT_URL / MEILISEARCH_URL and that the engine is running."
+        }
+      },
+      "other": {
+        "internal": {
+          "title": "Internal error",
+          "text": "Something unexpected happened.",
+          "hint": "Look at the technical details and the server log."
+        }
+      }
+    }
   }
 }

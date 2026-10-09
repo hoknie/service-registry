@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -26,8 +27,16 @@ func ExtendIndex(ctx context.Context, state *State, id uuid.UUID, leaseSecs int)
 
 func RunKnowledgeIndex(ctx context.Context, state *State, id uuid.UUID) error {
 	next := state.Config.Search.IndexIntervalSecs
+	scan := &knowledge.Scan{ID: uuid.Must(uuid.NewV7()), ProjectID: id, Kind: knowledge.IndexScan,
+		Trigger: knowledge.TriggerSchedule, StartedAt: time.Now()}
 	var st indexStats
 	err := indexProject(ctx, state, id, &st)
+	model := ""
+	if state.Embedder != nil {
+		model = state.Embedder.Model()
+	}
+	scan.Index = &knowledge.ScanIndex{EmbeddedFiles: st.embedded, EmbeddedChunks: st.chunks, Documents: st.documents,
+		Synced: st.synced, Engine: engine(state).Name(), Model: model}
 	switch {
 	case err != nil:
 	case st.embedded > 0 || st.synced:
@@ -38,10 +47,11 @@ func RunKnowledgeIndex(ctx context.Context, state *State, id uuid.UUID) error {
 	}
 	failure := ""
 	if err != nil {
-		failure = "search.unavailable"
-		if !errors.Is(err, knowledge.ErrSearchUnavailable) {
-			failure = "internal"
-		}
+		failure = knowledge.IndexFailureCode(err)
+		scan.Fail(failure, err)
+	}
+	if !errors.Is(err, context.Canceled) {
+		recordScan(ctx, state, scan)
 	}
 	if ctx.Err() == nil {
 		if rerr := state.DocIndex.Release(context.WithoutCancel(ctx), id, next, failure); rerr != nil && err == nil {

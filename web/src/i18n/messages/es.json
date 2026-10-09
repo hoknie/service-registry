@@ -19,7 +19,8 @@
       "linkKinds": "Tipos de enlace",
       "clusters": "Clústeres",
       "environments": "Entornos",
-      "docsSearch": "Búsqueda en la documentación"
+      "docsSearch": "Búsqueda en la documentación",
+      "scans": "Escaneos"
     },
     "language": "Idioma",
     "user": {
@@ -1190,7 +1191,7 @@
         "noToken": "Sin token (repositorio público)",
         "path": "Ruta",
         "pathHint": "Una ruta absoluta dentro de los directorios permitidos por el servidor.",
-        "gitHint": "Solo se recopilan los cambios confirmados de las ramas.",
+        "gitHint": "Las ramas se leen de los commits; la rama actual también puede incluir archivos sin confirmar.",
         "credentials": {
           "stored": "Token guardado ({fingerprint})",
           "reference": "Token desde una referencia del servidor",
@@ -1203,7 +1204,11 @@
         "remove": "Quitar fuente",
         "removeTitle": "Quitar la fuente",
         "confirmRemove": "¿Quitar la fuente de documentación? Las instantáneas recopiladas se conservan.",
-        "removed": "Fuente quitada."
+        "removed": "Fuente quitada.",
+        "workingTree": "Incluir archivos sin confirmar de la rama actual",
+        "workingTreeHint": "La rama actual se lee de la copia de trabajo: se recopilan archivos nuevos y modificados, no los excluidos por .gitignore.",
+        "workingTreeOn": "commits y archivos sin confirmar de la rama actual",
+        "workingTreeOff": "solo commits"
       },
       "onlyReadme": "Solo se recopila el README de la raíz: elige carpetas en los ajustes de documentación.",
       "toSettings": "Abrir ajustes de documentación",
@@ -1215,7 +1220,8 @@
         "parseFailed": "No se pudo analizar el archivo; se muestra como texto.",
         "items": "{n} elementos",
         "document": "Documento {n}"
-      }
+      },
+      "workingTree": "copia de trabajo"
     },
     "summary": {
       "environments": "Entornos",
@@ -1250,5 +1256,203 @@
       "hybrid": "Mixto"
     },
     "indexing": "Archivos aún en indexación: {count}"
+  },
+  "scans": {
+    "title": "Historial de escaneos",
+    "lead": "Últimas ejecuciones de recopilación de documentación e indexación para la búsqueda de cada proyecto: qué falló y qué hacer.",
+    "filters": {
+      "label": "Filtros",
+      "project": "Proyecto",
+      "projectAny": "Todos los proyectos",
+      "projectSearch": "Buscar un proyecto",
+      "kind": "Tipo",
+      "status": "Resultado",
+      "trigger": "Inicio",
+      "all": "Todos",
+      "reset": "Restablecer"
+    },
+    "kinds": {
+      "collect": "Recopilación",
+      "index": "Indexación"
+    },
+    "statuses": {
+      "ok": "Correcto",
+      "unchanged": "Sin cambios",
+      "warning": "Advertencia",
+      "failed": "Error"
+    },
+    "triggers": {
+      "schedule": "Programado",
+      "manual": "Manual"
+    },
+    "sources": {
+      "forge": "Sincronización con forge",
+      "remote": "Repositorio por dirección",
+      "local_dir": "Carpeta local",
+      "local_git": "Git local",
+      "none": "Sin fuente"
+    },
+    "columns": {
+      "status": "Resultado",
+      "project": "Proyecto",
+      "kind": "Tipo",
+      "started": "Inicio",
+      "duration": "Duración",
+      "summary": "Resumen"
+    },
+    "summary": {
+      "collect": "Ramas: {branches} · archivos: {files}",
+      "skipped": "omitidos: {skipped}",
+      "index": "Fragmentos: {chunks} · documentos: {documents}",
+      "repeats": "×{n}, última comprobación {when}"
+    },
+    "details": {
+      "expand": "Mostrar detalles",
+      "collapse": "Ocultar detalles",
+      "source": "Fuente",
+      "branches": "Ramas",
+      "branch": "Rama",
+      "commit": "Commit",
+      "result": "Resultado",
+      "files": "Archivos",
+      "skipped": "Omitidos",
+      "truncated": "Árbol truncado",
+      "engine": "Motor",
+      "model": "Modelo",
+      "embeddedFiles": "Archivos con embeddings",
+      "embeddedChunks": "Fragmentos con embeddings",
+      "documents": "Documentos en el motor",
+      "technical": "Detalles técnicos",
+      "whatToDo": "Qué hacer",
+      "none": "—",
+      "workingTree": "copia de trabajo"
+    },
+    "results": {
+      "collected": "Recopilado",
+      "unchanged": "Sin cambios",
+      "failed": "Error"
+    },
+    "skipReasons": {
+      "too_large": "demasiado grandes",
+      "binary": "binarios",
+      "limit": "sobre el límite"
+    },
+    "empty": "Aún no hay escaneos.",
+    "emptyText": "Las ejecuciones aparecen aquí cuando se recopila la documentación o se indexa un proyecto para la búsqueda.",
+    "emptyFiltered": "Nada coincide con los filtros.",
+    "pager": {
+      "label": "Páginas",
+      "prev": "Anterior",
+      "next": "Siguiente",
+      "range": "{from}–{to} de {total}"
+    },
+    "codes": {
+      "collect": {
+        "no_files_matched": {
+          "title": "Ningún archivo coincide con los patrones de recopilación",
+          "text": "La rama se leyó, pero ninguno de sus archivos coincide con los patrones de inclusión: la instantánea está vacía.",
+          "hint": "Revisa los patrones de inclusión y exclusión en la pestaña «Ajustes de documentación» del proyecto o su carpeta.",
+          "hintGit": "Una fuente git local solo lee archivos confirmados: haz commit de la documentación (git add + commit) o revisa los patrones de inclusión."
+        },
+        "files_skipped": {
+          "title": "Se omitieron algunos archivos",
+          "text": "Archivos que coinciden con los patrones no se guardaron: demasiado grandes, binarios o sobre el límite.",
+          "hint": "Aumenta KNOWLEDGE_MAX_FILE_BYTES / KNOWLEDGE_MAX_FILES o excluye esos archivos."
+        },
+        "truncated": {
+          "title": "El árbol del repositorio se truncó",
+          "text": "El forge devolvió solo parte del árbol de archivos; pueden faltar archivos.",
+          "hint": "Restringe los patrones de inclusión o recopila de un repositorio más pequeño."
+        },
+        "no_branches": {
+          "title": "No hay ramas que recopilar",
+          "text": "La fuente respondió, pero ninguna rama coincide con la rama predeterminada ni con los patrones de ramas.",
+          "hint": "Define la rama predeterminada del proyecto o añade un patrón en «Ramas» de la pestaña «Ajustes de documentación»."
+        },
+        "no_source": {
+          "title": "El proyecto no tiene fuente de documentación",
+          "text": "No hay fuente de documentación ni sincronización con un forge: no hay nada que recopilar.",
+          "hint": "Define una fuente en «Ajustes de documentación» → «Fuente» o conecta la carpeta a un forge."
+        }
+      },
+      "source": {
+        "not_found": {
+          "title": "No existe la carpeta o el repositorio",
+          "text": "No hay nada en la ruta o dirección de la fuente.",
+          "hint": "Revisa la ruta o dirección de la fuente; restaura la carpeta si se movió."
+        },
+        "not_a_repository": {
+          "title": "No hay un repositorio git en la ruta",
+          "text": "La ruta existe, pero no es un repositorio git.",
+          "hint": "Apunta la fuente a la raíz del repositorio o cámbiala a carpeta local."
+        },
+        "unreadable": {
+          "title": "No se puede leer la fuente",
+          "text": "El registro no tiene acceso a los archivos (permisos, repositorio dañado).",
+          "hint": "Revisa los permisos del proceso del servidor y el estado del repositorio."
+        },
+        "not_allowed": {
+          "title": "La ruta está fuera de las raíces permitidas",
+          "text": "Las fuentes locales solo se permiten dentro de KNOWLEDGE_LOCAL_ROOTS.",
+          "hint": "Mueve la documentación a una raíz permitida o amplía KNOWLEDGE_LOCAL_ROOTS."
+        }
+      },
+      "forge": {
+        "credentials_unavailable": {
+          "title": "El token de acceso no está disponible",
+          "text": "El token guardado no se descifra o la referencia env:/file: no se resuelve.",
+          "hint": "Introduce el token de nuevo o revisa SECRETS_KEYS y la variable o archivo indicado."
+        },
+        "unauthorized": {
+          "title": "El forge rechazó el token",
+          "text": "El token no es válido, caducó o no tiene permisos sobre el repositorio.",
+          "hint": "Emite un token con lectura del repositorio y guárdalo en la fuente o conexión."
+        },
+        "not_found": {
+          "title": "El repositorio no existe en el forge",
+          "text": "El forge no conoce el repositorio o lo oculta al token.",
+          "hint": "Revisa la dirección y que el token vea el repositorio."
+        },
+        "owner_not_found": {
+          "title": "No se encontró el propietario en el forge",
+          "text": "La organización, grupo o usuario de la conexión no existe o está oculto.",
+          "hint": "Revisa la ruta del propietario en la conexión al forge."
+        },
+        "rate_limited": {
+          "title": "Se agotó el límite de peticiones al forge",
+          "text": "Demasiadas peticiones a la API; la siguiente ejecución espera al reinicio del límite.",
+          "hint": "Usa un token con mayor límite o recopila menos ramas."
+        },
+        "upstream_error": {
+          "title": "Fallo del forge o del almacenamiento",
+          "text": "El forge respondió con un error o no se pudo guardar la instantánea.",
+          "hint": "Mira los detalles técnicos; la ejecución se repite automáticamente."
+        }
+      },
+      "search": {
+        "embeddings_unavailable": {
+          "title": "La API de embeddings no está disponible",
+          "text": "La API de embeddings no respondió o respondió con un error; los archivos siguen en cola.",
+          "hint": "Revisa EMBEDDINGS_URL, EMBEDDINGS_MODEL y que el servidor del modelo (p. ej., Ollama) esté en marcha."
+        },
+        "embeddings_dimensions": {
+          "title": "Tamaño de embeddings incorrecto",
+          "text": "El modelo devuelve vectores de otra longitud que EMBEDDINGS_DIMENSIONS.",
+          "hint": "Pon en EMBEDDINGS_DIMENSIONS el tamaño nativo del modelo (ver detalles técnicos)."
+        },
+        "engine_unavailable": {
+          "title": "El motor de búsqueda no está disponible",
+          "text": "Qdrant, Meilisearch o la extensión vector no respondieron.",
+          "hint": "Revisa QDRANT_URL / MEILISEARCH_URL y que el motor esté en marcha."
+        }
+      },
+      "other": {
+        "internal": {
+          "title": "Error interno",
+          "text": "Ocurrió algo inesperado.",
+          "hint": "Mira los detalles técnicos y el registro del servidor."
+        }
+      }
+    }
   }
 }
