@@ -2,11 +2,13 @@ package jobs
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
 
+	"svc-registry/internal/feature/knowledge"
 	"svc-registry/pkg/leasejobs"
 )
 
@@ -37,7 +39,12 @@ func SpawnKnowledgeIndex(ctx context.Context, deps Deps) <-chan struct{} {
 		Name:   "knowledge-index",
 		Source: indexSource{deps: deps},
 		Run: func(ctx context.Context, id uuid.UUID) {
-			if err := deps.Knowledge.RunKnowledgeIndex(ctx, id); err != nil {
+			err := deps.Knowledge.RunKnowledgeIndex(ctx, id)
+			var failure *knowledge.IndexFailure
+			switch {
+			case errors.As(err, &failure):
+				slog.Warn("documentation indexing failed", "project", id, "code", failure.Code, "detail", failure.Detail)
+			case err != nil:
 				slog.Warn("documentation indexing failed", "project", id, "error", err)
 			}
 		},

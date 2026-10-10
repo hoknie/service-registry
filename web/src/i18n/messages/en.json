@@ -294,7 +294,8 @@
     "search": {
       "embeddings_unavailable": "The embeddings service is unavailable.",
       "embeddings_dimensions": "The embeddings have a different size than the search index expects.",
-      "engine_unavailable": "The search engine is unavailable."
+      "engine_unavailable": "The search engine is unavailable.",
+      "engine_dimensions": "The search engine collection stores vectors of other dimensions."
     }
   },
   "guard": {
@@ -1596,6 +1597,11 @@
           "title": "The search engine is unavailable",
           "text": "Qdrant, Meilisearch or the vector extension did not answer.",
           "hint": "Check QDRANT_URL / MEILISEARCH_URL and that the engine is running."
+        },
+        "engine_dimensions": {
+          "title": "Collection dimensions do not match the model",
+          "text": "The search engine collection stores vectors of another length than EMBEDDINGS_DIMENSIONS.",
+          "hint": "Set another QDRANT_COLLECTION or recreate the collection (see the technical details), then restart the service."
         }
       },
       "other": {

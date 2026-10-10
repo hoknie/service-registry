@@ -71,6 +71,9 @@ func (e *Engine) conn(ctx context.Context) (*qd.Client, error) {
 				return nil, unavailable("create collection", err)
 			}
 		}
+		if err := e.checkDimensions(ctx); err != nil {
+			return nil, err
+		}
 		for _, field := range []string{"project_id", "pb", "file"} {
 			if _, err := e.client.CreateFieldIndex(ctx, &qd.CreateFieldIndexCollection{CollectionName: e.collection, Wait: qd.PtrOf(true),
 				FieldName: field, FieldType: qd.FieldType_FieldTypeKeyword.Enum()}); err != nil {
@@ -84,6 +87,29 @@ func (e *Engine) conn(ctx context.Context) (*qd.Client, error) {
 
 func pointID(d knowledge.IndexDoc) string {
 	return uuid.NewSHA1(pointSpace, []byte(fmt.Sprintf("%s|%s|%s|%d", d.ProjectID, d.Branch, d.Path, d.Ord))).String()
+}
+
+func (e *Engine) checkDimensions(ctx context.Context) error {
+	info, err := e.client.GetCollectionInfo(ctx, e.collection)
+	if err != nil {
+		return unavailable("collection info", err)
+	}
+	vectors := info.GetConfig().GetParams().GetVectorsConfig()
+	params := vectors.GetParams()
+	if params == nil {
+		return fmt.Errorf("%w: qdrant collection %q has named vectors, not one vector of EMBEDDINGS_DIMENSIONS=%d; set another QDRANT_COLLECTION",
+			knowledge.ErrEngineDimensions, e.collection, e.dims)
+	}
+	if size := params.GetSize(); size != uint64(e.dims) {
+		return fmt.Errorf("%w: qdrant collection %q stores %d-dimensional vectors, EMBEDDINGS_DIMENSIONS=%d; set another QDRANT_COLLECTION or recreate the collection",
+			knowledge.ErrEngineDimensions, e.collection, size, e.dims)
+	}
+	return nil
+}
+
+func (e *Engine) Check(ctx context.Context) error {
+	_, err := e.conn(ctx)
+	return err
 }
 
 func (e *Engine) Sync(ctx context.Context, project uuid.UUID, docs []knowledge.IndexDoc) error {

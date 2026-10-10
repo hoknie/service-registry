@@ -294,7 +294,8 @@
     "search": {
       "embeddings_unavailable": "El servicio de embeddings no está disponible.",
       "embeddings_dimensions": "Los embeddings tienen un tamaño distinto del que espera el índice de búsqueda.",
-      "engine_unavailable": "El motor de búsqueda no está disponible."
+      "engine_unavailable": "El motor de búsqueda no está disponible.",
+      "engine_dimensions": "La colección del motor de búsqueda guarda vectores de otras dimensiones."
     }
   },
   "guard": {
@@ -1596,6 +1597,11 @@
           "title": "El motor de búsqueda no está disponible",
           "text": "Qdrant, Meilisearch o la extensión vector no respondieron.",
           "hint": "Revisa QDRANT_URL / MEILISEARCH_URL y que el motor esté en marcha."
+        },
+        "engine_dimensions": {
+          "title": "Las dimensiones de la colección no coinciden con el modelo",
+          "text": "La colección del motor de búsqueda guarda vectores de otra longitud que EMBEDDINGS_DIMENSIONS.",
+          "hint": "Indique otra QDRANT_COLLECTION o vuelva a crear la colección (vea los detalles técnicos) y reinicie el servicio."
         }
       },
       "other": {

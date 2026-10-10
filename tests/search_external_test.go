@@ -2,11 +2,16 @@ package tests
 
 import (
 	"context"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	qd "github.com/qdrant/go-client/qdrant"
+
+	"svc-registry/internal/feature/knowledge/search/qdrant"
 )
 
 func projectsIn(t *testing.T, a *testApp, cookie, q string, extra ...string) string {
@@ -101,4 +106,58 @@ func TestSearchExternalEngineDown(t *testing.T) {
 	eq(t, r.status, 503, r.text())
 	eq(t, code(t, r), any("search.unavailable"))
 	contains(t, projectsIn(t, s.testApp, s.admin, "registry", "mode", "text"), "acme/api:README.md")
+}
+
+func qdrantPoints(t *testing.T, addr, collection string) uint64 {
+	t.Helper()
+	host, port, _ := strings.Cut(addr, ":")
+	p, err := strconv.Atoi(port)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := qd.NewClient(&qd.Config{Host: host, Port: p, SkipCompatibilityCheck: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	n, err := c.Count(context.Background(), &qd.CountPoints{CollectionName: collection})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func TestSearchQdrantCollectionOfOtherDimensions(t *testing.T) {
+	t.Parallel()
+	addr := os.Getenv("TEST_QDRANT_URL")
+	if addr == "" {
+		t.Skip("TEST_QDRANT_URL is not set; `just test` sets it")
+	}
+	name := "t_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	if err := qdrant.New(addr, "", name, embedDims*2).Check(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	s := startSearch(t, "qdrant", "QDRANT_COLLECTION", name)
+	s.docs(map[string]string{"README.md": "# Registry\nThe service registry keeps projects."})
+	s.collect()
+	s.index()
+
+	failed := scalar[string](t, s.db, "SELECT error_code FROM knowledge_scans WHERE project_id = $1 AND kind = 'index' ORDER BY last_started_at DESC LIMIT 1", s.project)
+	eq(t, failed, "search.engine_dimensions")
+	detail := scalar[string](t, s.db, "SELECT error_detail FROM knowledge_scans WHERE project_id = $1 AND kind = 'index' ORDER BY last_started_at DESC LIMIT 1", s.project)
+	for _, part := range []string{name, strconv.Itoa(embedDims * 2), strconv.Itoa(embedDims), "QDRANT_COLLECTION"} {
+		contains(t, detail, part)
+	}
+	r := s.get(searchPath("registry", "mode", "semantic"), s.admin)
+	eq(t, r.status, 503, r.text())
+	eq(t, code(t, r), any("search.unavailable"))
+	contains(t, projectsIn(t, s.testApp, s.admin, "registry", "mode", "text"), "acme/api:README.md")
+	eq(t, qdrantPoints(t, addr, name), uint64(0), "the collection is left alone")
+
+	fresh := "t_" + strings.ReplaceAll(uuid.NewString(), "-", "")
+	s.restart("QDRANT_COLLECTION", fresh)
+	s.index()
+	status := scalar[string](t, s.db, "SELECT status FROM knowledge_scans WHERE project_id = $1 AND kind = 'index' ORDER BY last_started_at DESC LIMIT 1", s.project)
+	eq(t, status, "ok")
+	contains(t, projectsIn(t, s.testApp, s.admin, "registry", "mode", "semantic"), "acme/api:README.md")
 }

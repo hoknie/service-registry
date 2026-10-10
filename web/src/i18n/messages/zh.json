@@ -294,7 +294,8 @@
     "search": {
       "embeddings_unavailable": "嵌入服务不可用。",
       "embeddings_dimensions": "嵌入向量的维度与搜索索引不一致。",
-      "engine_unavailable": "搜索引擎不可用。"
+      "engine_unavailable": "搜索引擎不可用。",
+      "engine_dimensions": "搜索引擎集合中的向量维度不同。"
     }
   },
   "guard": {
@@ -1596,6 +1597,11 @@
           "title": "搜索引擎不可用",
           "text": "Qdrant、Meilisearch 或 vector 扩展未响应。",
           "hint": "检查 QDRANT_URL / MEILISEARCH_URL 以及引擎是否在运行。"
+        },
+        "engine_dimensions": {
+          "title": "集合维度与模型不一致",
+          "text": "搜索引擎集合中向量的长度与 EMBEDDINGS_DIMENSIONS 不同。",
+          "hint": "设置其他 QDRANT_COLLECTION 或重新创建集合（见技术详情），然后重启服务。"
         }
       },
       "other": {

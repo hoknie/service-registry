@@ -58,7 +58,10 @@ func (s *Service) RunKnowledgeIndex(ctx context.Context, id uuid.UUID) error {
 			err = rerr
 		}
 	}
-	return apperr.Wrap(err)
+	if err == nil {
+		return nil
+	}
+	return knowledge.NewIndexFailure(err)
 }
 
 func (s *Service) RetainExternalIndex(ctx context.Context) error {

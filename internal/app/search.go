@@ -11,6 +11,7 @@ import (
 	"svc-registry/internal/feature/knowledge"
 	"svc-registry/internal/feature/knowledge/embeddings"
 	"svc-registry/internal/feature/knowledge/search/pgvector"
+	"svc-registry/internal/feature/knowledge/search/qdrant"
 	"svc-registry/internal/platform/config"
 	"svc-registry/internal/platform/outbound"
 )
@@ -54,6 +55,13 @@ func buildSearch(all config.Config, pool *pgxpool.Pool) (search, error) {
 }
 
 func (s search) check(ctx context.Context) error {
+	if q, ok := s.engine.(*qdrant.Engine); ok {
+		if err := q.Check(ctx); err != nil {
+			slog.Warn("search engine check failed", "engine", q.Name(), "code", knowledge.IndexFailureCode(err),
+				"detail", knowledge.RedactDetail(err.Error()))
+		}
+		return nil
+	}
 	e, ok := s.engine.(*pgvector.Engine)
 	if !ok {
 		return nil

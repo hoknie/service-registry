@@ -19,6 +19,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
+	github.com/qdrant/go-client v1.19.2
 	github.com/spf13/cobra v1.10.2
 	gitlab.com/gitlab-org/api/client-go v1.46.0
 	golang.org/x/net v0.58.0
@@ -94,7 +95,6 @@ require (
 	github.com/openai/openai-go/v3 v3.66.0 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
 	github.com/pjbgf/sha1cd v0.7.0 // indirect
-	github.com/qdrant/go-client v1.19.2 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect

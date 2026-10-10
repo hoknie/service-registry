@@ -254,6 +254,8 @@ func IndexFailureCode(err error) string {
 	switch {
 	case errors.Is(err, ErrEmbeddingsDimensions):
 		return "search.embeddings_dimensions"
+	case errors.Is(err, ErrEngineDimensions):
+		return "search.engine_dimensions"
 	case errors.Is(err, ErrEmbeddingsUnavailable):
 		return "search.embeddings_unavailable"
 	case errors.Is(err, ErrEngineUnavailable), errors.Is(err, ErrSearchUnavailable):

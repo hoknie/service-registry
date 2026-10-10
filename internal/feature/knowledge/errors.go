@@ -98,7 +98,21 @@ var (
 	ErrEmbeddingsUnavailable = fmt.Errorf("%w: embeddings API", ErrSearchUnavailable)
 	ErrEmbeddingsDimensions  = fmt.Errorf("%w: embedding dimensions", ErrEmbeddingsUnavailable)
 	ErrEngineUnavailable     = fmt.Errorf("%w: search engine", ErrSearchUnavailable)
+	ErrEngineDimensions      = fmt.Errorf("%w: collection dimensions", ErrEngineUnavailable)
 )
+
+type IndexFailure struct {
+	Code   string
+	Detail string
+	Err    error
+}
+
+func NewIndexFailure(err error) *IndexFailure {
+	return &IndexFailure{Code: IndexFailureCode(err), Detail: RedactDetail(err.Error()), Err: err}
+}
+
+func (f *IndexFailure) Error() string { return f.Code + ": " + f.Detail }
+func (f *IndexFailure) Unwrap() error { return f.Err }
 
 type InternalError struct{ Detail string }
 

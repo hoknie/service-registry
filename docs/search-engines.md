@@ -151,8 +151,12 @@ EMBEDDINGS_DIMENSIONS=1024
   `http://`.
 - **The collection** is created on first use with size `EMBEDDINGS_DIMENSIONS` and cosine
   distance.
-- **When you switch to a model with another vector size,** set a new `QDRANT_COLLECTION`: the old
-  collection was created for the old size.
+- **When you switch to a model with another vector size,** set a new `QDRANT_COLLECTION` or
+  recreate the collection: the old one was created for the old size. The registry compares the
+  size of an existing collection with `EMBEDDINGS_DIMENSIONS` at startup and before the first write
+  or search. On a mismatch it never touches the collection: `serve` logs a warning with
+  `code=search.engine_dimensions`, indexing fails with that code and the `semantic`/`hybrid` modes
+  answer `503`.
 - **`QDRANT_API_KEY`** is needed only when Qdrant has a key (`QDRANT__SERVICE__API_KEY`). A value
   or an `env:` / `file:` reference.
 - **The registry's Qdrant client does not use TLS yet.** Keep Qdrant on the internal network next
@@ -234,6 +238,11 @@ with its counters and, on failure, one of these codes and the technical details:
 | `search.embeddings_unavailable` | the embeddings API did not answer or answered with an error |
 | `search.embeddings_dimensions` | the model returns vectors of another size than `EMBEDDINGS_DIMENSIONS` |
 | `search.engine_unavailable` | Qdrant, Meilisearch or the `vector` extension did not answer |
+| `search.engine_dimensions` | the Qdrant collection stores vectors of another size than `EMBEDDINGS_DIMENSIONS` |
+
+The `serve` log carries the same code and details:
+`documentation indexing failed project=<id> code=search.embeddings_dimensions detail="… vector 0 has 384
+dimensions, want 768 (EMBEDDINGS_DIMENSIONS)"`. Secrets are removed from the details.
 
 ## 5. Checking that it works
 

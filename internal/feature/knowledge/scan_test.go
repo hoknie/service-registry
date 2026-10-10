@@ -45,6 +45,7 @@ func TestIndexFailureCode(t *testing.T) {
 		fmt.Errorf("%w: got 1024 want 768", ErrEmbeddingsDimensions): "search.embeddings_dimensions",
 		fmt.Errorf("%w: 503", ErrEmbeddingsUnavailable):              "search.embeddings_unavailable",
 		fmt.Errorf("%w: qdrant", ErrEngineUnavailable):               "search.engine_unavailable",
+		fmt.Errorf("%w: 768 vs 384", ErrEngineDimensions):            "search.engine_dimensions",
 		errors.New("boom"): "internal",
 	}
 	for err, want := range cases {
@@ -120,5 +121,13 @@ func TestScanExtendsOnlyAContinuousSeries(t *testing.T) {
 	}
 	if next.DurationMS() != 1200 {
 		t.Fatalf("duration %d", next.DurationMS())
+	}
+}
+
+func TestIndexFailureKeepsCodeDetailAndChain(t *testing.T) {
+	err := fmt.Errorf("%w: embeddings API answered with Bearer secret-token", ErrEmbeddingsUnavailable)
+	f := NewIndexFailure(err)
+	if f.Code != "search.embeddings_unavailable" || strings.Contains(f.Detail, "secret-token") || !errors.Is(f, ErrSearchUnavailable) {
+		t.Fatalf("%+v", f)
 	}
 }
