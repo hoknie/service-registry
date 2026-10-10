@@ -30,7 +30,7 @@ func TestCreateProjectWithSource(t *testing.T) {
 	f.Put(forgefake.Repo{ID: 7, Path: "platform/api", Files: map[string]string{"README.md": "# API"},
 		Branches: []forgefake.Branch{{Name: "main", SHA: sha(7)}}})
 	r = create("api2", obj{"kind": "remote", "forge": "gitlab", "url": "https://gitlab.example.com/platform/api",
-		"api_url": f.APIURL() + "/api/v4", "credentials": obj{"token": forgeToken}})
+		"api_url": f.APIURL() + "/api/v4", "credentials": a.tokenOn(a.admin, a.org, forgeToken)})
 	eq(t, r.status, 201, r.text())
 	lacks(t, r.text(), forgeToken)
 	node := r.json(t)
@@ -76,7 +76,12 @@ func TestCreateProjectWithSourceConflicts(t *testing.T) {
 	eq(t, r.status, 409)
 	eq(t, code(t, r), any("conflict.local_sources_disabled"))
 	r = create(obj{"kind": "remote", "forge": "github", "url": "https://github.com/a/b", "credentials": obj{"token": "ghp_x"}})
-	eq(t, r.status, 409)
-	eq(t, code(t, r), any("conflict.secrets_key_missing"))
+	eq(t, r.status, 400)
+	eq(t, code(t, r), any("validation.credentials_inline_removed"))
+	other := plain.nodeID(admin, "organization", "", "other")
+	r = create(obj{"kind": "remote", "forge": "github", "url": "https://github.com/a/b",
+		"credentials": plain.refOn(admin, other, "env:GH_TOKEN")})
+	eq(t, r.status, 400)
+	eq(t, code(t, r), any("validation.secret_not_available"))
 	eq(t, scalar[int64](t, plain.db, "SELECT count(*) FROM nodes WHERE kind = 'project'"), int64(0))
 }

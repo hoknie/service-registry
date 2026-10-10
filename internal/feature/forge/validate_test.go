@@ -2,7 +2,6 @@ package forge
 
 import (
 	"reflect"
-	"strings"
 	"testing"
 )
 
@@ -62,18 +61,15 @@ func TestUpdateKeepsWhatIsNotSent(t *testing.T) {
 	}
 }
 
-func TestCredentials(t *testing.T) {
-	ok := []CredentialsInput{{Token: ptr("ghp_x")}, {TokenRef: ptr("env:FORGE_TOKEN")}, {TokenRef: ptr(" file:/run/secrets/t ")}}
-	for _, in := range ok {
-		if _, err := ValidateCredentials(&in); err != nil {
-			t.Errorf("%+v: %v", in, err)
+func TestValidRef(t *testing.T) {
+	for _, ref := range []string{"env:FORGE_TOKEN", "file:/run/secrets/t"} {
+		if !ValidRef(ref) {
+			t.Errorf("%q must be valid", ref)
 		}
 	}
-	bad := []*CredentialsInput{nil, {}, {Token: ptr("a"), TokenRef: ptr("env:X")}, {Token: ptr("")}, {Token: ptr("a b")},
-		{TokenRef: ptr("env:1X")}, {TokenRef: ptr("file:relative")}, {TokenRef: ptr("vault:x")}, {Token: ptr(strings.Repeat("a", 4097))}}
-	for _, in := range bad {
-		if _, err := ValidateCredentials(in); err != InvalidCredentials {
-			t.Errorf("%+v: %v", in, err)
+	for _, ref := range []string{"env:1X", "file:relative", "vault:x", ""} {
+		if ValidRef(ref) {
+			t.Errorf("%q must be invalid", ref)
 		}
 	}
 }

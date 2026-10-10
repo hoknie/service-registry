@@ -27,12 +27,13 @@ func TestValidateRemoteSources(t *testing.T) {
 	if v.FullPath() != "a/b/c" {
 		t.Fatal(v.FullPath())
 	}
-	v, err := ValidateSource(SourceInput{Kind: "remote", Forge: "github", URL: "https://github.com/a/b", HasCredential: true, Token: ptr("tok")})
-	if err != nil || *v.Token != "tok" || v.Keep {
+	v, err := ValidateSource(SourceInput{Kind: "remote", Forge: "github", URL: "https://github.com/a/b", HasCredential: true,
+		SecretID: ptr("0199c000-0000-7000-8000-000000000001")})
+	if err != nil || v.SecretID == nil || v.Keep {
 		t.Fatal(v, err)
 	}
 	v, err = ValidateSource(SourceInput{Kind: "remote", Forge: "github", URL: "https://github.com/a/b", HasCredential: true, NoCredentials: true})
-	if err != nil || v.Keep || v.Token != nil {
+	if err != nil || v.Keep || v.SecretID != nil {
 		t.Fatal(v, err)
 	}
 	for _, bad := range []SourceInput{
@@ -42,8 +43,8 @@ func TestValidateRemoteSources(t *testing.T) {
 		{Kind: "remote", Forge: "github", URL: "https://user:pw@github.com/a/b"},
 		{Kind: "remote", Forge: "github", URL: "https://github.com/a/b?x=1"},
 		{Kind: "remote", Forge: "github", URL: "https://github.com/a/b", Path: "/srv"},
-		{Kind: "remote", Forge: "github", URL: "https://github.com/a/b", HasCredential: true, Token: ptr("a b")},
-		{Kind: "remote", Forge: "github", URL: "https://github.com/a/b", HasCredential: true, Reference: ptr("vault:x")},
+		{Kind: "remote", Forge: "github", URL: "https://github.com/a/b", HasCredential: true, SecretID: ptr("not-a-uuid")},
+		{Kind: "remote", Forge: "github", URL: "https://github.com/a/b", HasCredential: true},
 		{Kind: "svn", Path: "/srv"},
 	} {
 		if _, err := ValidateSource(bad); !errors.Is(err, InvalidSource) {

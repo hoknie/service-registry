@@ -6,7 +6,6 @@ import (
 	"svc-registry/internal/feature/access"
 	"svc-registry/internal/feature/deploy"
 	deployservice "svc-registry/internal/feature/deploy/service"
-	"svc-registry/internal/feature/forge"
 )
 
 type ClusterError struct {
@@ -49,14 +48,8 @@ func ClusterOf(c deploy.Cluster) Cluster {
 		Status: string(c.Status), LastError: clusterError(c.LastError), LastPolledAt: c.LastPolledAt, NextPollAt: c.NextPollAt,
 		Workloads: c.Workloads, Unmatched: c.Unmatched, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt}
 	if c.Credentials != nil {
-		out.Credentials = &Credentials{Kind: string(c.Credentials.Kind)}
-		if c.Credentials.Kind == forge.CredentialsRef {
-			ref := c.Credentials.Ref
-			out.Credentials.Ref = &ref
-		} else {
-			fp := c.Credentials.Fingerprint
-			out.Credentials.Fingerprint = &fp
-		}
+		creds := CredentialsOf(*c.Credentials)
+		out.Credentials = &creds
 	}
 	return out
 }

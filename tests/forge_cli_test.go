@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"svc-registry/internal/testsupport/forgefake"
+	"svc-registry/pkg/secretbox"
 )
 
 const secretsKey2 = "k2:YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXowMTIzNDU="
@@ -58,15 +59,17 @@ func TestSecretsRotate(t *testing.T) {
 	app.cluster(root, "prod", nil)
 	manual := app.nodeID(root, "project", acme, "docs")
 	r := app.send("PUT", nodePath(manual)+"/knowledge/source", root, obj{"kind": "remote", "forge": "github",
-		"url": "https://github.example/acme-inc/docs", "api_url": f.APIURL(), "credentials": obj{"token": forgeToken}})
+		"url": "https://github.example/acme-inc/docs", "api_url": f.APIURL(), "credentials": nil})
 	eq(t, r.status, 200, r.text())
+	legacy, err := secretbox.New(app.services.Config.Secrets.Keys).Seal(forgeToken, secretbox.AAD("knowledge_sources", manual, "credentials_enc"))
+	must(t, err)
+	execSQL(t, app.db, "UPDATE knowledge_sources SET credentials_enc = $1 WHERE project_id = $2", legacy, manual)
 
 	code, out, errOut := run(t, []string{"secrets:rotate"}, "", "DATABASE_URL", app.db.URL, "SECRETS_KEYS", secretsKey2+","+secretsKey)
 	eq(t, code, 0, errOut)
 	eq(t, strings.TrimSpace(out), "rotated 4 secret(s)")
 	eq(t, strings.HasPrefix(scalar[string](t, app.db, "SELECT credentials_enc FROM knowledge_sources"), "v1.k2."), true)
-	eq(t, strings.HasPrefix(scalar[string](t, app.db, "SELECT credentials_enc FROM clusters"), "v1.k2."), true)
-	eq(t, strings.HasPrefix(scalar[string](t, app.db, "SELECT credentials_enc FROM forge_connections"), "v1.k2."), true)
+	eq(t, scalar[int64](t, app.db, "SELECT count(*) FROM secrets WHERE value_enc LIKE 'v1.k2.%'"), int64(2))
 	eq(t, strings.HasPrefix(scalar[string](t, app.db, "SELECT webhook_secret_enc FROM forge_connections"), "v1.k2."), true)
 
 	code, out, errOut = run(t, []string{"forge:sync", conn}, "", "DATABASE_URL", app.db.URL, "SECRETS_KEYS", secretsKey2)
@@ -74,5 +77,5 @@ func TestSecretsRotate(t *testing.T) {
 
 	code, _, _ = run(t, []string{"secrets:rotate"}, "", "DATABASE_URL", app.db.URL, "SECRETS_KEYS", secretsKey)
 	eq(t, code, 1)
-	eq(t, strings.HasPrefix(scalar[string](t, app.db, "SELECT credentials_enc FROM forge_connections"), "v1.k2."), true)
+	eq(t, scalar[int64](t, app.db, "SELECT count(*) FROM secrets WHERE value_enc LIKE 'v1.k2.%'"), int64(2))
 }

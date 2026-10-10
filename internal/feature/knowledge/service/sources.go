@@ -8,10 +8,8 @@ import (
 
 	"svc-registry/internal/feature/access"
 	"svc-registry/internal/feature/catalog"
-	"svc-registry/internal/feature/forge"
 	"svc-registry/internal/feature/knowledge"
 	"svc-registry/internal/platform/apperr"
-	"svc-registry/pkg/secretbox"
 )
 
 func (s *Service) GetKnowledgeSource(ctx context.Context, p access.Principal, id uuid.UUID) (*knowledge.Source, error) {
@@ -22,7 +20,22 @@ func (s *Service) GetKnowledgeSource(ctx context.Context, p access.Principal, id
 	if err != nil || src == nil {
 		return nil, apperr.Wrap(err)
 	}
-	return &src.Source, nil
+	out, err := s.decorateSource(ctx, src.Source)
+	return &out, err
+}
+
+func (s *Service) decorateSource(ctx context.Context, src knowledge.Source) (knowledge.Source, error) {
+	if src.Credentials.SecretID == nil {
+		return src, nil
+	}
+	refs, err := s.catalog.SecretRefs(ctx, []uuid.UUID{*src.Credentials.SecretID})
+	if err != nil {
+		return knowledge.Source{}, apperr.Wrap(err)
+	}
+	if ref, ok := refs[*src.Credentials.SecretID]; ok {
+		src.Credentials.Secret = &ref
+	}
+	return src, nil
 }
 
 func (s *Service) validSource(in knowledge.SourceInput) (knowledge.ValidSource, error) {
@@ -38,24 +51,25 @@ func (s *Service) validSource(in knowledge.SourceInput) (knowledge.ValidSource, 
 	return v, nil
 }
 
-func (s *Service) prepareSource(id uuid.UUID, in knowledge.SourceInput) (knowledge.NewSource, error) {
+func (s *Service) prepareSource(ctx context.Context, id uuid.UUID, in knowledge.SourceInput, checkSecret bool) (knowledge.NewSource, error) {
 	v, err := s.validSource(in)
 	if err != nil {
 		return knowledge.NewSource{}, err
 	}
-	n := knowledge.NewSource{Source: v.Source, CredentialsRef: v.Reference, Keep: v.Keep}
-	if v.Token != nil {
-		if !s.secrets.CanEncrypt() {
-			return knowledge.NewSource{}, apperr.Wrap(forge.ConflictSecretsKeyMissing)
+	if checkSecret {
+		if err := s.checkSecret(ctx, id, v.SecretID); err != nil {
+			return knowledge.NewSource{}, err
 		}
-		enc, err := s.secrets.Seal(*v.Token, secretbox.AAD(knowledge.SourceTable, id.String(), knowledge.SourceColumnCredentials))
-		if err != nil {
-			return knowledge.NewSource{}, apperr.Internalf("encrypt: %v", err)
-		}
-		fp := secretbox.Fingerprint(*v.Token)
-		n.CredentialsEnc, n.Fingerprint = &enc, &fp
 	}
-	return n, nil
+	return knowledge.NewSource(v), nil
+}
+
+func (s *Service) checkSecret(ctx context.Context, projectID uuid.UUID, secret *uuid.UUID) error {
+	if secret == nil {
+		return nil
+	}
+	_, err := s.catalog.SecretFor(ctx, &projectID, *secret)
+	return err
 }
 
 func sourceRepo(s knowledge.Source) (f *catalog.Forge, url *string, ok bool) {
@@ -71,13 +85,16 @@ func (s *Service) PutKnowledgeSource(ctx context.Context, p access.Principal, id
 	if _, err := s.knowledgeProject(ctx, p, catalog.PermWrite, id); err != nil {
 		return knowledge.Source{}, err
 	}
-	n, err := s.prepareSource(id, in)
+	n, err := s.prepareSource(ctx, id, in, true)
 	if err != nil {
 		return knowledge.Source{}, err
 	}
 	saved, err := s.sources.Put(ctx, id, n)
 	if err != nil {
 		return knowledge.Source{}, apperr.Wrap(err)
+	}
+	if saved, err = s.decorateSource(ctx, saved); err != nil {
+		return knowledge.Source{}, err
 	}
 	f, url, ok := sourceRepo(saved)
 	if !ok {
@@ -120,10 +137,11 @@ func (s *Service) CheckKnowledgeSource(ctx context.Context, p access.Principal, 
 	}
 	token := ""
 	switch {
-	case v.Token != nil:
-		token = *v.Token
-	case v.Reference != nil:
-		t, err := s.sourceToken(id, &knowledge.StoredSource{CredentialsRef: v.Reference})
+	case v.SecretID != nil:
+		if err := s.checkSecret(ctx, id, v.SecretID); err != nil {
+			return SourceCheck{}, err
+		}
+		t, err := s.sourceToken(ctx, id, &knowledge.StoredSource{CredentialsSecretID: v.SecretID})
 		if err != nil {
 			code, _ := failureOf(err)
 			return SourceCheck{ErrorCode: code}, nil
@@ -131,7 +149,7 @@ func (s *Service) CheckKnowledgeSource(ctx context.Context, p access.Principal, 
 		token = t
 	case v.Keep:
 		if stored, err := s.sources.Get(ctx, id); err == nil && stored != nil && stored.Kind == v.Kind && stored.URL == v.URL {
-			t, err := s.sourceToken(id, stored)
+			t, err := s.sourceToken(ctx, id, stored)
 			if err != nil {
 				code, _ := failureOf(err)
 				return SourceCheck{ErrorCode: code}, nil

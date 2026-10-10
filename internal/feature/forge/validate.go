@@ -5,8 +5,9 @@ import (
 	"path"
 	"regexp"
 	"strings"
-	"unicode"
 	"unicode/utf8"
+
+	"svc-registry/internal/feature/catalog"
 )
 
 const (
@@ -17,7 +18,6 @@ const (
 
 var (
 	ownerSegment = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
-	envRef       = regexp.MustCompile(`^env:[A-Za-z_][A-Za-z0-9_]{0,127}$`)
 )
 
 func ValidateCreate(in CreateConnection, defaultInterval int) (Settings, error) {
@@ -154,32 +154,7 @@ func validatePatterns(raw []string) ([]string, error) {
 	return out, nil
 }
 
-func ValidateCredentials(in *CredentialsInput) (ValidCredentials, error) {
-	if in == nil || (in.Token == nil) == (in.TokenRef == nil) {
-		return ValidCredentials{}, InvalidCredentials
-	}
-	if in.Token != nil {
-		t := *in.Token
-		if t == "" || len(t) > 4096 || strings.IndexFunc(t, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) >= 0 {
-			return ValidCredentials{}, InvalidCredentials
-		}
-		return ValidCredentials{Token: &t}, nil
-	}
-	ref := strings.TrimSpace(*in.TokenRef)
-	if !ValidRef(ref) {
-		return ValidCredentials{}, InvalidCredentials
-	}
-	return ValidCredentials{Ref: &ref}, nil
-}
-
-func ValidRef(ref string) bool {
-	if envRef.MatchString(ref) {
-		return true
-	}
-	p, ok := strings.CutPrefix(ref, "file:")
-	return ok && strings.HasPrefix(p, "/") && len(p) <= 4096 && !strings.ContainsRune(p, 0) &&
-		strings.IndexFunc(p, unicode.IsControl) < 0
-}
+func ValidRef(ref string) bool { return catalog.ValidSecretRef(ref) }
 
 func ValidateWebhookMode(raw string) (WebhookMode, error) {
 	if m, ok := ParseWebhookMode(raw); ok {

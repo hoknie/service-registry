@@ -207,13 +207,14 @@ func TestUnusableCredentialsFailTheRun(t *testing.T) {
 	root := app.admin()
 	acme := app.nodeID(root, "organization", "", "acme")
 	f := forgefake.Start(t, "gitlab", forgeToken, "acme")
-	conn := idOf(app.connect(root, acme, f, obj{"credentials": obj{"token": "wrong"}}))
+	conn := idOf(app.connect(root, acme, f, obj{"credentials": app.tokenOn(root, acme, "wrong")}))
 	run := app.syncNow(root, acme, conn)
 	eq(t, run["status"], any("failed"))
 	eq(t, run["error_code"], any("forge.unauthorized"))
 
-	ref := idOf(app.connect(root, app.nodeID(root, "organization", "", "other"), forgefake.Start(t, "gitea", forgeToken, "x"),
-		obj{"credentials": obj{"token_ref": "env:SVCR_TEST_UNSET_FORGE_TOKEN"}}))
+	otherOrg := app.nodeID(root, "organization", "", "other")
+	ref := idOf(app.connect(root, otherOrg, forgefake.Start(t, "gitea", forgeToken, "x"),
+		obj{"credentials": app.refOn(root, otherOrg, "env:SVCR_TEST_UNSET_FORGE_TOKEN")}))
 	other := scalar[string](t, app.db, "SELECT node_id::text FROM forge_connections WHERE id = $1", ref)
 	run = app.syncNow(root, other, ref)
 	eq(t, run["error_code"], any("forge.credentials_unavailable"))
@@ -227,7 +228,7 @@ func TestTokenFromAFileReference(t *testing.T) {
 	f := forgefake.Start(t, "github", forgeToken, "acme-inc")
 	f.Put(forgefake.Repo{ID: 1, Path: "acme-inc/api"})
 	file := writeTemp(t, forgeToken+"\n")
-	conn := idOf(app.connect(root, acme, f, obj{"credentials": obj{"token_ref": "file:" + file}}))
+	conn := idOf(app.connect(root, acme, f, obj{"credentials": app.refOn(root, acme, "file:"+file)}))
 	eq(t, app.syncNow(root, acme, conn)["status"], any("succeeded"))
 	eq(t, app.childBySlug(root, acme, "api") != nil, true)
 }

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const web = fileURLToPath(new URL("..", import.meta.url));
 const out = join(web, "out");
 const LOCALES = ["en", "es", "ru", "zh"];
-const PAGES = ["", "login", "account", "catalog", "search", "admin/users", "admin/users/user", "admin/groups", "admin/groups/group", "admin/tokens", "admin/link-kinds", "admin/clusters", "admin/environments", "admin/scans", "404"];
+const PAGES = ["", "login", "account", "catalog", "search", "admin", "admin/users", "admin/users/user", "admin/groups", "admin/groups/group", "admin/tokens", "admin/link-kinds", "admin/clusters", "admin/environments", "admin/scans", "admin/secrets", "404"];
 
 const problems = [];
 

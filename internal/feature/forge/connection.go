@@ -35,19 +35,6 @@ func (k Kind) DefaultAPIURL() string {
 	return ""
 }
 
-type CredentialsKind string
-
-const (
-	CredentialsToken CredentialsKind = "token"
-	CredentialsRef   CredentialsKind = "ref"
-)
-
-type Credentials struct {
-	Kind        CredentialsKind
-	Fingerprint string
-	Ref         string
-}
-
 type WebhookMode string
 
 const (
@@ -76,7 +63,7 @@ type Connection struct {
 	NameExclude     []string
 	BranchInclude   []string
 	IntervalSecs    int
-	Credentials     Credentials
+	Credentials     catalog.Credentials
 	WebhookMode     *WebhookMode
 	NextRunAt       string
 	LastRun         *Run
@@ -85,10 +72,11 @@ type Connection struct {
 }
 
 type Secrets struct {
-	CredentialsEnc   *string
-	CredentialsRef   *string
-	WebhookSecretEnc *string
-	WebhookID        *string
+	CredentialsSecretID *uuid.UUID
+	CredentialsEnc      *string
+	CredentialsRef      *string
+	WebhookSecretEnc    *string
+	WebhookID           *string
 }
 
 const (

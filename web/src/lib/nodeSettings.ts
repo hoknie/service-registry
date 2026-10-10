@@ -1,6 +1,6 @@
 import type { NodeKind } from "./api";
 
-export const SECTIONS = ["general", "branches", "links", "docs", "keys", "access", "connect", "forge"] as const;
+export const SECTIONS = ["general", "branches", "links", "docs", "keys", "access", "connect", "forge", "secrets"] as const;
 export type Section = (typeof SECTIONS)[number];
 
 export const PROJECT_TABS = ["overview", "about", "deployments", "events", "docs", "settings"] as const;
@@ -31,7 +31,7 @@ export function sectionsOf(node: NodeLike | null): Section[] {
   if (node.kind === "project") {
     return ["general", "branches", "links", "docs", ...(can("catalog.keys") ? (["keys"] as const) : []), ...(can("catalog.access") ? (["access"] as const) : []), "connect"];
   }
-  return ["general", "forge", "links", "docs", ...(can("catalog.access") ? (["access"] as const) : [])];
+  return ["general", "forge", "secrets", "links", "docs", ...(can("catalog.access") ? (["access"] as const) : [])];
 }
 
 export function resolveTab(

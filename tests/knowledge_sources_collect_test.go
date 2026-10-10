@@ -74,7 +74,7 @@ func TestARemoteRepositoryIsCollectedThroughTheForge(t *testing.T) {
 	f.Put(forgefake.Repo{ID: 1, Path: "other/api", DefaultBranch: "main", Files: map[string]string{"README.md": "# Remote"},
 		Branches: []forgefake.Branch{{Name: "main", SHA: sha(7)}}})
 	r := a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "remote", "forge": "github",
-		"url": "https://github.example/other/api", "api_url": f.APIURL(), "credentials": obj{"token": forgeToken}})
+		"url": "https://github.example/other/api", "api_url": f.APIURL(), "credentials": a.tokenOn(a.admin, a.org, forgeToken)})
 	eq(t, r.status, 200, r.text())
 	a.collect()
 	eq(t, a.lastOf(a.project, "main", "commit_sha"), sha(7))
@@ -91,7 +91,7 @@ func TestARemoteRepositoryIsCollectedThroughTheForge(t *testing.T) {
 	a.collect()
 	eq(t, a.lastOf(other, "main", "commit_sha"), sha(8))
 	r = a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "remote", "forge": "github",
-		"url": "https://github.example/other/api", "api_url": f.APIURL(), "credentials": obj{"token": "wrong"}})
+		"url": "https://github.example/other/api", "api_url": f.APIURL(), "credentials": a.tokenOn(a.admin, a.org, "wrong")})
 	eq(t, r.status, 200)
 	a.collect()
 	eq(t, a.lastOf(a.project, "main", "error_code"), "forge.unauthorized")

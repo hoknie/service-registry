@@ -64,7 +64,7 @@ func New(cfg config.Config, opts ...Option) (*App, error) {
 	a.Access = accessservice.New(accessservice.Deps{DB: db, Config: &cfg, Hasher: a.Hasher,
 		OAuth:        oidc.NewOIDC(cfg.OAuth, cfg.Web.PublicURL, outbound.New(cfg.Outbound)),
 		LoginLimiter: auth.NewLoginLimiter(cfg.LoginLimit)})
-	a.Catalog = catalogservice.New(catalogservice.Deps{DB: db, Config: &cfg})
+	a.Catalog = catalogservice.New(catalogservice.Deps{DB: db, Config: &cfg, Secrets: a.Secrets})
 	a.Links = linksservice.New(linksservice.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Checker: linkChecker(o, cfg),
 		Icons: uploads.New(cfg.Uploads.Dir)})
 	a.Ingest = ingestservice.New(ingestservice.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Limiter: auth.NewIngestLimiter(cfg.Ingest)})
@@ -76,6 +76,7 @@ func New(cfg config.Config, opts ...Option) (*App, error) {
 		Readers: &source.Factory{Roots: cfg.Knowledge.LocalRoots, Forges: forges,
 			MaxFileBytes: cfg.Knowledge.MaxFileBytes, MaxBranches: int(cfg.Branches.SyncMaxPerRepo)}})
 	a.Catalog.Use(a.Forge, a.Knowledge, a.Forge, a.Deploy)
+	a.Catalog.UseSecretUsers(a.Forge, a.Knowledge, a.Deploy)
 	if !a.Catalog.Wired() {
 		pool.Close()
 		return nil, ErrNotWired

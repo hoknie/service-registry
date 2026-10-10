@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"svc-registry/internal/testsupport/forgefake"
 )
 
@@ -12,35 +14,53 @@ func TestConnectionDefaultsAndSecretHandling(t *testing.T) {
 	app := startForgeApp(t)
 	root := app.admin()
 	acme := app.nodeID(root, "organization", "", "acme")
-	r := app.send("POST", connectionsPath(acme), root, obj{"kind": "github", "owner_path": " acme-inc ", "credentials": obj{"token": "ghp_supersecret"}})
+	secret := app.secret(root, acme, obj{"name": "github", "value": "ghp_supersecret"})
+	r := app.send("POST", connectionsPath(acme), root, obj{"kind": "github", "owner_path": " acme-inc ", "credentials": obj{"secret_id": secret}})
 	eq(t, r.status, 201, r.text())
 	c := r.json(t)
 	eq(t, c["api_url"], any("https://api.github.com"))
 	eq(t, c["owner_path"], any("acme-inc"))
 	eq(t, c["interval_secs"], any(float64(900)))
 	eq(t, c["mirror_subgroups"], any(false))
-	eq(t, at(c, "credentials", "kind"), any("token"))
-	eq(t, len(at(c, "credentials", "fingerprint").(string)), 4)
+	eq(t, at(c, "credentials", "kind"), any("secret"))
+	eq(t, at(c, "credentials", "secret", "name"), any("github"))
+	eq(t, at(c, "credentials", "secret", "from", "name"), any("acme"))
 	eq(t, c["webhook"], nil)
 	eq(t, c["last_run"], nil)
 	lacks(t, r.text(), "ghp_supersecret")
-	eq(t, scalar[int64](t, app.db, "SELECT count(*) FROM forge_connections WHERE position('ghp_supersecret' IN credentials_enc) > 0"), int64(0))
-	enc := scalar[string](t, app.db, "SELECT credentials_enc FROM forge_connections")
+	eq(t, scalar[int64](t, app.db, "SELECT count(*) FROM forge_connections WHERE credentials_enc IS NOT NULL"), int64(0))
+	enc := scalar[string](t, app.db, "SELECT value_enc FROM secrets WHERE id = $1", secret)
 	eq(t, strings.HasPrefix(enc, "v1.k1."), true, enc)
 	lacks(t, app.get(connectionPath(acme, idOf(c)), root).text(), "ghp_")
 
 	other := app.nodeID(root, "organization", "", "other")
 	f := forgefake.Start(t, "github", forgeToken, "x")
 	moved := idOf(app.connect(root, other, f, nil))
-	execSQL(t, app.db, "UPDATE forge_connections SET credentials_enc = $1 WHERE id = $2", enc, moved)
+	movedSecret := scalar[string](t, app.db, "SELECT credentials_secret_id::text FROM forge_connections WHERE id = $1", moved)
+	execSQL(t, app.db, "UPDATE secrets SET value_enc = $1 WHERE id = $2", enc, movedSecret)
 	r = app.call("POST", connectionPath(other, moved)+"/check", root)
 	eq(t, code(t, r), any("forge.credentials_unavailable"), r.text())
 
 	ref := app.send("POST", connectionsPath(other), root, obj{"kind": "gitea", "api_url": "https://code.example", "owner_path": "acme",
-		"credentials": obj{"token_ref": "env:FORGE_TOKEN_ACME"}})
+		"credentials": app.refOn(root, other, "env:FORGE_TOKEN_ACME")})
 	eq(t, ref.status, 201, ref.text())
-	eq(t, at(ref.json(t), "credentials", "ref"), any("env:FORGE_TOKEN_ACME"))
-	eq(t, at(ref.json(t), "credentials", "kind"), any("ref"))
+	eq(t, at(ref.json(t), "credentials", "kind"), any("secret"))
+
+	inline := app.send("POST", connectionsPath(other), root, obj{"kind": "github", "owner_path": "inline", "credentials": obj{"token": "ghp_x"}})
+	eq(t, inline.status, 400)
+	eq(t, code(t, inline), any("validation.credentials_inline_removed"))
+	foreign := app.send("POST", connectionsPath(other), root, obj{"kind": "github", "owner_path": "foreign", "credentials": obj{"secret_id": secret}})
+	eq(t, foreign.status, 400)
+	eq(t, code(t, foreign), any("validation.secret_not_available"))
+
+	legacy := uuid.Must(uuid.NewV7())
+	execSQL(t, app.db, "INSERT INTO forge_connections (id, node_id, kind, api_url, owner_path, interval_secs, credentials_ref) "+
+		"VALUES ($1, $2, 'github', 'https://api.github.com', 'legacy', 900, 'env:OLD_TOKEN')", legacy, other)
+	old := app.get(connectionPath(other, legacy.String()), root).json(t)
+	eq(t, at(old, "credentials", "kind"), any("legacy"))
+	eq(t, at(old, "credentials", "storage"), any("reference"))
+	eq(t, at(old, "credentials", "ref"), any("env:OLD_TOKEN"))
+	eq(t, code(t, app.call("DELETE", secretsPath(acme)+"/"+secret, root)), any("conflict.secret_in_use"))
 }
 
 func TestConnectionRules(t *testing.T) {
@@ -49,7 +69,7 @@ func TestConnectionRules(t *testing.T) {
 	root := app.admin()
 	acme := app.nodeID(root, "organization", "", "acme")
 	project := app.nodeID(root, "project", acme, "p")
-	ok := obj{"kind": "github", "owner_path": "acme-inc", "credentials": obj{"token": "t"}}
+	ok := obj{"kind": "github", "owner_path": "acme-inc", "credentials": app.tokenOn(root, acme, "t")}
 	with := func(k string, v any) obj {
 		b := obj{}
 		for kk, vv := range ok {
@@ -69,8 +89,9 @@ func TestConnectionRules(t *testing.T) {
 		{acme, with("owner_path", "a/b"), "validation.invalid_owner_path"},
 		{acme, with("name_include", []string{"[x"}), "validation.invalid_name_patterns"},
 		{acme, with("interval_secs", 30), "validation.invalid_sync_interval"},
-		{acme, with("credentials", obj{"token": "a", "token_ref": "env:X"}), "validation.invalid_credentials"},
-		{acme, with("credentials", obj{"token_ref": "vault:x"}), "validation.invalid_credentials"},
+		{acme, with("credentials", obj{"secret_id": "nope"}), "validation.invalid_credentials"},
+		{acme, with("credentials", obj{}), "validation.invalid_credentials"},
+		{acme, with("credentials", obj{"token_ref": "env:X"}), "validation.credentials_inline_removed"},
 		{acme, with("kind", "gitea"), "validation.invalid_api_url"},
 	}
 	for _, tt := range tests {
@@ -80,17 +101,19 @@ func TestConnectionRules(t *testing.T) {
 	}
 	eq(t, app.send("POST", connectionsPath(acme), root, ok).status, 201)
 	globex := app.nodeID(root, "organization", "", "globex")
-	r := app.send("POST", connectionsPath(globex), root, with("owner_path", "ACME-inc"))
+	taken := with("owner_path", "ACME-inc")
+	taken["credentials"] = app.tokenOn(root, globex, "t")
+	r := app.send("POST", connectionsPath(globex), root, taken)
 	eq(t, r.status, 409)
 	eq(t, code(t, r), any("conflict.forge_owner_taken"))
 
 	noKey := startForgeApp(t, "SECRETS_KEYS", "")
 	nk := noKey.admin()
 	org := noKey.nodeID(nk, "organization", "", "o")
-	r = noKey.send("POST", connectionsPath(org), nk, ok)
+	r = noKey.send("POST", secretsPath(org), nk, obj{"name": "t", "value": "t"})
 	eq(t, r.status, 409)
 	eq(t, code(t, r), any("conflict.secrets_key_missing"))
-	eq(t, noKey.send("POST", connectionsPath(org), nk, with("credentials", obj{"token_ref": "env:X"})).status, 201, "references need no key")
+	eq(t, noKey.send("POST", connectionsPath(org), nk, with("credentials", noKey.refOn(nk, org, "env:X"))).status, 201, "references need no key")
 }
 
 func TestConnectionRights(t *testing.T) {
@@ -119,7 +142,7 @@ func TestConnectionRights(t *testing.T) {
 	r := app.send("PATCH", connectionPath(acme, conn), admin, obj{"interval_secs": 120})
 	eq(t, r.status, 200, r.text())
 	eq(t, r.json(t)["interval_secs"], any(float64(120)))
-	eq(t, at(r.json(t), "credentials", "kind"), any("token"), "credentials kept")
+	eq(t, at(r.json(t), "credentials", "kind"), any("secret"), "credentials kept")
 
 	app.user("stranger@example.com", false)
 	stranger := app.session("stranger@example.com", password)
@@ -168,8 +191,8 @@ func TestCheckAndPreview(t *testing.T) {
 	p = app.call("POST", connectionPath(acme, conn)+"/preview", root)
 	eq(t, at(p.json(t), "items", len(list(t, p.json(t), "items"))-1, "action"), any("orphan"))
 
-	bad := idOf(app.connect(root, app.nodeID(root, "organization", "", "b"), forgefake.Start(t, "gitlab", forgeToken, "acme"),
-		obj{"credentials": obj{"token": "nope"}}))
+	bOrg := app.nodeID(root, "organization", "", "b")
+	bad := idOf(app.connect(root, bOrg, forgefake.Start(t, "gitlab", forgeToken, "acme"), obj{"credentials": app.tokenOn(root, bOrg, "nope")}))
 	bnode := scalar[string](t, app.db, "SELECT node_id::text FROM forge_connections WHERE id = $1", bad)
 	r = app.call("POST", connectionPath(bnode, bad)+"/check", root)
 	eq(t, r.status, 422)

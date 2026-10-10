@@ -29,6 +29,7 @@ func (r KnowledgeSettings) Settings() (knowledge.NodeSettings, error) {
 }
 
 type SourceCredentials struct {
+	SecretID  *string `json:"secret_id"`
 	Token     *string `json:"token"`
 	Reference *string `json:"reference"`
 }
@@ -51,10 +52,7 @@ func (r KnowledgeSource) Input() knowledge.SourceInput {
 		in.NoCredentials = true
 	}
 	if c := r.Credentials.Value; c != nil {
-		in.Token, in.Reference = c.Token, c.Reference
-		if c.Token == nil && c.Reference == nil {
-			in.NoCredentials = false
-		}
+		in.SecretID, in.Inline = c.SecretID, c.Token != nil || c.Reference != nil
 	}
 	return in
 }

@@ -20,3 +20,7 @@ type ProjectSource interface {
 }
 
 type SourceFactory func(projectID uuid.UUID) (ProjectSource, error)
+
+type SecretUser interface {
+	SecretUsage(ctx context.Context, secrets []uuid.UUID) (map[uuid.UUID]int64, error)
+}

@@ -4,12 +4,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-)
 
-type CredentialsInput struct {
-	Token    *string
-	TokenRef *string
-}
+	"svc-registry/internal/feature/catalog"
+)
 
 type CreateConnection struct {
 	Kind            string
@@ -22,7 +19,7 @@ type CreateConnection struct {
 	NameExclude     *[]string
 	BranchInclude   *[]string
 	IntervalSecs    *int64
-	Credentials     *CredentialsInput
+	Credentials     *catalog.CredentialsInput
 }
 
 type UpdateConnection struct {
@@ -35,7 +32,7 @@ type UpdateConnection struct {
 	NameExclude     *[]string
 	BranchInclude   *[]string
 	IntervalSecs    *int64
-	Credentials     *CredentialsInput
+	Credentials     *catalog.CredentialsInput
 }
 
 type Settings struct {
@@ -51,22 +48,11 @@ type Settings struct {
 	IntervalSecs    int
 }
 
-type ValidCredentials struct {
-	Token *string
-	Ref   *string
-}
-
-type StoredCredentials struct {
-	Enc         *string
-	Ref         *string
-	Fingerprint *string
-}
-
 type NewConnection struct {
-	ID          uuid.UUID
-	NodeID      uuid.UUID
-	Settings    Settings
-	Credentials StoredCredentials
+	ID       uuid.UUID
+	NodeID   uuid.UUID
+	Settings Settings
+	SecretID uuid.UUID
 }
 
 type Webhook struct {

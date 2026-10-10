@@ -116,8 +116,13 @@ func dbErr(err error) error {
 	switch constraint(err) {
 	case "nodes_parent_slug_key":
 		return catalog.ConflictSlugTaken
-	case "nodes_parent_id_fkey", "role_bindings_node_id_fkey", "project_keys_project_id_fkey":
+	case "nodes_parent_id_fkey", "role_bindings_node_id_fkey", "project_keys_project_id_fkey", "secrets_node_id_fkey":
 		return catalog.ErrNotFound
+	case "secrets_name_key":
+		return catalog.ConflictSecretNameTaken
+	case "forge_connections_credentials_secret_id_fkey", "knowledge_sources_credentials_secret_id_fkey",
+		"clusters_credentials_secret_id_fkey":
+		return catalog.ConflictSecretInUse
 	}
 	if apperr.IsUnavailable(err) {
 		return catalog.ErrUnavailable

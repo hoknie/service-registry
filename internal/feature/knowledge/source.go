@@ -6,10 +6,11 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"unicode"
 	"unicode/utf8"
 
-	"svc-registry/internal/feature/forge"
+	"github.com/google/uuid"
+
+	"svc-registry/internal/feature/catalog"
 )
 
 type SourceKind string
@@ -28,18 +29,13 @@ const (
 	SourceColumnCredentials = "credentials_enc"
 )
 
-type Credentials struct {
-	Mode        string
-	Fingerprint *string
-}
-
 type Source struct {
 	Kind           SourceKind
 	Forge          string
 	URL            string
 	APIURL         string
 	Path           string
-	Credentials    Credentials
+	Credentials    catalog.Credentials
 	Heads          map[string]string
 	DefaultBranch  string
 	WorkingTree    bool
@@ -63,8 +59,8 @@ type SourceInput struct {
 	URL            string
 	APIURL         string
 	Path           string
-	Token          *string
-	Reference      *string
+	SecretID       *string
+	Inline         bool
 	HasCredential  bool
 	NoCredentials  bool
 	WorkingTree    *bool
@@ -73,9 +69,8 @@ type SourceInput struct {
 
 type ValidSource struct {
 	Source
-	Token     *string
-	Reference *string
-	Keep      bool
+	SecretID *uuid.UUID
+	Keep     bool
 }
 
 var forges = map[string]bool{"github": true, "gitlab": true, "gitea": true, "forgejo": true}
@@ -107,20 +102,14 @@ func ValidateSource(in SourceInput) (ValidSource, error) {
 		}
 		out.Forge, out.URL, out.APIURL = in.Forge, web, api
 		switch {
-		case in.Token != nil && in.Reference != nil:
-			return ValidSource{}, InvalidSource
-		case in.Token != nil:
-			t := *in.Token
-			if t == "" || len(t) > 4096 || strings.IndexFunc(t, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) >= 0 {
+		case in.Inline:
+			return ValidSource{}, catalog.InvalidCredentialsInline
+		case in.SecretID != nil:
+			id, err := uuid.Parse(strings.TrimSpace(*in.SecretID))
+			if err != nil {
 				return ValidSource{}, InvalidSource
 			}
-			out.Token = &t
-		case in.Reference != nil:
-			ref := strings.TrimSpace(*in.Reference)
-			if !forge.ValidRef(ref) {
-				return ValidSource{}, InvalidSource
-			}
-			out.Reference = &ref
+			out.SecretID = &id
 		case in.HasCredential && !in.NoCredentials:
 			return ValidSource{}, InvalidSource
 		default:
@@ -129,7 +118,7 @@ func ValidateSource(in SourceInput) (ValidSource, error) {
 	case SourceLocalDir, SourceLocalGit:
 		p := strings.TrimSpace(in.Path)
 		if p == "" || len(p) > 4096 || !utf8.ValidString(p) || strings.ContainsRune(p, 0) || !filepath.IsAbs(p) ||
-			in.Forge != "" || in.URL != "" || in.APIURL != "" || in.Token != nil || in.Reference != nil {
+			in.Forge != "" || in.URL != "" || in.APIURL != "" || in.SecretID != nil || in.Inline {
 			return ValidSource{}, InvalidSource
 		}
 		if filepath.Clean(p) != p {

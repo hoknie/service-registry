@@ -19,13 +19,15 @@ import { draftOf, emptyDraft, SOURCE_KINDS, SourceFields, sourceBody, type Sourc
 
 type Props = {
   projectId: string;
+  parentId: string | null;
+  canAccess: boolean;
   synced: boolean;
   canWrite: boolean;
   labels: CatalogLabels["docs"]["source"];
   onChanged: () => void;
 };
 
-export function SourcePanel({ projectId, synced, canWrite, labels: t, onChanged }: Props) {
+export function SourcePanel({ projectId, parentId, canAccess, synced, canWrite, labels: t, onChanged }: Props) {
   const { errors } = useUiText();
   const base = `/v1/catalog/nodes/${projectId}/knowledge/source` as const;
   const [source, setSource] = useState<KnowledgeSource | null | undefined>(undefined);
@@ -74,7 +76,7 @@ export function SourcePanel({ projectId, synced, canWrite, labels: t, onChanged 
     try {
       const saved = await apiSend<KnowledgeSource>("PUT", base, body());
       setSource(saved);
-      setDraft({ ...draft, token: "" });
+      setDraft(draftOf(saved));
       toast.success(t.saved);
       onChanged();
     } catch (e) {
@@ -95,9 +97,11 @@ export function SourcePanel({ projectId, synced, canWrite, labels: t, onChanged 
                 : source.working_tree
                   ? t.workingTreeOn
                   : t.workingTreeOff
-              : source.credentials.mode === "stored"
-                ? format(t.credentials.stored, { fingerprint: source.credentials.fingerprint ?? "" })
-                : t.credentials[source.credentials.mode]
+              : source.credentials.mode === "secret" && source.credentials.secret
+                ? source.credentials.secret.name
+                : source.credentials.mode === "legacy"
+                  ? format(t.credentials.stored, { fingerprint: source.credentials.fingerprint ?? "" })
+                  : t.credentials.none
           }`
         : synced
           ? t.forgeSync
@@ -119,7 +123,7 @@ export function SourcePanel({ projectId, synced, canWrite, labels: t, onChanged 
               </Select>
             )}
           </Field>
-          <SourceFields value={draft} onChange={setDraft} labels={t} />
+          <SourceFields value={draft} onChange={setDraft} labels={t} scope={{ listOn: projectId, parent: parentId, canCreate: canAccess }} />
           <Message note={note} />
           <div className="flex flex-wrap gap-2">
             <Button type="submit" variant="primary" disabled={busy}>

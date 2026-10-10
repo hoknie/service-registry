@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"code.gitea.io/sdk/gitea"
 
@@ -18,7 +19,8 @@ type giteaClient struct {
 }
 
 func newGitea(hc *http.Client, e domain.Endpoint) (*giteaClient, error) {
-	c, err := gitea.NewClient(e.APIURL, gitea.SetHTTPClient(hc), gitea.SetToken(e.Token), gitea.SetGiteaVersion(""))
+	base := strings.TrimSuffix(strings.TrimSuffix(e.APIURL, "/"), "/api/v1")
+	c, err := gitea.NewClient(base, gitea.SetHTTPClient(hc), gitea.SetToken(e.Token), gitea.SetGiteaVersion(""))
 	if err != nil {
 		return nil, &domain.InternalError{Detail: "gitea client: " + err.Error()}
 	}

@@ -8,7 +8,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"svc-registry/internal/feature/deploy"
-	"svc-registry/internal/feature/forge"
 	"svc-registry/internal/platform/postgres"
 )
 
@@ -18,8 +17,8 @@ func NewClusters(db *postgres.DB) *Clusters { return &Clusters{db: db} }
 
 func (s *Clusters) List(ctx context.Context) ([]deploy.Cluster, error) {
 	rows, err := s.db.From(ctx).Query(ctx, `
-		SELECT c.id, c.name, c.environment, c.in_cluster, c.api_url, c.ca_pem, c.credentials_ref,
-			c.credentials_fingerprint, c.namespaces, c.rules, c.interval_secs, c.enabled, c.status,
+		SELECT c.id, c.name, c.environment, c.in_cluster, c.api_url, c.ca_pem, c.credentials_secret_id,
+			c.credentials_enc IS NOT NULL AS has_enc, c.credentials_ref, c.credentials_fingerprint, c.namespaces, c.rules, c.interval_secs, c.enabled, c.status,
 			c.last_error, rfc3339(c.last_polled_at) AS last_polled_at, rfc3339(c.next_run_at) AS next_run_at, (
 			SELECT count(*)
 			FROM cluster_workloads w
@@ -51,8 +50,8 @@ func (s *Clusters) List(ctx context.Context) ([]deploy.Cluster, error) {
 
 func (s *Clusters) Get(ctx context.Context, id uuid.UUID) (*deploy.Cluster, error) {
 	rows, err := s.db.From(ctx).Query(ctx, `
-		SELECT c.id, c.name, c.environment, c.in_cluster, c.api_url, c.ca_pem, c.credentials_ref,
-			c.credentials_fingerprint, c.namespaces, c.rules, c.interval_secs, c.enabled, c.status,
+		SELECT c.id, c.name, c.environment, c.in_cluster, c.api_url, c.ca_pem, c.credentials_secret_id,
+			c.credentials_enc IS NOT NULL AS has_enc, c.credentials_ref, c.credentials_fingerprint, c.namespaces, c.rules, c.interval_secs, c.enabled, c.status,
 			c.last_error, rfc3339(c.last_polled_at) AS last_polled_at, rfc3339(c.next_run_at) AS next_run_at, (
 			SELECT count(*)
 			FROM cluster_workloads w
@@ -99,11 +98,11 @@ func namespacesParam(ns []string) []string {
 func (s *Clusters) Insert(ctx context.Context, c deploy.NewCluster) (deploy.Cluster, error) {
 	st := c.Settings
 	if _, err := s.db.From(ctx).Exec(ctx, `
-		INSERT INTO clusters (id, name, environment, in_cluster, api_url, ca_pem, credentials_enc,
-			credentials_ref, credentials_fingerprint, namespaces, rules, interval_secs, enabled)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13)`,
+		INSERT INTO clusters (id, name, environment, in_cluster, api_url, ca_pem, credentials_secret_id,
+			namespaces, rules, interval_secs, enabled)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11)`,
 		c.ID, st.Name, st.Environment, st.InCluster, st.APIURL, st.CAPEM,
-		c.Credentials.Enc, c.Credentials.Ref, c.Credentials.Fingerprint, namespacesParam(st.Namespaces), rulesParam(st.Rules),
+		c.SecretID, namespacesParam(st.Namespaces), rulesParam(st.Rules),
 		st.IntervalSecs, st.Enabled); err != nil {
 		return deploy.Cluster{}, dbErr(err)
 	}
@@ -119,21 +118,18 @@ func (s *Clusters) Insert(ctx context.Context, c deploy.NewCluster) (deploy.Clus
 
 func (s *Clusters) Update(ctx context.Context, id uuid.UUID, u deploy.ClusterUpdate) (*deploy.Cluster, error) {
 	st := u.Settings
-	creds := forge.StoredCredentials{}
-	if u.Credentials != nil {
-		creds = *u.Credentials
-	}
 	tag, err := s.db.From(ctx).Exec(ctx, `
 		UPDATE clusters
 		SET name = $2, environment = $3, in_cluster = $4, api_url = $5, ca_pem = $6, namespaces = $7,
 			rules = $8::jsonb, interval_secs = $9, enabled = $10,
-			credentials_enc = CASE WHEN $4 THEN NULL WHEN $11 THEN $12 ELSE credentials_enc END,
-			credentials_ref = CASE WHEN $4 THEN NULL WHEN $11 THEN $13 ELSE credentials_ref END,
-			credentials_fingerprint = CASE WHEN $4 THEN NULL WHEN $11 THEN $14 ELSE credentials_fingerprint END,
+			credentials_enc = CASE WHEN $4 OR $11 THEN NULL ELSE credentials_enc END,
+			credentials_ref = CASE WHEN $4 OR $11 THEN NULL ELSE credentials_ref END,
+			credentials_fingerprint = CASE WHEN $4 OR $11 THEN NULL ELSE credentials_fingerprint END,
+			credentials_secret_id = CASE WHEN $4 THEN NULL WHEN $11 THEN $12 ELSE credentials_secret_id END,
 			updated_at = now()
 		WHERE id = $1`, id, st.Name, st.Environment, st.InCluster, st.APIURL, st.CAPEM,
 		namespacesParam(st.Namespaces), rulesParam(st.Rules), st.IntervalSecs, st.Enabled,
-		u.Credentials != nil, creds.Enc, creds.Ref, creds.Fingerprint)
+		u.SecretID != nil, u.SecretID)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -156,12 +152,12 @@ func (s *Clusters) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (s *Clusters) Stored(ctx context.Context, id uuid.UUID) (*forge.StoredCredentials, error) {
-	var c forge.StoredCredentials
+func (s *Clusters) Stored(ctx context.Context, id uuid.UUID) (*deploy.StoredCredentials, error) {
+	var c deploy.StoredCredentials
 	err := s.db.From(ctx).QueryRow(ctx, `
-		SELECT credentials_enc, credentials_ref, credentials_fingerprint
+		SELECT credentials_secret_id, credentials_enc, credentials_ref
 		FROM clusters
-		WHERE id = $1`, id).Scan(&c.Enc, &c.Ref, &c.Fingerprint)
+		WHERE id = $1`, id).Scan(&c.SecretID, &c.Enc, &c.Ref)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -253,4 +249,23 @@ func (s *Clusters) ReplaceSecret(ctx context.Context, id uuid.UUID, enc string) 
 		SET credentials_enc = $2
 		WHERE id = $1`, id, enc)
 	return dbErr(err)
+}
+
+func (s *Clusters) SecretUsage(ctx context.Context, secrets []uuid.UUID) (map[uuid.UUID]int64, error) {
+	rows, err := s.db.From(ctx).Query(ctx, `
+		SELECT credentials_secret_id, count(*)
+		FROM clusters
+		WHERE credentials_secret_id = ANY($1)
+		GROUP BY credentials_secret_id`, secrets)
+	if err != nil {
+		return nil, dbErr(err)
+	}
+	out := map[uuid.UUID]int64{}
+	var id uuid.UUID
+	var n int64
+	_, err = pgx.ForEachRow(rows, []any{&id, &n}, func() error {
+		out[id] = n
+		return nil
+	})
+	return out, dbErr(err)
 }

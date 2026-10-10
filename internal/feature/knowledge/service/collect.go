@@ -103,7 +103,7 @@ func (s *Service) RunKnowledgeCollect(ctx context.Context, id uuid.UUID) error {
 	case src != nil:
 		scan.Source = string(src.Kind)
 		known := knownBranches(src, def)
-		token, err := s.sourceToken(id, src)
+		token, err := s.sourceToken(ctx, id, src)
 		if err != nil {
 			return fail(known, err)
 		}
@@ -264,8 +264,14 @@ func failureOf(err error) (string, *time.Time) {
 	return "forge.upstream_error", nil
 }
 
-func (s *Service) sourceToken(id uuid.UUID, src *knowledge.StoredSource) (string, error) {
+func (s *Service) sourceToken(ctx context.Context, id uuid.UUID, src *knowledge.StoredSource) (string, error) {
 	switch {
+	case src.CredentialsSecretID != nil:
+		t, err := s.catalog.ResolveSecret(ctx, *src.CredentialsSecretID)
+		if err != nil {
+			return "", knowledge.Failure("forge.credentials_unavailable")
+		}
+		return t, nil
 	case src.CredentialsEnc != nil:
 		t, err := s.secrets.Open(*src.CredentialsEnc, secretbox.AAD(knowledge.SourceTable, id.String(), knowledge.SourceColumnCredentials))
 		if err != nil {

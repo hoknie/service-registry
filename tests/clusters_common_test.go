@@ -22,8 +22,10 @@ func startClusterApp(t testing.TB, extra ...string) (*testApp, *k8sfake.Factory)
 
 func (a *testApp) cluster(cookie, name string, extra obj) obj {
 	a.t.Helper()
-	body := obj{"name": name, "environment": "production", "api_url": "https://k8s.example:6443",
-		"credentials": obj{"token": saToken}}
+	body := obj{"name": name, "environment": "production", "api_url": "https://k8s.example:6443"}
+	if _, ok := extra["credentials"]; !ok {
+		body["credentials"] = a.tokenOn(cookie, "", saToken)
+	}
 	for k, v := range extra {
 		body[k] = v
 	}

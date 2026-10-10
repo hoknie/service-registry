@@ -14,6 +14,10 @@ type stubPorts struct{}
 
 func (stubPorts) Managed(context.Context, []uuid.UUID) (map[uuid.UUID]bool, error) { return nil, nil }
 
+func (stubPorts) SecretUsage(context.Context, []uuid.UUID) (map[uuid.UUID]int64, error) {
+	return nil, nil
+}
+
 func (stubPorts) ActivitySignals(context.Context, []uuid.UUID, bool, bool) (map[uuid.UUID][]catalog.ProcessSignals, error) {
 	return nil, nil
 }
@@ -25,6 +29,10 @@ func TestServiceIsWiredOnlyAfterUse(t *testing.T) {
 		t.Fatal("a new service must not be wired")
 	}
 	s.Use(stubPorts{}, stubPorts{})
+	if s.Wired() {
+		t.Fatal("a service without secret users must not be wired")
+	}
+	s.UseSecretUsers(stubPorts{})
 	if !s.Wired() {
 		t.Fatal("a service with ports must be wired")
 	}

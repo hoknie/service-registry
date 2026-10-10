@@ -25,6 +25,9 @@ const (
 	InvalidBranchPage
 	InvalidClusterObservation
 	InvalidFilter
+	InvalidSecret
+	InvalidSecretNotAvailable
+	InvalidCredentialsInline
 )
 
 func (i Invalid) Code() string {
@@ -65,6 +68,12 @@ func (i Invalid) Code() string {
 		return "validation.invalid_cluster_observation"
 	case InvalidFilter:
 		return "validation.invalid_filter"
+	case InvalidSecret:
+		return "validation.invalid_secret"
+	case InvalidSecretNotAvailable:
+		return "validation.secret_not_available"
+	case InvalidCredentialsInline:
+		return "validation.credentials_inline_removed"
 	}
 	return "validation.invalid"
 }
@@ -108,6 +117,13 @@ func (i Invalid) Message() string {
 	case InvalidFilter:
 		return `q must be 1 to 100 characters, kind "organization", "folder" or "project", at most 5 labels "key" or "key=value", ` +
 			`activity "running", "queued" or "failed"`
+	case InvalidSecret:
+		return "a secret needs a name of 1 to 100 characters, a description of at most 500 characters and exactly one of " +
+			`"value" (1 to 4096 characters without whitespace) or "ref" ("env:<NAME>" or "file:<absolute path>")`
+	case InvalidSecretNotAvailable:
+		return "the secret is not defined on this node, its ancestors or globally"
+	case InvalidCredentialsInline:
+		return `tokens are no longer accepted inline; create a secret and pass {"secret_id": "<id>"}`
 	}
 	return "invalid input"
 }
@@ -123,6 +139,9 @@ const (
 	ConflictNodeNotEmpty
 	ConflictManagedByForge
 	ConflictBranchIsDefault
+	ConflictSecretInUse
+	ConflictSecretNameTaken
+	ConflictSecretsKeyMissing
 )
 
 func (c Conflict) Code() string {
@@ -139,6 +158,12 @@ func (c Conflict) Code() string {
 		return "conflict.managed_by_forge"
 	case ConflictBranchIsDefault:
 		return "conflict.branch_is_default"
+	case ConflictSecretInUse:
+		return "conflict.secret_in_use"
+	case ConflictSecretNameTaken:
+		return "conflict.secret_name_taken"
+	case ConflictSecretsKeyMissing:
+		return "conflict.secrets_key_missing"
 	}
 	return "conflict.unknown"
 }
@@ -157,6 +182,12 @@ func (c Conflict) Message() string {
 		return "the node or field is managed by forge synchronization"
 	case ConflictBranchIsDefault:
 		return "the default branch of a project cannot be deleted"
+	case ConflictSecretInUse:
+		return "the secret is used by forge connections, documentation sources or clusters"
+	case ConflictSecretNameTaken:
+		return "a secret with this name already exists here"
+	case ConflictSecretsKeyMissing:
+		return "SECRETS_KEYS is not set, a secret value cannot be stored"
 	}
 	return "conflict"
 }

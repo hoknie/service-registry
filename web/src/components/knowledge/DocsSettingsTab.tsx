@@ -28,7 +28,7 @@ export function DocsSettingsTab({ node, locale, labels, canWrite, onChanged }: P
 
   return (
     <div className="grid gap-6">
-      {project && <SourcePanel projectId={node.id} synced={synced} canWrite={canWrite} labels={labels.docs.source} onChanged={() => onChanged?.()} />}
+      {project && <SourcePanel projectId={node.id} parentId={node.parent_id} canAccess={!!node.permissions?.includes("catalog.access")} synced={synced} canWrite={canWrite} labels={labels.docs.source} onChanged={() => onChanged?.()} />}
       <KnowledgeSettings
         key={node.id}
         nodeId={node.id}

@@ -34,6 +34,7 @@ import { Select } from "../ui/Select";
 import { Table, Td, Th, Tr } from "../ui/Table";
 import { LinkIconRow } from "../links/LinkIcons";
 import { ProcessBadges, SummaryBadges } from "./ActivityBadges";
+import { LabelFilter } from "./LabelFilter";
 import { KindIcon } from "./KindIcon";
 import { catalogHref, type CatalogLabels } from "./shared";
 
@@ -253,13 +254,13 @@ export function TreeTable({ rootId, locale, labels }: Props) {
           <option value="folder">{labels.kinds.folder}</option>
           <option value="project">{labels.kinds.project}</option>
         </Select>
-        <Input
+        <LabelFilter
           value={draft.label}
-          onChange={(e) => setDraft((d) => ({ ...d, label: e.target.value }))}
+          onChange={(label) => setDraft((d) => ({ ...d, label }))}
           placeholder={t.label}
-          aria-label={`${t.label}: ${t.labelHint}`}
-          title={t.labelHint}
-          className="w-44 max-w-full font-mono"
+          label={t.label}
+          hint={t.labelHint}
+          className="w-44 max-w-full"
         />
         <Select aria-label={t.state} value={filters.activity} onChange={(e) => navigate({ activity: e.target.value })} className="w-40">
           <option value="">{t.anyState}</option>

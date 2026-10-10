@@ -24,8 +24,11 @@ synchronization and works for projects created by hand; a repository by address 
 project's repository link:
 
 - **Repository by address** — a repository on GitHub, GitLab, Gitea or Forgejo, read through the
-  forge's API with a token of the source (encrypted with `SECRETS_KEYS` or an `env:`/`file:`
-  reference) or anonymously for public repositories (anonymous requests hit low API rate limits).
+  forge's API with a [secret](forge-sync.md#secrets) of the project's folder, organization, an
+  ancestor or a global one (`"credentials": {"secret_id": "<id>"}`), or anonymously for public
+  repositories (`"credentials": null`; anonymous requests hit low API rate limits). Inline tokens
+  are refused (`validation.credentials_inline_removed`); a token saved earlier keeps working as
+  `legacy`.
   SSH keys are not supported.
 - **Local directory** — files as they are on disk; one branch `local`, a new snapshot when the
   content changes.

@@ -41,16 +41,15 @@ type IndexState struct {
 
 type StoredSource struct {
 	Source
-	CredentialsEnc *string
-	CredentialsRef *string
+	CredentialsSecretID *uuid.UUID
+	CredentialsEnc      *string
+	CredentialsRef      *string
 }
 
 type NewSource struct {
 	Source
-	CredentialsEnc *string
-	CredentialsRef *string
-	Fingerprint    *string
-	Keep           bool
+	SecretID *uuid.UUID
+	Keep     bool
 }
 
 type SourceSecret struct {

@@ -19,7 +19,7 @@ import { Segmented } from "../ui/Segmented";
 import { Select } from "../ui/Select";
 import { hasInvalidTags, LabelsInput, labelError as labelRule } from "../ui/TagInput";
 import { Message, type Note } from "../ui/Message";
-import { draftOf, emptyDraft, SOURCE_KINDS, SourceFields, sourceBody, type SourceDraft } from "../knowledge/SourceFields";
+import { draftOf, emptyDraft, SOURCE_KINDS, SourceFields, sourceBody, secretChanged, type SecretScope, type SourceDraft } from "../knowledge/SourceFields";
 import { KeyDialog } from "./KeyDialog";
 import { Markdown } from "./Markdown";
 import { type CatalogLabels } from "./shared";
@@ -48,6 +48,7 @@ function RepoSection({
   onRepo,
   draft,
   onDraft,
+  scope,
   managed,
   children,
 }: {
@@ -58,6 +59,7 @@ function RepoSection({
   onRepo: (v: Repo) => void;
   draft: SourceDraft;
   onDraft: (v: SourceDraft) => void;
+  scope: SecretScope;
   managed?: boolean;
   children?: ReactNode;
 }) {
@@ -107,7 +109,7 @@ function RepoSection({
           </Field>
         </fieldset>
       ) : (
-        <SourceFields value={draft} onChange={onDraft} labels={s} />
+        <SourceFields value={draft} onChange={onDraft} labels={s} scope={scope} />
       )}
       <Field label={labels.repo.branch}>
         {(p) => (
@@ -280,7 +282,16 @@ export function CreateDialog({
             {(p) => <LabelsInput {...p} value={labelLines} onChange={setLabelLines} onDraft={setLabelDraft} />}
           </Field>
           {kind === "project" && (
-            <RepoSection labels={labels} mode={mode} onMode={setMode} repo={repo} onRepo={setRepo} draft={draft} onDraft={setDraft} />
+            <RepoSection
+              labels={labels}
+              mode={mode}
+              onMode={setMode}
+              repo={repo}
+              onRepo={setRepo}
+              draft={draft}
+              onDraft={setDraft}
+              scope={{ listOn: parent?.id ?? null, parent: parent?.id ?? null, canCreate: !!parent?.permissions?.includes("catalog.access") }}
+            />
           )}
           {kind === "project" && <ObservationField labels={labels} value={observe} onChange={setObserve} />}
           <Message note={note} />
@@ -345,7 +356,7 @@ export function EditForm({
 
   const sourceChanged = () => {
     if (mode === "link") return !!source;
-    return !source || !!draft.token || JSON.stringify(sourceBody(draft)) !== JSON.stringify(sourceBody(draftOf(source)));
+    return !source || secretChanged(draft) || JSON.stringify(sourceBody(draft)) !== JSON.stringify(sourceBody(draftOf(source)));
   };
 
   const check = async () => {
@@ -436,7 +447,17 @@ export function EditForm({
           {(p) => <LabelsInput {...p} value={labelLines} onChange={setLabelLines} onDraft={setLabelDraft} />}
         </Field>
         {isProject && (
-          <RepoSection labels={labels} mode={mode} onMode={setMode} repo={repo} onRepo={setRepo} draft={draft} onDraft={setDraft} managed={managed}>
+          <RepoSection
+            labels={labels}
+            mode={mode}
+            onMode={setMode}
+            repo={repo}
+            onRepo={setRepo}
+            draft={draft}
+            onDraft={setDraft}
+            scope={{ listOn: node.id, parent: node.parent_id, canCreate: !!node.permissions?.includes("catalog.access") }}
+            managed={managed}
+          >
             {mode !== "link" && (
               <div>
                 <Button type="button" onClick={() => void check()} disabled={busy}>

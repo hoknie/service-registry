@@ -22,12 +22,12 @@ func (s *Connections) Insert(ctx context.Context, n forge.NewConnection) (forge.
 	st := n.Settings
 	_, err := s.db.From(ctx).Exec(ctx, `
 		INSERT INTO forge_connections (id, node_id, kind, api_url, owner_path, mirror_subgroups,
-			include_archived, include_forks, name_include, name_exclude, interval_secs, credentials_enc,
-			credentials_ref, credentials_fingerprint, branch_include)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+			include_archived, include_forks, name_include, name_exclude, interval_secs, credentials_secret_id,
+			branch_include)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
 		n.ID, n.NodeID, string(st.Kind), st.APIURL, st.OwnerPath, st.MirrorSubgroups,
 		st.IncludeArchived, st.IncludeForks, st.NameInclude, st.NameExclude, st.IntervalSecs,
-		n.Credentials.Enc, n.Credentials.Ref, n.Credentials.Fingerprint, nonNil(st.BranchInclude))
+		n.SecretID, nonNil(st.BranchInclude))
 	if err != nil {
 		return forge.Connection{}, dbErr(err)
 	}
@@ -49,7 +49,7 @@ func (s *Connections) List(ctx context.Context, nodeID uuid.UUID) ([]forge.Conne
 	rows, err := s.db.From(ctx).Query(ctx, `
 		SELECT c.id, c.node_id, c.kind, c.api_url, c.owner_path, c.mirror_subgroups, c.include_archived,
 			c.include_forks, c.name_include, c.name_exclude, c.branch_include, c.interval_secs,
-			c.credentials_ref, c.credentials_fingerprint, c.webhook_mode, rfc3339(c.next_run_at),
+			c.credentials_secret_id, c.credentials_enc IS NOT NULL, c.credentials_ref, c.credentials_fingerprint, c.webhook_mode, rfc3339(c.next_run_at),
 			rfc3339(c.created_at), rfc3339(c.updated_at), lr.id, lr.connection_id, lr.trigger, lr.status,
 			rfc3339(lr.started_at), rfc3339(lr.finished_at), lr.created, lr.updated, lr.orphaned, lr.skipped,
 			lr.error_code, lr.error_message, lr.problems
@@ -74,7 +74,7 @@ func (s *Connections) Find(ctx context.Context, id uuid.UUID) (*forge.Connection
 	c, err := scanConnection(s.db.From(ctx).QueryRow(ctx, `
 		SELECT c.id, c.node_id, c.kind, c.api_url, c.owner_path, c.mirror_subgroups, c.include_archived,
 			c.include_forks, c.name_include, c.name_exclude, c.branch_include, c.interval_secs,
-			c.credentials_ref, c.credentials_fingerprint, c.webhook_mode, rfc3339(c.next_run_at),
+			c.credentials_secret_id, c.credentials_enc IS NOT NULL, c.credentials_ref, c.credentials_fingerprint, c.webhook_mode, rfc3339(c.next_run_at),
 			rfc3339(c.created_at), rfc3339(c.updated_at), lr.id, lr.connection_id, lr.trigger, lr.status,
 			rfc3339(lr.started_at), rfc3339(lr.finished_at), lr.created, lr.updated, lr.orphaned, lr.skipped,
 			lr.error_code, lr.error_message, lr.problems
@@ -99,9 +99,9 @@ func (s *Connections) Find(ctx context.Context, id uuid.UUID) (*forge.Connection
 func (s *Connections) Secrets(ctx context.Context, id uuid.UUID) (*forge.Secrets, error) {
 	var sec forge.Secrets
 	err := s.db.From(ctx).QueryRow(ctx, `
-		SELECT credentials_enc, credentials_ref, webhook_secret_enc, webhook_id
+		SELECT credentials_secret_id, credentials_enc, credentials_ref, webhook_secret_enc, webhook_id
 		FROM forge_connections
-		WHERE id = $1`, id).Scan(&sec.CredentialsEnc, &sec.CredentialsRef, &sec.WebhookSecretEnc, &sec.WebhookID)
+		WHERE id = $1`, id).Scan(&sec.CredentialsSecretID, &sec.CredentialsEnc, &sec.CredentialsRef, &sec.WebhookSecretEnc, &sec.WebhookID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -111,7 +111,7 @@ func (s *Connections) Secrets(ctx context.Context, id uuid.UUID) (*forge.Secrets
 	return &sec, nil
 }
 
-func (s *Connections) Update(ctx context.Context, id uuid.UUID, st forge.Settings, creds *forge.StoredCredentials) (forge.Connection, error) {
+func (s *Connections) Update(ctx context.Context, id uuid.UUID, st forge.Settings, secret *uuid.UUID) (forge.Connection, error) {
 	err := s.db.InTx(ctx, func(ctx context.Context) error {
 		tx := s.db.From(ctx)
 		tag, err := tx.Exec(ctx, `
@@ -126,11 +126,12 @@ func (s *Connections) Update(ctx context.Context, id uuid.UUID, st forge.Setting
 		if tag.RowsAffected() == 0 {
 			return forge.ErrNotFound
 		}
-		if creds != nil {
+		if secret != nil {
 			_, err = tx.Exec(ctx, `
 				UPDATE forge_connections
-				SET credentials_enc = $2, credentials_ref = $3, credentials_fingerprint = $4, updated_at = now()
-				WHERE id = $1`, id, creds.Enc, creds.Ref, creds.Fingerprint)
+				SET credentials_secret_id = $2, credentials_enc = NULL, credentials_ref = NULL, credentials_fingerprint = NULL,
+					updated_at = now()
+				WHERE id = $1`, id, *secret)
 		}
 		return err
 	})
@@ -278,4 +279,23 @@ func nonNil(s []string) []string {
 		return []string{}
 	}
 	return s
+}
+
+func (s *Connections) SecretUsage(ctx context.Context, secrets []uuid.UUID) (map[uuid.UUID]int64, error) {
+	rows, err := s.db.From(ctx).Query(ctx, `
+		SELECT credentials_secret_id, count(*)
+		FROM forge_connections
+		WHERE credentials_secret_id = ANY($1)
+		GROUP BY credentials_secret_id`, secrets)
+	if err != nil {
+		return nil, dbErr(err)
+	}
+	out := map[uuid.UUID]int64{}
+	var id uuid.UUID
+	var n int64
+	_, err = pgx.ForEachRow(rows, []any{&id, &n}, func() error {
+		out[id] = n
+		return nil
+	})
+	return out, dbErr(err)
 }

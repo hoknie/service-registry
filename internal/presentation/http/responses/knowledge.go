@@ -3,6 +3,7 @@ package responses
 import (
 	"github.com/google/uuid"
 
+	"svc-registry/internal/feature/catalog"
 	"svc-registry/internal/feature/knowledge"
 	knowledgeservice "svc-registry/internal/feature/knowledge/service"
 )
@@ -258,8 +259,20 @@ func SearchModesOf(m knowledgeservice.SearchModes) SearchModes {
 }
 
 type SourceCredentials struct {
-	Mode        string  `json:"mode"`
-	Fingerprint *string `json:"fingerprint"`
+	Mode        string     `json:"mode"`
+	Secret      *SecretRef `json:"secret"`
+	Fingerprint *string    `json:"fingerprint"`
+}
+
+func sourceCredentialsOf(c catalog.Credentials) SourceCredentials {
+	out := SourceCredentials{Mode: string(c.Kind), Secret: SecretRefOf(c.Secret)}
+	if c.Kind == catalog.CredentialsSecret && out.Secret == nil && c.SecretID != nil {
+		out.Secret = &SecretRef{ID: *c.SecretID}
+	}
+	if c.Kind == catalog.CredentialsLegacy {
+		out.Fingerprint = c.Fingerprint
+	}
+	return out
 }
 
 type KnowledgeSource struct {
@@ -279,7 +292,7 @@ func KnowledgeSourceOf(s *knowledge.Source) *KnowledgeSource {
 		return nil
 	}
 	return &KnowledgeSource{Kind: string(s.Kind), Forge: nonEmpty(s.Forge), URL: nonEmpty(s.URL), APIURL: nonEmpty(s.APIURL),
-		Path: nonEmpty(s.Path), Credentials: SourceCredentials{Mode: s.Credentials.Mode, Fingerprint: s.Credentials.Fingerprint},
+		Path: nonEmpty(s.Path), Credentials: sourceCredentialsOf(s.Credentials),
 		WorkingTree: s.WorkingTree, IncludeIgnored: s.IncludeIgnored, UpdatedAt: s.UpdatedAt}
 }
 

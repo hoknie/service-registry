@@ -17,13 +17,16 @@ func TestClusterLifecycle(t *testing.T) {
 	eq(t, c["interval_secs"], any(float64(60)))
 	eq(t, c["enabled"], any(true))
 	eq(t, c["status"], any("never"))
-	eq(t, at(c, "credentials", "kind"), any("token"))
-	eq(t, has(c["credentials"].(obj), "fingerprint"), true)
+	eq(t, at(c, "credentials", "kind"), any("secret"))
+	eq(t, at(c, "credentials", "secret", "from"), nil)
 	eq(t, jsonText(c["namespaces"]), `["backend"]`)
 	id := idOf(c)
 	lacks(t, scalar[string](t, app.db, "SELECT row_to_json(c)::text FROM clusters c"), saToken)
+	lacks(t, scalar[string](t, app.db, "SELECT string_agg(row_to_json(s)::text, ',') FROM secrets s"), saToken)
 	lacks(t, app.get(clusterPath(id), root).text(), saToken)
 
+	org := app.nodeID(root, "organization", "", "acme")
+	nodeSecret := app.secret(root, org, obj{"value": "node-token"})
 	r := app.send("POST", clustersPath, root, obj{"name": "PROD-EU", "environment": "production", "in_cluster": true})
 	eq(t, r.status, 409)
 	eq(t, code(t, r), any("conflict.cluster_name_taken"))
@@ -33,6 +36,8 @@ func TestClusterLifecycle(t *testing.T) {
 	}{
 		{obj{"name": "x", "environment": "p", "in_cluster": true, "api_url": "https://x"}, "validation.invalid_api_url"},
 		{obj{"name": "x", "environment": "p", "api_url": "http://x", "credentials": obj{"token": "t"}}, "validation.invalid_api_url"},
+		{obj{"name": "x", "environment": "p", "api_url": "https://x", "credentials": obj{"token": "t"}}, "validation.credentials_inline_removed"},
+		{obj{"name": "x", "environment": "p", "api_url": "https://x", "credentials": obj{"secret_id": nodeSecret}}, "validation.secret_not_available"},
 		{obj{"name": "x", "environment": "p", "api_url": "https://x"}, "validation.invalid_credentials"},
 		{obj{"name": "x", "environment": "a b", "in_cluster": true}, "validation.invalid_environment_key"},
 		{obj{"name": " ", "environment": "p", "in_cluster": true}, "validation.invalid_cluster_name"},
@@ -46,8 +51,8 @@ func TestClusterLifecycle(t *testing.T) {
 		eq(t, code(t, r), any(tt.code), jsonText(tt.body))
 	}
 
-	ref := app.cluster(root, "stage", obj{"credentials": obj{"token_ref": "env:K8S_TOKEN_STAGE"}})
-	eq(t, at(ref, "credentials", "ref"), any("env:K8S_TOKEN_STAGE"))
+	ref := app.cluster(root, "stage", obj{"credentials": app.refOn(root, "", "env:K8S_TOKEN_STAGE")})
+	eq(t, at(ref, "credentials", "kind"), any("secret"))
 	self := app.send("POST", clustersPath, root, obj{"name": "self", "environment": "staging", "in_cluster": true})
 	eq(t, self.status, 201, self.text())
 	eq(t, self.json(t)["credentials"], nil)
@@ -56,7 +61,7 @@ func TestClusterLifecycle(t *testing.T) {
 	r = app.send("PATCH", clusterPath(id), root, obj{"interval_secs": 30, "enabled": false})
 	eq(t, r.status, 200, r.text())
 	eq(t, r.json(t)["interval_secs"], any(float64(30)))
-	eq(t, at(r.json(t), "credentials", "fingerprint"), at(c, "credentials", "fingerprint"))
+	eq(t, at(r.json(t), "credentials", "secret", "id"), at(c, "credentials", "secret", "id"))
 	eq(t, app.send("PATCH", clusterPath(newID()), root, obj{"enabled": true}).status, 404)
 
 	list := app.get(clustersPath, root)
@@ -69,7 +74,7 @@ func TestClusterLifecycle(t *testing.T) {
 	eq(t, r.json(t)["version"], any("v1.31.2"))
 	eq(t, jsonText(r.json(t)["missing"]), `["pods:list"]`)
 	eq(t, k8s.Accesses()[0].Token, saToken)
-	eq(t, app.send("PATCH", clusterPath(id), root, obj{"credentials": obj{"token": "wrong"}}).status, 200)
+	eq(t, app.send("PATCH", clusterPath(id), root, obj{"credentials": app.tokenOn(root, "", "wrong")}).status, 200)
 	r = app.call("POST", clusterPath(id)+"/test", root)
 	eq(t, r.json(t)["ok"], any(false))
 	eq(t, at(r.json(t), "error", "code"), any("k8s.unauthorized"))
@@ -109,7 +114,7 @@ func TestClusterTokenNeedsAnEncryptionKey(t *testing.T) {
 	t.Parallel()
 	app := startApp(t)
 	root := app.admin()
-	r := app.send("POST", clustersPath, root, obj{"name": "x", "environment": "p", "api_url": "https://x", "credentials": obj{"token": "t"}})
+	r := app.send("POST", globalSecretsPath, root, obj{"name": "sa", "value": "t"})
 	eq(t, r.status, 409)
 	eq(t, code(t, r), any("conflict.secrets_key_missing"))
 	eq(t, strings.Contains(r.text(), "\"t\""), false)

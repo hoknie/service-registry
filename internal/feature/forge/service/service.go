@@ -51,3 +51,7 @@ func (s *Service) Managed(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]b
 func (s *Service) ActivitySignals(ctx context.Context, projects []uuid.UUID, _, busy bool) (map[uuid.UUID][]catalog.ProcessSignals, error) {
 	return s.connections.Signals(ctx, projects, busy)
 }
+
+func (s *Service) SecretUsage(ctx context.Context, secrets []uuid.UUID) (map[uuid.UUID]int64, error) {
+	return s.connections.SecretUsage(ctx, secrets)
+}

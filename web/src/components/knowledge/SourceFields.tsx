@@ -1,7 +1,12 @@
 "use client";
 
+import { useParams } from "next/navigation";
+
+import type { Locale } from "@/i18n/config";
 import type { KnowledgeSource, SourceKind } from "@/lib/api";
 
+import { catalogHref } from "../catalog/shared";
+import { SecretPicker } from "../secrets/SecretPicker";
 import { Checkbox, Field, Input } from "../ui/Field";
 import { Select } from "../ui/Select";
 import type { CatalogLabels } from "../catalog/shared";
@@ -14,7 +19,9 @@ export type SourceDraft = {
   forge: (typeof FORGES)[number];
   url: string;
   apiUrl: string;
-  token: string;
+  secret: string | null;
+  current: string | null;
+  legacy: boolean;
   noToken: boolean;
   path: string;
   workingTree: boolean;
@@ -26,7 +33,9 @@ export const emptyDraft: SourceDraft = {
   forge: "gitlab",
   url: "",
   apiUrl: "",
-  token: "",
+  secret: null,
+  current: null,
+  legacy: false,
   noToken: false,
   path: "",
   workingTree: true,
@@ -40,7 +49,9 @@ export function draftOf(s: KnowledgeSource | null): SourceDraft {
     forge: s.forge ?? "gitlab",
     url: s.url ?? "",
     apiUrl: s.api_url ?? "",
-    token: "",
+    secret: s.credentials.secret?.id ?? null,
+    current: s.credentials.secret?.id ?? null,
+    legacy: s.credentials.mode === "legacy",
     noToken: s.credentials.mode === "none",
     path: s.path ?? "",
     workingTree: s.kind === "local_git" ? s.working_tree : true,
@@ -55,19 +66,28 @@ export function sourceBody(d: SourceDraft): Record<string, unknown> {
   if (d.kind !== "remote") return { kind: d.kind, path: d.path };
   const out: Record<string, unknown> = { kind: d.kind, forge: d.forge, url: d.url, api_url: d.apiUrl };
   if (d.noToken) out.credentials = null;
-  else if (d.token) out.credentials = { token: d.token };
+  else if (d.secret && d.secret !== d.current) out.credentials = { secret_id: d.secret };
   return out;
 }
+
+export function secretChanged(d: SourceDraft): boolean {
+  return d.secret !== d.current;
+}
+
+export type SecretScope = { listOn: string | null; parent: string | null; canCreate: boolean };
 
 export function SourceFields({
   value,
   onChange,
   labels: t,
+  scope,
 }: {
   value: SourceDraft;
   onChange: (v: SourceDraft) => void;
   labels: CatalogLabels["docs"]["source"];
+  scope: SecretScope;
 }) {
+  const { locale } = useParams<{ locale: string }>();
   const set = (patch: Partial<SourceDraft>) => onChange({ ...value, ...patch });
   if (value.kind !== "remote") {
     return (
@@ -115,12 +135,15 @@ export function SourceFields({
       <Field label={t.apiUrl} hint={t.apiUrlHint}>
         {(p) => <Input {...p} value={value.apiUrl} onChange={(e) => set({ apiUrl: e.target.value })} />}
       </Field>
-      <Checkbox label={t.noToken} checked={value.noToken} onChange={(e) => set({ noToken: e.target.checked })} />
-      {!value.noToken && (
-        <Field label={t.token} hint={t.tokenHint}>
-          {(p) => <Input {...p} type="password" autoComplete="off" value={value.token} onChange={(e) => set({ token: e.target.value })} />}
-        </Field>
-      )}
+      <SecretPicker
+        listOn={scope.listOn}
+        createOn={scope.canCreate && scope.parent ? scope.parent : false}
+        value={value.noToken ? null : value.secret}
+        onChange={(secret) => set({ secret, noToken: secret === null })}
+        manageHref={scope.parent ? catalogHref(locale as Locale, scope.parent, "settings", null, null, "secrets") : `/${locale}/admin/secrets`}
+        allowNone
+        legacy={value.legacy && !value.noToken}
+      />
     </>
   );
 }

@@ -3,10 +3,12 @@ package app
 import (
 	"context"
 
+	catalogservice "svc-registry/internal/feature/catalog/service"
 	deployservice "svc-registry/internal/feature/deploy/service"
 	"svc-registry/internal/feature/forge"
 	forgeservice "svc-registry/internal/feature/forge/service"
 	knowledgeservice "svc-registry/internal/feature/knowledge/service"
+	"svc-registry/internal/platform/config"
 	"svc-registry/internal/platform/postgres"
 	"svc-registry/pkg/secretbox"
 )
@@ -38,10 +40,11 @@ func rotateSecrets(ctx context.Context, box *secretbox.Box, parts ...secretRotat
 }
 
 func (a *App) RotateSecrets(ctx context.Context) (int, error) {
-	return rotateSecrets(ctx, a.Secrets, a.Forge, a.Deploy, a.Knowledge)
+	return rotateSecrets(ctx, a.Secrets, a.Catalog, a.Forge, a.Deploy, a.Knowledge)
 }
 
 func RotateSecretsOver(ctx context.Context, db *postgres.DB, box *secretbox.Box) (int, error) {
-	return rotateSecrets(ctx, box, forgeservice.New(forgeservice.Deps{DB: db, Secrets: box}), deployservice.New(deployservice.Deps{DB: db, Secrets: box}),
+	cat := catalogservice.New(catalogservice.Deps{DB: db, Config: &config.Config{}, Secrets: box})
+	return rotateSecrets(ctx, box, cat, forgeservice.New(forgeservice.Deps{DB: db, Secrets: box}), deployservice.New(deployservice.Deps{DB: db, Secrets: box}),
 		knowledgeservice.New(knowledgeservice.Deps{DB: db, Secrets: box}))
 }

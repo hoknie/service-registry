@@ -20,7 +20,8 @@
       "clusters": "Clusters",
       "environments": "Environments",
       "docsSearch": "Documentation search",
-      "scans": "Scans"
+      "scans": "Scans",
+      "secrets": "Secrets"
     },
     "language": "Language",
     "user": {
@@ -81,7 +82,9 @@
     "invalidName": "Lowercase letters, digits and hyphens only",
     "duplicate": "Already added",
     "labelFormat": "Expected key or key=value (key: a-z, 0-9, . _ -)",
-    "fixLabels": "Fix the labels to save"
+    "fixLabels": "Fix the labels to save",
+    "suggestions": "Suggestions",
+    "actions": "Actions"
   },
   "home": {
     "title": "Service registry",
@@ -223,7 +226,10 @@
       "invalid_filter": "Check the filters: search up to 100 characters, a label as key or key=value, at most 5 labels.",
       "invalid_link_title": "The title must be 1 to 100 characters.",
       "invalid_icon_format": "The icon must be a PNG, WebP, ICO or SVG image.",
-      "icon_too_large": "The icon is larger than 64 KiB."
+      "icon_too_large": "The icon is larger than 64 KiB.",
+      "invalid_secret": "Give a name of up to 100 characters and a value or an env:/file: reference.",
+      "secret_not_available": "This secret is not available here — choose a secret of this node, its ancestors or a global one.",
+      "credentials_inline_removed": "Tokens are no longer entered in the form — create a secret and choose it."
     },
     "conflict": {
       "email_taken": "A user with this email already exists.",
@@ -249,7 +255,9 @@
       "local_sources_disabled": "Local sources are turned off on this server.",
       "self_service": "You cannot make your own account a service account.",
       "user_disabled": "The user is disabled.",
-      "uploads_disabled": "File uploads are turned off on the server."
+      "uploads_disabled": "File uploads are turned off on the server.",
+      "secret_in_use": "The secret is in use — replace it in connections, sources and clusters first.",
+      "secret_name_taken": "A secret with this name already exists here."
     },
     "ingest": {
       "unknown_event_type": "Unknown event type.",
@@ -661,6 +669,15 @@
       "deleteTitle": "Delete environment",
       "confirmDelete": "Delete the environment “{key}” from the list? Deployments in it stay.",
       "deleted": "Environment deleted."
+    },
+    "menu": {
+      "label": "Administration sections",
+      "access": "Access",
+      "secrets": "Secrets",
+      "catalog": "Catalog",
+      "infra": "Infrastructure",
+      "docs": "Documentation",
+      "globalSecrets": "Global secrets"
     }
   },
   "catalog": {
@@ -1352,7 +1369,8 @@
         "keys": "Keys",
         "access": "Access",
         "connect": "Sending events",
-        "forge": "Forge"
+        "forge": "Forge",
+        "secrets": "Secrets"
       }
     },
     "linkIcons": {
@@ -1582,5 +1600,49 @@
         }
       }
     }
+  },
+  "secrets": {
+    "title": "Secrets",
+    "nodeIntro": "Tokens and access keys of this node. Forge connections and documentation sources here and below pick them; values are not shown after saving.",
+    "globalIntro": "Global secrets are available to every node and cluster. Values are not shown after saving.",
+    "name": "Name",
+    "description": "Description",
+    "descriptionHint": "Everyone who can read the node sees the description.",
+    "storage": "Storage",
+    "from": "Defined on",
+    "usedBy": "Uses",
+    "stored": "Encrypted",
+    "reference": "Reference",
+    "here": "Here",
+    "inherited": "Inherited from {name}",
+    "global": "Global",
+    "newSecret": "New secret",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteTitle": "Delete secret “{name}”?",
+    "deleteText": "The secret will be deleted permanently.",
+    "inUse": "Used in {n} places — replace it there first.",
+    "createTitle": "New secret",
+    "editTitle": "Edit secret",
+    "mode": "Kind",
+    "modeValue": "Value",
+    "modeRef": "Secret reference",
+    "value": "Value",
+    "valueKeep": "Empty — keep the current value",
+    "ref": "Reference",
+    "refHint": "env:<NAME> or file:<absolute path>",
+    "save": "Save",
+    "empty": "No secrets yet.",
+    "created": "Secret created",
+    "updated": "Secret saved",
+    "deleted": "Secret deleted",
+    "picker": "Secret",
+    "pickerPlaceholder": "Choose a secret",
+    "none": "No token",
+    "manage": "Manage secrets",
+    "create": "Create secret",
+    "legacy": "Inline token (deprecated) — choose a secret",
+    "noneAvailable": "No secrets available.",
+    "legacyShort": "Inline token (deprecated)"
   }
 }

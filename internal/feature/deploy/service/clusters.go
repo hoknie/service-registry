@@ -8,7 +8,6 @@ import (
 
 	"svc-registry/internal/feature/access"
 	"svc-registry/internal/feature/deploy"
-	"svc-registry/internal/feature/forge"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
 	"svc-registry/pkg/secretbox"
@@ -19,14 +18,21 @@ func (s *Service) ListClusters(ctx context.Context, p access.Principal) ([]deplo
 		return nil, err
 	}
 	items, err := s.clusters.List(ctx)
-	return items, apperr.Wrap(err)
+	if err != nil {
+		return nil, apperr.Wrap(err)
+	}
+	return s.decorateAll(ctx, items)
 }
 
 func (s *Service) GetCluster(ctx context.Context, p access.Principal, id uuid.UUID) (deploy.Cluster, error) {
 	if err := access.RequireSuperadmin(p); err != nil {
 		return deploy.Cluster{}, err
 	}
-	return s.loadCluster(ctx, id)
+	c, err := s.loadCluster(ctx, id)
+	if err != nil {
+		return deploy.Cluster{}, err
+	}
+	return s.decorate(ctx, c)
 }
 
 func (s *Service) loadCluster(ctx context.Context, id uuid.UUID) (deploy.Cluster, error) {
@@ -40,38 +46,22 @@ func (s *Service) loadCluster(ctx context.Context, id uuid.UUID) (deploy.Cluster
 	return *c, nil
 }
 
-func (s *Service) sealCredentials(id uuid.UUID, c forge.ValidCredentials) (forge.StoredCredentials, error) {
-	if c.Ref != nil {
-		return forge.StoredCredentials{Ref: c.Ref}, nil
-	}
-	if !s.secrets.CanEncrypt() {
-		return forge.StoredCredentials{}, apperr.Wrap(forge.ConflictSecretsKeyMissing)
-	}
-	enc, err := s.secrets.Seal(*c.Token, secretbox.AAD(deploy.Table, id.String(), deploy.ColumnCredentials))
-	if err != nil {
-		return forge.StoredCredentials{}, apperr.Internalf("encrypt: %v", err)
-	}
-	fp := secretbox.Fingerprint(*c.Token)
-	return forge.StoredCredentials{Enc: &enc, Fingerprint: &fp}, nil
-}
-
 func (s *Service) CreateCluster(ctx context.Context, p access.Principal, in deploy.ClusterInput) (deploy.Cluster, error) {
 	if err := access.RequireSuperadmin(p); err != nil {
 		return deploy.Cluster{}, err
 	}
-	settings, creds, err := deploy.ValidateCluster(deploy.DefaultSettings(), false, in)
+	settings, secret, err := deploy.ValidateCluster(deploy.DefaultSettings(), false, in)
 	if err != nil {
 		return deploy.Cluster{}, apperr.Wrap(err)
 	}
-	id := uuid.Must(uuid.NewV7())
-	var stored forge.StoredCredentials
-	if creds != nil {
-		if stored, err = s.sealCredentials(id, *creds); err != nil {
-			return deploy.Cluster{}, err
-		}
+	if err := s.globalSecret(ctx, secret); err != nil {
+		return deploy.Cluster{}, err
 	}
-	c, err := s.clusters.Insert(ctx, deploy.NewCluster{ID: id, Settings: settings, Credentials: stored})
-	return c, apperr.Wrap(err)
+	c, err := s.clusters.Insert(ctx, deploy.NewCluster{ID: uuid.Must(uuid.NewV7()), Settings: settings, SecretID: secret})
+	if err != nil {
+		return deploy.Cluster{}, apperr.Wrap(err)
+	}
+	return s.decorate(ctx, c)
 }
 
 func (s *Service) UpdateCluster(ctx context.Context, p access.Principal, id uuid.UUID, in deploy.ClusterInput) (deploy.Cluster, error) {
@@ -82,26 +72,21 @@ func (s *Service) UpdateCluster(ctx context.Context, p access.Principal, id uuid
 	if err != nil {
 		return deploy.Cluster{}, err
 	}
-	settings, creds, err := deploy.ValidateCluster(current.Settings, current.Credentials != nil, in)
+	settings, secret, err := deploy.ValidateCluster(current.Settings, current.Credentials != nil, in)
 	if err != nil {
 		return deploy.Cluster{}, apperr.Wrap(err)
 	}
-	u := deploy.ClusterUpdate{Settings: settings}
-	if creds != nil {
-		stored, err := s.sealCredentials(id, *creds)
-		if err != nil {
-			return deploy.Cluster{}, err
-		}
-		u.Credentials = &stored
+	if err := s.globalSecret(ctx, secret); err != nil {
+		return deploy.Cluster{}, err
 	}
-	c, err := s.clusters.Update(ctx, id, u)
+	c, err := s.clusters.Update(ctx, id, deploy.ClusterUpdate{Settings: settings, SecretID: secret})
 	if err != nil {
 		return deploy.Cluster{}, apperr.Wrap(err)
 	}
 	if c == nil {
 		return deploy.Cluster{}, apperr.New(apperr.NotFound)
 	}
-	return *c, nil
+	return s.decorate(ctx, *c)
 }
 
 func (s *Service) DeleteCluster(ctx context.Context, p access.Principal, id uuid.UUID) error {
@@ -182,6 +167,12 @@ func (s *Service) clusterClient(ctx context.Context, c deploy.Cluster) (deploy.C
 		switch {
 		case stored == nil:
 			return nil, apperr.New(apperr.NotFound)
+		case stored.SecretID != nil:
+			token, err := s.catalog.ResolveSecret(ctx, *stored.SecretID)
+			if err != nil {
+				return nil, &deploy.Failure{Code: deploy.FailUnauthorized, Message: "secret cannot be read"}
+			}
+			a.Token = token
 		case stored.Ref != nil:
 			token, err := config.ResolveSecretRef(*stored.Ref)
 			if err != nil {
@@ -233,4 +224,45 @@ func (s *Service) PrepareSecretRotation(ctx context.Context) (func(context.Conte
 		return nil
 	}
 	return apply, len(clusters), nil
+}
+
+func (s *Service) globalSecret(ctx context.Context, secret *uuid.UUID) error {
+	if secret == nil {
+		return nil
+	}
+	_, err := s.catalog.SecretFor(ctx, nil, *secret)
+	return err
+}
+
+func (s *Service) decorate(ctx context.Context, c deploy.Cluster) (deploy.Cluster, error) {
+	items, err := s.decorateAll(ctx, []deploy.Cluster{c})
+	if err != nil {
+		return deploy.Cluster{}, err
+	}
+	return items[0], nil
+}
+
+func (s *Service) decorateAll(ctx context.Context, items []deploy.Cluster) ([]deploy.Cluster, error) {
+	var ids []uuid.UUID
+	for _, c := range items {
+		if c.Credentials != nil && c.Credentials.SecretID != nil {
+			ids = append(ids, *c.Credentials.SecretID)
+		}
+	}
+	refs, err := s.catalog.SecretRefs(ctx, ids)
+	if err != nil {
+		return nil, apperr.Wrap(err)
+	}
+	for i := range items {
+		if cr := items[i].Credentials; cr != nil && cr.SecretID != nil {
+			if ref, ok := refs[*cr.SecretID]; ok {
+				cr.Secret = &ref
+			}
+		}
+	}
+	return items, nil
+}
+
+func (s *Service) SecretUsage(ctx context.Context, secrets []uuid.UUID) (map[uuid.UUID]int64, error) {
+	return s.clusters.SecretUsage(ctx, secrets)
 }

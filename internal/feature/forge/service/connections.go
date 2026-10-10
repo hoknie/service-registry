@@ -33,7 +33,38 @@ type PreviewItem struct {
 	Code     *string
 }
 
-func (s *Service) view(c forge.Connection) ConnectionView {
+func (s *Service) view(ctx context.Context, c forge.Connection) (ConnectionView, error) {
+	views, err := s.views(ctx, []forge.Connection{c})
+	if err != nil {
+		return ConnectionView{}, err
+	}
+	return views[0], nil
+}
+
+func (s *Service) views(ctx context.Context, conns []forge.Connection) ([]ConnectionView, error) {
+	var ids []uuid.UUID
+	for _, c := range conns {
+		if c.Credentials.SecretID != nil {
+			ids = append(ids, *c.Credentials.SecretID)
+		}
+	}
+	refs, err := s.catalog.SecretRefs(ctx, ids)
+	if err != nil {
+		return nil, apperr.Wrap(err)
+	}
+	out := make([]ConnectionView, 0, len(conns))
+	for _, c := range conns {
+		if c.Credentials.SecretID != nil {
+			if ref, ok := refs[*c.Credentials.SecretID]; ok {
+				c.Credentials.Secret = &ref
+			}
+		}
+		out = append(out, s.viewOf(c))
+	}
+	return out, nil
+}
+
+func (s *Service) viewOf(c forge.Connection) ConnectionView {
 	v := ConnectionView{Connection: c}
 	if c.WebhookMode != nil {
 		if u := s.webhookURL(c.ID); u != "" {
@@ -64,19 +95,15 @@ func (s *Service) authorizeConnection(ctx context.Context, p access.Principal, p
 	return *c, nil
 }
 
-func (s *Service) storeCredentials(id uuid.UUID, c forge.ValidCredentials) (forge.StoredCredentials, error) {
-	if c.Ref != nil {
-		return forge.StoredCredentials{Ref: c.Ref}, nil
-	}
-	if !s.secrets.CanEncrypt() {
-		return forge.StoredCredentials{}, apperr.Wrap(forge.ConflictSecretsKeyMissing)
-	}
-	enc, err := s.secrets.Seal(*c.Token, secretbox.AAD(forge.Table, id.String(), forge.ColumnCredentials))
+func (s *Service) secretFor(ctx context.Context, nodeID uuid.UUID, in *catalog.CredentialsInput) (uuid.UUID, error) {
+	id, err := catalog.ParseCredentials(in, forge.InvalidCredentials)
 	if err != nil {
-		return forge.StoredCredentials{}, apperr.Internalf("encrypt: %v", err)
+		return uuid.Nil, apperr.Wrap(err)
 	}
-	fp := secretbox.Fingerprint(*c.Token)
-	return forge.StoredCredentials{Enc: &enc, Fingerprint: &fp}, nil
+	if _, err := s.catalog.SecretFor(ctx, &nodeID, id); err != nil {
+		return uuid.Nil, err
+	}
+	return id, nil
 }
 
 func (s *Service) ListConnections(ctx context.Context, p access.Principal, nodeID uuid.UUID) ([]ConnectionView, error) {
@@ -87,11 +114,7 @@ func (s *Service) ListConnections(ctx context.Context, p access.Principal, nodeI
 	if err != nil {
 		return nil, apperr.Wrap(err)
 	}
-	out := make([]ConnectionView, 0, len(conns))
-	for _, c := range conns {
-		out = append(out, s.view(c))
-	}
-	return out, nil
+	return s.views(ctx, conns)
 }
 
 func (s *Service) CreateConnection(ctx context.Context, p access.Principal, nodeID uuid.UUID, in forge.CreateConnection) (ConnectionView, error) {
@@ -106,20 +129,16 @@ func (s *Service) CreateConnection(ctx context.Context, p access.Principal, node
 	if err != nil {
 		return ConnectionView{}, apperr.Wrap(err)
 	}
-	creds, err := forge.ValidateCredentials(in.Credentials)
-	if err != nil {
-		return ConnectionView{}, apperr.Wrap(err)
-	}
-	id := uuid.Must(uuid.NewV7())
-	stored, err := s.storeCredentials(id, creds)
+	secret, err := s.secretFor(ctx, nodeID, in.Credentials)
 	if err != nil {
 		return ConnectionView{}, err
 	}
-	c, err := s.connections.Insert(ctx, forge.NewConnection{ID: id, NodeID: nodeID, Settings: settings, Credentials: stored})
+	id := uuid.Must(uuid.NewV7())
+	c, err := s.connections.Insert(ctx, forge.NewConnection{ID: id, NodeID: nodeID, Settings: settings, SecretID: secret})
 	if err != nil {
 		return ConnectionView{}, apperr.Wrap(err)
 	}
-	return s.view(c), nil
+	return s.view(ctx, c)
 }
 
 func (s *Service) GetConnection(ctx context.Context, p access.Principal, nodeID, id uuid.UUID) (ConnectionView, error) {
@@ -127,7 +146,7 @@ func (s *Service) GetConnection(ctx context.Context, p access.Principal, nodeID,
 	if err != nil {
 		return ConnectionView{}, err
 	}
-	return s.view(c), nil
+	return s.view(ctx, c)
 }
 
 func (s *Service) UpdateConnection(ctx context.Context, p access.Principal, nodeID, id uuid.UUID, in forge.UpdateConnection) (ConnectionView, error) {
@@ -139,23 +158,19 @@ func (s *Service) UpdateConnection(ctx context.Context, p access.Principal, node
 	if err != nil {
 		return ConnectionView{}, apperr.Wrap(err)
 	}
-	var stored *forge.StoredCredentials
+	var secret *uuid.UUID
 	if in.Credentials != nil {
-		creds, err := forge.ValidateCredentials(in.Credentials)
-		if err != nil {
-			return ConnectionView{}, apperr.Wrap(err)
-		}
-		sc, err := s.storeCredentials(id, creds)
+		sid, err := s.secretFor(ctx, nodeID, in.Credentials)
 		if err != nil {
 			return ConnectionView{}, err
 		}
-		stored = &sc
+		secret = &sid
 	}
-	c, err := s.connections.Update(ctx, id, settings, stored)
+	c, err := s.connections.Update(ctx, id, settings, secret)
 	if err != nil {
 		return ConnectionView{}, apperr.Wrap(err)
 	}
-	return s.view(c), nil
+	return s.view(ctx, c)
 }
 
 func (s *Service) DeleteConnection(ctx context.Context, p access.Principal, nodeID, id uuid.UUID) error {

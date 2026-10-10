@@ -8,10 +8,10 @@ licence current. Synchronized nodes are *managed*: they are moved, renamed and c
 only, and their description and repository fields change on the forge. A repository that vanishes
 marks its project *orphaned*; nothing is deleted.
 
-- **Credentials** — a token, stored AES-256-GCM-encrypted (set `SECRETS_KEYS`, e.g.
-  `k1:$(openssl rand -base64 32)`; rotate with `svc-registry secrets:rotate`), or a reference
-  `env:NAME` / `file:/path` so no secret lives in the database. Read-only tokens are enough unless
-  the registry registers the webhook itself.
+- **Credentials** — a **secret** picked by name (`"credentials": {"secret_id": "<id>"}`). Secrets
+  live on the Secrets settings section of an organization or folder (inherited down the tree) or in
+  Administration → Secrets (global); see [Secrets](#secrets). Read-only tokens are enough unless the
+  registry registers the webhook itself.
 - **When** — every `interval_secs` (default `FORGE_SYNC_INTERVAL_SECS`, 15 min), on **Sync now**,
   on a webhook delivery, or `svc-registry forge:sync <connection-id>`. Several replicas never run
   one connection twice; `BACKGROUND_JOBS_ENABLED=false` makes a replica API-only.
@@ -21,6 +21,28 @@ marks its project *orphaned*; nothing is deleted.
   `NO_PROXY` are honoured.
 
 Spec: `openspec/specs/catalog/forge-sync/`.
+
+## Secrets
+
+A secret has a name, a description (visible to every reader of the node) and a value: stored
+AES-256-GCM-encrypted (set `SECRETS_KEYS`, e.g. `k1:$(openssl rand -base64 32)`; rotate with
+`svc-registry secrets:rotate`) or a reference `env:NAME` / `file:/path` so no secret lives in the
+database. The API never returns a value — only the storage kind and a fingerprint.
+
+- **Where** — `GET/POST /api/v1/catalog/nodes/<id>/secrets` (an organization or folder; changes need
+  the `catalog.access` permission), `GET/POST /api/v1/secrets` (global, superadmin). The list of a
+  node includes the secrets of its ancestors and the global ones, each with `from`.
+- **Who may pick** — a forge connection or a documentation source picks a secret of its node, an
+  ancestor or a global one; a Kubernetes cluster picks a global one only. Anything else is
+  `400 validation.secret_not_available`.
+- **Change once** — replacing the value (`PATCH …/secrets/<sid>`) affects every record using it. A
+  secret in use cannot be deleted: `409 conflict.secret_in_use`; `used_by` counts its users.
+- **BREAKING** — inline `token` / `token_ref` in `credentials` are refused with
+  `400 validation.credentials_inline_removed`; create a secret first. Records saved earlier keep
+  their inline token and are shown as `{"kind": "legacy"}` until a secret is picked;
+  `secrets:rotate` re-encrypts both.
+
+Spec: `openspec/specs/catalog/secrets/`.
 
 ## Branches
 

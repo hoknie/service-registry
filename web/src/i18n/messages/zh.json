@@ -20,7 +20,8 @@
       "clusters": "集群",
       "environments": "环境",
       "docsSearch": "文档搜索",
-      "scans": "扫描"
+      "scans": "扫描",
+      "secrets": "密钥"
     },
     "language": "语言",
     "user": {
@@ -81,7 +82,9 @@
     "invalidName": "仅限小写字母、数字和连字符",
     "duplicate": "已添加",
     "labelFormat": "应为 键 或 键=值（键：a-z、0-9、. _ -）",
-    "fixLabels": "请先修正标签再保存"
+    "fixLabels": "请先修正标签再保存",
+    "suggestions": "建议",
+    "actions": "操作"
   },
   "home": {
     "title": "服务注册中心",
@@ -223,7 +226,10 @@
       "invalid_filter": "请检查筛选条件：搜索最多 100 个字符，标签为 键 或 键=值，最多 5 个标签。",
       "invalid_link_title": "标题应为 1 到 100 个字符。",
       "invalid_icon_format": "图标必须是 PNG、WebP、ICO 或 SVG 图片。",
-      "icon_too_large": "图标超过 64 KiB。"
+      "icon_too_large": "图标超过 64 KiB。",
+      "invalid_secret": "请填写不超过 100 个字符的名称，以及值或 env:/file: 引用。",
+      "secret_not_available": "此处不可用该密钥——请选择此节点、其上级节点的密钥或全局密钥。",
+      "credentials_inline_removed": "不再在表单中输入令牌——请创建密钥并选择它。"
     },
     "conflict": {
       "email_taken": "该邮箱已被其他用户使用。",
@@ -249,7 +255,9 @@
       "local_sources_disabled": "此服务器已关闭本地来源。",
       "self_service": "不能将自己的账号设为服务账号。",
       "user_disabled": "该用户已停用。",
-      "uploads_disabled": "服务器已关闭文件上传。"
+      "uploads_disabled": "服务器已关闭文件上传。",
+      "secret_in_use": "密钥正在使用中——请先在连接、来源和集群中替换它。",
+      "secret_name_taken": "此处已有同名密钥。"
     },
     "ingest": {
       "unknown_event_type": "未知的事件类型。",
@@ -661,6 +669,15 @@
       "deleteTitle": "删除环境",
       "confirmDelete": "将环境“{key}”从列表中删除？其中的部署保留。",
       "deleted": "环境已删除。"
+    },
+    "menu": {
+      "label": "管理分区",
+      "access": "访问",
+      "secrets": "密钥",
+      "catalog": "目录",
+      "infra": "基础设施",
+      "docs": "文档",
+      "globalSecrets": "全局密钥"
     }
   },
   "catalog": {
@@ -1352,7 +1369,8 @@
         "keys": "密钥",
         "access": "访问",
         "connect": "发送事件",
-        "forge": "Forge"
+        "forge": "Forge",
+        "secrets": "密钥"
       }
     },
     "linkIcons": {
@@ -1582,5 +1600,49 @@
         }
       }
     }
+  },
+  "secrets": {
+    "title": "密钥",
+    "nodeIntro": "此节点的令牌和访问密钥。此处及下级的 forge 连接和文档来源可选择它们；保存后不再显示值。",
+    "globalIntro": "全局密钥可供所有节点和集群使用。保存后不再显示值。",
+    "name": "名称",
+    "description": "描述",
+    "descriptionHint": "能读取该节点的所有人都能看到描述。",
+    "storage": "存储方式",
+    "from": "定义位置",
+    "usedBy": "使用次数",
+    "stored": "已加密",
+    "reference": "引用",
+    "here": "此处",
+    "inherited": "继承自 {name}",
+    "global": "全局",
+    "newSecret": "新建密钥",
+    "edit": "编辑",
+    "delete": "删除",
+    "deleteTitle": "删除密钥“{name}”？",
+    "deleteText": "密钥将被永久删除。",
+    "inUse": "有 {n} 处在使用——请先在那里替换。",
+    "createTitle": "新建密钥",
+    "editTitle": "编辑密钥",
+    "mode": "类型",
+    "modeValue": "值",
+    "modeRef": "密钥引用",
+    "value": "值",
+    "valueKeep": "留空——保留当前值",
+    "ref": "引用",
+    "refHint": "env:<名称> 或 file:<绝对路径>",
+    "save": "保存",
+    "empty": "还没有密钥。",
+    "created": "密钥已创建",
+    "updated": "密钥已保存",
+    "deleted": "密钥已删除",
+    "picker": "密钥",
+    "pickerPlaceholder": "选择密钥",
+    "none": "不使用令牌",
+    "manage": "管理密钥",
+    "create": "创建密钥",
+    "legacy": "内嵌令牌（已弃用）——请选择密钥",
+    "noneAvailable": "没有可用的密钥。",
+    "legacyShort": "内嵌令牌（已弃用）"
   }
 }

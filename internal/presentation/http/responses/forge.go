@@ -37,12 +37,6 @@ func RepositoryOf(r *forge.Repository) *Repository {
 	}
 }
 
-type Credentials struct {
-	Kind        string  `json:"kind"`
-	Fingerprint *string `json:"fingerprint,omitempty"`
-	Ref         *string `json:"ref,omitempty"`
-}
-
 type Webhook struct {
 	Mode string  `json:"mode"`
 	URL  *string `json:"url"`
@@ -100,15 +94,8 @@ func ConnectionOf(v forgeservice.ConnectionView) Connection {
 		ID: c.ID, NodeID: c.NodeID, Kind: string(c.Kind), APIURL: c.APIURL, OwnerPath: c.OwnerPath,
 		MirrorSubgroups: c.MirrorSubgroups, IncludeArchived: c.IncludeArchived, IncludeForks: c.IncludeForks,
 		NameInclude: nonNil(c.NameInclude), NameExclude: nonNil(c.NameExclude), BranchInclude: nonNil(c.BranchInclude), IntervalSecs: c.IntervalSecs,
-		Credentials: Credentials{Kind: string(c.Credentials.Kind)},
+		Credentials: CredentialsOf(c.Credentials),
 		NextRunAt:   c.NextRunAt, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
-	}
-	if c.Credentials.Kind == forge.CredentialsRef {
-		ref := c.Credentials.Ref
-		out.Credentials.Ref = &ref
-	} else {
-		fp := c.Credentials.Fingerprint
-		out.Credentials.Fingerprint = &fp
 	}
 	if c.WebhookMode != nil {
 		out.Webhook = &Webhook{Mode: string(*c.WebhookMode), URL: v.WebhookURL}

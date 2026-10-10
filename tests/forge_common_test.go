@@ -24,7 +24,10 @@ func connectionPath(node, conn string) string { return connectionsPath(node) + "
 
 func (a *testApp) connect(cookie, node string, f *forgefake.Fake, extra obj) obj {
 	a.t.Helper()
-	body := obj{"kind": f.Kind, "api_url": f.APIURL(), "owner_path": f.Owner, "credentials": obj{"token": f.Token}}
+	body := obj{"kind": f.Kind, "api_url": f.APIURL(), "owner_path": f.Owner}
+	if _, ok := extra["credentials"]; !ok {
+		body["credentials"] = a.tokenOn(cookie, node, f.Token)
+	}
 	for k, v := range extra {
 		body[k] = v
 	}

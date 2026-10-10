@@ -185,15 +185,13 @@ function Sidebar({
       </Link>
       <nav aria-label={labels.nav.label} className="flex-1 overflow-x-hidden overflow-y-auto px-3">
         <ul className="grid gap-0.5">{main.map(link)}</ul>
-        {admin.length > 0 && (
-          <>
-            <p className="mt-6 mb-1.5 px-3 text-2xs font-semibold tracking-wide text-muted uppercase rail:sr-only">{labels.nav.admin}</p>
-            <span aria-hidden="true" className="mx-2 my-3 hidden h-px bg-line rail:block" />
-            <ul className="grid gap-0.5">{admin.map(link)}</ul>
-          </>
-        )}
       </nav>
       <div className="grid gap-0.5 border-t border-line p-3">
+        {admin.length > 0 && (
+          <nav aria-label={labels.nav.admin}>
+            <ul className="grid gap-0.5">{admin.map(link)}</ul>
+          </nav>
+        )}
         <Tooltip content={tip(labels.search)} side="right">
           <button
             type="button"

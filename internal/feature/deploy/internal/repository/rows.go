@@ -6,8 +6,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"svc-registry/internal/feature/catalog"
 	"svc-registry/internal/feature/deploy"
-	"svc-registry/internal/feature/forge"
 	"svc-registry/internal/platform/apperr"
 )
 
@@ -54,6 +54,8 @@ type clusterRow struct {
 	InCluster    bool          `db:"in_cluster"`
 	APIURL       *string       `db:"api_url"`
 	CAPEM        *string       `db:"ca_pem"`
+	SecretID     *uuid.UUID    `db:"credentials_secret_id"`
+	HasEnc       bool          `db:"has_enc"`
 	Ref          *string       `db:"credentials_ref"`
 	Fingerprint  *string       `db:"credentials_fingerprint"`
 	Namespaces   []string      `db:"namespaces"`
@@ -94,19 +96,17 @@ func (r clusterRow) cluster() deploy.Cluster {
 	}
 	switch {
 	case r.InCluster:
-	case r.Ref != nil:
-		c.Credentials = &forge.Credentials{Kind: forge.CredentialsRef, Ref: *r.Ref}
+	case r.SecretID != nil:
+		c.Credentials = &catalog.Credentials{Kind: catalog.CredentialsSecret, SecretID: r.SecretID}
 	default:
-		c.Credentials = &forge.Credentials{Kind: forge.CredentialsToken, Fingerprint: str(r.Fingerprint)}
+		var enc *string
+		if r.HasEnc {
+			enc = new(string)
+		}
+		creds := catalog.LegacyCredentials(enc, r.Ref, r.Fingerprint)
+		c.Credentials = &creds
 	}
 	return c
-}
-
-func str(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
 }
 
 type signalRow struct {

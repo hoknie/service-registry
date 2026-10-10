@@ -15,35 +15,40 @@ func TestSourceAPIForms(t *testing.T) {
 	f := forgefake.Start(t, "gitlab", forgeToken, "platform")
 	f.Put(forgefake.Repo{ID: 3, Path: "platform/api", Files: map[string]string{"README.md": "x"}})
 
-	body := obj{"kind": "remote", "forge": "gitlab", "url": "https://gitlab.example.com/platform/api", "credentials": obj{"token": "glpat-123"}}
+	secret := a.secret(a.admin, a.org, obj{"name": "gitlab", "value": "glpat-123"})
+	body := obj{"kind": "remote", "forge": "gitlab", "url": "https://gitlab.example.com/platform/api", "credentials": obj{"secret_id": secret}}
 	r := a.send("PUT", sourcePath(a.project), a.admin, body)
 	eq(t, r.status, 200, r.text())
 	lacks(t, r.text(), "glpat-123")
 	src := r.json(t)
 	eq(t, src["api_url"], any("https://gitlab.example.com/api/v4"))
 	eq(t, src["path"], nil)
-	eq(t, at(src, "credentials", "mode"), any("stored"))
-	fp := at(src, "credentials", "fingerprint").(string)
-	eq(t, len(fp), 4)
+	eq(t, at(src, "credentials", "mode"), any("secret"))
+	eq(t, at(src, "credentials", "secret", "name"), any("gitlab"))
+	eq(t, at(src, "credentials", "secret", "from", "name"), any("acme"))
 	lacks(t, a.get(sourcePath(a.project), a.admin).text(), "glpat-123")
-	enc := scalar[string](t, a.db, "SELECT credentials_enc FROM knowledge_sources")
-	lacks(t, enc, "glpat-123")
+	eq(t, scalar[int64](t, a.db, "SELECT count(*) FROM knowledge_sources WHERE credentials_enc IS NOT NULL"), int64(0))
 
 	delete(body, "credentials")
-	eq(t, at(a.send("PUT", sourcePath(a.project), a.admin, body).json(t), "credentials", "fingerprint"), any(fp))
+	eq(t, at(a.send("PUT", sourcePath(a.project), a.admin, body).json(t), "credentials", "secret", "id"), any(secret))
 	body["url"] = "https://gitlab.example.com/platform/other"
 	eq(t, at(a.send("PUT", sourcePath(a.project), a.admin, body).json(t), "credentials", "mode"), any("none"))
 	body["credentials"] = obj{"reference": "env:DOCS_TOKEN"}
 	r = a.send("PUT", sourcePath(a.project), a.admin, body)
-	eq(t, at(r.json(t), "credentials", "mode"), any("reference"))
-	eq(t, at(r.json(t), "credentials", "fingerprint"), nil)
+	eq(t, r.status, 400)
+	eq(t, code(t, r), any("validation.credentials_inline_removed"))
+	elsewhere := a.nodeID(a.admin, "organization", "", "elsewhere")
+	body["credentials"] = obj{"secret_id": a.secret(a.admin, elsewhere, obj{"value": "x"})}
+	r = a.send("PUT", sourcePath(a.project), a.admin, body)
+	eq(t, r.status, 400)
+	eq(t, code(t, r), any("validation.secret_not_available"))
 
 	check := obj{"kind": "remote", "forge": "gitlab", "url": "https://gitlab.example/platform/api", "api_url": f.APIURL() + "/api/v4", "credentials": nil}
 	r = a.send("POST", sourcePath(a.project)+"/check", a.admin, check)
 	eq(t, r.status, 200, r.text())
 	eq(t, r.json(t)["ok"], any(false))
 	eq(t, r.json(t)["error_code"], any("forge.unauthorized"))
-	check["credentials"] = obj{"token": forgeToken}
+	check["credentials"] = a.tokenOn(a.admin, a.org, forgeToken)
 	r = a.send("POST", sourcePath(a.project)+"/check", a.admin, check)
 	eq(t, r.json(t)["ok"], any(true), r.text())
 	eq(t, r.json(t)["branches"], any(float64(1)))
@@ -108,10 +113,10 @@ func TestSourceAPIRefusals(t *testing.T) {
 	eq(t, code(t, r), any("conflict.local_sources_disabled"))
 	r = plain.send("PUT", sourcePath(project), admin, obj{"kind": "remote", "forge": "github", "url": "https://github.com/a/b",
 		"credentials": obj{"token": "ghp_x"}})
-	eq(t, r.status, 409)
-	eq(t, code(t, r), any("conflict.secrets_key_missing"))
+	eq(t, r.status, 400)
+	eq(t, code(t, r), any("validation.credentials_inline_removed"))
 	r = plain.send("PUT", sourcePath(project), admin, obj{"kind": "remote", "forge": "github", "url": "https://github.com/a/b",
-		"credentials": obj{"reference": "env:GH_TOKEN"}})
+		"credentials": plain.refOn(admin, org, "env:GH_TOKEN")})
 	eq(t, r.status, 200, "a reference needs no key")
 	eq(t, strings.Contains(r.text(), "GH_TOKEN"), false, "the reference is not answered back")
 }

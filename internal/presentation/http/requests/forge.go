@@ -1,17 +1,21 @@
 package requests
 
-import "svc-registry/internal/feature/forge"
+import (
+	"svc-registry/internal/feature/catalog"
+	"svc-registry/internal/feature/forge"
+)
 
 type Credentials struct {
+	SecretID *string `json:"secret_id"`
 	Token    *string `json:"token"`
 	TokenRef *string `json:"token_ref"`
 }
 
-func (c *Credentials) input() *forge.CredentialsInput {
+func (c *Credentials) input() *catalog.CredentialsInput {
 	if c == nil {
 		return nil
 	}
-	return &forge.CredentialsInput{Token: c.Token, TokenRef: c.TokenRef}
+	return &catalog.CredentialsInput{SecretID: c.SecretID, Inline: c.Token != nil || c.TokenRef != nil}
 }
 
 type CreateConnection struct {

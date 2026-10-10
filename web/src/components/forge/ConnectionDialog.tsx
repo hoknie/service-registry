@@ -4,7 +4,10 @@ import { useState, type FormEvent } from "react";
 
 import { apiSend, type ForgeConnection, type ForgeKind } from "@/lib/api";
 
-import { FORGE_NAMES } from "../catalog/shared";
+import type { Locale } from "@/i18n/config";
+
+import { catalogHref, FORGE_NAMES } from "../catalog/shared";
+import { SecretPicker } from "../secrets/SecretPicker";
 import { useUiText } from "../UiText";
 import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
@@ -15,6 +18,7 @@ import { splitPatterns, type ForgeLabels } from "./shared";
 
 type Props = {
   nodeId: string;
+  locale: Locale;
   connection: ForgeConnection | null;
   labels: ForgeLabels;
   fail: (e: unknown) => string;
@@ -24,15 +28,14 @@ type Props = {
 
 const KINDS: ForgeKind[] = ["github", "gitlab", "forgejo", "gitea"];
 
-export function ConnectionDialog({ nodeId, connection, labels: t, fail, onClose, onSaved }: Props) {
+export function ConnectionDialog({ nodeId, locale, connection, labels: t, fail, onClose, onSaved }: Props) {
   const { common } = useUiText();
   const editing = connection !== null;
   const [kind, setKind] = useState<ForgeKind>(connection?.kind ?? "github");
   const [apiUrl, setApiUrl] = useState(connection?.api_url ?? "");
   const [owner, setOwner] = useState(connection?.owner_path ?? "");
-  const [useRef, setUseRef] = useState(connection?.credentials.kind === "ref");
-  const [token, setToken] = useState("");
-  const [ref, setRef] = useState(connection?.credentials.kind === "ref" ? connection.credentials.ref : "");
+  const current = connection?.credentials.kind === "secret" ? connection.credentials.secret.id : null;
+  const [secret, setSecret] = useState<string | null>(current);
   const [include, setInclude] = useState((connection?.name_include ?? []).join(", "));
   const [exclude, setExclude] = useState((connection?.name_exclude ?? []).join(", "));
   const [branchInclude, setBranchInclude] = useState((connection?.branch_include ?? []).join(", "));
@@ -43,11 +46,6 @@ export function ConnectionDialog({ nodeId, connection, labels: t, fail, onClose,
   const [note, setNote] = useState<Note>(null);
   const [busy, setBusy] = useState(false);
 
-  const credentials = () => {
-    if (useRef) return { token_ref: ref.trim() };
-    if (token) return { token };
-    return undefined;
-  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -64,8 +62,8 @@ export function ConnectionDialog({ nodeId, connection, labels: t, fail, onClose,
       interval_secs: Math.round(Number(minutes) * 60),
     };
     if (apiUrl.trim()) body.api_url = apiUrl.trim();
-    const creds = credentials();
-    if (creds || !editing) body.credentials = creds ?? { token: "" };
+    if (secret && secret !== current) body.credentials = { secret_id: secret };
+    else if (!editing) body.credentials = { secret_id: secret ?? "" };
     try {
       if (editing) {
         await apiSend("PATCH", `/v1/catalog/nodes/${nodeId}/forge/connections/${connection.id}`, body);
@@ -125,28 +123,15 @@ export function ConnectionDialog({ nodeId, connection, labels: t, fail, onClose,
             />
           )}
         </Field>
-        <fieldset className="grid gap-3 rounded-lg border border-line p-4">
-          <legend className="px-1 text-sm font-medium text-ink-2">{t.credentials}</legend>
-          <div className="flex flex-wrap gap-4">
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input type="radio" name="cred" checked={!useRef} onChange={() => setUseRef(false)} />
-              {t.useToken}
-            </label>
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input type="radio" name="cred" checked={useRef} onChange={() => setUseRef(true)} />
-              {t.useRef}
-            </label>
-          </div>
-          {useRef ? (
-            <Field label={t.tokenRef} hint={t.tokenRefHint}>
-              {(p) => <Input {...p} required spellCheck={false} placeholder="env:FORGE_TOKEN" className="font-mono" value={ref} onChange={(e) => setRef(e.target.value)} />}
-            </Field>
-          ) : (
-            <Field label={t.token} hint={editing ? t.tokenKeep : undefined}>
-              {(p) => <Input {...p} type="password" autoComplete="off" required={!editing || connection.credentials.kind === "ref"} value={token} onChange={(e) => setToken(e.target.value)} />}
-            </Field>
-          )}
-        </fieldset>
+        <SecretPicker
+          listOn={nodeId}
+          createOn={nodeId}
+          value={secret}
+          onChange={setSecret}
+          manageHref={catalogHref(locale, nodeId, "settings", null, null, "secrets")}
+          legacy={connection?.credentials.kind === "legacy"}
+          required={!editing}
+        />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t.include} hint={t.patternsHint}>
             {(p) => <Input {...p} spellCheck={false} className="font-mono" value={include} onChange={(e) => setInclude(e.target.value)} />}

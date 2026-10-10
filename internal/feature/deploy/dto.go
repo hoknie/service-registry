@@ -3,7 +3,7 @@ package deploy
 import (
 	"github.com/google/uuid"
 
-	"svc-registry/internal/feature/forge"
+	"svc-registry/internal/feature/catalog"
 )
 
 type CreateEnvironment struct {
@@ -35,7 +35,7 @@ type ClusterInput struct {
 	InCluster    *bool
 	APIURL       *string
 	CAPEM        *string
-	Credentials  *forge.CredentialsInput
+	Credentials  *catalog.CredentialsInput
 	Namespaces   *[]string
 	Rules        *[]Rule
 	IntervalSecs *int64
@@ -43,12 +43,12 @@ type ClusterInput struct {
 }
 
 type NewCluster struct {
-	ID          uuid.UUID
-	Settings    Settings
-	Credentials forge.StoredCredentials
+	ID       uuid.UUID
+	Settings Settings
+	SecretID *uuid.UUID
 }
 
 type ClusterUpdate struct {
-	Settings    Settings
-	Credentials *forge.StoredCredentials
+	Settings Settings
+	SecretID *uuid.UUID
 }

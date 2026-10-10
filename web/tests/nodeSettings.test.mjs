@@ -16,7 +16,8 @@ test("tabs of a project and of a container", () => {
 test("sections follow permissions", () => {
   assert.deepEqual(sectionsOf(project(["catalog.read"])), ["general", "branches", "links", "docs", "connect"]);
   assert.deepEqual(sectionsOf(project(["catalog.keys", "catalog.access"])), ["general", "branches", "links", "docs", "keys", "access", "connect"]);
-  assert.deepEqual(sectionsOf(folder(["catalog.access"])), ["general", "forge", "links", "docs", "access"]);
+  assert.deepEqual(sectionsOf(folder(["catalog.access"])), ["general", "forge", "secrets", "links", "docs", "access"]);
+  assert.deepEqual(sectionsOf(folder(["catalog.read"])), ["general", "forge", "secrets", "links", "docs"]);
 });
 
 test("old tabs move into settings", () => {
@@ -26,4 +27,5 @@ test("old tabs move into settings", () => {
   assert.deepEqual(resolveTab(project(), "settings", "access"), { tab: "settings", section: "general", redirect: null });
   assert.deepEqual(resolveTab(project(), "events", null), { tab: "events", section: null, redirect: null });
   assert.deepEqual(resolveTab(folder(), "events", null).tab, "overview");
+  assert.deepEqual(resolveTab(project(), "settings", "secrets").section, "general", "projects have no secrets");
 });

@@ -4,7 +4,7 @@ import { createContext, useContext, type ReactNode } from "react";
 
 import type { Messages } from "@/i18n/messages";
 
-export type UiText = { common: Messages["common"]; errors: Messages["errors"] };
+export type UiText = { common: Messages["common"]; errors: Messages["errors"]; secrets: Messages["secrets"] };
 
 const Context = createContext<UiText | null>(null);
 

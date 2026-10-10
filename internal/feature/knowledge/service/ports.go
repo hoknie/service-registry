@@ -7,7 +7,6 @@ import (
 
 	"svc-registry/internal/feature/catalog"
 	"svc-registry/internal/feature/knowledge"
-	"svc-registry/internal/feature/knowledge/internal/repository"
 	"svc-registry/pkg/secretbox"
 )
 
@@ -20,24 +19,27 @@ func (s *Service) ActivitySignals(ctx context.Context, projects []uuid.UUID, pen
 }
 
 type preparedSource struct {
-	sources *repository.Sources
-	source  knowledge.NewSource
+	svc    *Service
+	source knowledge.NewSource
 }
 
 func (p preparedSource) Repo() (*catalog.Forge, *string, bool) { return sourceRepo(p.source.Source) }
 
 func (p preparedSource) Attach(ctx context.Context, projectID uuid.UUID) error {
-	_, err := p.sources.Put(ctx, projectID, p.source)
+	if err := p.svc.checkSecret(ctx, projectID, p.source.SecretID); err != nil {
+		return err
+	}
+	_, err := p.svc.sources.Put(ctx, projectID, p.source)
 	return err
 }
 
 func (s *Service) SourceFor(in knowledge.SourceInput) catalog.SourceFactory {
 	return func(projectID uuid.UUID) (catalog.ProjectSource, error) {
-		n, err := s.prepareSource(projectID, in)
+		n, err := s.prepareSource(context.Background(), projectID, in, false)
 		if err != nil {
 			return nil, err
 		}
-		return preparedSource{sources: s.sources, source: n}, nil
+		return preparedSource{svc: s, source: n}, nil
 	}
 }
 
@@ -82,4 +84,8 @@ func (s *Service) Indexing() IndexInfo {
 		info.Model = s.embedder.Model()
 	}
 	return info
+}
+
+func (s *Service) SecretUsage(ctx context.Context, secrets []uuid.UUID) (map[uuid.UUID]int64, error) {
+	return s.sources.SecretUsage(ctx, secrets)
 }

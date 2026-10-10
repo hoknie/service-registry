@@ -127,6 +127,8 @@ func (s *Service) clientFor(ctx context.Context, conn forge.Connection) (forge.C
 	}
 	var token string
 	switch {
+	case sec.CredentialsSecretID != nil:
+		token, err = s.catalog.ResolveSecret(ctx, *sec.CredentialsSecretID)
 	case sec.CredentialsRef != nil:
 		token, err = config.ResolveSecretRef(*sec.CredentialsRef)
 	case sec.CredentialsEnc != nil:

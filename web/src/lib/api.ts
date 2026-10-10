@@ -148,7 +148,7 @@ export type ForgeConnection = {
   name_exclude: string[];
   branch_include: string[];
   interval_secs: number;
-  credentials: { kind: "token"; fingerprint: string } | { kind: "ref"; ref: string };
+  credentials: Credentials;
   webhook: { mode: "register" | "manual"; url: string | null } | null;
   last_run: SyncRun | null;
   next_run_at: string;
@@ -220,6 +220,33 @@ export type Binding = {
 };
 
 export type Items<T> = { items: T[] };
+
+export type NodeRef = { id: string; name: string };
+
+export type SecretRef = { id: string; name: string; from: NodeRef | null };
+
+export type Credentials =
+  | { kind: "secret"; secret: SecretRef }
+  | { kind: "legacy"; storage: "stored" | "reference"; fingerprint?: string; ref?: string }
+  | { kind: "none" };
+
+export type Secret = {
+  id: string;
+  name: string;
+  description: string;
+  node_id: string | null;
+  storage: "stored" | "reference";
+  fingerprint: string | null;
+  ref: string | null;
+  used_by: number;
+  from: NodeRef | null;
+  own: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type LabelKey = { key: string; count: number };
+export type LabelValue = { value: string; count: number };
 
 export type IngestEvent = {
   id: string;
@@ -306,7 +333,7 @@ export type Cluster = {
   in_cluster: boolean;
   api_url: string | null;
   ca_pem: string | null;
-  credentials: { kind: "token"; fingerprint: string } | { kind: "ref"; ref: string } | null;
+  credentials: Credentials | null;
   namespaces: string[];
   rules: { label: string; project: string }[];
   interval_secs: number;
@@ -454,7 +481,7 @@ export type KnowledgeSource = {
   url: string | null;
   api_url: string | null;
   path: string | null;
-  credentials: { mode: "stored" | "reference" | "none"; fingerprint: string | null };
+  credentials: { mode: "secret" | "legacy" | "none"; secret: SecretRef | null; fingerprint: string | null };
   working_tree: boolean;
   include_ignored: boolean;
   updated_at: string;
@@ -493,11 +520,12 @@ export type SearchModes = {
   index: { pending: number; indexed: number } | null;
 };
 
-async function call<T>(method: string, path: `/${string}`, body?: unknown): Promise<T> {
+async function call<T>(method: string, path: `/${string}`, body?: unknown, signal?: AbortSignal): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`/api${path}`, {
       method,
+      signal,
       credentials: "same-origin",
       headers: {
         accept: "application/json",
@@ -505,7 +533,8 @@ async function call<T>(method: string, path: `/${string}`, body?: unknown): Prom
       },
       body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
     });
-  } catch {
+  } catch (e) {
+    if (signal?.aborted) throw e;
     throw new ApiError(0, "network", "network error");
   }
   if (response.status === 204) return undefined as T;
@@ -521,8 +550,8 @@ async function call<T>(method: string, path: `/${string}`, body?: unknown): Prom
   return parsed as T;
 }
 
-export function apiGet<T>(path: `/${string}`): Promise<T> {
-  return call<T>("GET", path);
+export function apiGet<T>(path: `/${string}`, signal?: AbortSignal): Promise<T> {
+  return call<T>("GET", path, undefined, signal);
 }
 
 export function apiSend<T = void>(

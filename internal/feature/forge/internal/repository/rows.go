@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"svc-registry/internal/feature/catalog"
 	"svc-registry/internal/feature/forge"
 	"svc-registry/internal/platform/apperr"
 )
@@ -20,9 +21,11 @@ func scanConnection(row pgx.Row) (forge.Connection, error) {
 	var c forge.Connection
 	var kind string
 	var ref, fingerprint, webhook *string
+	var secret *uuid.UUID
+	var hasEnc bool
 	var run nullRun
 	err := row.Scan(&c.ID, &c.NodeID, &kind, &c.APIURL, &c.OwnerPath, &c.MirrorSubgroups, &c.IncludeArchived,
-		&c.IncludeForks, &c.NameInclude, &c.NameExclude, &c.BranchInclude, &c.IntervalSecs, &ref, &fingerprint, &webhook,
+		&c.IncludeForks, &c.NameInclude, &c.NameExclude, &c.BranchInclude, &c.IntervalSecs, &secret, &hasEnc, &ref, &fingerprint, &webhook,
 		&c.NextRunAt, &c.CreatedAt, &c.UpdatedAt,
 		&run.id, &run.connID, &run.trigger, &run.status, &run.started, &run.finished, &run.created, &run.updated,
 		&run.orphaned, &run.skipped, &run.code, &run.message, &run.problems)
@@ -33,14 +36,7 @@ func scanConnection(row pgx.Row) (forge.Connection, error) {
 	if c.Kind, ok = forge.ParseKind(kind); !ok {
 		return forge.Connection{}, internal("forge kind", kind)
 	}
-	if ref != nil {
-		c.Credentials = forge.Credentials{Kind: forge.CredentialsRef, Ref: *ref}
-	} else {
-		c.Credentials = forge.Credentials{Kind: forge.CredentialsToken}
-		if fingerprint != nil {
-			c.Credentials.Fingerprint = *fingerprint
-		}
-	}
+	c.Credentials = credentialsOf(secret, hasEnc, ref, fingerprint)
 	if webhook != nil {
 		m, ok := forge.ParseWebhookMode(*webhook)
 		if !ok {
@@ -130,4 +126,15 @@ type signalRow struct {
 	Code      *string   `db:"code"`
 	LastAt    *string   `db:"last_at"`
 	Pending   *int64    `db:"pending"`
+}
+
+func credentialsOf(secret *uuid.UUID, hasEnc bool, ref, fingerprint *string) catalog.Credentials {
+	if secret != nil {
+		return catalog.Credentials{Kind: catalog.CredentialsSecret, SecretID: secret}
+	}
+	var enc *string
+	if hasEnc {
+		enc = new(string)
+	}
+	return catalog.LegacyCredentials(enc, ref, fingerprint)
 }

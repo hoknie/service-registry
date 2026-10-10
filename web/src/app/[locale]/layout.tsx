@@ -48,7 +48,7 @@ export default async function LocaleLayout({ children, params }: Props) {
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT + ";" + SIDEBAR_SCRIPT }} />
       </head>
       <body>
-        <UiTextProvider value={{ common: m.common, errors: m.errors }}>
+        <UiTextProvider value={{ common: m.common, errors: m.errors, secrets: m.secrets }}>
           <SessionProvider>
             <AppShell locale={locale} labels={{ header: m.header, palette: m.palette }}>
               {children}

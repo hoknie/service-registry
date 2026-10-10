@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"svc-registry/internal/feature/catalog"
 	"svc-registry/internal/feature/forge"
 )
 
@@ -55,7 +56,7 @@ type Settings struct {
 type Cluster struct {
 	ID uuid.UUID
 	Settings
-	Credentials  *forge.Credentials
+	Credentials  *catalog.Credentials
 	Status       Status
 	LastError    *Failure
 	LastPolledAt *string
@@ -163,7 +164,7 @@ func ValidateInterval(raw int64) (int32, error) {
 	return int32(raw), nil
 }
 
-func ValidateCluster(base Settings, hasCredentials bool, in ClusterInput) (Settings, *forge.ValidCredentials, error) {
+func ValidateCluster(base Settings, hasCredentials bool, in ClusterInput) (Settings, *uuid.UUID, error) {
 	s := base
 	var err error
 	if in.Name != nil {
@@ -247,11 +248,11 @@ func ValidateCluster(base Settings, hasCredentials bool, in ClusterInput) (Setti
 		}
 		return s, nil, nil
 	}
-	creds, err := forge.ValidateCredentials(in.Credentials)
+	secret, err := catalog.ParseCredentials(in.Credentials, forge.InvalidCredentials)
 	if err != nil {
 		return Settings{}, nil, err
 	}
-	return s, &creds, nil
+	return s, &secret, nil
 }
 
 func contains(list []string, s string) bool {

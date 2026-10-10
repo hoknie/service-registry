@@ -107,6 +107,20 @@ func TestUserOwners(t *testing.T) {
 	}
 }
 
+func TestGiteaAcceptsTheAPIPath(t *testing.T) {
+	for _, suffix := range []string{"/api/v1", "/api/v1/", ""} {
+		f := forgefake.Start(t, string(domain.KindGitea), token, "acme")
+		seed(f, "acme")
+		c, err := NewFactory(http.DefaultClient).New(domain.Endpoint{Kind: domain.KindGitea, APIURL: f.APIURL() + suffix, Owner: "acme", Token: token})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if repos, err := c.ListRepos(context.Background()); err != nil || len(repos) != 3 {
+			t.Fatalf("%q: %d %v", suffix, len(repos), err)
+		}
+	}
+}
+
 func TestErrorsBecomeDomainErrors(t *testing.T) {
 	for _, kind := range []domain.Kind{domain.KindGithub, domain.KindGitlab, domain.KindGitea} {
 		t.Run(string(kind), func(t *testing.T) {

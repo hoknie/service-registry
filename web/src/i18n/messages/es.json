@@ -20,7 +20,8 @@
       "clusters": "Clústeres",
       "environments": "Entornos",
       "docsSearch": "Búsqueda en la documentación",
-      "scans": "Escaneos"
+      "scans": "Escaneos",
+      "secrets": "Secretos"
     },
     "language": "Idioma",
     "user": {
@@ -81,7 +82,9 @@
     "invalidName": "Solo minúsculas, dígitos y guiones",
     "duplicate": "Ya añadido",
     "labelFormat": "Se espera clave o clave=valor (clave: a-z, 0-9, . _ -)",
-    "fixLabels": "Corrige las etiquetas para guardar"
+    "fixLabels": "Corrige las etiquetas para guardar",
+    "suggestions": "Sugerencias",
+    "actions": "Acciones"
   },
   "home": {
     "title": "Registro de servicios",
@@ -223,7 +226,10 @@
       "invalid_filter": "Revisa los filtros: búsqueda de hasta 100 caracteres, etiqueta como clave o clave=valor, como máximo 5 etiquetas.",
       "invalid_link_title": "El título debe tener de 1 a 100 caracteres.",
       "invalid_icon_format": "El icono debe ser una imagen PNG, WebP, ICO o SVG.",
-      "icon_too_large": "El icono supera los 64 KiB."
+      "icon_too_large": "El icono supera los 64 KiB.",
+      "invalid_secret": "Indica un nombre de hasta 100 caracteres y un valor o una referencia env:/file:.",
+      "secret_not_available": "Este secreto no está disponible aquí: elige un secreto de este nodo, de sus ancestros o uno global.",
+      "credentials_inline_removed": "Los tokens ya no se introducen en el formulario: crea un secreto y elígelo."
     },
     "conflict": {
       "email_taken": "Ya existe un usuario con este correo.",
@@ -249,7 +255,9 @@
       "local_sources_disabled": "Las fuentes locales están desactivadas en este servidor.",
       "self_service": "No puedes convertir tu propia cuenta en cuenta de servicio.",
       "user_disabled": "El usuario está desactivado.",
-      "uploads_disabled": "La subida de archivos está desactivada en el servidor."
+      "uploads_disabled": "La subida de archivos está desactivada en el servidor.",
+      "secret_in_use": "El secreto está en uso: reemplázalo primero en conexiones, fuentes y clústeres.",
+      "secret_name_taken": "Ya existe aquí un secreto con este nombre."
     },
     "ingest": {
       "unknown_event_type": "Tipo de evento desconocido.",
@@ -661,6 +669,15 @@
       "deleteTitle": "Eliminar entorno",
       "confirmDelete": "¿Quitar el entorno «{key}» de la lista? Sus despliegues se conservan.",
       "deleted": "Entorno eliminado."
+    },
+    "menu": {
+      "label": "Secciones de administración",
+      "access": "Acceso",
+      "secrets": "Secretos",
+      "catalog": "Catálogo",
+      "infra": "Infraestructura",
+      "docs": "Documentación",
+      "globalSecrets": "Secretos globales"
     }
   },
   "catalog": {
@@ -1352,7 +1369,8 @@
         "keys": "Claves",
         "access": "Acceso",
         "connect": "Envío de eventos",
-        "forge": "Forge"
+        "forge": "Forge",
+        "secrets": "Secretos"
       }
     },
     "linkIcons": {
@@ -1582,5 +1600,49 @@
         }
       }
     }
+  },
+  "secrets": {
+    "title": "Secretos",
+    "nodeIntro": "Tokens y claves de acceso de este nodo. Las conexiones de forge y las fuentes de documentación de aquí y de abajo los eligen; los valores no se muestran tras guardar.",
+    "globalIntro": "Los secretos globales están disponibles para todos los nodos y clústeres. Los valores no se muestran tras guardar.",
+    "name": "Nombre",
+    "description": "Descripción",
+    "descriptionHint": "Todos los que pueden leer el nodo ven la descripción.",
+    "storage": "Almacenamiento",
+    "from": "Definido en",
+    "usedBy": "Usos",
+    "stored": "Cifrado",
+    "reference": "Referencia",
+    "here": "Aquí",
+    "inherited": "Heredado de {name}",
+    "global": "Global",
+    "newSecret": "Nuevo secreto",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "deleteTitle": "¿Eliminar el secreto «{name}»?",
+    "deleteText": "El secreto se eliminará de forma permanente.",
+    "inUse": "Se usa en {n} lugares: reemplázalo allí primero.",
+    "createTitle": "Nuevo secreto",
+    "editTitle": "Editar secreto",
+    "mode": "Tipo",
+    "modeValue": "Valor",
+    "modeRef": "Referencia al secreto",
+    "value": "Valor",
+    "valueKeep": "Vacío: conservar el valor actual",
+    "ref": "Referencia",
+    "refHint": "env:<NOMBRE> o file:<ruta absoluta>",
+    "save": "Guardar",
+    "empty": "Todavía no hay secretos.",
+    "created": "Secreto creado",
+    "updated": "Secreto guardado",
+    "deleted": "Secreto eliminado",
+    "picker": "Secreto",
+    "pickerPlaceholder": "Elige un secreto",
+    "none": "Sin token",
+    "manage": "Gestionar secretos",
+    "create": "Crear secreto",
+    "legacy": "Token incrustado (obsoleto): elige un secreto",
+    "noneAvailable": "No hay secretos disponibles.",
+    "legacyShort": "Token incrustado (obsoleto)"
   }
 }

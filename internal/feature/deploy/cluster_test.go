@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"svc-registry/internal/feature/catalog"
 	"svc-registry/internal/feature/forge"
 )
 
@@ -33,12 +34,12 @@ func testCA(t *testing.T) string {
 
 func TestNewClusterRules(t *testing.T) {
 	ca := testCA(t)
-	token := &forge.CredentialsInput{Token: ptr("eyJ")}
+	token := &catalog.CredentialsInput{SecretID: ptr("0199c000-0000-7000-8000-000000000001")}
 	ok := ClusterInput{Name: ptr(" prod-eu "), Environment: ptr("Production"), APIURL: ptr("https://k8s.example:6443/"),
 		CAPEM: &ca, Credentials: token}
 	s, creds, err := ValidateCluster(DefaultSettings(), false, ok)
 	if err != nil || s.Name != "prod-eu" || s.Environment != "production" || *s.APIURL != "https://k8s.example:6443" ||
-		s.IntervalSecs != 60 || !s.Enabled || creds == nil || *creds.Token != "eyJ" {
+		s.IntervalSecs != 60 || !s.Enabled || creds == nil || creds.String() != "0199c000-0000-7000-8000-000000000001" {
 		t.Fatalf("%+v %+v %v", s, creds, err)
 	}
 	inCluster, creds, err := ValidateCluster(DefaultSettings(), false, ClusterInput{Name: ptr("self"), Environment: ptr("staging"), InCluster: ptr(true)})
@@ -58,6 +59,7 @@ func TestNewClusterRules(t *testing.T) {
 		{"address in cluster", with(func(c *ClusterInput) { c.InCluster = ptr(true) }), InvalidAPIURL},
 		{"credentials in cluster", with(func(c *ClusterInput) { c.InCluster = ptr(true); c.APIURL = nil }), forge.InvalidCredentials},
 		{"no credentials", with(func(c *ClusterInput) { c.Credentials = nil }), forge.InvalidCredentials},
+		{"inline token", with(func(c *ClusterInput) { c.Credentials = &catalog.CredentialsInput{Inline: true} }), catalog.InvalidCredentialsInline},
 		{"bad ca", with(func(c *ClusterInput) { c.CAPEM = ptr("not pem") }), InvalidCA},
 		{"namespace", with(func(c *ClusterInput) { c.Namespaces = ptr([]string{"Bad_NS"}) }), InvalidNamespaces},
 		{"interval", with(func(c *ClusterInput) { c.IntervalSecs = ptr(int64(14)) }), InvalidPollInterval},

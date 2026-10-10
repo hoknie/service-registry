@@ -46,6 +46,7 @@ import { KindIcon } from "./KindIcon";
 import { DescriptionTab } from "./DescriptionTab";
 import { Markdown } from "./Markdown";
 import { CreateDialog } from "./NodeForms";
+import { SecretsTable } from "../secrets/SecretsTable";
 import { NodeSettings } from "./NodeSettings";
 import { ProjectKeys } from "./ProjectKeys";
 import { ProjectSummary } from "./ProjectSummary";
@@ -566,6 +567,7 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
                 {section === "links" && <LinksTab node={node} branch={branch} locale={locale} labels={t} canWrite={canWrite} />}
                 {section === "docs" && <DocsSettingsTab node={node} locale={locale} labels={t} canWrite={canWrite} onChanged={refreshActivity} />}
                 {section === "keys" && <ProjectKeys projectId={node.id} locale={locale} labels={t} />}
+                {section === "secrets" && <SecretsTable locale={locale} nodeId={node.id} canManage={can("catalog.access")} />}
                 {section === "access" && <AccessTab nodeId={node.id} labels={t} />}
                 {section === "connect" && (
                   <IngestHowTo

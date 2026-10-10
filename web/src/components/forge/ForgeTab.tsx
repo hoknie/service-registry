@@ -9,6 +9,7 @@ import { errorText } from "@/i18n/errors";
 import { format } from "@/i18n/format";
 import { ago, when } from "@/i18n/time";
 import { apiGet, apiSend, errorCode, type ForgeConnection, type Items } from "@/lib/api";
+import { credentialsText } from "@/lib/secrets";
 
 import { FORGE_NAMES, type CatalogLabels } from "../catalog/shared";
 import { useUiText } from "../UiText";
@@ -33,7 +34,7 @@ type Open =
   | null;
 
 export function ForgeTab({ nodeId, locale, labels, canWrite, canAccess, onSynced }: Props) {
-  const { errors, common } = useUiText();
+  const { errors, common, secrets } = useUiText();
   const t = labels.forge;
   const [connections, setConnections] = useState<ForgeConnection[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -109,7 +110,7 @@ export function ForgeTab({ nodeId, locale, labels, canWrite, canAccess, onSynced
                     </p>
                     <p className="mt-1 text-xs break-all text-muted">{c.api_url}</p>
                     <p className="mt-1 text-sm text-ink-2">
-                      {c.credentials.kind === "token" ? format(t.credToken, { fingerprint: c.credentials.fingerprint }) : format(t.credRef, { ref: c.credentials.ref })}
+                      {credentialsText(c.credentials, secrets)}
                       {" · "}
                       {format(t.minutes, { n: Math.round(c.interval_secs / 60) })}
                     </p>
@@ -189,6 +190,7 @@ export function ForgeTab({ nodeId, locale, labels, canWrite, canAccess, onSynced
 
       {(open?.kind === "create" || open?.kind === "edit") && (
         <ConnectionDialog
+          locale={locale}
           nodeId={nodeId}
           connection={open.kind === "edit" ? open.connection : null}
           labels={t}

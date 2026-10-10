@@ -11,6 +11,7 @@ import type { Messages } from "@/i18n/messages";
 import { ago, when } from "@/i18n/time";
 import { apiGet, apiSend, errorCode, type Cluster, type ClusterTest, type DirectoryEnvironment, type Items } from "@/lib/api";
 
+import { SecretPicker } from "../secrets/SecretPicker";
 import { useUiText } from "../UiText";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
@@ -37,8 +38,9 @@ type Draft = {
   inCluster: boolean;
   apiUrl: string;
   ca: string;
-  token: string;
-  tokenRef: string;
+  secret: string | null;
+  current: string | null;
+  legacy: boolean;
   namespaces: string;
   rules: string;
   interval: string;
@@ -52,8 +54,9 @@ const blank: Draft = {
   inCluster: false,
   apiUrl: "",
   ca: "",
-  token: "",
-  tokenRef: "",
+  secret: null,
+  current: null,
+  legacy: false,
   namespaces: "",
   rules: "",
   interval: "60",
@@ -117,8 +120,9 @@ export function ClustersAdmin({ locale, labels: t, pager }: Props) {
             inCluster: c.in_cluster,
             apiUrl: c.api_url ?? "",
             ca: c.ca_pem ?? "",
-            token: "",
-            tokenRef: c.credentials?.kind === "ref" ? c.credentials.ref : "",
+            secret: c.credentials?.kind === "secret" ? c.credentials.secret.id : null,
+            current: c.credentials?.kind === "secret" ? c.credentials.secret.id : null,
+            legacy: c.credentials?.kind === "legacy",
             namespaces: c.namespaces.join("\n"),
             rules: rulesText(c.rules),
             interval: String(c.interval_secs),
@@ -145,10 +149,8 @@ export function ClustersAdmin({ locale, labels: t, pager }: Props) {
     if (!draft.inCluster) {
       body.api_url = draft.apiUrl;
       body.ca_pem = draft.ca;
-      const current = items?.find((c) => c.id === draft.id)?.credentials;
-      const ref = draft.tokenRef.trim();
-      if (draft.token.trim()) body.credentials = { token: draft.token.trim() };
-      else if (ref && !(current?.kind === "ref" && current.ref === ref)) body.credentials = { token_ref: ref };
+      if (draft.secret && draft.secret !== draft.current) body.credentials = { secret_id: draft.secret };
+      else if (!draft.id) body.credentials = { secret_id: draft.secret ?? "" };
     }
     try {
       if (draft.id) {
@@ -318,14 +320,15 @@ export function ClustersAdmin({ locale, labels: t, pager }: Props) {
                 <Field label={t.fields.ca} hint={t.fields.caHint}>
                   {(p) => <Textarea {...p} rows={3} spellCheck={false} className="font-mono text-xs" value={draft.ca} onChange={(e) => setDraft({ ...draft, ca: e.target.value })} />}
                 </Field>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label={t.fields.token} hint={t.fields.tokenHint}>
-                    {(p) => <Input {...p} type="password" autoComplete="off" value={draft.token} onChange={(e) => setDraft({ ...draft, token: e.target.value })} />}
-                  </Field>
-                  <Field label={t.fields.tokenRef}>
-                    {(p) => <Input {...p} spellCheck={false} className="font-mono" placeholder="env:K8S_TOKEN" value={draft.tokenRef} onChange={(e) => setDraft({ ...draft, tokenRef: e.target.value })} />}
-                  </Field>
-                </div>
+                <SecretPicker
+                  listOn={null}
+                  createOn={null}
+                  value={draft.secret}
+                  onChange={(secret) => setDraft({ ...draft, secret })}
+                  manageHref={`/${locale}/admin/secrets`}
+                  legacy={draft.legacy}
+                  required={!draft.id}
+                />
               </>
             )}
             <div className="grid gap-4 sm:grid-cols-2">
