@@ -2,6 +2,7 @@ package knowledge
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -9,7 +10,7 @@ import (
 )
 
 type ScanStore interface {
-	Record(ctx context.Context, s Scan, keep int) error
+	Record(ctx context.Context, s Scan, keep int, maxGap time.Duration) error
 	List(ctx context.Context, f ScanFilter, page access.PageRequest) (access.Page[ScanItem], error)
 }
 

@@ -3,6 +3,7 @@ package knowledge
 import (
 	"errors"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -91,22 +92,52 @@ type Scan struct {
 }
 
 type ScanItem struct {
-	ID          uuid.UUID
-	ProjectID   uuid.UUID
-	ProjectPath string
-	ProjectName string
-	Kind        ScanKind
-	Trigger     ScanTrigger
-	Source      *string
-	Status      ScanStatus
-	StartedAt   string
-	FinishedAt  string
-	DurationMS  int64
-	Repeats     int
-	Branches    []ScanBranch
-	Index       *ScanIndex
-	Error       *ScanError
-	Warnings    []string
+	ID            uuid.UUID
+	ProjectID     uuid.UUID
+	ProjectPath   string
+	ProjectName   string
+	Kind          ScanKind
+	Trigger       ScanTrigger
+	Source        *string
+	Status        ScanStatus
+	StartedAt     string
+	LastStartedAt string
+	FinishedAt    string
+	DurationMS    *int64
+	Repeats       int
+	Branches      []ScanBranch
+	Index         *ScanIndex
+	Error         *ScanError
+	Warnings      []string
+}
+
+type ScanTail struct {
+	ID         uuid.UUID
+	Status     ScanStatus
+	Trigger    ScanTrigger
+	Branches   []ScanBranch
+	FinishedAt time.Time
+}
+
+func (s Scan) Extends(last ScanTail, maxGap time.Duration) bool {
+	return s.Status == ScanUnchanged && last.Status == ScanUnchanged && s.Trigger == last.Trigger &&
+		SameBranches(s.Branches, last.Branches) && s.StartedAt.Sub(last.FinishedAt) <= maxGap
+}
+
+func (s Scan) DurationMS() int64 {
+	return max(s.FinishedAt.Sub(s.StartedAt).Milliseconds(), 0)
+}
+
+func SameBranches(a, b []ScanBranch) bool {
+	key := func(list []ScanBranch) []string {
+		out := make([]string, len(list))
+		for i, x := range list {
+			out[i] = x.Name + "\x00" + x.Commit
+		}
+		slices.Sort(out)
+		return out
+	}
+	return slices.Equal(key(a), key(b))
 }
 
 type ScanQuery struct {

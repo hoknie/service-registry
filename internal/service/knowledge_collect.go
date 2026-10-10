@@ -34,7 +34,12 @@ func recordScan(ctx context.Context, state *State, scan *knowledge.Scan) {
 	}
 	scan.FinishedAt = time.Now()
 	scan.Settle()
-	if err := state.Scans.Record(context.WithoutCancel(ctx), *scan, int(state.Config.Knowledge.ScanHistory)); err != nil {
+	interval := state.Config.Knowledge.IntervalSecs
+	if scan.Kind == knowledge.IndexScan {
+		interval = state.Config.Search.IndexIntervalSecs
+	}
+	maxGap := 2 * time.Duration(interval) * time.Second
+	if err := state.Scans.Record(context.WithoutCancel(ctx), *scan, int(state.Config.Knowledge.ScanHistory), maxGap); err != nil {
 		slog.Warn("documentation scan not recorded", "project", scan.ProjectID, "kind", scan.Kind, "error", err)
 	}
 }

@@ -1432,7 +1432,7 @@
       "collect": "Ramas: {branches} · archivos: {files}",
       "skipped": "omitidos: {skipped}",
       "index": "Fragmentos: {chunks} · documentos: {documents}",
-      "repeats": "×{n}, última comprobación {when}"
+      "series": "×{n} desde {from} hasta {to}"
     },
     "details": {
       "expand": "Mostrar detalles",

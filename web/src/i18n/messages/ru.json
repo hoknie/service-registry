@@ -1432,7 +1432,7 @@
       "collect": "Ветки: {branches} · файлы: {files}",
       "skipped": "пропущено: {skipped}",
       "index": "Фрагменты: {chunks} · документы: {documents}",
-      "repeats": "×{n}, последняя проверка {when}"
+      "series": "×{n} с {from} по {to}"
     },
     "details": {
       "expand": "Показать подробности",

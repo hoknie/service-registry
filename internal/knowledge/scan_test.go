@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestValidateScanFilter(t *testing.T) {
@@ -83,5 +84,41 @@ func TestSettle(t *testing.T) {
 	s.Settle()
 	if s.Status != ScanFailed || s.Error.Code != "source.unreadable" {
 		t.Fatal(s.Status, s.Error)
+	}
+}
+
+func TestScanExtendsOnlyAContinuousSeries(t *testing.T) {
+	t.Parallel()
+	at := time.Date(2026, 10, 1, 10, 0, 0, 0, time.UTC)
+	main := []ScanBranch{{Name: "main", Commit: "abc"}}
+	last := ScanTail{Status: ScanUnchanged, Trigger: TriggerSchedule, Branches: main, FinishedAt: at}
+	next := Scan{Status: ScanUnchanged, Trigger: TriggerSchedule, Branches: []ScanBranch{{Name: "main", Commit: "abc"}},
+		StartedAt: at.Add(5 * time.Minute), FinishedAt: at.Add(5*time.Minute + 1200*time.Millisecond)}
+	gap := 10 * time.Minute
+	cases := []struct {
+		name string
+		edit func(s *Scan, l *ScanTail)
+		want bool
+	}{
+		{"same series", func(*Scan, *ScanTail) {}, true},
+		{"overlapping clocks", func(s *Scan, _ *ScanTail) { s.StartedAt = at.Add(-time.Second) }, true},
+		{"long pause", func(s *Scan, _ *ScanTail) { s.StartedAt = at.Add(12 * time.Hour) }, false},
+		{"manual after schedule", func(s *Scan, _ *ScanTail) { s.Trigger = TriggerManual }, false},
+		{"other commit", func(s *Scan, _ *ScanTail) { s.Branches = []ScanBranch{{Name: "main", Commit: "def"}} }, false},
+		{"last was ok", func(_ *Scan, l *ScanTail) { l.Status = ScanOK }, false},
+		{"run was ok", func(s *Scan, _ *ScanTail) { s.Status = ScanOK }, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			s, l := next, last
+			c.edit(&s, &l)
+			if got := s.Extends(l, gap); got != c.want {
+				t.Fatalf("got %v, want %v", got, c.want)
+			}
+		})
+	}
+	if next.DurationMS() != 1200 {
+		t.Fatalf("duration %d", next.DurationMS())
 	}
 }

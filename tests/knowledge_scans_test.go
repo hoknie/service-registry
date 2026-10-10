@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,7 +25,7 @@ func (a *sourcesApp) scans(project, kind string) []scanRow {
 		FROM knowledge_scans
 		WHERE project_id = $1
 			AND kind = $2
-		ORDER BY started_at DESC, id DESC`, project, kind)
+		ORDER BY last_started_at DESC, id DESC`, project, kind)
 	if err != nil {
 		a.t.Fatal(err)
 	}
@@ -129,8 +130,8 @@ func TestScanHistoryCollapsesRepeatsAndKeepsTheLimit(t *testing.T) {
 	for _, r := range s {
 		eq(t, r.Status, "ok")
 	}
-	execSQL(t, a.db, "INSERT INTO knowledge_scans (id, project_id, kind, trigger, status, started_at, finished_at) "+
-		"VALUES (gen_random_uuid(), $1, 'index', 'schedule', 'ok', now(), now())", a.project)
+	execSQL(t, a.db, "INSERT INTO knowledge_scans (id, project_id, kind, trigger, status, started_at, finished_at, last_started_at) "+
+		"VALUES (gen_random_uuid(), $1, 'index', 'schedule', 'ok', now(), now(), now())", a.project)
 	writeFile(t, filepath.Join(dir, "README.md"), "# last")
 	a.collect()
 	eq(t, len(a.scans(a.project, "index")), 1, "another kind is not pruned")
@@ -148,4 +149,46 @@ func TestScanOfAProjectWithoutSourceWarns(t *testing.T) {
 	eq(t, s[0].Status, "warning")
 	eq(t, s[0].Warnings, "collect.no_source")
 	eq(t, s[0].Source, "")
+}
+
+func TestScanSeriesKeepsTheRunDurationAndBreaksOnPausesAndManualRuns(t *testing.T) {
+	t.Parallel()
+	a := startSources(t)
+	dir := filepath.Join(a.root, "docs")
+	writeFile(t, filepath.Join(dir, "README.md"), "# Docs")
+	a.useSource(a.project, "local_dir", dir)
+	a.collect()
+	a.collect()
+	a.collect()
+	s := a.scans(a.project, "collect")
+	eq(t, len(s), 2)
+	eq(t, s[0].Status, "unchanged")
+	eq(t, s[0].Repeats, 1)
+	series := "SELECT %s FROM knowledge_scans WHERE project_id = $1 AND kind = 'collect' AND status = 'unchanged' ORDER BY last_started_at DESC LIMIT 1"
+	eq(t, scalar[bool](t, a.db, fmt.Sprintf(series, "started_at < last_started_at AND last_started_at <= finished_at"), a.project), true)
+	eq(t, scalar[bool](t, a.db, fmt.Sprintf(series, "duration_ms <= extract(epoch FROM finished_at - last_started_at) * 1000 + 1"), a.project), true,
+		"the duration is the last run, not the series")
+
+	execSQL(t, a.db, "UPDATE knowledge_scans SET started_at = started_at - interval '13 hours', last_started_at = last_started_at - interval '12 hours', "+
+		"finished_at = finished_at - interval '12 hours' WHERE project_id = $1 AND status = 'unchanged'", a.project)
+	a.collect()
+	s = a.scans(a.project, "collect")
+	eq(t, len(s), 3, "a pause longer than two intervals starts a new record")
+	eq(t, s[0].Repeats, 0)
+	eq(t, s[1].Status, "ok")
+	eq(t, s[2].Repeats, 1, "the old series is untouched")
+
+	eq(t, a.send("POST", knowledgePath(a.project)+"/collect", a.admin, nil).status, 202)
+	a.collect()
+	s = a.scans(a.project, "collect")
+	eq(t, len(s), 4, "a manual run does not join the scheduled series")
+	eq(t, s[0].Trigger, "manual")
+	eq(t, s[1].Repeats, 0)
+
+	r := a.get(scansPath+"?kind=collect", a.admin)
+	items := list(t, r.json(t), "items")
+	eq(t, at(items[0], "trigger"), any("manual"), "newest last run first")
+	eq(t, at(items[0], "last_started_at") != nil, true)
+	eq(t, at(items[2], "status"), any("ok"))
+	eq(t, at(items[3], "repeats"), any(float64(1)), "the old series sorts by its last run")
 }

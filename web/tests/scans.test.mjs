@@ -47,3 +47,10 @@ test("durations", () => {
   assert.match(formatDuration(350, "en"), /350/);
   assert.match(formatDuration(1500, "en"), /1\.5/);
 });
+
+test("a series names its first and last run", async () => {
+  const { seriesText } = await import("../src/lib/scans.ts");
+  const scan = { repeats: 2, started_at: "2026-10-09T20:33:51Z", finished_at: "2026-10-09T20:44:02Z" };
+  assert.equal(seriesText("×{n} from {from} to {to}", scan, (iso) => iso.slice(11, 16)), "×3 from 20:33 to 20:44");
+  assert.equal(seriesText("×{n} from {from} to {to}", { ...scan, repeats: 0 }, String), null);
+});

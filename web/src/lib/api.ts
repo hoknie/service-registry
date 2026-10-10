@@ -567,8 +567,9 @@ export type Scan = {
   source: ScanSource | null;
   status: ScanStatus;
   started_at: string;
+  last_started_at: string;
   finished_at: string;
-  duration_ms: number;
+  duration_ms: number | null;
   repeats: number;
   branches: ScanBranch[];
   index: { embedded_files: number; embedded_chunks: number; documents: number; engine: string; model: string } | null;

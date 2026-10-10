@@ -1432,7 +1432,7 @@
       "collect": "分支：{branches} · 文件：{files}",
       "skipped": "已跳过：{skipped}",
       "index": "片段：{chunks} · 文档：{documents}",
-      "repeats": "×{n}，最近检查 {when}"
+      "series": "×{n}，从 {from} 到 {to}"
     },
     "details": {
       "expand": "显示详情",

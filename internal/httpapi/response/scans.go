@@ -37,20 +37,21 @@ type ScanError struct {
 }
 
 type Scan struct {
-	ID         uuid.UUID    `json:"id"`
-	Project    ScanProject  `json:"project"`
-	Kind       string       `json:"kind"`
-	Trigger    string       `json:"trigger"`
-	Source     *string      `json:"source"`
-	Status     string       `json:"status"`
-	StartedAt  string       `json:"started_at"`
-	FinishedAt string       `json:"finished_at"`
-	DurationMS int64        `json:"duration_ms"`
-	Repeats    int          `json:"repeats"`
-	Branches   []ScanBranch `json:"branches"`
-	Index      *ScanIndex   `json:"index"`
-	Error      *ScanError   `json:"error"`
-	Warnings   []string     `json:"warnings"`
+	ID            uuid.UUID    `json:"id"`
+	Project       ScanProject  `json:"project"`
+	Kind          string       `json:"kind"`
+	Trigger       string       `json:"trigger"`
+	Source        *string      `json:"source"`
+	Status        string       `json:"status"`
+	StartedAt     string       `json:"started_at"`
+	FinishedAt    string       `json:"finished_at"`
+	LastStartedAt string       `json:"last_started_at"`
+	DurationMS    *int64       `json:"duration_ms"`
+	Repeats       int          `json:"repeats"`
+	Branches      []ScanBranch `json:"branches"`
+	Index         *ScanIndex   `json:"index"`
+	Error         *ScanError   `json:"error"`
+	Warnings      []string     `json:"warnings"`
 }
 
 func ScanOf(s knowledge.ScanItem) Scan {
@@ -82,5 +83,5 @@ func ScanOf(s knowledge.ScanItem) Scan {
 	}
 	return Scan{ID: s.ID, Project: ScanProject{ID: s.ProjectID, Path: s.ProjectPath, Name: s.ProjectName}, Kind: string(s.Kind),
 		Trigger: string(s.Trigger), Source: s.Source, Status: string(s.Status), StartedAt: s.StartedAt, FinishedAt: s.FinishedAt,
-		DurationMS: s.DurationMS, Repeats: s.Repeats, Branches: branches, Index: index, Error: scanErr, Warnings: warnings}
+		LastStartedAt: s.LastStartedAt, DurationMS: s.DurationMS, Repeats: s.Repeats, Branches: branches, Index: index, Error: scanErr, Warnings: warnings}
 }

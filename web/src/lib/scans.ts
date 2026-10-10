@@ -75,3 +75,15 @@ export function formatDuration(ms: number, locale: string): string {
     return new Intl.NumberFormat(locale, { style: "unit", unit: "second", unitDisplay: "short", maximumFractionDigits: 1 }).format(ms / 1000);
   return new Intl.NumberFormat(locale, { style: "unit", unit: "minute", unitDisplay: "short", maximumFractionDigits: 1 }).format(ms / 60000);
 }
+
+export function seriesText(
+  template: string,
+  scan: { repeats: number; started_at: string; finished_at: string },
+  show: (iso: string) => string,
+): string | null {
+  if (scan.repeats <= 0) return null;
+  return template
+    .replace("{n}", String(scan.repeats + 1))
+    .replace("{from}", show(scan.started_at))
+    .replace("{to}", show(scan.finished_at));
+}

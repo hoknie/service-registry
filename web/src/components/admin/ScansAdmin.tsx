@@ -25,6 +25,7 @@ import {
   scanCodeText,
   scanQuery,
   scanTotals,
+  seriesText,
   type CodeBook,
   type ScanParams,
 } from "@/lib/scans";
@@ -230,17 +231,20 @@ export function ScansAdmin({ locale, labels: t }: { locale: Locale; labels: Labe
                         <span className="block text-xs text-muted">{t.triggers[s.trigger]}</span>
                       </Td>
                       <Td>
-                        <time dateTime={s.started_at} title={when(s.started_at, locale, "")} className="whitespace-nowrap">
-                          {ago(s.started_at, locale, "")}
+                        <time dateTime={s.last_started_at} title={when(s.last_started_at, locale, "")} className="whitespace-nowrap">
+                          {ago(s.last_started_at, locale, "")}
                         </time>
                         {s.repeats > 0 && (
-                          <span className="block text-xs text-muted">
-                            {format(t.summary.repeats, { n: s.repeats + 1, when: ago(s.finished_at, locale, "") })}
+                          <span
+                            className="block text-xs text-muted"
+                            title={seriesText(t.summary.series, s, (iso) => when(iso, locale, "")) ?? undefined}
+                          >
+                            {seriesText(t.summary.series, s, (iso) => ago(iso, locale, ""))}
                           </span>
                         )}
                       </Td>
                       <Td numeric className="hidden sm:table-cell">
-                        {formatDuration(s.duration_ms, locale)}
+                        {s.duration_ms === null ? "—" : formatDuration(s.duration_ms, locale)}
                       </Td>
                       <Td className="hidden text-sm text-ink-2 lg:table-cell">
                         {s.kind === "collect"

@@ -4,9 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"slices"
+	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -18,19 +17,7 @@ type ScanStore struct{ pool *pgxpool.Pool }
 
 func NewScanStore(pool *pgxpool.Pool) *ScanStore { return &ScanStore{pool: pool} }
 
-func sameBranches(a, b []domain.ScanBranch) bool {
-	key := func(list []domain.ScanBranch) []string {
-		out := make([]string, len(list))
-		for i, x := range list {
-			out[i] = x.Name + "\x00" + x.Commit
-		}
-		slices.Sort(out)
-		return out
-	}
-	return slices.Equal(key(a), key(b))
-}
-
-func (s *ScanStore) Record(ctx context.Context, scan domain.Scan, keep int) error {
+func (s *ScanStore) Record(ctx context.Context, scan domain.Scan, keep int, maxGap time.Duration) error {
 	branches, err := json.Marshal(nonNil(scan.Branches))
 	if err != nil {
 		return dbErr(err)
@@ -51,40 +38,40 @@ func (s *ScanStore) Record(ctx context.Context, scan domain.Scan, keep int) erro
 	}
 	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		if scan.Status == domain.ScanUnchanged {
-			var lastID uuid.UUID
-			var lastStatus string
+			var last domain.ScanTail
+			var status, trigger string
 			var lastBranches []byte
 			err := tx.QueryRow(ctx, `
-				SELECT id, status, branches
+				SELECT id, status, trigger, branches, finished_at
 				FROM knowledge_scans
 				WHERE project_id = $1
 					AND kind = $2
-				ORDER BY started_at DESC, id DESC
+				ORDER BY last_started_at DESC, id DESC
 				LIMIT 1
-				FOR UPDATE`, scan.ProjectID, string(scan.Kind)).Scan(&lastID, &lastStatus, &lastBranches)
+				FOR UPDATE`, scan.ProjectID, string(scan.Kind)).Scan(&last.ID, &status, &trigger, &lastBranches, &last.FinishedAt)
 			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 				return err
 			}
-			if err == nil && lastStatus == string(domain.ScanUnchanged) {
-				var prev []domain.ScanBranch
-				if err := json.Unmarshal(lastBranches, &prev); err != nil {
+			if err == nil {
+				last.Status, last.Trigger = domain.ScanStatus(status), domain.ScanTrigger(trigger)
+				if err := json.Unmarshal(lastBranches, &last.Branches); err != nil {
 					return err
 				}
-				if sameBranches(prev, scan.Branches) {
+				if scan.Extends(last, maxGap) {
 					_, err := tx.Exec(ctx, `
 						UPDATE knowledge_scans
-						SET repeats = repeats + 1, finished_at = $2
-						WHERE id = $1`, lastID, scan.FinishedAt)
+						SET repeats = repeats + 1, finished_at = $2, last_started_at = $3, duration_ms = $4
+						WHERE id = $1`, last.ID, scan.FinishedAt, scan.StartedAt, scan.DurationMS())
 					return err
 				}
 			}
 		}
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO knowledge_scans (id, project_id, kind, trigger, source, status, started_at, finished_at,
-				branches, index, error_code, error_detail, warnings)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+				last_started_at, duration_ms, branches, index, error_code, error_detail, warnings)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $7, $9, $10, $11, $12, $13, $14)`,
 			scan.ID, scan.ProjectID, string(scan.Kind), string(scan.Trigger), source, string(scan.Status), scan.StartedAt,
-			scan.FinishedAt, branches, index, code, detail, nonNil(scan.Warnings)); err != nil {
+			scan.FinishedAt, scan.DurationMS(), branches, index, code, detail, nonNil(scan.Warnings)); err != nil {
 			return err
 		}
 		_, err := tx.Exec(ctx, `
@@ -94,7 +81,7 @@ func (s *ScanStore) Record(ctx context.Context, scan domain.Scan, keep int) erro
 				FROM knowledge_scans
 				WHERE project_id = $1
 					AND kind = $2
-				ORDER BY started_at DESC, id DESC
+				ORDER BY last_started_at DESC, id DESC
 				OFFSET $3
 			)`, scan.ProjectID, string(scan.Kind), keep)
 		return err
@@ -136,8 +123,8 @@ func (s *ScanStore) List(ctx context.Context, f domain.ScanFilter, page access.P
 			)
 			SELECT string_agg(slug, '/' ORDER BY lvl DESC)
 			FROM up
-		), k.kind, k.trigger, k.source, k.status, rfc3339(k.started_at), rfc3339(k.finished_at),
-			(extract(epoch FROM k.finished_at - k.started_at) * 1000)::bigint, k.repeats, k.branches, k.index,
+		), k.kind, k.trigger, k.source, k.status, rfc3339(k.started_at), rfc3339(k.last_started_at), rfc3339(k.finished_at),
+			k.duration_ms::bigint, k.repeats, k.branches, k.index,
 			k.error_code, k.error_detail, k.warnings, count(*) OVER ()
 		FROM knowledge_scans k
 		JOIN nodes n ON n.id = k.project_id
@@ -145,7 +132,7 @@ func (s *ScanStore) List(ctx context.Context, f domain.ScanFilter, page access.P
 			AND ($2::text IS NULL OR k.kind = $2)
 			AND ($3::text[] IS NULL OR k.status = ANY($3))
 			AND ($4::text IS NULL OR k.trigger = $4)
-		ORDER BY k.started_at DESC, k.id DESC
+		ORDER BY k.last_started_at DESC, k.id DESC
 		LIMIT $5
 		OFFSET $6`, f.Project, kind, statuses, trigger, page.Limit, page.Offset)
 	if err != nil {
@@ -160,7 +147,7 @@ func (s *ScanStore) List(ctx context.Context, f domain.ScanFilter, page access.P
 		var code, detail *string
 		var total int64
 		if err := rows.Scan(&it.ID, &it.ProjectID, &it.ProjectName, &it.ProjectPath, &kindRaw, &triggerRaw, &it.Source, &statusRaw,
-			&it.StartedAt, &it.FinishedAt, &it.DurationMS, &it.Repeats, &branches, &index, &code, &detail, &it.Warnings, &total); err != nil {
+			&it.StartedAt, &it.LastStartedAt, &it.FinishedAt, &it.DurationMS, &it.Repeats, &branches, &index, &code, &detail, &it.Warnings, &total); err != nil {
 			return access.Page[domain.ScanItem]{}, dbErr(err)
 		}
 		it.Kind, it.Trigger, it.Status = domain.ScanKind(kindRaw), domain.ScanTrigger(triggerRaw), domain.ScanStatus(statusRaw)

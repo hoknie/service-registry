@@ -1432,7 +1432,7 @@
       "collect": "Branches: {branches} · files: {files}",
       "skipped": "skipped: {skipped}",
       "index": "Chunks: {chunks} · documents: {documents}",
-      "repeats": "×{n}, last check {when}"
+      "series": "×{n} from {from} to {to}"
     },
     "details": {
       "expand": "Show details",
