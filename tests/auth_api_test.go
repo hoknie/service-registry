@@ -42,9 +42,9 @@ func TestWrongPasswordAndUnknownEmailLookTheSame(t *testing.T) {
 	eq(t, wrong.json(t)["code"], any("auth.invalid_credentials"))
 	eq(t, wrong.hasHeader("Set-Cookie"), false)
 
-	before := app.state.Hasher.Verifications()
+	before := app.services.Hasher.Verifications()
 	unknown := app.login("nobody@example.com", "not the password")
-	eq(t, app.state.Hasher.Verifications(), before+1, "an unknown email still costs one full argon2id verification")
+	eq(t, app.services.Hasher.Verifications(), before+1, "an unknown email still costs one full argon2id verification")
 	eq(t, unknown.status, 401)
 	eq(t, bytes.Equal(unknown.body, wrong.body), true, "identical response bodies")
 	eq(t, unknown.hasHeader("Set-Cookie"), false)
@@ -136,14 +136,14 @@ func TestFailedLoginsAreThrottledPerIPAndEmail(t *testing.T) {
 	for range 3 {
 		eq(t, app.login("ann@example.com", "wrong password").status, 401)
 	}
-	before := app.state.Hasher.Verifications()
+	before := app.services.Hasher.Verifications()
 	r := app.login("ANN@example.com", password)
 	eq(t, r.status, 429)
 	eq(t, r.json(t)["code"], any("auth.rate_limited"))
 	retry, err := strconv.Atoi(r.header("Retry-After"))
 	must(t, err)
 	eq(t, retry >= 1 && retry <= 900, true, retry)
-	eq(t, app.state.Hasher.Verifications(), before, "a blocked attempt does not hash")
+	eq(t, app.services.Hasher.Verifications(), before, "a blocked attempt does not hash")
 	eq(t, app.login("bob@example.com", password).status, 200, "another email is not affected")
 }
 

@@ -2,16 +2,11 @@ package tests
 
 import (
 	"context"
-	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
-
-	"svc-registry/internal/search/meili"
-	"svc-registry/internal/service"
 )
 
 func projectsIn(t *testing.T, a *testApp, cookie, q string, extra ...string) string {
@@ -58,7 +53,7 @@ func externalEngine(t *testing.T, engine string) {
 	eq(t, strings.Contains(projectsIn(t, s.testApp, s.admin, "как откатить релиз", "mode", "semantic"), "acme/secret"), false, "branch gone")
 
 	execSQL(t, s.db, "DELETE FROM nodes WHERE id = '"+old+"'")
-	if err := service.RetainExternalIndex(context.Background(), s.state); err != nil {
+	if err := s.services.Knowledge.RetainExternalIndex(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	execSQL(t, s.db, "INSERT INTO nodes (id, kind, parent_id, name, slug) SELECT '"+old+"', 'project', '"+s.org+"', 'old', 'old'")
@@ -91,8 +86,7 @@ func TestSearchMeilisearchTextOnly(t *testing.T) {
 	contains(t, r.text(), `"match":true`)
 	eq(t, s.get(searchPath("repositry", "mode", "semantic"), s.admin).status, 400)
 
-	other := meili.New(os.Getenv("TEST_MEILISEARCH_URL"), "", "t_"+strings.ReplaceAll(uuid.NewString(), "-", ""), 0, http.DefaultClient)
-	s.state.SearchEngine, s.state.ExternalIndex = other, other
+	s.restart("MEILISEARCH_INDEX", "t_"+strings.ReplaceAll(uuid.NewString(), "-", ""))
 	s.index()
 	contains(t, s.get(searchPath("repositry", "mode", "text"), s.admin).text(), `"path":"README.md"`)
 }

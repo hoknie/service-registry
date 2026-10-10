@@ -48,7 +48,7 @@ func TestCheckHistoryIsCut(t *testing.T) {
 	t.Parallel()
 	tr := newLinkTree(t)
 	app, root := tr.app, tr.root
-	app.state.Config.LinkCheck.History = 3
+	app.services.Config.LinkCheck.History = 3
 	app.allowLoopbackChecks()
 	tg := newTarget(t, 404)
 	app.putTemplate(root, tr.org, "docs", tg.URL+"/{project.slug}")

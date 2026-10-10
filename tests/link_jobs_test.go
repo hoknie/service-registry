@@ -7,10 +7,10 @@ import (
 
 	"github.com/google/uuid"
 
-	svcapp "svc-registry/internal/app"
+	"svc-registry/internal/presentation/jobs"
 )
 
-func init() { svcapp.LinkCheckTick = 50 * time.Millisecond }
+func init() { jobs.LinkCheckTick = 50 * time.Millisecond }
 
 func TestOneAddressOfTwoProjectsIsCheckedOnce(t *testing.T) {
 	t.Parallel()
@@ -23,8 +23,8 @@ func TestOneAddressOfTwoProjectsIsCheckedOnce(t *testing.T) {
 	second.allowLoopbackChecks()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	done1 := svcapp.SpawnLinkChecks(ctx, app.state)
-	done2 := svcapp.SpawnLinkChecks(ctx, second.state)
+	done1 := jobs.SpawnLinkChecks(ctx, app.services.Jobs())
+	done2 := jobs.SpawnLinkChecks(ctx, second.services.Jobs())
 	waitFor(t, "a check", func() bool { return app.count("link_checks") > 0 })
 	time.Sleep(300 * time.Millisecond)
 	cancel()
@@ -48,7 +48,7 @@ func TestUnseenAddressesAreDeletedWithTheirHistory(t *testing.T) {
 	execSQL(t, app.db, "INSERT INTO link_targets (id, url, last_seen_at, next_run_at) VALUES ($1, 'https://fresh.example/', now() - interval '29 days', now() + interval '1 day')", fresh)
 	execSQL(t, app.db, "INSERT INTO link_checks (id, target_id, status, duration_ms) VALUES ($1, $2, 'ok', 1)", uuid.Must(uuid.NewV7()), old)
 	ctx, cancel := context.WithCancel(context.Background())
-	done := svcapp.SpawnLinkChecks(ctx, app.state)
+	done := jobs.SpawnLinkChecks(ctx, app.services.Jobs())
 	waitFor(t, "the prune", func() bool { return app.count("link_targets") == 1 })
 	cancel()
 	<-done
@@ -68,7 +68,7 @@ func TestLinkChecksStopWithBackgroundJobs(t *testing.T) {
 	app.putTemplate(root, org, "runbook", tg.URL+"/")
 	eq(t, len(app.links(root, project, "")), 1)
 	ctx, cancel := context.WithCancel(context.Background())
-	done := svcapp.SpawnLinkChecks(ctx, app.state)
+	done := jobs.SpawnLinkChecks(ctx, app.services.Jobs())
 	time.Sleep(300 * time.Millisecond)
 	cancel()
 	<-done

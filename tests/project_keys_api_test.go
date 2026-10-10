@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"svc-registry/internal/auth"
+	"svc-registry/internal/platform/auth"
 )
 
 func keyProject(app *testApp, admin string) (string, obj) {
@@ -19,7 +19,7 @@ func keyProject(app *testApp, admin string) (string, obj) {
 
 func (a *testApp) verifies(project, key string) bool {
 	a.t.Helper()
-	id, err := auth.VerifyProjectKey(context.Background(), a.state.ProjectKeys, uuid.MustParse(project), key)
+	id, err := a.services.Catalog.VerifyProjectKey(context.Background(), uuid.MustParse(project), key)
 	if err != nil {
 		a.t.Fatal(err)
 	}

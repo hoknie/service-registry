@@ -126,11 +126,11 @@ vet:
     {{ GO }} vet ./...
     {{ GO }} run {{ STATICCHECK }} ./...
 
-# fmt-check + vet (go vet, staticcheck) + layout (ADR-0050)
+# fmt-check + vet (go vet, staticcheck) + layout
 [group('quality')]
 lint: fmt-check vet layout
 
-# Package dependency directions (ADR-0050): pkg/ never imports internal/, domains stay pure
+# Package dependency directions: pkg/ and platform/ import no features, features follow their graph
 [group('quality')]
 layout:
     GO={{ GO }} scripts/check-layout.sh

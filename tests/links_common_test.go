@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
@@ -8,7 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"svc-registry/internal/linkcheck"
+	"svc-registry/internal/feature/links"
+	"svc-registry/internal/feature/links/linkcheck"
 )
 
 const linkKindsPath = "/api/v1/link-kinds"
@@ -43,8 +45,16 @@ type anyIP struct{}
 
 func (anyIP) Allows(string, netip.Addr) bool { return true }
 
+type switchChecker struct{ current atomic.Pointer[links.Checker] }
+
+func (s *switchChecker) set(c links.Checker) { s.current.Store(&c) }
+
+func (s *switchChecker) Check(ctx context.Context, url string) links.Result {
+	return (*s.current.Load()).Check(ctx, url)
+}
+
 func (a *testApp) allowLoopbackChecks() {
-	a.state.LinkChecker = linkcheck.NewWithPolicy(a.state.Config.Outbound, 2*time.Second, anyIP{})
+	a.checker.set(linkcheck.NewWithPolicy(a.cfg.Outbound, 2*time.Second, anyIP{}))
 }
 
 type target struct {

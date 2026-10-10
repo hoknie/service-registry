@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"svc-registry/internal/service"
 	"svc-registry/internal/testsupport/forgefake"
 )
 
@@ -61,12 +60,12 @@ func (a *testApp) collect() int {
 	a.t.Helper()
 	ctx := context.Background()
 	execSQL(a.t, a.db, "UPDATE knowledge_settings SET next_run_at = now()")
-	claimed, err := service.ClaimKnowledge(ctx, a.state, 100, 120)
+	claimed, err := a.services.Knowledge.ClaimKnowledge(ctx, 100, 120)
 	if err != nil {
 		a.t.Fatal(err)
 	}
 	for _, id := range claimed {
-		if err := service.RunKnowledgeCollect(ctx, a.state, id); err != nil {
+		if err := a.services.Knowledge.RunKnowledgeCollect(ctx, id); err != nil {
 			a.t.Fatal(err)
 		}
 	}
@@ -90,7 +89,7 @@ func (d *docsProject) last(branch, column string) string {
 
 func pruneBranches(t *testing.T, a *testApp) {
 	t.Helper()
-	if _, err := service.PruneBranches(context.Background(), a.state); err != nil {
+	if _, err := a.services.Catalog.PruneBranches(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 }

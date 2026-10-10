@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	svcapp "svc-registry/internal/app"
+	"svc-registry/internal/presentation/jobs"
 	"svc-registry/internal/testsupport/forgefake"
 )
 
-func init() { svcapp.ForgeTick = 50 * time.Millisecond }
+func init() { jobs.ForgeTick = 50 * time.Millisecond }
 
 func waitFor(t testing.TB, what string, cond func() bool) {
 	t.Helper()
@@ -33,8 +33,8 @@ func TestTwoSchedulersRunAConnectionOnce(t *testing.T) {
 	second := appOver(t, app.db, "SECRETS_KEYS", secretsKey)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	done1 := svcapp.SpawnForgeSync(ctx, app.state)
-	done2 := svcapp.SpawnForgeSync(ctx, second.state)
+	done1 := jobs.SpawnForgeSync(ctx, app.services.Jobs())
+	done2 := jobs.SpawnForgeSync(ctx, second.services.Jobs())
 	waitFor(t, "a run", func() bool { return app.count("forge_sync_runs") > 0 })
 	time.Sleep(300 * time.Millisecond)
 	cancel()
@@ -53,7 +53,7 @@ func TestJobsCanBeDisabled(t *testing.T) {
 	acme := app.nodeID(root, "organization", "", "acme")
 	app.connect(root, acme, forgefake.Start(t, "github", forgeToken, "acme-inc"), nil)
 	ctx, cancel := context.WithCancel(context.Background())
-	done := svcapp.SpawnForgeSync(ctx, app.state)
+	done := jobs.SpawnForgeSync(ctx, app.services.Jobs())
 	time.Sleep(300 * time.Millisecond)
 	cancel()
 	<-done
@@ -70,7 +70,7 @@ func TestShutdownInterruptsARunningSync(t *testing.T) {
 	f.Delay(5 * time.Second)
 	app.connect(root, acme, f, nil)
 	ctx, cancel := context.WithCancel(context.Background())
-	done := svcapp.SpawnForgeSync(ctx, app.state)
+	done := jobs.SpawnForgeSync(ctx, app.services.Jobs())
 	waitFor(t, "a running run", func() bool { return app.count("forge_sync_runs") > 0 })
 	cancel()
 	select {

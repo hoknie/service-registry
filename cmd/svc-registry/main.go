@@ -3,9 +3,9 @@ package main
 import (
 	"os"
 
-	"svc-registry/internal/cli"
+	"svc-registry/internal/presentation/console"
 )
 
 func main() {
-	os.Exit(cli.Run(os.Args[1:], cli.IO{Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr}))
+	os.Exit(console.Run(os.Args[1:], console.IO{Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr}))
 }

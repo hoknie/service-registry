@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"svc-registry/internal/deploy"
+	"svc-registry/internal/feature/deploy"
 )
 
 func recordsPath(project, what string) string { return nodePath(project) + "/" + what }

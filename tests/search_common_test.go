@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"svc-registry/internal/service"
 	"svc-registry/internal/testsupport/embedfake"
 )
 
@@ -76,12 +75,12 @@ func (a *testApp) index() int {
 	a.t.Helper()
 	ctx := context.Background()
 	execSQL(a.t, a.db, "UPDATE knowledge_index_state SET next_run_at = now()")
-	claimed, err := service.ClaimIndex(ctx, a.state, 100, 120)
+	claimed, err := a.services.Knowledge.ClaimIndex(ctx, 100, 120)
 	if err != nil {
 		a.t.Fatal(err)
 	}
 	for _, id := range claimed {
-		_ = service.RunKnowledgeIndex(ctx, a.state, id)
+		_ = a.services.Knowledge.RunKnowledgeIndex(ctx, id)
 	}
 	return len(claimed)
 }

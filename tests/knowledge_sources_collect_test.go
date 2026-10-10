@@ -8,7 +8,6 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 
-	"svc-registry/internal/docsource"
 	"svc-registry/internal/testsupport/forgefake"
 )
 
@@ -101,7 +100,7 @@ func TestARemoteRepositoryIsCollectedThroughTheForge(t *testing.T) {
 func TestASourceWinsOverTheForgeAndFailuresAreRecorded(t *testing.T) {
 	t.Parallel()
 	d := startDocs(t, map[string]string{"README.md": "from the forge"}, "KNOWLEDGE_LOCAL_ROOTS", t.TempDir())
-	roots := d.app.state.Config.Knowledge.LocalRoots
+	roots := d.app.services.Config.Knowledge.LocalRoots
 	dir := filepath.Join(roots[0], "local")
 	writeFile(t, filepath.Join(dir, "README.md"), "from the disk")
 	eq(t, d.app.send("PUT", sourcePath(d.id), d.admin, obj{"kind": "local_dir", "path": dir}).status, 200)
@@ -116,7 +115,7 @@ func TestASourceWinsOverTheForgeAndFailuresAreRecorded(t *testing.T) {
 	eq(t, d.last("local", "error_code"), "source.not_found")
 	eq(t, d.app.get(knowledgePath(d.id)+"/file?path=README.md", d.admin).json(t)["content"], any("from the disk"))
 	writeFile(t, filepath.Join(dir, "README.md"), "back")
-	d.app.state.DocReaders.(*docsource.Factory).Roots = nil
+	d.app.restart("KNOWLEDGE_LOCAL_ROOTS", "")
 	d.app.collect()
 	eq(t, d.last("local", "error_code"), "source.not_allowed")
 	eq(t, d.app.call("DELETE", sourcePath(d.id), d.admin).status, 204)

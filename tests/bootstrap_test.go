@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
-	svcapp "svc-registry/internal/app"
-	"svc-registry/internal/config"
+	"svc-registry/internal/platform/config"
+	"svc-registry/internal/presentation/jobs"
 	"svc-registry/internal/testsupport"
 )
 
@@ -98,7 +98,7 @@ func TestBootstrapDoesNothingWhenUsersExist(t *testing.T) {
 	t.Parallel()
 	app := startApp(t)
 	app.user("ann@example.com", false)
-	<-svcapp.SpawnBootstrapAdmin(context.Background(), app.state, config.BootstrapAdmin{Email: "admin@example.com", Password: "bootstrap pass 1"})
+	<-jobs.SpawnBootstrapAdmin(context.Background(), app.services.Jobs(), config.BootstrapAdmin{Email: "admin@example.com", Password: "bootstrap pass 1"})
 	rows, err := app.db.Pool.Query(context.Background(), "SELECT email FROM users")
 	must(t, err)
 	var emails []string
@@ -114,7 +114,7 @@ func TestBootstrapRetriesUntilTheSchemaExists(t *testing.T) {
 	t.Parallel()
 	tdb := testsupport.NewTestDB(t)
 	app := appOver(t, tdb)
-	done := svcapp.SpawnBootstrapAdmin(context.Background(), app.state, config.BootstrapAdmin{Email: "admin@example.com", Password: "bootstrap pass 1"})
+	done := jobs.SpawnBootstrapAdmin(context.Background(), app.services.Jobs(), config.BootstrapAdmin{Email: "admin@example.com", Password: "bootstrap pass 1"})
 	time.Sleep(300 * time.Millisecond)
 	migrate(t, tdb)
 	select {

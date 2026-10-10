@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"svc-registry/internal/postgres"
+	"svc-registry/internal/platform/postgres"
 	"svc-registry/internal/testsupport"
 )
 

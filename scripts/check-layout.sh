@@ -1,26 +1,69 @@
 #!/usr/bin/env bash
-# `just lint`: the dependency directions — pkg/ never imports internal/; domains never
-# import transport, use-cases, storage or infrastructure, Fiber or pgx; use-cases never import
-# Fiber or the HTTP transport.
 set -euo pipefail
 GO="${GO:-go}"
 mod="svc-registry"
-fail=0
 
-check() {
-  local pkgs="$1" pattern="$2" rule="$3"
-  local bad
-  bad="$("$GO" list -f '{{.ImportPath}}: {{join .Imports " "}}' $pkgs | tr ' ' '\n' | awk -v p="$pattern" '/:$/ {cur=$0; next} $0 ~ p {print cur " " $0}')"
-  if [[ -n "$bad" ]]; then
-    echo "layout: $rule"
-    echo "$bad"
-    fail=1
-  fi
+"$GO" list -f '{{.ImportPath}} {{join .Imports " "}}' ./... | awk -v mod="$mod" '
+function feature(p,   rest, n, parts) {
+  if (index(p, mod "/internal/feature/") != 1) return ""
+  rest = substr(p, length(mod "/internal/feature/") + 1)
+  n = split(rest, parts, "/")
+  return parts[1]
 }
-
-domains="./internal/access/... ./internal/catalog/... ./internal/deploy/... ./internal/forge/... ./internal/ingest/... ./internal/knowledge/... ./internal/links/..."
-check "./pkg/..." "^$mod/internal/" "pkg/ must not import internal/"
-check "$domains" "^($mod/internal/(service|httpapi|webui|cli|app|postgres|auth|forgeclient|k8s|docsource|linkcheck|outbound|embeddings|search|config|apperr)(/|$)|github.com/gofiber/|github.com/jackc/pgx)" \
-  "domains must not import use-cases, transport, storage, infrastructure, Fiber or pgx"
-check "./internal/service/..." "^($mod/internal/(httpapi|webui|cli|app)(/|$)|github.com/gofiber/)" "service must not import the transport or Fiber"
-exit "$fail"
+function layer(p,   rest, cut) {
+  if (index(p, mod "/internal/feature/") != 1) return ""
+  rest = substr(p, length(mod "/internal/feature/") + 1)
+  cut = index(rest, "/")
+  if (cut == 0) return "domain"
+  rest = substr(rest, cut + 1)
+  if (rest == "service" || rest == "internal/repository") return rest
+  return "adapter"
+}
+function adapter(p) { return layer(p) == "adapter" }
+function under(p, prefix) { return p == mod "/" prefix || index(p, mod "/" prefix "/") == 1 }
+BEGIN {
+  split("access: catalog:access ingest:catalog,access links:catalog,access forge:catalog,access deploy:ingest,forge,catalog,access knowledge:forge,catalog,access", rows, " ")
+  for (i in rows) {
+    split(rows[i], kv, ":")
+    known[kv[1]] = 1
+    n = split(kv[2], deps, ",")
+    for (j = 1; j <= n; j++) if (deps[j] != "") ok[kv[1], deps[j]] = 1
+  }
+  bad = 0
+}
+function fail(rule, from, to) { print "layout: " rule ": " from " -> " to; bad = 1 }
+{
+  pkg = $1
+  for (i = 2; i <= NF; i++) {
+    imp = $i
+    if (under(pkg, "pkg") && under(imp, "internal")) fail("pkg/ must not import internal/", pkg, imp)
+    if (under(pkg, "internal/platform") && (under(imp, "internal/feature") || under(imp, "internal/presentation") || under(imp, "internal/app")))
+      fail("platform must not import features, presentation or app", pkg, imp)
+    f = feature(pkg)
+    if (f != "") {
+      if (!(f in known)) fail("unknown feature (add it to the graph)", pkg, imp)
+      if (under(imp, "internal/presentation") || under(imp, "internal/app") || index(imp, "github.com/gofiber/") == 1)
+        fail("features must not import presentation, app or Fiber", pkg, imp)
+      g = feature(imp)
+      if (g != "" && g != f) {
+        if (!((f, g) in ok)) fail("feature " f " may not import feature " g, pkg, imp)
+        if (adapter(imp)) fail("features must not import adapters of other features", pkg, imp)
+      }
+      if (g == f && !adapter(pkg) && adapter(imp)) fail("a feature must not import its own adapters (app wires them)", pkg, imp)
+      if (g == f && layer(pkg) == "domain" && (layer(imp) == "service" || layer(imp) == "internal/repository"))
+        fail("the domain of a feature must not import its service or repositories", pkg, imp)
+      if (g == f && layer(pkg) == "internal/repository" && layer(imp) == "service")
+        fail("repositories must not import the service", pkg, imp)
+      if (g != "" && g != f && layer(imp) == "internal/repository")
+        fail("repositories stay inside their feature", pkg, imp)
+    }
+    if (under(pkg, "internal/presentation") && !under(pkg, "internal/presentation/console") && under(imp, "internal/app"))
+      fail("only the console may import app", pkg, imp)
+    if (under(pkg, "internal/presentation") && adapter(imp))
+      fail("presentation must not import adapters of features", pkg, imp)
+    if (index(imp, "github.com/gofiber/") == 1 && !under(pkg, "internal/presentation/http") && !under(pkg, "internal/app") && !under(pkg, "tests"))
+      fail("Fiber is allowed only in presentation/http", pkg, imp)
+  }
+}
+END { exit bad }
+'

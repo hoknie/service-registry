@@ -1,11 +1,8 @@
 package tests
 
 import (
-	"net/http"
 	"strconv"
 	"testing"
-
-	"svc-registry/internal/embeddings"
 )
 
 func TestIndexEmbedsContentOnceAndFollowsTheModel(t *testing.T) {
@@ -21,7 +18,7 @@ func TestIndexEmbedsContentOnceAndFollowsTheModel(t *testing.T) {
 	s.index()
 	eq(t, s.embed.Total(), before, "nothing new, nothing embedded")
 
-	s.state.Embedder = embeddings.New(s.embed.URL, "", "fake-2", embedDims, 8, http.DefaultClient)
+	s.restart("EMBEDDINGS_MODEL", "fake-2")
 	s.index()
 	eq(t, scalar[int64](t, s.db, "SELECT count(DISTINCT sha256) FROM knowledge_embeddings WHERE model = 'fake-2'"), int64(2), "a new model reindexes")
 }
@@ -49,7 +46,7 @@ func TestIndexScansNameDimensionMismatchesAndCollapseIdlePasses(t *testing.T) {
 	s := startSearch(t, "pgvector")
 	s.docs(map[string]string{"README.md": "# Registry\nThe service registry."})
 	s.collect()
-	s.state.Embedder = embeddings.New(s.embed.URL, "", "fake-1", embedDims*2, 8, http.DefaultClient)
+	s.restart("EMBEDDINGS_DIMENSIONS", strconv.Itoa(embedDims*2))
 	s.index()
 	idx := s.scans(s.project, "index")
 	eq(t, idx[0].Status, "failed")
@@ -58,7 +55,7 @@ func TestIndexScansNameDimensionMismatchesAndCollapseIdlePasses(t *testing.T) {
 	contains(t, detail, strconv.Itoa(embedDims))
 	contains(t, detail, strconv.Itoa(embedDims*2))
 
-	s.state.Embedder = embeddings.New(s.embed.URL, "", "fake-1", embedDims, 8, http.DefaultClient)
+	s.restart("EMBEDDINGS_DIMENSIONS", strconv.Itoa(embedDims))
 	s.index()
 	eq(t, s.scans(s.project, "index")[0].Status, "ok")
 	s.index()

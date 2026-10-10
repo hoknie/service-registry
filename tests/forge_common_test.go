@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"svc-registry/internal/service"
 	"svc-registry/internal/testsupport/forgefake"
 )
 
@@ -39,12 +38,12 @@ func (a *testApp) connect(cookie, node string, f *forgefake.Fake, extra obj) obj
 func (a *testApp) runDue() int {
 	a.t.Helper()
 	ctx := context.Background()
-	claimed, err := service.ClaimForgeRuns(ctx, a.state, 100, 120)
+	claimed, err := a.services.Forge.ClaimForgeRuns(ctx, 100, 120)
 	if err != nil {
 		a.t.Fatal(err)
 	}
 	for _, c := range claimed {
-		service.RunClaimedSync(ctx, a.state, c)
+		a.services.Forge.RunClaimedSync(ctx, c)
 	}
 	return len(claimed)
 }

@@ -63,6 +63,18 @@ just docker-vdb down|restart|logs|ps|reset [qdrant|meilisearch|all]
 Ports: `QDRANT_PORT` (gRPC, 6334), `QDRANT_HTTP_PORT` (6333, dashboard), `MEILISEARCH_PORT` (7700);
 `reset` also drops their data. Configuring the engines: [search-engines.md](search-engines.md).
 
+## Where code lives
+
+- `internal/feature/<feature>/` — the domain of a feature (entities, rules, errors, ports);
+  `service/` — its `Service` with the use-cases; `internal/repository/` — its SQL (Go's `internal/`
+  keeps it inside the feature); other subfolders — clients of external systems.
+- `internal/platform/` — database pool and transactions, configuration, errors, outgoing HTTP, crypto.
+- `internal/presentation/` — `http/` (router, handlers, request and response DTOs, middleware, MCP,
+  web UI files), `console/` (CLI commands), `jobs/` (background jobs).
+- `internal/app/` — builds the application from all of the above.
+
+Features import each other only along the graph in `ARCHITECTURE.md` §2; `just layout` checks it.
+
 ## Quality gates
 
 The same commands run in CI:

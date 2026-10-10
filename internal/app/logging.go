@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"svc-registry/internal/config"
+	"svc-registry/internal/platform/config"
 )
 
 const LevelTrace = slog.LevelDebug - 4

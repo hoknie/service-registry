@@ -12,8 +12,9 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"svc-registry/internal/config"
-	"svc-registry/internal/webui"
+	"svc-registry/internal/platform/config"
+	"svc-registry/internal/presentation/http/webui"
+	"svc-registry/internal/presentation/jobs"
 )
 
 func Serve(cfg config.Config) error {
@@ -26,18 +27,18 @@ func ServeUntil(ctx context.Context, cfg config.Config) error {
 	addr := cfg.HTTP.Addr.String()
 	grace := time.Duration(cfg.HTTP.ShutdownTimeoutSecs) * time.Second
 	dist := webui.NewDist(cfg.Web)
-	state, err := BuildState(cfg)
+	registry, err := New(cfg)
 	if err != nil {
 		return err
 	}
-	defer state.DB.Close()
+	defer registry.Close()
 	checkCtx, cancelCheck := context.WithTimeout(ctx, 5*time.Second)
-	err = CheckSearch(checkCtx, state)
+	err = registry.CheckSearch(checkCtx)
 	cancelCheck()
 	if err != nil {
 		return err
 	}
-	app := BuildRouter(state, dist)
+	app := registry.Router(dist)
 
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -48,17 +49,18 @@ func ServeUntil(ctx context.Context, cfg config.Config) error {
 		slog.Warn("no web UI export (404.html missing); run `just web-build` or set WEB_DIST_DIR", "web_dist", dist.Root())
 	}
 	tasks, cancelTasks := context.WithCancel(context.Background())
+	deps := registry.Jobs()
 	defer cancelTasks()
-	SpawnEventRetention(tasks, state)
-	SpawnBranchRetention(tasks, state)
-	SpawnLoginStateRetention(tasks, state)
-	forgeDone := SpawnForgeSync(tasks, state)
-	linksDone := SpawnLinkChecks(tasks, state)
-	clustersDone := SpawnClusterPolls(tasks, state)
-	knowledgeDone := SpawnKnowledgeCollection(tasks, state)
-	indexDone := SpawnKnowledgeIndex(tasks, state)
+	jobs.SpawnEventRetention(tasks, deps)
+	jobs.SpawnBranchRetention(tasks, deps)
+	jobs.SpawnLoginStateRetention(tasks, deps)
+	forgeDone := jobs.SpawnForgeSync(tasks, deps)
+	linksDone := jobs.SpawnLinkChecks(tasks, deps)
+	clustersDone := jobs.SpawnClusterPolls(tasks, deps)
+	knowledgeDone := jobs.SpawnKnowledgeCollection(tasks, deps)
+	indexDone := jobs.SpawnKnowledgeIndex(tasks, deps)
 	if cfg.Bootstrap.Admin != nil {
-		SpawnBootstrapAdmin(tasks, state, *cfg.Bootstrap.Admin)
+		jobs.SpawnBootstrapAdmin(tasks, deps, *cfg.Bootstrap.Admin)
 	}
 
 	served := make(chan error, 1)

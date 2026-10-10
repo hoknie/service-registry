@@ -16,13 +16,13 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"svc-registry/internal/access"
 	svcapp "svc-registry/internal/app"
-	"svc-registry/internal/config"
-	"svc-registry/internal/postgres"
-	"svc-registry/internal/service"
+	"svc-registry/internal/feature/access"
+	"svc-registry/internal/feature/links/linkcheck"
+	"svc-registry/internal/platform/config"
+	"svc-registry/internal/platform/postgres"
+	"svc-registry/internal/presentation/http/webui"
 	"svc-registry/internal/testsupport"
-	"svc-registry/internal/webui"
 )
 
 const deadDB = "postgres://u:p@127.0.0.1:1/none"
@@ -49,9 +49,9 @@ func testConfig(t testing.TB, dbURL, dist string, extra ...string) config.Config
 	return cfg
 }
 
-func serveState(t testing.TB, state *service.State, dist string) string {
+func serve(t testing.TB, services *svcapp.App, dist string) string {
 	t.Helper()
-	app := svcapp.BuildRouter(state, webui.NewDist(config.WebConfig{DistDir: dist}))
+	app := services.Router(webui.NewDist(config.WebConfig{DistDir: dist}))
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -59,18 +59,18 @@ func serveState(t testing.TB, state *service.State, dist string) string {
 	go func() { _ = app.Listener(ln, fiber.ListenConfig{DisableStartupMessage: true}) }()
 	t.Cleanup(func() {
 		_ = app.ShutdownWithTimeout(time.Second)
-		state.DB.Close()
+		services.Close()
 	})
 	return ln.Addr().String()
 }
 
 func spawnApp(t testing.TB, dbURL, dist string, extra ...string) string {
 	t.Helper()
-	state, err := svcapp.BuildState(testConfig(t, dbURL, dist, extra...))
+	services, err := svcapp.New(testConfig(t, dbURL, dist, extra...))
 	if err != nil {
 		t.Fatal(err)
 	}
-	return serveState(t, state, dist)
+	return serve(t, services, dist)
 }
 
 func closedPort(t testing.TB) string {
@@ -170,17 +170,27 @@ func rawStatus(t testing.TB, addr, path string) int {
 }
 
 type testApp struct {
-	t     testing.TB
-	addr  string
-	state *service.State
-	db    *testsupport.TestDB
+	t        testing.TB
+	addr     string
+	services *svcapp.App
+	db       *testsupport.TestDB
+	cfg      config.Config
+	checker  *switchChecker
+	dist     string
+	env      []string
+	opts     []svcapp.Option
 }
 
 func startApp(t testing.TB, extra ...string) *testApp {
 	t.Helper()
+	return startAppWith(t, nil, extra...)
+}
+
+func startAppWith(t testing.TB, opts []svcapp.Option, extra ...string) *testApp {
+	t.Helper()
 	tdb := testsupport.NewTestDB(t)
 	migrate(t, tdb)
-	return appOver(t, tdb, extra...)
+	return appOverWith(t, tdb, opts, extra...)
 }
 
 func migrate(t testing.TB, tdb *testsupport.TestDB) {
@@ -192,18 +202,27 @@ func migrate(t testing.TB, tdb *testsupport.TestDB) {
 
 func appOver(t testing.TB, tdb *testsupport.TestDB, extra ...string) *testApp {
 	t.Helper()
+	return appOverWith(t, tdb, nil, extra...)
+}
+
+func appOverWith(t testing.TB, tdb *testsupport.TestDB, opts []svcapp.Option, extra ...string) *testApp {
+	t.Helper()
 	dist := testsupport.MissingDist(t).Dir
-	state, err := svcapp.BuildState(testConfig(t, tdb.URL, dist, extra...))
+	cfg := testConfig(t, tdb.URL, dist, extra...)
+	checker := &switchChecker{}
+	checker.set(linkcheck.New(cfg.Outbound, cfg.LinkCheck))
+	services, err := svcapp.New(cfg, append([]svcapp.Option{svcapp.WithLinkChecker(checker)}, opts...)...)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &testApp{t: t, addr: serveState(t, state, dist), state: state, db: tdb}
+	return &testApp{t: t, addr: serve(t, services, dist), services: services, db: tdb, cfg: cfg, checker: checker,
+		dist: dist, env: extra, opts: opts}
 }
 
 func (a *testApp) user(email string, superadmin bool) access.User {
 	a.t.Helper()
 	name, _, _ := strings.Cut(email, "@")
-	u, err := service.CreateUserWith(context.Background(), a.state.Users, a.state.Hasher,
+	u, err := a.services.Access.InsertUser(context.Background(),
 		access.CreateUser{Email: email, DisplayName: name, Password: password, IsSuperadmin: superadmin})
 	if err != nil {
 		a.t.Fatalf("create user: %v", err)
@@ -295,4 +314,15 @@ func eq[T comparable](t testing.TB, got, want T, context ...any) {
 	if got != want {
 		t.Fatalf("%v: got %v, want %v", fmt.Sprint(context...), got, want)
 	}
+}
+
+func (a *testApp) restart(extra ...string) {
+	a.t.Helper()
+	env := append(append(append([]string{}, a.env...), extra...), "UPLOADS_DIR", a.cfg.Uploads.Dir)
+	cfg := testConfig(a.t, a.db.URL, a.dist, env...)
+	services, err := svcapp.New(cfg, append([]svcapp.Option{svcapp.WithLinkChecker(a.checker)}, a.opts...)...)
+	if err != nil {
+		a.t.Fatal(err)
+	}
+	a.services, a.cfg, a.env, a.addr = services, cfg, env, serve(a.t, services, a.dist)
 }

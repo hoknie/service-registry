@@ -4,6 +4,8 @@ import (
 	"encoding/base64"
 	"strings"
 	"testing"
+
+	"svc-registry/internal/feature/links/uploads"
 )
 
 var tinyPNG, _ = base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
@@ -14,7 +16,7 @@ func TestLinkTemplateTitleAndIcon(t *testing.T) {
 	admin := a.admin()
 	org := a.nodeID(admin, "organization", "", "acme")
 	project := a.nodeID(admin, "project", org, "api")
-	file, err := a.state.Icons.Put(tinyPNG)
+	file, err := uploads.New(a.cfg.Uploads.Dir).Put(tinyPNG)
 	if err != nil {
 		t.Fatal(err)
 	}

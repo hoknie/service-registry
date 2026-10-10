@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"svc-registry/internal/deploy"
+	"svc-registry/internal/feature/deploy"
 )
 
 type Cluster struct {

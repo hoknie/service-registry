@@ -3,6 +3,7 @@ package tests
 import (
 	"testing"
 
+	svcapp "svc-registry/internal/app"
 	"svc-registry/internal/testsupport/k8sfake"
 )
 
@@ -14,9 +15,8 @@ func clusterPath(id string) string { return clustersPath + "/" + id }
 
 func startClusterApp(t testing.TB, extra ...string) (*testApp, *k8sfake.Factory) {
 	t.Helper()
-	app := startApp(t, append([]string{"SECRETS_KEYS", secretsKey}, extra...)...)
 	f := k8sfake.New(saToken)
-	app.state.K8s = f
+	app := startAppWith(t, []svcapp.Option{svcapp.WithK8s(f)}, append([]string{"SECRETS_KEYS", secretsKey}, extra...)...)
 	return app, f
 }
 

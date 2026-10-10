@@ -6,22 +6,22 @@ import (
 	"time"
 
 	svcapp "svc-registry/internal/app"
-	"svc-registry/internal/deploy"
-	"svc-registry/internal/service"
+	"svc-registry/internal/feature/deploy"
+	"svc-registry/internal/presentation/jobs"
 )
 
-func init() { svcapp.ClusterTick = 50 * time.Millisecond }
+func init() { jobs.ClusterTick = 50 * time.Millisecond }
 
 func (a *testApp) pollNow() {
 	a.t.Helper()
 	execSQL(a.t, a.db, "UPDATE clusters SET next_run_at = now()")
 	ctx := context.Background()
-	ids, err := service.ClaimClusterPolls(ctx, a.state, 100, 120)
+	ids, err := a.services.Deploy.ClaimClusterPolls(ctx, 100, 120)
 	if err != nil {
 		a.t.Fatal(err)
 	}
 	for _, id := range ids {
-		if err := service.RunClusterPoll(ctx, a.state, id); err != nil {
+		if err := a.services.Deploy.RunClusterPoll(ctx, id); err != nil {
 			a.t.Fatal(err)
 		}
 	}
@@ -150,11 +150,10 @@ func TestTwoSchedulersPollAClusterOnce(t *testing.T) {
 	app, k8s := startClusterApp(t)
 	root := app.admin()
 	app.cluster(root, "prod", nil)
-	second := appOver(t, app.db, "SECRETS_KEYS", secretsKey)
-	second.state.K8s = k8s
+	second := appOverWith(t, app.db, []svcapp.Option{svcapp.WithK8s(k8s)}, "SECRETS_KEYS", secretsKey)
 	ctx, cancel := context.WithCancel(context.Background())
-	done1 := svcapp.SpawnClusterPolls(ctx, app.state)
-	done2 := svcapp.SpawnClusterPolls(ctx, second.state)
+	done1 := jobs.SpawnClusterPolls(ctx, app.services.Jobs())
+	done2 := jobs.SpawnClusterPolls(ctx, second.services.Jobs())
 	waitFor(t, "a poll", func() bool { return k8s.Cluster().Calls() > 0 })
 	time.Sleep(300 * time.Millisecond)
 	cancel()
@@ -170,7 +169,7 @@ func TestClusterPollsStopWithBackgroundJobs(t *testing.T) {
 	root := app.admin()
 	app.cluster(root, "prod", nil)
 	ctx, cancel := context.WithCancel(context.Background())
-	done := svcapp.SpawnClusterPolls(ctx, app.state)
+	done := jobs.SpawnClusterPolls(ctx, app.services.Jobs())
 	time.Sleep(300 * time.Millisecond)
 	cancel()
 	<-done

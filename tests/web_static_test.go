@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"svc-registry/internal/presentation/http/webui"
 	"svc-registry/internal/testsupport"
-	"svc-registry/internal/webui"
 )
 
 func get(t *testing.T, app, path string, headers ...string) reply {
