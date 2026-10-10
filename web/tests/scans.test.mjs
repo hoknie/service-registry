@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { formatDuration, readScanParams, scanAddress, scanCodeText, scanCodes, scanQuery, scanTotals } from "../src/lib/scans.ts";
+import { formatDuration, readScanParams, scanAddress, scanCodeText, scanCodes, scanQuery, scanTotals, withScanAddress } from "../src/lib/scans.ts";
 
 const book = {
   collect: {
@@ -53,4 +53,13 @@ test("a series names its first and last run", async () => {
   const scan = { repeats: 2, started_at: "2026-10-09T20:33:51Z", finished_at: "2026-10-09T20:44:02Z" };
   assert.equal(seriesText("×{n} from {from} to {to}", scan, (iso) => iso.slice(11, 16)), "×3 from 20:33 to 20:44");
   assert.equal(seriesText("×{n} from {from} to {to}", { ...scan, repeats: 0 }, String), null);
+});
+
+test("filters join the page address, keeping the node and section", () => {
+  assert.equal(withScanAddress("/ru/admin/scans", ""), "/ru/admin/scans");
+  assert.equal(withScanAddress("/ru/admin/scans", "kind=collect"), "/ru/admin/scans?kind=collect");
+  assert.equal(
+    withScanAddress("/ru/catalog?node=n1&tab=settings&section=scans", "status=failed&page=2"),
+    "/ru/catalog?node=n1&tab=settings&section=scans&status=failed&page=2",
+  );
 });

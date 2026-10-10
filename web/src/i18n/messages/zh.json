@@ -738,7 +738,8 @@
       "docs": "文档",
       "docsSettings": "文档设置",
       "about": "描述",
-      "settings": "设置"
+      "settings": "设置",
+      "details": "详情"
     },
     "create": {
       "title": "添加",
@@ -1069,7 +1070,8 @@
         "forge": "forge",
         "ingest": "CI",
         "manual": "项目",
-        "cluster": "集群"
+        "cluster": "集群",
+        "repository": "文档来源"
       },
       "badges": {
         "default": "默认",
@@ -1353,7 +1355,10 @@
       "add": "添加描述",
       "text": "文本",
       "preview": "预览",
-      "markdownHint": "Markdown：标题、列表、链接、表格、代码。HTML 按文本显示。"
+      "markdownHint": "Markdown：标题、列表、链接、表格、代码。HTML 按文本显示。",
+      "fromReadme": "描述取自 README：",
+      "onBranch": "分支 {branch}",
+      "fromForge": "描述取自 forge 仓库的 README。"
     },
     "settings": {
       "menu": "设置分区",
@@ -1370,7 +1375,8 @@
         "access": "访问",
         "connect": "发送事件",
         "forge": "Forge",
-        "secrets": "密钥"
+        "secrets": "密钥",
+        "scans": "扫描历史"
       }
     },
     "linkIcons": {
@@ -1599,7 +1605,14 @@
           "hint": "查看技术详情和服务器日志。"
         }
       }
-    }
+    },
+    "refresh": {
+      "label": "自动刷新",
+      "off": "关闭",
+      "every": "{n} 秒",
+      "now": "立即刷新"
+    },
+    "projectLead": "此项目文档收集和索引的运行记录：结果、分支、错误及处理方法。"
   },
   "secrets": {
     "title": "密钥",

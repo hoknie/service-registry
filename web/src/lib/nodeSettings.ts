@@ -1,11 +1,11 @@
 import type { NodeKind } from "./api";
 
-export const SECTIONS = ["general", "branches", "links", "docs", "keys", "access", "connect", "forge", "secrets"] as const;
+export const SECTIONS = ["general", "branches", "links", "docs", "keys", "access", "connect", "forge", "secrets", "scans"] as const;
 export type Section = (typeof SECTIONS)[number];
 
 export const PROJECT_TABS = ["overview", "about", "deployments", "events", "docs", "settings"] as const;
-export const CONTAINER_TABS = ["overview", "settings"] as const;
-export type NodeTab = (typeof PROJECT_TABS)[number];
+export const CONTAINER_TABS = ["overview", "details", "settings"] as const;
+export type NodeTab = (typeof PROJECT_TABS)[number] | (typeof CONTAINER_TABS)[number];
 
 export const LEGACY_TABS: Record<string, Section> = {
   branches: "branches",
@@ -29,7 +29,16 @@ export function sectionsOf(node: NodeLike | null): Section[] {
   if (!node || node.access !== "read") return [];
   const can = (p: string) => (node.permissions ?? []).includes(p);
   if (node.kind === "project") {
-    return ["general", "branches", "links", "docs", ...(can("catalog.keys") ? (["keys"] as const) : []), ...(can("catalog.access") ? (["access"] as const) : []), "connect"];
+    return [
+      "general",
+      "branches",
+      "links",
+      "docs",
+      ...(can("catalog.write") ? (["scans"] as const) : []),
+      ...(can("catalog.keys") ? (["keys"] as const) : []),
+      ...(can("catalog.access") ? (["access"] as const) : []),
+      "connect",
+    ];
   }
   return ["general", "forge", "secrets", "links", "docs", ...(can("catalog.access") ? (["access"] as const) : [])];
 }

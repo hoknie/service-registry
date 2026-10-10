@@ -738,7 +738,8 @@
       "docs": "Documentation",
       "docsSettings": "Documentation settings",
       "about": "Description",
-      "settings": "Settings"
+      "settings": "Settings",
+      "details": "Details"
     },
     "create": {
       "title": "Add",
@@ -1069,7 +1070,8 @@
         "forge": "forge",
         "ingest": "CI",
         "manual": "project",
-        "cluster": "cluster"
+        "cluster": "cluster",
+        "repository": "documentation source"
       },
       "badges": {
         "default": "Default",
@@ -1353,7 +1355,10 @@
       "add": "Add a description",
       "text": "Text",
       "preview": "Preview",
-      "markdownHint": "Markdown: headings, lists, links, tables, code. HTML is shown as text."
+      "markdownHint": "Markdown: headings, lists, links, tables, code. HTML is shown as text.",
+      "fromReadme": "Description taken from the README:",
+      "onBranch": "branch {branch}",
+      "fromForge": "Description taken from the forge repository README."
     },
     "settings": {
       "menu": "Settings sections",
@@ -1370,7 +1375,8 @@
         "access": "Access",
         "connect": "Sending events",
         "forge": "Forge",
-        "secrets": "Secrets"
+        "secrets": "Secrets",
+        "scans": "Scan history"
       }
     },
     "linkIcons": {
@@ -1599,7 +1605,14 @@
           "hint": "Look at the technical details and the server log."
         }
       }
-    }
+    },
+    "refresh": {
+      "label": "Auto-refresh",
+      "off": "off",
+      "every": "{n} s",
+      "now": "Refresh now"
+    },
+    "projectLead": "Documentation collection and indexing runs of this project: result, branches, errors and what to do about them."
   },
   "secrets": {
     "title": "Secrets",

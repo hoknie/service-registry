@@ -14,7 +14,7 @@ export default async function CatalogPage({ params }: { params: Promise<{ locale
   return (
     <RequireAuth locale={locale} labels={m.guard}>
       <Suspense fallback={<SkeletonRows rows={6} label={m.catalog.loading} />}>
-        <CatalogBrowser locale={locale} labels={m.catalog} />
+        <CatalogBrowser locale={locale} labels={{ ...m.catalog, scans: m.scans }} />
       </Suspense>
     </RequireAuth>
   );

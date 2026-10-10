@@ -1,15 +1,15 @@
 "use client";
 
-import { Activity, BookOpen, ExternalLink, FileText, FolderTree, GitBranch, LayoutGrid, Plus, Rocket, Settings } from "lucide-react";
+import { Activity, BookOpen, ExternalLink, FileText, FolderTree, GitBranch, Info, LayoutGrid, Plus, Rocket, Settings } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Locale } from "@/i18n/config";
 import { errorText } from "@/i18n/errors";
-import { ago, when } from "@/i18n/time";
 import { busy, isSummary, useActivity } from "@/lib/activity";
 import { apiGet, errorCode, type CatalogNode, type CatalogTable, type Items, type NodeActivity, type ProcessKind, type ProjectLink } from "@/lib/api";
+import { useCatalogVersion } from "@/lib/catalogEvents";
 import { useChildrenView } from "@/lib/childrenView";
 import { resolveTab, sectionsOf, tabsOf, type NodeTab, type Section } from "@/lib/nodeSettings";
 
@@ -46,7 +46,9 @@ import { KindIcon } from "./KindIcon";
 import { DescriptionTab } from "./DescriptionTab";
 import { Markdown } from "./Markdown";
 import { CreateDialog } from "./NodeForms";
+import { ProjectScans } from "../knowledge/ProjectScans";
 import { SecretsTable } from "../secrets/SecretsTable";
+import { NodeDetails } from "./NodeDetails";
 import { NodeSettings } from "./NodeSettings";
 import { ProjectKeys } from "./ProjectKeys";
 import { ProjectSummary } from "./ProjectSummary";
@@ -62,6 +64,7 @@ const tabIcons = {
   deployments: Rocket,
   events: Activity,
   docs: BookOpen,
+  details: Info,
   settings: Settings,
 } as const;
 
@@ -114,9 +117,13 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
   }, [load]);
 
   const loadActivity = useCallback((nodeId: string) => apiGet<NodeActivity>(`/v1/catalog/nodes/${nodeId}/activity`), []);
-  const onSettled = useCallback((kinds: ProcessKind[]) => {
-    if (kinds.includes("collect")) setDocsReload((n) => n + 1);
-  }, []);
+  const onSettled = useCallback(
+    (kinds: ProcessKind[]) => {
+      if (kinds.includes("collect")) setDocsReload((n) => n + 1);
+      if (kinds.includes("forge")) onChanged();
+    },
+    [onChanged],
+  );
   const { activity, refresh: refreshActivity } = useActivity(id, loadActivity, onSettled);
   const childrenBusy = useRef(false);
   const [heroLinks, setHeroLinks] = useState<ProjectLink[]>([]);
@@ -157,10 +164,15 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
     }
   }, [node, redirect, router, locale, branchParam]);
 
-  const changed = () => {
+  const version = useCatalogVersion();
+  const seen = useRef(version);
+  useEffect(() => {
+    if (seen.current === version) return;
+    seen.current = version;
     void load();
-    onChanged();
-  };
+  }, [version, load]);
+
+  const changed = onChanged;
 
   const t = labels;
   const rootCrumb = { label: t.root, href: catalogHref(locale, null), node: "root" };
@@ -384,52 +396,33 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
         </Panel>
       )}
       {project && readable && <ProjectSummary projectId={node.id} locale={locale} labels={t} />}
-      {readable && (
+      {project && readable && (
         <div className="grid items-start gap-4 md:grid-cols-2">
-          <Panel title={t.node.details}>
+          <NodeDetails node={node} locale={locale} labels={t} />
+          <Panel title={t.repo.title}>
             <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-2.5 text-sm">
-              <dt className="text-muted">{t.node.kind}</dt>
-              <dd className="text-ink">{t.kinds[node.kind]}</dd>
-              <dt className="text-muted">{t.node.slug}</dt>
-              <dd>
-                <code className="text-ink">{node.slug}</code>
+              <dt className="text-muted">{t.repo.forge}</dt>
+              <dd className="text-ink">{node.forge ? FORGE_NAMES[node.forge] : t.repo.noForge}</dd>
+              <dt className="text-muted">{t.repo.url}</dt>
+              <dd className="min-w-0">
+                {node.repo_url ? (
+                  <a
+                    href={node.repo_url}
+                    rel="noreferrer noopener"
+                    target="_blank"
+                    className="inline-flex max-w-full items-center gap-1.5 text-signal hover:underline"
+                  >
+                    <span className="truncate">{node.repo_url}</span>
+                    <ExternalLink aria-hidden="true" className="size-3.5 shrink-0" />
+                  </a>
+                ) : (
+                  t.node.none
+                )}
               </dd>
-              <dt className="text-muted">{t.node.created}</dt>
-              <dd className="text-ink" title={when(node.created_at, locale, "")}>
-                {ago(node.created_at, locale, t.node.none)}
-              </dd>
-              <dt className="text-muted">{t.node.updated}</dt>
-              <dd className="text-ink" title={when(node.updated_at, locale, "")}>
-                {ago(node.updated_at, locale, t.node.none)}
-              </dd>
+              <dt className="text-muted">{t.repo.branch}</dt>
+              <dd>{node.default_branch ? <code className="text-ink">{node.default_branch}</code> : t.node.none}</dd>
             </dl>
           </Panel>
-          {project && (
-            <Panel title={t.repo.title}>
-              <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-2.5 text-sm">
-                <dt className="text-muted">{t.repo.forge}</dt>
-                <dd className="text-ink">{node.forge ? FORGE_NAMES[node.forge] : t.repo.noForge}</dd>
-                <dt className="text-muted">{t.repo.url}</dt>
-                <dd className="min-w-0">
-                  {node.repo_url ? (
-                    <a
-                      href={node.repo_url}
-                      rel="noreferrer noopener"
-                      target="_blank"
-                      className="inline-flex max-w-full items-center gap-1.5 text-signal hover:underline"
-                    >
-                      <span className="truncate">{node.repo_url}</span>
-                      <ExternalLink aria-hidden="true" className="size-3.5 shrink-0" />
-                    </a>
-                  ) : (
-                    t.node.none
-                  )}
-                </dd>
-                <dt className="text-muted">{t.repo.branch}</dt>
-                <dd>{node.default_branch ? <code className="text-ink">{node.default_branch}</code> : t.node.none}</dd>
-              </dl>
-            </Panel>
-          )}
         </div>
       )}
       {project && node.repository && <RepositoryPanel node={node} repository={node.repository} locale={locale} labels={t} />}
@@ -509,6 +502,11 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
             })}
           </TabsList>
           <TabsContent value="overview">{overview}</TabsContent>
+          {tabs.includes("details") && (
+            <TabsContent value="details">
+              <NodeDetails node={node} locale={locale} labels={t} />
+            </TabsContent>
+          )}
           {project && (
             <>
               <TabsContent value="about">
@@ -558,14 +556,15 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
                     superadmin={superadmin}
                     onSaved={changed}
                     onDeleted={() => {
-                      onChanged();
                       router.push(catalogHref(locale, node.parent_id));
+                      onChanged();
                     }}
                   />
                 )}
                 {section === "branches" && <BranchesTab projectId={node.id} locale={locale} labels={t} canWrite={canWrite} />}
                 {section === "links" && <LinksTab node={node} branch={branch} locale={locale} labels={t} canWrite={canWrite} />}
                 {section === "docs" && <DocsSettingsTab node={node} locale={locale} labels={t} canWrite={canWrite} onChanged={refreshActivity} />}
+                {section === "scans" && <ProjectScans projectId={node.id} branch={branchParam} locale={locale} labels={t} />}
                 {section === "keys" && <ProjectKeys projectId={node.id} locale={locale} labels={t} />}
                 {section === "secrets" && <SecretsTable locale={locale} nodeId={node.id} canManage={can("catalog.access")} />}
                 {section === "access" && <AccessTab nodeId={node.id} labels={t} />}

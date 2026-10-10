@@ -3,6 +3,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 
 import { apiGet, type Tree } from "./api";
+import { onCatalogChange } from "./catalogEvents";
 
 type State = { tree: Tree | null; error: unknown; loading: boolean };
 
@@ -33,6 +34,8 @@ export function reloadCatalogTree(): void {
   pending = null;
   if (listeners.size > 0 || state.tree) void load();
 }
+
+onCatalogChange(reloadCatalogTree);
 
 function subscribe(listener: () => void) {
   listeners.add(listener);

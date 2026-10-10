@@ -25,3 +25,23 @@ func (a *Handlers) ListKnowledgeScans(c fiber.Ctx) error {
 	}
 	return c.Status(http.StatusOK).JSON(responses.PageOf(page, responses.ScanOf))
 }
+
+func (a *Handlers) ListProjectScans(c fiber.Ctx) error {
+	p, _, err := a.currentUser(c)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	id, err := parseID(c, "id")
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	var q requests.Scans
+	if err := bindQuery(c, &q, access.InvalidPagination, nil); err != nil {
+		return responses.Fail(c, err)
+	}
+	page, err := a.Knowledge.ListProjectScans(c.Context(), p, id, q.Filter(), q.Page.Query())
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	return c.Status(http.StatusOK).JSON(responses.PageOf(page, responses.ScanOf))
+}

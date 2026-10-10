@@ -87,3 +87,8 @@ export function seriesText(
     .replace("{from}", show(scan.started_at))
     .replace("{to}", show(scan.finished_at));
 }
+
+export function withScanAddress(base: string, address: string): string {
+  if (!address) return base;
+  return base + (base.includes("?") ? "&" : "?") + address;
+}

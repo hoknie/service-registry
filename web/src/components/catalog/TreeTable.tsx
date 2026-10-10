@@ -10,6 +10,7 @@ import { errorText } from "@/i18n/errors";
 import { format } from "@/i18n/format";
 import { BUSY_MS, IDLE_MS, busy, isSummary } from "@/lib/activity";
 import { apiGet, errorCode, type CatalogTable, type CatalogTableRow } from "@/lib/api";
+import { useCatalogVersion } from "@/lib/catalogEvents";
 import { cn } from "@/lib/cn";
 import {
   TREE_PAGE,
@@ -146,6 +147,24 @@ export function TreeTable({ rootId, locale, labels }: Props) {
     }, anyBusy ? BUSY_MS : IDLE_MS);
     return () => clearTimeout(timer);
   }, [anyBusy, byParent, filtered, loadFiltered, loadBranch]);
+
+  const version = useCatalogVersion();
+  const seenVersion = useRef(version);
+  const loaded = useRef(byParent);
+  loaded.current = byParent;
+  useEffect(() => {
+    if (seenVersion.current === version) return;
+    seenVersion.current = version;
+    if (filtered) {
+      void loadFiltered();
+      return;
+    }
+    const ids = new Set([root, ...requested.current]);
+    for (const id of ids) {
+      const b = loaded.current.get(id);
+      void loadBranch(id, 0, Math.min(200, Math.max(TREE_PAGE, b?.rows.length ?? 0)));
+    }
+  }, [version, filtered, loadFiltered, loadBranch, root]);
 
   useEffect(() => {
     const timer = setTimeout(() => {

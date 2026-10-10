@@ -83,6 +83,7 @@ func NewRouter(api *handlers.Handlers, dist webui.Dist) *fiber.App {
 	r.add("/api/v1/catalog/nodes/:id/knowledge/adrs", true, get(api.KnowledgeADRs))
 	r.add("/api/v1/catalog/nodes/:id/knowledge/source", true, get(api.GetKnowledgeSource), put(api.PutKnowledgeSource), del(api.DeleteKnowledgeSource))
 	r.add("/api/v1/catalog/nodes/:id/knowledge/source/check", true, post(api.CheckKnowledgeSource))
+	r.add("/api/v1/catalog/nodes/:id/knowledge/scans", true, get(api.ListProjectScans))
 	r.add("/api/v1/knowledge/search", true, get(api.SearchKnowledge))
 	r.add("/api/v1/knowledge/search/modes", true, get(api.KnowledgeSearchModes))
 	r.add("/api/v1/knowledge/scans", true, get(api.ListKnowledgeScans))

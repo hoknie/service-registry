@@ -79,3 +79,47 @@ func TestKnowledgeScansAPIIsForSuperadmins(t *testing.T) {
 	eq(t, strings.Contains(r.text(), `"items":[]`), true, r.text())
 	eq(t, a.get(scansPath, "").status, 401)
 }
+
+func projectScansPath(id string) string { return nodePath(id) + "/knowledge/scans" }
+
+func TestProjectScansAPIIsForProjectWriters(t *testing.T) {
+	t.Parallel()
+	a := startSources(t)
+	dir := filepath.Join(a.root, "docs")
+	writeFile(t, filepath.Join(dir, "README.md"), "# Docs")
+	a.useSource(a.project, "local_dir", dir)
+	other := a.nodeID(a.admin, "project", a.org, "other")
+	a.useSource(other, "local_dir", dir)
+	a.collect()
+
+	all := a.get(scansPath, a.admin)
+	eq(t, all.json(t)["total"], any(float64(2)), all.text())
+
+	a.user("carol@example.com", false)
+	a.grant(a.admin, a.project, "user", "carol@example.com", "editor")
+	carol := a.session("carol@example.com", password)
+	r := a.get(projectScansPath(a.project)+"?kind=collect&project="+other, carol)
+	eq(t, r.status, 200, r.text())
+	eq(t, r.json(t)["total"], any(float64(1)), "only this project, project parameter ignored")
+	eq(t, at(r.json(t), "items", 0, "project", "id"), any(a.project))
+	r = a.get(projectScansPath(a.project)+"?status=broken", carol)
+	eq(t, r.status, 400)
+	eq(t, code(t, r), any("validation.invalid_scan_filter"))
+	eq(t, a.get(projectScansPath(other), carol).status, 404, "invisible project")
+	eq(t, a.bearer("GET", projectScansPath(a.project), a.pat(carol, "read"), nil).status, 200)
+	r = a.bearer("GET", projectScansPath(a.project), a.pat(carol, "write"), nil)
+	eq(t, r.status, 403)
+	eq(t, code(t, r), any("auth.insufficient_scope"))
+
+	bob := bobSession(a.testApp)
+	a.grant(a.admin, a.project, "user", "bob@example.com", "viewer")
+	r = a.get(projectScansPath(a.project), bob)
+	eq(t, r.status, 403)
+	eq(t, code(t, r), any("auth.forbidden"))
+
+	r = a.get(projectScansPath(a.org), a.admin)
+	eq(t, r.status, 404)
+	eq(t, code(t, r), any("not_found"))
+	eq(t, a.get(projectScansPath(newID()), a.admin).status, 404)
+	eq(t, a.get(projectScansPath(a.project), "").status, 401)
+}

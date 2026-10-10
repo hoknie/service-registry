@@ -161,7 +161,7 @@ export type Branch = {
   head_sha: string | null;
   is_default: boolean;
   protected: boolean | null;
-  sources: ("forge" | "ingest" | "cluster" | "manual")[];
+  sources: ("forge" | "ingest" | "cluster" | "manual" | "repository")[];
   pinned: boolean;
   stale: boolean;
   first_seen_at: string;

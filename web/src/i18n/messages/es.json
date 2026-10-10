@@ -738,7 +738,8 @@
       "docs": "Documentación",
       "docsSettings": "Ajustes de documentación",
       "about": "Descripción",
-      "settings": "Ajustes"
+      "settings": "Ajustes",
+      "details": "Detalles"
     },
     "create": {
       "title": "Añadir",
@@ -1069,7 +1070,8 @@
         "forge": "forge",
         "ingest": "CI",
         "manual": "proyecto",
-        "cluster": "clúster"
+        "cluster": "clúster",
+        "repository": "fuente de documentación"
       },
       "badges": {
         "default": "Predeterminada",
@@ -1353,7 +1355,10 @@
       "add": "Añadir una descripción",
       "text": "Texto",
       "preview": "Vista previa",
-      "markdownHint": "Markdown: títulos, listas, enlaces, tablas, código. El HTML se muestra como texto."
+      "markdownHint": "Markdown: títulos, listas, enlaces, tablas, código. El HTML se muestra como texto.",
+      "fromReadme": "Descripción tomada del README:",
+      "onBranch": "rama {branch}",
+      "fromForge": "Descripción tomada del README del repositorio forge."
     },
     "settings": {
       "menu": "Secciones de ajustes",
@@ -1370,7 +1375,8 @@
         "access": "Acceso",
         "connect": "Envío de eventos",
         "forge": "Forge",
-        "secrets": "Secretos"
+        "secrets": "Secretos",
+        "scans": "Historial de escaneos"
       }
     },
     "linkIcons": {
@@ -1599,7 +1605,14 @@
           "hint": "Mira los detalles técnicos y el registro del servidor."
         }
       }
-    }
+    },
+    "refresh": {
+      "label": "Actualización automática",
+      "off": "desactivada",
+      "every": "{n} s",
+      "now": "Actualizar ahora"
+    },
+    "projectLead": "Ejecuciones de recopilación e indexación de la documentación de este proyecto: resultado, ramas, errores y qué hacer con ellos."
   },
   "secrets": {
     "title": "Secretos",
