@@ -2,10 +2,9 @@
 
 A registry of services: organizations and folders down to repositories, with their branches,
 deployments, Kubernetes state, links to observability tools and collected documentation — in one
-web UI (English, Spanish, Russian, Chinese) and one API.
+web UI and one API.
 
-One Go binary serves the JSON API under `/api` and the web UI (a static export of the Next.js app
-in `web/`) on a single origin, with no Node.js at runtime. Data lives in Postgres.
+The main target is make MCP server, that get data from local folder or remote repositories.
 
 ## What it does
 
