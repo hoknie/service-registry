@@ -3,7 +3,7 @@ set -euo pipefail
 GO="${GO:-go}"
 mod="svc-registry"
 
-"$GO" list -f '{{.ImportPath}} {{join .Imports " "}}' ./... | awk -v mod="$mod" '
+"$GO" list -f '{{.ImportPath}} {{join .Imports " "}} {{join .TestImports " "}} {{join .XTestImports " "}}' ./... | awk -v mod="$mod" '
 function feature(p,   rest, n, parts) {
   if (index(p, mod "/internal/feature/") != 1) return ""
   rest = substr(p, length(mod "/internal/feature/") + 1)
@@ -16,10 +16,11 @@ function layer(p,   rest, cut) {
   cut = index(rest, "/")
   if (cut == 0) return "domain"
   rest = substr(rest, cut + 1)
-  if (rest == "service" || rest == "internal/repository") return rest
+  if (rest == "service" || rest == "repository") return rest
   return "adapter"
 }
 function adapter(p) { return layer(p) == "adapter" }
+function httpPart(p) { return under(p, "internal/presentation/http/handlers") || under(p, "internal/presentation/http/requests") || under(p, "internal/presentation/http/responses") || under(p, "internal/presentation/http/middleware") || under(p, "internal/presentation/http/mcp") }
 function under(p, prefix) { return p == mod "/" prefix || index(p, mod "/" prefix "/") == 1 }
 BEGIN {
   split("access: catalog:access ingest:catalog,access links:catalog,access forge:catalog,access deploy:ingest,forge,catalog,access knowledge:forge,catalog,access", rows, " ")
@@ -50,13 +51,15 @@ function fail(rule, from, to) { print "layout: " rule ": " from " -> " to; bad =
         if (adapter(imp)) fail("features must not import adapters of other features", pkg, imp)
       }
       if (g == f && !adapter(pkg) && adapter(imp)) fail("a feature must not import its own adapters (app wires them)", pkg, imp)
-      if (g == f && layer(pkg) == "domain" && (layer(imp) == "service" || layer(imp) == "internal/repository"))
+      if (g == f && layer(pkg) == "domain" && (layer(imp) == "service" || layer(imp) == "repository"))
         fail("the domain of a feature must not import its service or repositories", pkg, imp)
-      if (g == f && layer(pkg) == "internal/repository" && layer(imp) == "service")
+      if (g == f && layer(pkg) == "repository" && layer(imp) == "service")
         fail("repositories must not import the service", pkg, imp)
-      if (g != "" && g != f && layer(imp) == "internal/repository")
-        fail("repositories stay inside their feature", pkg, imp)
     }
+    if (layer(imp) == "repository" && !(feature(pkg) == feature(imp) && (layer(pkg) == "service" || layer(pkg) == "repository")))
+      fail("a repository is used only by the service of its feature", pkg, imp)
+    if (httpPart(imp) && !under(pkg, "internal/presentation/http"))
+      fail("handlers, requests, responses, middleware and mcp are for the HTTP layer only", pkg, imp)
     if (under(pkg, "internal/presentation") && !under(pkg, "internal/presentation/console") && under(imp, "internal/app"))
       fail("only the console may import app", pkg, imp)
     if (under(pkg, "internal/presentation") && adapter(imp))

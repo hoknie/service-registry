@@ -17,7 +17,6 @@ import (
 	"svc-registry/internal/platform/auth"
 	"svc-registry/internal/platform/config"
 	"svc-registry/internal/platform/postgres"
-	"svc-registry/internal/presentation/http/responses"
 )
 
 func userCreateCmd() *cobra.Command {
@@ -76,8 +75,8 @@ func userCreate(cmd *cobra.Command, in access.CreateUser) error {
 	accounts := accessservice.New(accessservice.Deps{DB: postgres.New(pool), Hasher: auth.NewPasswordHasher(cfg.Hash)})
 	user, err := accounts.InsertUser(context.Background(), in)
 	if err != nil {
-		api := responses.FromApp(apperr.From(err))
-		return fmt.Errorf("cannot create user: %s (%s)", api.Code, api.Message)
+		code, message := apperr.From(err).Public()
+		return fmt.Errorf("cannot create user: %s (%s)", code, message)
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "created user %s %s\n", user.ID, user.Email)
 	return nil

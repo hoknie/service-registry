@@ -17,8 +17,6 @@ import (
 
 const MCPBodyLimit = 1 << 20
 
-var MCPVersion = "dev"
-
 func (a *Handlers) MCP(c fiber.Ctx) error {
 	if !sameHostOrigin(c) {
 		return responses.NewAPIError(http.StatusForbidden, "auth.csrf_rejected", "cross-origin MCP request rejected").Send(c)
@@ -48,7 +46,7 @@ func (a *Handlers) MCP(c fiber.Ctx) error {
 	if refusal := mcpPrecheck(c.Body()); refusal != nil {
 		return c.Status(http.StatusOK).JSON(refusal)
 	}
-	a.mcpOnce.Do(func() { a.mcpHandler = adaptor.HTTPHandlerWithContext(mcp.Handler(a.mcpDeps(), MCPVersion)) })
+	a.mcpOnce.Do(func() { a.mcpHandler = adaptor.HTTPHandlerWithContext(mcp.Handler(a.mcpDeps(), a.Version)) })
 	c.SetContext(mcp.WithPrincipal(c.Context(), p))
 	return a.mcpHandler(c)
 }

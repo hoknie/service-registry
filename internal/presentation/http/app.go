@@ -13,7 +13,7 @@ import (
 
 const BodyLimit = 2 << 20
 
-func NewApp(api *handlers.Handlers) *fiber.App {
+func newApp(api *handlers.Handlers) *fiber.App {
 	return fiber.New(fiber.Config{
 		StrictRouting:             true,
 		CaseSensitive:             true,

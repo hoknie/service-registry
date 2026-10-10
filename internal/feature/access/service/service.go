@@ -2,7 +2,7 @@ package service
 
 import (
 	"svc-registry/internal/feature/access"
-	"svc-registry/internal/feature/access/internal/repository"
+	"svc-registry/internal/feature/access/repository"
 	"svc-registry/internal/platform/auth"
 	"svc-registry/internal/platform/config"
 	"svc-registry/internal/platform/postgres"

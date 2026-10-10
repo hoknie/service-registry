@@ -8,7 +8,7 @@ import (
 	"svc-registry/internal/feature/catalog"
 	catalogservice "svc-registry/internal/feature/catalog/service"
 	"svc-registry/internal/feature/forge"
-	"svc-registry/internal/feature/forge/internal/repository"
+	"svc-registry/internal/feature/forge/repository"
 	"svc-registry/internal/platform/config"
 	"svc-registry/internal/platform/postgres"
 	"svc-registry/pkg/secretbox"

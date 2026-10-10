@@ -87,3 +87,41 @@ func TestOldLayoutPackagesAreGone(t *testing.T) {
 		}
 	}
 }
+
+var httpParts = []string{"handlers", "requests", "responses", "middleware", "mcp"}
+
+func TestLayerPackagesStayWithTheirOwners(t *testing.T) {
+	t.Parallel()
+	root := filepath.Join("..")
+	fset := token.NewFileSet()
+	for _, top := range []string{"cmd", "internal", "tests"} {
+		err := filepath.WalkDir(filepath.Join(root, top), func(path string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") {
+				return err
+			}
+			rel, _ := filepath.Rel(root, path)
+			dir := filepath.ToSlash(filepath.Dir(rel))
+			f, err := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
+			if err != nil {
+				return err
+			}
+			for _, imp := range f.Imports {
+				target := strings.TrimPrefix(strings.Trim(imp.Path.Value, `"`), "svc-registry/")
+				if feature, ok := strings.CutSuffix(target, "/repository"); ok && strings.HasPrefix(feature, "internal/feature/") {
+					if dir != feature+"/service" && dir != feature+"/repository" {
+						t.Errorf("%s imports %s — a repository is used only by the service of its feature", rel, target)
+					}
+				}
+				for _, part := range httpParts {
+					if target == "internal/presentation/http/"+part && !strings.HasPrefix(dir, "internal/presentation/http") {
+						t.Errorf("%s imports %s — it is for the HTTP layer only", rel, target)
+					}
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}

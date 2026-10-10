@@ -2,7 +2,7 @@ package service
 
 import (
 	"svc-registry/internal/feature/catalog"
-	"svc-registry/internal/feature/catalog/internal/repository"
+	"svc-registry/internal/feature/catalog/repository"
 	"svc-registry/internal/platform/config"
 	"svc-registry/internal/platform/postgres"
 	"svc-registry/pkg/secretbox"

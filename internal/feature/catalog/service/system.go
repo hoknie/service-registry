@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"svc-registry/internal/feature/catalog"
-	"svc-registry/internal/feature/catalog/internal/repository"
+	"svc-registry/internal/feature/catalog/repository"
 )
 
 func (s *Service) FindNode(ctx context.Context, id uuid.UUID) (*catalog.Node, error) {

@@ -8,7 +8,7 @@ import (
 	"svc-registry/internal/feature/catalog"
 	catalogservice "svc-registry/internal/feature/catalog/service"
 	"svc-registry/internal/feature/deploy"
-	"svc-registry/internal/feature/deploy/internal/repository"
+	"svc-registry/internal/feature/deploy/repository"
 	ingestservice "svc-registry/internal/feature/ingest/service"
 	"svc-registry/internal/platform/config"
 	"svc-registry/internal/platform/postgres"

@@ -3,7 +3,7 @@ package service
 import (
 	catalogservice "svc-registry/internal/feature/catalog/service"
 	"svc-registry/internal/feature/links"
-	"svc-registry/internal/feature/links/internal/repository"
+	"svc-registry/internal/feature/links/repository"
 	"svc-registry/internal/platform/config"
 	"svc-registry/internal/platform/postgres"
 )

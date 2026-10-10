@@ -13,7 +13,6 @@ import (
 	forgeservice "svc-registry/internal/feature/forge/service"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/presentation/http/responses"
 )
 
 func forgeSyncCmd() *cobra.Command {
@@ -47,11 +46,11 @@ func forgeSync(cmd *cobra.Command, id uuid.UUID) error {
 	case errors.Is(err, forgeservice.ErrSyncBusy):
 		return err
 	case err != nil:
-		api := responses.FromApp(apperr.From(err))
-		if api.Code == "not_found" {
+		code, message := apperr.From(err).Public()
+		if code == "not_found" {
 			return fmt.Errorf("no forge connection %s", id)
 		}
-		return fmt.Errorf("sync failed: %s (%s)", api.Code, api.Message)
+		return fmt.Errorf("sync failed: %s (%s)", code, message)
 	}
 	c := run.Counts
 	fmt.Fprintf(cmd.OutOrStdout(), "%s created=%d updated=%d orphaned=%d skipped=%d\n",

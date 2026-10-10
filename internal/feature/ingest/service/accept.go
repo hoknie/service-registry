@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"svc-registry/internal/feature/ingest"
-	"svc-registry/internal/feature/ingest/internal/repository"
+	"svc-registry/internal/feature/ingest/repository"
 	"svc-registry/internal/platform/apperr"
 )
 

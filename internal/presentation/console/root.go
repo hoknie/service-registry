@@ -9,12 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"svc-registry/internal/app"
-	"svc-registry/internal/presentation/http/handlers"
 )
-
-const Version = "0.1.0"
-
-func init() { handlers.MCPVersion = Version }
 
 type IO struct {
 	Stdin          io.Reader
@@ -43,7 +38,7 @@ func newRoot(stdio IO) *cobra.Command {
 		Short: "Service registry: JSON API under /api + the web UI served from files",
 		Long: "svc-registry — service registry: JSON API under /api + the web UI served from files.\n\n" +
 			"Configuration comes from environment variables; see .env.example.",
-		Version:       Version,
+		Version:       app.Version,
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}

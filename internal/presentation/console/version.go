@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"svc-registry/internal/app"
 )
 
 func versionCmd() *cobra.Command {
@@ -12,7 +14,7 @@ func versionCmd() *cobra.Command {
 		Short: "Print the version",
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, _ []string) {
-			fmt.Fprintf(cmd.OutOrStdout(), "svc-registry %s\n", Version)
+			fmt.Fprintf(cmd.OutOrStdout(), "svc-registry %s\n", app.Version)
 		},
 	}
 }

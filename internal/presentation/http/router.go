@@ -10,8 +10,9 @@ import (
 	"svc-registry/internal/presentation/http/webui"
 )
 
-func NewRouter(api *handlers.Handlers, dist webui.Dist) *fiber.App {
-	app := NewApp(api)
+func NewRouter(d Deps, dist webui.Dist) *fiber.App {
+	api := d.handlers()
+	app := newApp(api)
 	app.Use(middleware.RequestLog())
 	r := routes{app: app}
 
