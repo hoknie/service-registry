@@ -59,6 +59,3 @@ More in [docs/development.md](docs/development.md).
 
 - [docs/](docs/README.md) — guides for every feature and for development.
 - [`.env.example`](.env.example) — every environment variable with its default.
-- `ARCHITECTURE.md` — code layout and rules (Russian).
-- `openspec/specs/` — behavior specs; `openspec/decisions/` — architecture decision records.
-- `CLAUDE.md` — a concise guide for AI coding agents.
