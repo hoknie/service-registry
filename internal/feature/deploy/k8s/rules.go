@@ -3,13 +3,28 @@ package k8s
 import (
 	"context"
 
-	authv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
+
+var accessReviews = schema.GroupVersionResource{Group: "authorization.k8s.io", Version: "v1", Resource: "selfsubjectaccessreviews"}
 
 var needed = []struct{ group, resource string }{
 	{"apps", "deployments"}, {"apps", "statefulsets"}, {"apps", "daemonsets"}, {"apps", "replicasets"},
 	{"batch", "cronjobs"}, {"batch", "jobs"}, {"", "pods"},
+}
+
+func (c *Client) allowed(ctx context.Context, namespace, group, resource string) (bool, error) {
+	review := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "authorization.k8s.io/v1", "kind": "SelfSubjectAccessReview",
+		"spec": map[string]any{"resourceAttributes": map[string]any{"namespace": namespace, "verb": "list", "group": group, "resource": resource}},
+	}}
+	r, err := c.dyn.Resource(accessReviews).Create(ctx, review, metav1.CreateOptions{})
+	if err != nil {
+		return false, failure(err)
+	}
+	return flag(r.Object, "status", "allowed"), nil
 }
 
 func (c *Client) Missing(ctx context.Context, namespaces []string) ([]string, error) {
@@ -17,14 +32,11 @@ func (c *Client) Missing(ctx context.Context, namespaces []string) ([]string, er
 	for _, n := range needed {
 		allowed := false
 		for _, ns := range scopes(namespaces) {
-			review := &authv1.SelfSubjectAccessReview{Spec: authv1.SelfSubjectAccessReviewSpec{
-				ResourceAttributes: &authv1.ResourceAttributes{Namespace: ns, Verb: "list", Group: n.group, Resource: n.resource},
-			}}
-			r, err := c.cs.AuthorizationV1().SelfSubjectAccessReviews().Create(ctx, review, metav1.CreateOptions{})
+			ok, err := c.allowed(ctx, ns, n.group, n.resource)
 			if err != nil {
-				return nil, failure(err)
+				return nil, err
 			}
-			if r.Status.Allowed {
+			if ok {
 				allowed = true
 				break
 			}

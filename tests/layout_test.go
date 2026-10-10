@@ -1,11 +1,13 @@
 package tests
 
 import (
+	"encoding/json"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -123,5 +125,52 @@ func TestLayerPackagesStayWithTheirOwners(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+var heavyPackages = []string{"k8s.io/api/", "github.com/openai/openai-go"}
+
+func TestBinaryLeavesOutHeavyPackages(t *testing.T) {
+	t.Parallel()
+	goTool, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip("go is not on PATH")
+	}
+	out, err := exec.Command(goTool, "list", "-deps", "-json=ImportPath,Imports", "svc-registry/cmd/svc-registry").Output()
+	if err != nil {
+		t.Fatalf("go list: %v", err)
+	}
+	importers := map[string]string{}
+	found := map[string][]string{}
+	dec := json.NewDecoder(strings.NewReader(string(out)))
+	for dec.More() {
+		var p struct {
+			ImportPath string
+			Imports    []string
+		}
+		if err := dec.Decode(&p); err != nil {
+			t.Fatal(err)
+		}
+		for _, imp := range p.Imports {
+			if _, ok := importers[imp]; !ok {
+				importers[imp] = p.ImportPath
+			}
+		}
+		for _, heavy := range heavyPackages {
+			if strings.HasPrefix(p.ImportPath, heavy) {
+				found[heavy] = append(found[heavy], p.ImportPath)
+			}
+		}
+	}
+	for _, heavy := range heavyPackages {
+		pkgs := found[heavy]
+		if len(pkgs) == 0 {
+			continue
+		}
+		chain := []string{pkgs[len(pkgs)-1]}
+		for at := chain[0]; importers[at] != "" && len(chain) < 20; at = importers[at] {
+			chain = append(chain, importers[at])
+		}
+		t.Errorf("the binary links %d packages of %s (ADR-0064), e.g. %s", len(pkgs), heavy, strings.Join(chain, " <- "))
 	}
 }
