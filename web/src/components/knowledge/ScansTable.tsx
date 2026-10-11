@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, CheckCircle2, ChevronDown, CircleMinus, ScanSearch, TriangleAlert, XCircle } from "lucide-react";
+import { BookOpen, CheckCircle2, ChevronDown, CircleMinus, EyeOff, FileText, GitBranch, Layers, ScanSearch, TriangleAlert, XCircle, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useState } from "react";
@@ -183,7 +183,7 @@ export function ScansTable({ locale, labels: t, url, hrefOf, projects }: Props) 
                   <Th numeric className="hidden @lg:table-cell">
                     {t.columns.duration}
                   </Th>
-                  <Th className="hidden @5xl:table-cell">{t.columns.summary}</Th>
+                  <Th className="hidden @3xl:table-cell">{t.columns.summary}</Th>
                 </tr>
               </thead>
               <tbody>
@@ -252,16 +252,8 @@ export function ScansTable({ locale, labels: t, url, hrefOf, projects }: Props) 
                         <Td numeric className="hidden @lg:table-cell">
                           {s.duration_ms === null ? "—" : formatDuration(s.duration_ms, locale)}
                         </Td>
-                        <Td className="hidden text-sm text-ink-2 @5xl:table-cell">
-                          {s.kind === "collect"
-                            ? format(t.summary.collect, {
-                                branches: totals.branches,
-                                files: totals.files,
-                              }) + (totals.skipped ? ` · ${format(t.summary.skipped, { skipped: totals.skipped })}` : "")
-                            : format(t.summary.index, {
-                                chunks: s.index?.embedded_chunks ?? 0,
-                                documents: s.index?.documents ?? 0,
-                              })}
+                        <Td className="hidden @3xl:table-cell">
+                          <ScanSummary scan={s} totals={totals} labels={t} />
                         </Td>
                       </Tr>
                       {expanded && (
@@ -288,6 +280,36 @@ export function ScansTable({ locale, labels: t, url, hrefOf, projects }: Props) 
         </>
       )}
     </div>
+  );
+}
+
+function ScanSummary({ scan, totals, labels: t }: { scan: Scan; totals: ReturnType<typeof scanTotals>; labels: Labels }) {
+  const metrics: { icon: LucideIcon; value: number; muted?: boolean }[] =
+    scan.kind === "collect"
+      ? [
+          { icon: GitBranch, value: totals.branches },
+          { icon: FileText, value: totals.files },
+          ...(totals.skipped ? [{ icon: EyeOff, value: totals.skipped, muted: true }] : []),
+        ]
+      : [
+          { icon: Layers, value: scan.index?.embedded_chunks ?? 0 },
+          { icon: FileText, value: scan.index?.documents ?? 0 },
+        ];
+  const text =
+    scan.kind === "collect"
+      ? format(t.summary.collect, { branches: totals.branches, files: totals.files }) +
+        (totals.skipped ? ` · ${format(t.summary.skipped, { skipped: totals.skipped })}` : "")
+      : format(t.summary.index, { chunks: scan.index?.embedded_chunks ?? 0, documents: scan.index?.documents ?? 0 });
+  return (
+    <span title={text} className="inline-flex items-center gap-3 font-mono text-xs whitespace-nowrap tabular-nums text-ink-2">
+      <span className="sr-only">{text}</span>
+      {metrics.map((m, i) => (
+        <span key={i} aria-hidden="true" className={cn("inline-flex items-center gap-1", m.muted && "text-muted")}>
+          <m.icon className="size-3.5 shrink-0 text-muted" />
+          {m.value}
+        </span>
+      ))}
+    </span>
   );
 }
 
