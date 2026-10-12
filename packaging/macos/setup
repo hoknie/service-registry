@@ -1,0 +1,90 @@
+#!/bin/sh
+# Sets svc-registry up for one macOS user: the first settings in ~/.config/svc-registry (or
+# $XDG_CONFIG_HOME/svc-registry) with the first superadmin's password, the data folder in
+# ~/Library/Application Support/svc-registry and a LaunchAgent that runs the service at login
+# (db:migrate, then serve). The installer runs it for the user signed in; any user may run it:
+#   /usr/local/libexec/svc-registry/setup
+# As root:  /usr/local/libexec/svc-registry/setup <user>
+
+set -eu
+
+LABEL="io.github.hoknie.svc-registry"
+PREFIX="${SVC_REGISTRY_PREFIX:-/usr/local}"
+LIBEXEC="$PREFIX/libexec/svc-registry"
+SHARE="$PREFIX/share/svc-registry"
+
+if [ "$(id -u)" -eq 0 ]; then
+    user="${1:-}"
+    [ -n "$user" ] || { echo "setup: as root, name the user: setup <user>" >&2; exit 2; }
+    home="$(dscl . -read "/Users/$user" NFSHomeDirectory | awk '{ print $2 }')"
+    uid="$(id -u "$user")"
+    launchctl bootout "gui/$uid/$LABEL" 2>/dev/null || true
+    sudo -u "$user" -H env SVC_REGISTRY_SETUP_NO_START=1 "$0"
+    launchctl bootstrap "gui/$uid" "$home/Library/LaunchAgents/$LABEL.plist"
+    exit 0
+fi
+
+user="$(id -un)"
+uid="$(id -u)"
+case "${XDG_CONFIG_HOME:-}" in
+/*) configuration_home="$XDG_CONFIG_HOME" ;;
+*) configuration_home="$HOME/.config" ;;
+esac
+folder="$configuration_home/svc-registry"
+data="$HOME/Library/Application Support/svc-registry"
+agents="$HOME/Library/LaunchAgents"
+logs="$HOME/Library/Logs"
+plist="$agents/$LABEL.plist"
+
+mkdir -p "$folder" "$data/uploads" "$agents" "$logs"
+chmod 700 "$folder" "$data"
+"$LIBEXEC/provision" "$folder/svc-registry.env" "$SHARE/svc-registry.env.example" "$SHARE/web" \
+    "$data/uploads" "$user:$(id -gn)" "$folder/initial-password"
+
+cat > "$plist.new" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>$LABEL</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$LIBEXEC/launch</string>
+    <string>$folder/svc-registry.env</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>$data</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+  <key>StandardOutPath</key>
+  <string>$logs/svc-registry.log</string>
+  <key>StandardErrorPath</key>
+  <string>$logs/svc-registry.log</string>
+</dict>
+</plist>
+PLIST
+plutil -lint "$plist.new" >/dev/null
+mv "$plist.new" "$plist"
+
+if [ -z "${SVC_REGISTRY_SETUP_NO_START:-}" ]; then
+    launchctl bootout "gui/$uid/$LABEL" 2>/dev/null || true
+    launchctl bootstrap "gui/$uid" "$plist"
+fi
+
+cat <<MESSAGE
+svc-registry runs for $user at login.
+  Configure   $folder/svc-registry.env: set DATABASE_URL (Postgres 15+), then
+              launchctl kickstart -k gui/$uid/$LABEL
+  Open        http://127.0.0.1:8080
+  Sign in     admin@example.com, password in $folder/initial-password
+  Data        $data
+  Log         $logs/svc-registry.log
+MESSAGE

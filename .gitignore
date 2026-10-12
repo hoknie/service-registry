@@ -1,10 +1,15 @@
 /bin
 /data
+/dist
 .env
 .DS_Store
 .idea
 *.log
 .*
+!/.github/
+!.gitignore
+!.env.example
+!/env/Dockerfile.dockerignore
 # web (Next.js)
 /web/node_modules
 /web/.next

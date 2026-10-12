@@ -5,11 +5,14 @@ import (
 	"go/token"
 	"io/fs"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
 
 var commentDirectives = []string{"//go:", "//line ", "// Code generated "}
+
+var nosecDirective = regexp.MustCompile(`^// #nosec G\d+(,G\d+)* -- \S`)
 
 func isDirective(text string) bool {
 	for _, p := range commentDirectives {
@@ -17,7 +20,7 @@ func isDirective(text string) bool {
 			return true
 		}
 	}
-	return false
+	return nosecDirective.MatchString(text)
 }
 
 func TestNoCommentsInGoCode(t *testing.T) {
@@ -55,4 +58,22 @@ func firstLine(s string) string {
 		s = s[:60] + "…"
 	}
 	return s
+}
+
+func TestNosecDirectiveNeedsRuleAndReason(t *testing.T) {
+	t.Parallel()
+	for text, want := range map[string]bool{
+		"// #nosec G304 -- the path comes from the operator's configuration": true,
+		"// #nosec G401,G505 -- git object ids are SHA-1":                    true,
+		"// #nosec G304":                     false,
+		"// #nosec -- no rule":               false,
+		"// #nosec G304 --":                  false,
+		"// nosec G304 -- not the directive": false,
+		"//go:embed migrations":              true,
+		"// a plain comment":                 false,
+	} {
+		if got := isDirective(text); got != want {
+			t.Errorf("isDirective(%q) = %v, want %v", text, got, want)
+		}
+	}
 }

@@ -1,0 +1,19 @@
+# Build context = repository root (env/Dockerfile). The web stage needs web/ sources only; the Go
+# stage copies go.mod, go.sum, cmd/, internal/, pkg/ and migrations/ explicitly.
+bin
+data
+dist
+.git
+.github
+.idea
+.env
+env
+tests
+scripts
+packaging
+openspec
+web/node_modules
+web/.next
+web/out
+web/tsconfig.tsbuildinfo
+web/next-env.d.ts

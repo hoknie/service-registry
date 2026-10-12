@@ -19,6 +19,7 @@ const OAuthCookie = "registry_oauth"
 const oauthCookiePath = "/api/v1/auth/oauth"
 
 func setOAuthCookie(c fiber.Ctx, value string, maxAgeSecs int, secure bool) {
+	// #nosec G124 -- Secure follows SESSION_COOKIE_SECURE, off only for plain-HTTP development
 	cookie := http.Cookie{Name: OAuthCookie, Value: value, Path: oauthCookiePath, HttpOnly: true, Secure: secure,
 		SameSite: http.SameSiteLaxMode, MaxAge: maxAgeSecs}
 	if maxAgeSecs == 0 {

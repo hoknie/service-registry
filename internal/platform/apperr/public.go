@@ -1,6 +1,6 @@
 package apperr
 
-var fixedCodes = map[Kind]string{
+var fixedCodes = map[Kind]string{ // #nosec G101 -- stable error codes, not credentials
 	Unauthenticated:         "auth.unauthenticated",
 	InvalidCredentials:      "auth.invalid_credentials",
 	Forbidden:               "auth.forbidden",

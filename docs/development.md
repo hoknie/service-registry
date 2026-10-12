@@ -37,8 +37,28 @@ printf '%s\n' 'a long password' | go run ./cmd/svc-registry user:create --email 
 
 **The whole stack in containers:** `just docker-up` (one image: the binary plus the web export).
 
-**Uploaded files** (link icons) go to `UPLOADS_DIR` — `data/uploads` in the repository when you run
+**Uploaded files** (link icons) go to `UPLOADS_DIR` — `env/uploads` in the repository when you run
 `just dev` (ignored by git), a volume at `/data/uploads` in Docker; `UPLOADS_DIR=off` turns uploads off.
+Files uploaded before the move to `env/` lie in `data/uploads`: `mv data/uploads/* env/uploads/`, or
+keep `UPLOADS_DIR=data/uploads` in `.env`.
+
+## The local environment: `env/`
+
+Everything only the local environment needs lives in `env/`:
+
+| Path | What |
+|---|---|
+| `env/justice/*.just` | the recipes, by group; the root `justfile` only imports them |
+| `env/compose.yml` | the dev and test containers (project `svc-registry`) |
+| `env/Dockerfile` (+ `env/Dockerfile.dockerignore`) | the one image; the build context is the repository root |
+| `env/scripts/` | `dev.sh`, `dev-check.sh`, `web-watch.sh`, `new-migration.sh`, `reset-test-db.sql` |
+| `env/uploads/`, `env/docsroot/` | local data, ignored by git (`docsroot` — a place for `KNOWLEDGE_LOCAL_ROOTS` sources) |
+
+`just` exports `COMPOSE_FILE=env/compose.yml`, so `docker compose …` inside recipes needs no `-f`.
+Outside `just` run `docker compose -f env/compose.yml …` (or export `COMPOSE_FILE` yourself); the
+project name stays `svc-registry`, so containers and volumes started before the move are reused.
+The image builds with `docker build -f env/Dockerfile .` and needs BuildKit (Docker 23+), which
+reads `env/Dockerfile.dockerignore`.
 
 ## Database
 
@@ -65,6 +85,7 @@ Ports: `QDRANT_PORT` (gRPC, 6334), `QDRANT_HTTP_PORT` (6333, dashboard), `MEILIS
 
 ## Where code lives
 
+- `env/` — the local environment (see above); `packaging/` — packages, CHANGELOG and release scripts.
 - `internal/feature/<feature>/` — the domain of a feature (entities, rules, errors, ports);
   `service/` — its `Service` with the use-cases; `internal/repository/` — its SQL (Go's `internal/`
   keeps it inside the feature); other subfolders — clients of external systems.
@@ -77,15 +98,59 @@ Features import each other only along the graph in `ARCHITECTURE.md` §2; `just 
 
 ## Quality gates
 
-The same commands run in CI:
+The same commands run in CI on every push to `main` and every pull request
+(`.github/workflows/ci.yml`):
 
 ```sh
 just lint        # gofmt + go vet + staticcheck + package layout check
 just test        # go test -race ./... with a throwaway Postgres (:5434), Qdrant and Meilisearch
 just web-check   # web: lint, typecheck, locale keys and contrast tests, static export build + check
+just vuln        # govulncheck: known vulnerabilities reachable from the code, and in Go itself
+just sast        # gosec; an exception is `#nosec G<n> -- <reason>` on the line
+just web-audit   # pnpm audit of the web's production dependencies, high and above
+just ci-lint     # actionlint (workflows), shellcheck (scripts), hadolint (env/Dockerfile)
+just security    # vuln + sast + web-audit + ci-lint
 ```
 
+CI also runs CodeQL (Go and TypeScript, `.github/workflows/codeql.yml`), gitleaks over the history,
+dependency review on pull requests, and builds the Linux amd64 archive, deb and rpm and checks them
+(`package-check`). Dependabot proposes updates of Go modules, npm, Actions and base images weekly.
+
 One Go test: `go test ./tests -run TestName`.
+
+## Packages
+
+```sh
+just web-dist              # the export with .gz siblings, as the packages and the image ship it
+just package               # static Linux binaries (amd64, arm64) and their archives in dist/release
+just package-deb           # the deb (in debian:12), TARGET=amd64|arm64
+just package-rpm           # the rpm (in almalinux:9), TARGET=amd64|arm64
+just package-check deb     # install it on a clean system next to Postgres, sign in, reinstall, remove
+just package-check rpm
+just package-macos         # macOS only: universal binary, archive, .pkg, checked
+```
+
+Everything but `package-macos` needs only Go and Docker. What the packages install: [install.md](install.md).
+
+## Releasing
+
+The version lives in `internal/app/version.go`; a release is a tag `vX.Y.Z` (or `vX.Y.Z-rc.N`)
+naming exactly that version. Subjects follow [Conventional Commits](https://www.conventionalcommits.org)
+(`feat:`, `fix:`, `docs:`, `refactor:`, `perf:`, `build:`, `ci:`, `test:`, `type!:` for breaking).
+
+```sh
+just next-version          # what the next version would be (auto | patch | minor | major)
+just release               # bump internal/app/version.go and write its CHANGELOG.md section
+git commit -am "chore(release): v$(just version)"
+git tag "v$(just version)" && git push origin main "v$(just version)"
+```
+
+`just changelog` rebuilds `CHANGELOG.md` from the whole history. The tag starts
+`.github/workflows/release.yml`: the gates, the packages for Linux (amd64, arm64) and macOS, the
+deb and rpm checks, the image `ghcr.io/hoknie/service-registry` (`linux/amd64`, `linux/arm64`) and
+the GitHub Release with `SHA256SUMS` and the version's CHANGELOG section. A tag with a suffix is a
+pre-release and does not move `latest`. After the first release make the GHCR package public once
+(GitHub → Packages → service-registry → Package settings).
 
 ## Where to read more
 

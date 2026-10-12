@@ -113,7 +113,7 @@ func respond(root, path string, w want) (*found, bool) {
 func notFoundPage(root, locale string) []byte {
 	for _, p := range []string{filepath.Join(root, locale, ExportMarker), filepath.Join(root, ExportMarker)} {
 		if resolved, ok := inside(root, p); ok {
-			if body, err := os.ReadFile(resolved); err == nil {
+			if body, err := os.ReadFile(resolved); err == nil { // #nosec G304 -- resolved is checked to lie inside the export root
 				return body
 			}
 		}

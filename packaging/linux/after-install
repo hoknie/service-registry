@@ -1,0 +1,44 @@
+#!/bin/sh
+# Run by the deb and the rpm after their files are in place.
+#   after-install first|upgrade
+
+set -eu
+
+if command -v systemd-sysusers >/dev/null 2>&1; then
+    systemd-sysusers /usr/lib/sysusers.d/svc-registry.conf
+elif ! getent passwd svc-registry >/dev/null; then
+    useradd --system --user-group --home-dir /var/lib/svc-registry --no-create-home \
+        --shell /usr/sbin/nologin svc-registry
+fi
+
+if command -v systemd-tmpfiles >/dev/null 2>&1; then
+    systemd-tmpfiles --create /usr/lib/tmpfiles.d/svc-registry.conf
+else
+    install -d -m 0750 -o root -g svc-registry /etc/svc-registry
+    install -d -m 0750 -o svc-registry -g svc-registry /var/lib/svc-registry /var/lib/svc-registry/uploads
+fi
+
+/usr/lib/svc-registry/provision /etc/svc-registry/svc-registry.env \
+    /usr/share/svc-registry/svc-registry.env.example /usr/share/svc-registry/web \
+    /var/lib/svc-registry/uploads root:svc-registry /etc/svc-registry/initial-password
+
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload
+    if [ "${1:-first}" = first ]; then
+        systemctl enable svc-registry.service
+        systemctl start svc-registry.service || true
+    else
+        systemctl try-restart svc-registry.service
+    fi
+fi
+
+cat <<'MESSAGE'
+
+svc-registry is installed as the service svc-registry.
+  Configure   /etc/svc-registry/svc-registry.env: set DATABASE_URL (Postgres 15+),
+              then systemctl restart svc-registry
+  Open        http://127.0.0.1:8080 (HTTP_ADDR; put a reverse proxy with TLS in front)
+  Sign in     admin@example.com, password in /etc/svc-registry/initial-password;
+              remove BOOTSTRAP_ADMIN_* from svc-registry.env after the first sign-in
+  Data        /var/lib/svc-registry; docs in /usr/share/doc/svc-registry
+MESSAGE

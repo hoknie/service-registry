@@ -26,6 +26,11 @@ The main target is make MCP server, that get data from local folder or remote re
 - **Access** — email and password, OIDC providers and GitLab, personal access tokens for scripts.
   → [docs/sign-in.md](docs/sign-in.md), [docs/access-tokens.md](docs/access-tokens.md)
 
+## Installing
+
+Releases ship deb, rpm, macOS `.pkg`, archives and the image `ghcr.io/hoknie/service-registry`
+with an external Postgres → [docs/install.md](docs/install.md).
+
 ## Quick start
 
 Requirements: Go, Node 24, pnpm 12, Docker and [`just`](https://github.com/casey/just).
@@ -50,6 +55,7 @@ just docker-vdb  # Qdrant and Meilisearch for search development
 just lint        # Go checks
 just test        # Go tests with throwaway Postgres, Qdrant and Meilisearch
 just web-check   # web checks and static export build
+just security    # govulncheck, gosec, pnpm audit, actionlint/shellcheck/hadolint
 ```
 
 More in [docs/development.md](docs/development.md).

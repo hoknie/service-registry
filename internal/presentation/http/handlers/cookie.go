@@ -9,7 +9,7 @@ import (
 const SessionCookie = "registry_session"
 
 func setSessionCookie(c fiber.Ctx, token string, maxAgeSecs uint64, secure bool) {
-	cookie := http.Cookie{
+	cookie := http.Cookie{ // #nosec G124 -- Secure follows SESSION_COOKIE_SECURE, off only for plain-HTTP development
 		Name: SessionCookie, Value: token, Path: "/", HttpOnly: true, Secure: secure,
 		SameSite: http.SameSiteLaxMode, MaxAge: int(maxAgeSecs),
 	}

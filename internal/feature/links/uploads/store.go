@@ -97,7 +97,7 @@ func (s *Files) Put(data []byte) (string, error) {
 	}
 	defer os.Remove(tmp.Name())
 	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return "", err
 	}
 	if err := tmp.Close(); err != nil {
@@ -127,7 +127,7 @@ func (s *Files) Open(id string) (io.ReadCloser, int64, error) {
 	}
 	info, err := f.Stat()
 	if err != nil || !info.Mode().IsRegular() {
-		f.Close()
+		_ = f.Close()
 		return nil, 0, ErrNotFound
 	}
 	return f, info.Size(), nil
@@ -140,6 +140,6 @@ func (s *Files) Exists(id string) bool {
 	if err != nil {
 		return false
 	}
-	f.Close()
+	_ = f.Close()
 	return true
 }

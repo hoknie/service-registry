@@ -35,5 +35,5 @@ below. Projects show their link icons in the header, in cards, tables and the tr
 without an address (a variable has no value) is grey. Uploaded files are stored on the server's disk
 in `UPLOADS_DIR` (default `data/uploads` next to the working directory; `off` turns uploads off),
 named by the SHA-256 of their content, and served with a sandboxing `Content-Security-Policy`. In
-Docker the image keeps them in `/data/uploads`; mount a volume there (`docker-compose.yml` does).
+Docker the image keeps them in `/data/uploads`; mount a volume there (`env/compose.yml` does).
 Specs: `openspec/specs/links/templates/`, `openspec/specs/links/icons/`.

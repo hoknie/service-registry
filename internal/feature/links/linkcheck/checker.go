@@ -111,7 +111,7 @@ func (c *Checker) send(ctx context.Context, method string, u *url.URL) (int, str
 	if err != nil {
 		return 0, "", err
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	return resp.StatusCode, resp.Header.Get("Location"), nil
 }
 

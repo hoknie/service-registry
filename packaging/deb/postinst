@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+case "$1" in
+configure)
+    if [ -z "${2:-}" ]; then
+        /usr/lib/svc-registry/after-install first
+    else
+        /usr/lib/svc-registry/after-install upgrade
+    fi
+    ;;
+esac

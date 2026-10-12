@@ -1,0 +1,32 @@
+# Installed by the svc-registry package. Local changes: systemctl edit svc-registry
+# Settings: /etc/svc-registry/svc-registry.env. Migrations are applied before every start.
+
+[Unit]
+Description=svc-registry, the registry of services
+Documentation=file:///usr/share/doc/svc-registry/docs/install.md
+After=network-online.target postgresql.service
+Wants=network-online.target
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
+[Service]
+User=svc-registry
+Group=svc-registry
+EnvironmentFile=/etc/svc-registry/svc-registry.env
+WorkingDirectory=/var/lib/svc-registry
+ExecStartPre=/usr/lib/svc-registry/require-database
+ExecStartPre=/usr/bin/svc-registry db:migrate
+ExecStart=/usr/bin/svc-registry serve
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/svc-registry
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

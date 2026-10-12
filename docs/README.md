@@ -2,6 +2,7 @@
 
 | Page | What it covers |
 |---|---|
+| [install.md](install.md) | installing a release: deb, rpm, archives, macOS `.pkg`, the container image |
 | [development.md](development.md) | running locally, database commands, dev search engines, quality gates |
 | [ci-events.md](ci-events.md) | reporting deployments from CI: the event format, answers, ready-made snippets |
 | [access-tokens.md](access-tokens.md) | personal access tokens for scripts, CI and MCP clients |

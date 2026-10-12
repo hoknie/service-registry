@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><style>body{font:13px -apple-system,sans-serif;line-height:1.5}code{font:12px ui-monospace,monospace}</style></head>
+<body>
+<h3>svc-registry is installed</h3>
+<p>It needs a Postgres 15+ database. Put its address into <code>DATABASE_URL</code> in<br>
+<code>~/.config/svc-registry/svc-registry.env</code><br>and restart the service:<br>
+<code>launchctl kickstart -k gui/$(id -u)/io.github.hoknie.svc-registry</code></p>
+<p>Then open <a href="http://127.0.0.1:8080">http://127.0.0.1:8080</a> and sign in as
+<b>admin@example.com</b>; the password is in <code>~/.config/svc-registry/initial-password</code>.</p>
+<p>The service starts at every login; its log is <code>~/Library/Logs/svc-registry.log</code>.
+Another user of this Mac sets it up with <code>/usr/local/libexec/svc-registry/setup</code>.
+To remove it: <code>sudo /usr/local/libexec/svc-registry/uninstall</code>.</p>
+</body>
+</html>

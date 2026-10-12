@@ -1,0 +1,14 @@
+Package: svc-registry
+Version: @VERSION@
+Architecture: @ARCH@
+Maintainer: hoknie <hoknie@users.noreply.github.com>
+Installed-Size: @INSTALLED_SIZE@
+Section: net
+Priority: optional
+Depends: ca-certificates
+Homepage: https://github.com/hoknie/service-registry
+Description: Registry of services: projects, branches, deployments, links and docs
+ svc-registry keeps projects in nested organizations and folders, imports repositories from
+ GitHub, GitLab and Forgejo, records deployments from CI and Kubernetes, builds observability
+ links and collects documentation for an MCP server. One static binary and its interface in
+ /usr/share/svc-registry/web, run by systemd as the user svc-registry against an external Postgres.

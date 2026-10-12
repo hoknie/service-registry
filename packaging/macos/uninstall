@@ -1,0 +1,24 @@
+#!/bin/sh
+# Removes svc-registry installed from the .pkg: the binary, its interface and the helpers. The
+# LaunchAgent of the user running this stops; settings in ~/.config/svc-registry and data in
+# ~/Library/Application Support/svc-registry stay unless --purge is given.
+#   sudo /usr/local/libexec/svc-registry/uninstall [--purge]
+
+set -eu
+
+LABEL="io.github.hoknie.svc-registry"
+[ "$(id -u)" -eq 0 ] || { echo "uninstall: run it with sudo" >&2; exit 2; }
+user="${SUDO_USER:-$(stat -f %Su /dev/console)}"
+home="$(dscl . -read "/Users/$user" NFSHomeDirectory | awk '{ print $2 }')"
+uid="$(id -u "$user")"
+
+launchctl bootout "gui/$uid/$LABEL" 2>/dev/null || true
+rm -f "$home/Library/LaunchAgents/$LABEL.plist"
+if [ "${1:-}" = "--purge" ]; then
+    rm -rf "$home/.config/svc-registry" "$home/Library/Application Support/svc-registry" \
+        "$home/Library/Logs/svc-registry.log"
+fi
+rm -f /usr/local/bin/svc-registry
+rm -rf /usr/local/share/svc-registry /usr/local/share/doc/svc-registry /usr/local/libexec/svc-registry
+pkgutil --forget "$LABEL" >/dev/null 2>&1 || true
+echo "svc-registry is removed"

@@ -1,5 +1,7 @@
-# Dev stack. `just docker-up` builds and runs everything; `just test-db` starts only the
-# throwaway test Postgres. Host ports avoid the usual suspects: 5440 (dev DB), 5434 (test DB).
+# Dev stack (env/compose.yml; `just` finds it through COMPOSE_FILE). `just docker-up` builds and
+# runs everything; `just test-db` starts only the throwaway test Postgres. Host ports avoid the
+# usual suspects: 5440 (dev DB), 5434 (test DB). The project name keeps the volumes of the stack
+# started before the move from the repository root.
 name: svc-registry
 
 services:
@@ -82,8 +84,8 @@ services:
   # One-shot: apply migrations before the API starts.
   migrate:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: env/Dockerfile
     command: ["db:migrate"]
     environment:
       DATABASE_URL: postgres://registry:registry@pgsql:5432/registry
@@ -93,8 +95,8 @@ services:
 
   api:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: env/Dockerfile
     command: ["serve"]
     environment:
       DATABASE_URL: postgres://registry:registry@pgsql:5432/registry

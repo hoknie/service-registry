@@ -1,0 +1,43 @@
+#!/bin/sh
+# Writes the first settings of an installed svc-registry from the example, once: an existing file
+# is never touched. Generates SECRETS_KEYS and the first superadmin's password, which also goes to
+# <password file> (0600).
+#   provision <env file> <example> <web dir> <uploads dir> <owner:group of the env file> <password file>
+
+set -eu
+
+settings="$1"
+example="$2"
+web="$3"
+uploads="$4"
+owner="$5"
+password_file="$6"
+
+if [ -e "$settings" ]; then
+    echo "svc-registry: $settings exists, left as it is"
+    exit 0
+fi
+
+key="$(head -c 32 /dev/urandom | base64 | tr -d '\n')"
+password="$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 24)"
+
+work="$(mktemp)"
+awk -v web="$web" -v uploads="$uploads" -v key="k1:$key" -v password="$password" '
+    /^WEB_DIST_DIR=/ { print "WEB_DIST_DIR=" web; next }
+    /^UPLOADS_DIR=/ { print "UPLOADS_DIR=" uploads; next }
+    /^SECRETS_KEYS=/ { print "SECRETS_KEYS=" key; next }
+    /^BOOTSTRAP_ADMIN_PASSWORD=/ { print "BOOTSTRAP_ADMIN_PASSWORD=" password; next }
+    { print }
+' "$example" > "$work"
+
+umask 077
+mkdir -p "$(dirname "$settings")"
+cat "$work" > "$settings"
+rm -f "$work"
+chmod 0640 "$settings"
+chown "$owner" "$settings"
+
+printf '%s\n' "$password" > "$password_file"
+chmod 0600 "$password_file"
+
+echo "svc-registry: wrote $settings and $password_file"

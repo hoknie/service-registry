@@ -48,6 +48,7 @@ func Serve(dist Dist) fiber.Handler {
 			return serveDocs(c, dist, w.locale, w, method == fiber.MethodHead)
 		}
 		if hasPrefix && segments[0] == prefix && isDocsPath(segments[1:]) {
+			// #nosec G124 -- the locale cookie holds no secret and is read by the static pages
 			cookie := http.Cookie{Name: LocaleCookie, Value: prefix, Path: "/", MaxAge: localeCookieMaxAge, SameSite: http.SameSiteLaxMode}
 			c.Append(fiber.HeaderSetCookie, cookie.String())
 			return redirect(c, http.StatusPermanentRedirect, docsWithoutLocale(raw, prefix)+query)
@@ -76,6 +77,7 @@ func Serve(dist Dist) fiber.Handler {
 			return sendUnavailable(c, locale)
 		}
 		if hasPrefix && remembered != prefix {
+			// #nosec G124 -- the locale cookie holds no secret and is read by the static pages
 			cookie := http.Cookie{Name: LocaleCookie, Value: prefix, Path: "/", MaxAge: localeCookieMaxAge, SameSite: http.SameSiteLaxMode}
 			c.Append(fiber.HeaderSetCookie, cookie.String())
 		}

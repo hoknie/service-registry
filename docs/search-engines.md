@@ -126,9 +126,9 @@ The image uses a different libc, so string sorting changes. On an existing volum
 alpine image, start from a clean database:
 
 ```sh
-docker compose rm -sf pgsql
-docker volume rm svc-registry_pgsql-data   # deletes the dev database data
-just dev                                   # starts pgsql and applies the migrations
+docker compose -f env/compose.yml rm -sf pgsql
+docker volume rm svc-registry_pgsql-data                  # deletes the dev database data
+just dev                                                  # starts pgsql and applies the migrations
 ```
 
 If you need to keep the data, keep the volume and run the `CREATE EXTENSION` above.

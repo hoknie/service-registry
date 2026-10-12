@@ -1,0 +1,14 @@
+#!/bin/sh
+# The installer runs this as root after the files are in place: set svc-registry up for the user
+# signed in at the console. With nobody signed in, each user runs setup themselves.
+
+set -eu
+
+user="$(stat -f %Su /dev/console 2>/dev/null || true)"
+case "$user" in
+""|root|loginwindow|_mbsetupuser)
+    echo "svc-registry: nobody is signed in; run /usr/local/libexec/svc-registry/setup as the user"
+    exit 0
+    ;;
+esac
+/usr/local/libexec/svc-registry/setup "$user"

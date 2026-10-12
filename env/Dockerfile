@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---- web: the Next.js static export (`output: "export"`) → /web/out ----------------------
-FROM node:24-alpine AS web
+FROM --platform=$BUILDPLATFORM node:24-alpine AS web
 WORKDIR /web
 RUN corepack enable
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -10,28 +10,34 @@ RUN pnpm install --frozen-lockfile
 COPY web/ ./
 RUN pnpm build \
  && pnpm check-export \
- && find out -type f -size +1k \
-      \( -name '*.html' -o -name '*.js' -o -name '*.css' -o -name '*.txt' -o -name '*.json' \
-         -o -name '*.svg' -o -name '*.map' \) \
-      -exec sh -c 'for f; do gzip -9 -c "$f" > "$f.gz"; done' sh {} +
+ && pnpm precompress
 
 # ---- build: the release binary (static: CGO_ENABLED=0, stripped, reproducible paths) ------
-FROM golang:1.26.8-alpine AS build
-RUN apk add --no-cache ca-certificates
+FROM --platform=$BUILDPLATFORM golang:1.26.8-alpine AS build
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
 WORKDIR /src
 ENV CGO_ENABLED=0 GOTOOLCHAIN=local GOFLAGS=-mod=readonly
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY cmd ./cmd
 COPY internal ./internal
+COPY pkg ./pkg
 COPY migrations ./migrations
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    go build -trimpath -ldflags "-s -w" -o /svc-registry ./cmd/svc-registry
+    GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags "-s -w" -o /svc-registry ./cmd/svc-registry
 RUN mkdir -p /out/data/uploads
 
 # ---- the image: one process, `svc-registry serve` -----------------------------------------
 FROM scratch
+ARG VERSION=dev
+ARG REVISION=unknown
+LABEL org.opencontainers.image.title="svc-registry" \
+      org.opencontainers.image.source="https://github.com/hoknie/service-registry" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.version="$VERSION" \
+      org.opencontainers.image.revision="$REVISION"
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build /svc-registry /svc-registry
 COPY --from=web /web/out /web

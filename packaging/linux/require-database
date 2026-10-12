@@ -1,0 +1,7 @@
+#!/bin/sh
+# ExecStartPre of svc-registry.service: refuse to start while DATABASE_URL is empty.
+
+if [ -z "${DATABASE_URL:-}" ]; then
+    echo "svc-registry: set DATABASE_URL in /etc/svc-registry/svc-registry.env, then: systemctl restart svc-registry" >&2
+    exit 1
+fi

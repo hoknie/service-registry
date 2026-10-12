@@ -2,7 +2,7 @@ package source
 
 import (
 	"context"
-	"crypto/sha1"
+	"crypto/sha1" // #nosec G505 -- git object ids are SHA-1 by the git format
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -26,7 +26,7 @@ type localDir struct {
 }
 
 func blobSHA(content []byte) string {
-	h := sha1.New()
+	h := sha1.New() // #nosec G401 -- git object ids are SHA-1 by the git format
 	fmt.Fprintf(h, "blob %d\x00", len(content))
 	h.Write(content)
 	return hex.EncodeToString(h.Sum(nil))
@@ -81,7 +81,7 @@ func (d *localDir) Heads(ctx context.Context) (map[string]string, string, error)
 			return err
 		}
 		content, err := io.ReadAll(io.LimitReader(f, d.maxFile+1))
-		f.Close()
+		_ = f.Close()
 		if err != nil {
 			return err
 		}

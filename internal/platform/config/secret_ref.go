@@ -21,7 +21,7 @@ func ResolveSecretRef(ref string) (string, error) {
 		}
 		return v, nil
 	case ok && scheme == "file":
-		f, err := os.Open(target)
+		f, err := os.Open(target) // #nosec G304 -- file: references are written by the operator in the configuration
 		if err != nil {
 			return "", fmt.Errorf("secret file: %w", err)
 		}

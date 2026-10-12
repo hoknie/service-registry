@@ -3,7 +3,7 @@ package source
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
+	"crypto/sha1" // #nosec G505 -- git object ids are SHA-1 by the git format
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -43,7 +43,7 @@ func trackedDirs(tracked map[string]bool) map[string]bool {
 }
 
 func streamBlobSHA(head []byte, size int64, rest io.Reader) (string, error) {
-	h := sha1.New()
+	h := sha1.New() // #nosec G401 -- git object ids are SHA-1 by the git format
 	fmt.Fprintf(h, "blob %d\x00", size)
 	h.Write(head)
 	if _, err := io.Copy(h, rest); err != nil {
