@@ -19,7 +19,11 @@ if [ -e "$settings" ]; then
 fi
 
 key="$(head -c 32 /dev/urandom | base64 | tr -d '\n')"
-password="$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 24)"
+password=""
+while [ "${#password}" -lt 24 ]; do
+    password="$password$(head -c 256 /dev/urandom | LC_ALL=C tr -dc 'A-Za-z0-9')"
+done
+password="$(printf '%s' "$password" | cut -c 1-24)"
 
 work="$(mktemp)"
 awk -v web="$web" -v uploads="$uploads" -v key="k1:$key" -v password="$password" '
