@@ -13,7 +13,7 @@ RUN pnpm build \
  && pnpm precompress
 
 # ---- build: the release binary (static: CGO_ENABLED=0, stripped, reproducible paths) ------
-FROM --platform=$BUILDPLATFORM golang:1.26.8-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.27.0-alpine AS build
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
 WORKDIR /src
