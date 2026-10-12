@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---- web: the Next.js static export (`output: "export"`) → /web/out ----------------------
-FROM --platform=$BUILDPLATFORM node:24-alpine AS web
+FROM --platform=$BUILDPLATFORM node:26-alpine AS web
 WORKDIR /web
 RUN corepack enable
 ENV NEXT_TELEMETRY_DISABLED=1
