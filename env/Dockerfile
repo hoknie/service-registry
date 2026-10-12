@@ -5,7 +5,7 @@ FROM --platform=$BUILDPLATFORM node:26-alpine AS web
 WORKDIR /web
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml web/.npmrc ./
-RUN npm install --global --no-fund --no-audit "$(node -p 'require("./package.json").packageManager')"
+RUN npm install --global --no-fund --no-audit "pnpm@$(node -p 'require("./package.json").packageManager.split("@")[1]')"
 RUN pnpm install --frozen-lockfile
 COPY web/ ./
 RUN pnpm build \
