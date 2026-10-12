@@ -26,13 +26,13 @@ export function Readme({ projectId, labels: t }: Props) {
       .then(([readme, { renderReadme }]) => {
         if (!live) return;
         setData(readme);
-        setHtml(renderReadme(readme.markdown, { webUrl: readme.web_url, branch: readme.default_branch, kind: readme.kind }));
+        setHtml(renderReadme(readme.markdown, { webUrl: readme.web_url, branch: readme.default_branch, kind: readme.kind, alerts: common.alerts, anchorLabel: common.headingAnchor }));
       })
       .catch((e: unknown) => live && setError(errorText(errors, errorCode(e))));
     return () => {
       live = false;
     };
-  }, [projectId, errors]);
+  }, [projectId, errors, common.alerts, common.headingAnchor]);
 
   return (
     <Panel title={t.readme}>

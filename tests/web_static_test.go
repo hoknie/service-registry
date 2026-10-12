@@ -311,3 +311,61 @@ func must(t *testing.T, err error) {
 }
 
 func itoa(n int) string { return strconv.Itoa(n) }
+
+func TestDocsPathsServeTheDocsPageWithoutALocale(t *testing.T) {
+	t.Parallel()
+	app := spawnApp(t, deadDB, testsupport.ExportDist(t).Dir)
+	for _, c := range []struct {
+		path    string
+		headers []string
+		want    string
+	}{
+		{"/doc", nil, "en docs"},
+		{"/doc/rsqa/cs/route/route-prj/README.md", []string{"cookie", "NEXT_LOCALE=ru"}, "ru docs"},
+		{"/doc/rsqa", []string{"accept-language", "zh-CN"}, "zh docs"},
+		{"/doc/a/b?branch=dev", []string{"cookie", "NEXT_LOCALE=es", "accept-language", "ru"}, "es docs"},
+	} {
+		r := get(t, app, c.path, c.headers...)
+		eq(t, r.status, 200, c.path)
+		eq(t, r.hasHeader("Location"), false, c.path)
+		eq(t, r.hasHeader("Set-Cookie"), false, c.path)
+		eq(t, r.header("Content-Type"), "text/html; charset=utf-8", c.path)
+		eq(t, r.header("Cache-Control"), "no-cache", c.path)
+		eq(t, strings.Contains(r.header("Vary"), "Cookie"), true, c.path)
+		eq(t, strings.Contains(r.header("Vary"), "Accept-Language"), true, c.path)
+		eq(t, strings.Contains(r.text(), c.want), true, c.path)
+	}
+	head := request(t, app, "HEAD", "/doc/rsqa", "", "cookie", "NEXT_LOCALE=ru")
+	eq(t, head.status, 200)
+	eq(t, len(head.body), 0)
+	eq(t, head.header("Content-Length"), strconv.Itoa(len(`<!DOCTYPE html><html lang="ru"><body>ru docs</body></html>`)))
+	eq(t, get(t, app, "/doc/..%2f..%2fetc").status, 400)
+	eq(t, get(t, app, "/doc/rsqa/").status, 308)
+	eq(t, request(t, app, "POST", "/doc/rsqa", "").status, 405)
+}
+
+func TestLocalizedDocsPathsRememberTheLocaleAndRedirect(t *testing.T) {
+	t.Parallel()
+	app := spawnApp(t, deadDB, testsupport.ExportDist(t).Dir)
+	for _, c := range []struct{ path, location string }{
+		{"/es/doc/rsqa?branch=dev", "/doc/rsqa?branch=dev"},
+		{"/ru/doc", "/doc"},
+		{"/zh/doc/rsqa/cs/route/route-prj/openspec/specs/x.md", "/doc/rsqa/cs/route/route-prj/openspec/specs/x.md"},
+	} {
+		r := get(t, app, c.path)
+		eq(t, r.status, 308, c.path)
+		eq(t, r.header("Location"), c.location, c.path)
+		eq(t, strings.HasPrefix(r.header("Set-Cookie"), "NEXT_LOCALE="+strings.Split(c.path, "/")[1]), true, c.path)
+	}
+	eq(t, get(t, app, "/ru/doc.txt").status, 404)
+}
+
+func TestDocsWithoutTheirPageAreNotFound(t *testing.T) {
+	t.Parallel()
+	d := testsupport.ExportDist(t)
+	must(t, os.Remove(filepath.Join(d.Dir, "ru", "doc.html")))
+	app := spawnApp(t, deadDB, d.Dir)
+	r := get(t, app, "/doc/rsqa", "cookie", "NEXT_LOCALE=ru")
+	eq(t, r.status, 404)
+	eq(t, strings.Contains(r.text(), "ru not found"), true)
+}

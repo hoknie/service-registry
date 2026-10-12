@@ -21,7 +21,8 @@
       "environments": "Entornos",
       "docsSearch": "Búsqueda en la documentación",
       "scans": "Escaneos",
-      "secrets": "Secretos"
+      "secrets": "Secretos",
+      "docs": "Documentación"
     },
     "language": "Idioma",
     "user": {
@@ -84,7 +85,15 @@
     "labelFormat": "Se espera clave o clave=valor (clave: a-z, 0-9, . _ -)",
     "fixLabels": "Corrige las etiquetas para guardar",
     "suggestions": "Sugerencias",
-    "actions": "Acciones"
+    "actions": "Acciones",
+    "alerts": {
+      "note": "Nota",
+      "tip": "Consejo",
+      "important": "Importante",
+      "warning": "Advertencia",
+      "caution": "Precaución"
+    },
+    "headingAnchor": "Enlace a esta sección"
   },
   "home": {
     "title": "Registro de servicios",
@@ -1294,7 +1303,16 @@
         "items": "{n} elementos",
         "document": "Documento {n}"
       },
-      "workingTree": "copia de trabajo"
+      "workingTree": "copia de trabajo",
+      "openInSpace": "Abrir en la sección de documentación",
+      "gitStatus": {
+        "untracked": "Fuera del índice de git",
+        "ignored": "Ignorado por git"
+      },
+      "gitStatusHint": {
+        "untracked": "Fuera del índice de git: el archivo solo está en la copia de trabajo",
+        "ignored": "Ignorado por git: el archivo se recopila por el ajuste «recopilar archivos ignorados»"
+      }
     },
     "summary": {
       "environments": "Entornos",
@@ -1680,5 +1698,38 @@
     "legacy": "Token incrustado (obsoleto): elige un secreto",
     "noneAvailable": "No hay secretos disponibles.",
     "legacyShort": "Token incrustado (obsoleto)"
+  },
+  "docSpace": {
+    "title": "Documentación",
+    "lead": "Documentación de todos los proyectos, por espacio y carpeta.",
+    "spaces": "Espacios",
+    "contents": "Contenido",
+    "openContents": "Abrir contenido",
+    "branch": "Rama",
+    "openInCatalog": "Abrir en el catálogo",
+    "notCollected": "La documentación no se ha recopilado",
+    "notCollectedText": "Todavía no se ha recopilado nada para este proyecto.",
+    "settings": "Ajustes de documentación",
+    "empty": "Aún no hay proyectos aquí.",
+    "notFound": "Página de documentación no encontrada",
+    "toRoot": "A la lista de espacios",
+    "fileMissing": "Archivo no encontrado en la rama {branch}",
+    "toStart": "A la página inicial",
+    "snapshot": "Commit {commit} · recopilado {when}",
+    "files": "Archivos",
+    "noMarkdown": "Este proyecto no tiene archivos Markdown; elija un archivo en el contenido.",
+    "kinds": {
+      "organization": "Espacio",
+      "folder": "Carpeta",
+      "project": "Proyecto"
+    },
+    "space": "Espacio",
+    "chooseSpace": "Elija un espacio",
+    "chooseSpaceHint": "Elija un espacio para ver sus carpetas y proyectos.",
+    "retry": "No se pudo cargar — reintentar",
+    "toc": "En esta página",
+    "structure": "Estructura",
+    "panelHide": "Contraer el panel",
+    "panelShow": "Expandir el panel"
   }
 }

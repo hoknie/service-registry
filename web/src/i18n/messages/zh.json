@@ -21,7 +21,8 @@
       "environments": "环境",
       "docsSearch": "文档搜索",
       "scans": "扫描",
-      "secrets": "密钥"
+      "secrets": "密钥",
+      "docs": "文档"
     },
     "language": "语言",
     "user": {
@@ -84,7 +85,15 @@
     "labelFormat": "应为 键 或 键=值（键：a-z、0-9、. _ -）",
     "fixLabels": "请先修正标签再保存",
     "suggestions": "建议",
-    "actions": "操作"
+    "actions": "操作",
+    "alerts": {
+      "note": "注意",
+      "tip": "提示",
+      "important": "重要",
+      "warning": "警告",
+      "caution": "小心"
+    },
+    "headingAnchor": "链接到此部分"
   },
   "home": {
     "title": "服务注册中心",
@@ -1294,7 +1303,16 @@
         "items": "{n} 项",
         "document": "文档 {n}"
       },
-      "workingTree": "工作区"
+      "workingTree": "工作区",
+      "openInSpace": "在文档区中打开",
+      "gitStatus": {
+        "untracked": "不在 git 索引中",
+        "ignored": "被 git 忽略"
+      },
+      "gitStatusHint": {
+        "untracked": "不在 git 索引中 — 文件仅存在于工作副本",
+        "ignored": "被 git 忽略 — 因“收集被忽略的文件”设置而被收集"
+      }
     },
     "summary": {
       "environments": "环境",
@@ -1680,5 +1698,38 @@
     "legacy": "内嵌令牌（已弃用）——请选择密钥",
     "noneAvailable": "没有可用的密钥。",
     "legacyShort": "内嵌令牌（已弃用）"
+  },
+  "docSpace": {
+    "title": "文档",
+    "lead": "按空间和文件夹浏览所有项目的文档。",
+    "spaces": "空间",
+    "contents": "目录",
+    "openContents": "打开目录",
+    "branch": "分支",
+    "openInCatalog": "在目录中打开",
+    "notCollected": "尚未收集文档",
+    "notCollectedText": "该项目尚未收集任何内容。",
+    "settings": "文档设置",
+    "empty": "这里还没有项目。",
+    "notFound": "未找到文档页面",
+    "toRoot": "返回空间列表",
+    "fileMissing": "在分支 {branch} 中未找到文件",
+    "toStart": "返回起始页",
+    "snapshot": "提交 {commit} · 收集于 {when}",
+    "files": "文件",
+    "noMarkdown": "该项目没有 Markdown 文件；请在目录中选择文件。",
+    "kinds": {
+      "organization": "空间",
+      "folder": "文件夹",
+      "project": "项目"
+    },
+    "space": "空间",
+    "chooseSpace": "选择空间",
+    "chooseSpaceHint": "选择一个空间以查看其文件夹和项目。",
+    "retry": "加载失败 — 重试",
+    "toc": "本页内容",
+    "structure": "结构",
+    "panelHide": "收起面板",
+    "panelShow": "展开面板"
   }
 }

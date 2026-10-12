@@ -11,6 +11,7 @@ import { format } from "@/i18n/format";
 import { when } from "@/i18n/time";
 import { apiGet, apiSend, errorCode, type CatalogNode, type Knowledge, type KnowledgeFiles } from "@/lib/api";
 import { shortCommit } from "@/lib/commit";
+import { docHref, splitPath } from "@/lib/docPath";
 
 import { useUiText } from "../UiText";
 import { Badge } from "../ui/Badge";
@@ -120,9 +121,23 @@ export function DocsTab({ node, branch: branchParam, doc, locale, labels, canWri
     </Button>
   );
 
+  const spaceHref = docHref([...(node.path ?? []).map((n) => n.slug), node.slug, ...(doc ? splitPath(doc) : [])], branchParam);
+
   return (
     <div className="grid gap-6">
-      <Panel title={labels.tabs.docs} description={t.lead} actions={actions}>
+      <Panel
+        title={labels.tabs.docs}
+        description={t.lead}
+        actions={
+          <span className="flex flex-wrap items-center gap-3">
+            <a href={spaceHref} className="inline-flex items-center gap-1.5 text-sm text-signal hover:underline">
+              <BookOpen aria-hidden="true" className="size-3.5" />
+              {t.openInSpace}
+            </a>
+            {actions}
+          </span>
+        }
+      >
         <div className="flex flex-wrap items-end gap-x-6 gap-y-3 text-sm">
           {overview.branches.length > 1 && (
             <Field label={t.branch} className="min-w-48">

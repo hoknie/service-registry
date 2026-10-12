@@ -36,6 +36,13 @@ for (const [name, t] of Object.entries(themes)) {
     }
   });
 
+  test(`${name}: Markdown alert text on its soft background is at least 4.5:1`, () => {
+    for (const c of ["cobalt", "signal", "kind-project", "amber", "danger"]) {
+      const r = ratio(t["ink-2"], t[`${c}-soft`]);
+      assert.ok(r >= 4.5, `ink-2 on ${c}-soft: ${r.toFixed(2)}`);
+    }
+  });
+
   test(`${name}: highlighted matches are at least 4.5:1`, () => {
     const r = ratio(t.ink, t["amber-soft"]);
     assert.ok(r >= 4.5, `ink on amber-soft: ${r.toFixed(2)}`);

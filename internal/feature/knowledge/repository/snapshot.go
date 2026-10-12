@@ -182,7 +182,7 @@ func (s *Snapshots) Save(ctx context.Context, n knowledge.NewSnapshot, keep uint
 func sameTree(ctx context.Context, tx postgres.Querier, snapshotID uuid.UUID, files []knowledge.File) (bool, error) {
 	stored := map[string]string{}
 	rows, err := tx.Query(ctx, `
-		SELECT path, COALESCE(encode(sha256, 'hex'), 'skip:' || skip_reason)
+		SELECT path, COALESCE(encode(sha256, 'hex'), 'skip:' || skip_reason) || ':' || COALESCE(meta ->> 'git', '')
 		FROM knowledge_files
 		WHERE snapshot_id = $1`, snapshotID)
 	if err != nil {
@@ -207,7 +207,7 @@ func sameTree(ctx context.Context, tx postgres.Querier, snapshotID uuid.UUID, fi
 		if f.Skip == "" {
 			want = hex.EncodeToString(f.SHA256[:])
 		}
-		if stored[f.Path] != want {
+		if stored[f.Path] != want+":"+string(f.Meta.Git) {
 			return false, nil
 		}
 	}

@@ -315,3 +315,19 @@ func (s *Service) KnowledgeOpenSpec(ctx context.Context, p access.Principal, id 
 	slices.SortFunc(out.ADRs, func(a, b ADRItem) int { return a.Number - b.Number })
 	return out, nil
 }
+
+func (s *Service) KnowledgeTree(ctx context.Context, p access.Principal, id uuid.UUID, r KnowledgeRef, rawDir string) (knowledge.Snapshot, knowledge.TreeLevel, error) {
+	dir, ok := knowledge.NormalizeDir(rawDir)
+	if !ok {
+		return knowledge.Snapshot{}, knowledge.TreeLevel{}, apperr.New(apperr.NotFound)
+	}
+	snap, files, err := s.KnowledgeFiles(ctx, p, id, r)
+	if err != nil {
+		return knowledge.Snapshot{}, knowledge.TreeLevel{}, err
+	}
+	level, found := knowledge.Level(files, dir)
+	if !found {
+		return knowledge.Snapshot{}, knowledge.TreeLevel{}, apperr.New(apperr.NotFound)
+	}
+	return snap, level, nil
+}

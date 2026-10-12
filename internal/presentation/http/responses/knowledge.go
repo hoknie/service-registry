@@ -112,10 +112,15 @@ type KnowledgeFile struct {
 	Kind       string  `json:"kind"`
 	Bytes      int64   `json:"bytes"`
 	SkipReason *string `json:"skip_reason"`
+	GitStatus  *string `json:"git_status"`
 }
 
 func fileOf(f knowledge.FileInfo) KnowledgeFile {
 	out := KnowledgeFile{Path: f.Path, Kind: string(f.Kind), Bytes: f.Bytes}
+	if f.Meta.Git != "" {
+		g := string(f.Meta.Git)
+		out.GitStatus = &g
+	}
 	if f.Skip != nil {
 		s := string(*f.Skip)
 		out.SkipReason = &s
@@ -132,6 +137,35 @@ func KnowledgeFilesOf(s knowledge.Snapshot, files []knowledge.FileInfo) Knowledg
 	out := KnowledgeFiles{Snapshot: SnapshotOf(&s), Items: make([]KnowledgeFile, 0, len(files))}
 	for _, f := range files {
 		out.Items = append(out.Items, fileOf(f))
+	}
+	return out
+}
+
+type KnowledgeTreeDir struct {
+	Name      string  `json:"name"`
+	Path      string  `json:"path"`
+	Files     int     `json:"files"`
+	GitStatus *string `json:"git_status"`
+}
+
+type KnowledgeTree struct {
+	Snapshot *Snapshot          `json:"snapshot"`
+	Dirs     []KnowledgeTreeDir `json:"dirs"`
+	Files    []KnowledgeFile    `json:"files"`
+}
+
+func KnowledgeTreeOf(s knowledge.Snapshot, l knowledge.TreeLevel) KnowledgeTree {
+	out := KnowledgeTree{Snapshot: SnapshotOf(&s), Dirs: make([]KnowledgeTreeDir, 0, len(l.Dirs)), Files: make([]KnowledgeFile, 0, len(l.Files))}
+	for _, d := range l.Dirs {
+		dir := KnowledgeTreeDir{Name: d.Name, Path: d.Path, Files: d.Files}
+		if d.Git != "" {
+			g := string(d.Git)
+			dir.GitStatus = &g
+		}
+		out.Dirs = append(out.Dirs, dir)
+	}
+	for _, f := range l.Files {
+		out.Files = append(out.Files, fileOf(f))
 	}
 	return out
 }

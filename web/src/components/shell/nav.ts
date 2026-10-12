@@ -1,4 +1,4 @@
-import { FileSearch, FolderTree, LayoutDashboard, Settings, type LucideIcon } from "lucide-react";
+import { BookOpen, FileSearch, FolderTree, LayoutDashboard, Settings, type LucideIcon } from "lucide-react";
 
 import type { Locale } from "@/i18n/config";
 import type { Messages } from "@/i18n/messages";
@@ -9,6 +9,7 @@ export function navItems(locale: Locale, nav: Messages["header"]["nav"], superad
   const items: NavItem[] = [
     { key: "home", href: `/${locale}`, label: nav.home, icon: LayoutDashboard },
     { key: "catalog", href: `/${locale}/catalog`, label: nav.catalog, icon: FolderTree },
+    { key: "docs", href: "/doc", label: nav.docs, icon: BookOpen },
     { key: "docsSearch", href: `/${locale}/search`, label: nav.docsSearch, icon: FileSearch },
   ];
   if (superadmin) items.push({ key: "admin", href: `/${locale}/admin`, label: nav.admin, icon: Settings, admin: true });

@@ -101,6 +101,13 @@ func (a *Handlers) KnowledgeFiles(c fiber.Ctx) error {
 	})
 }
 
+func (a *Handlers) KnowledgeTree(c fiber.Ctx) error {
+	return a.knowledgeCall(c, func(p access.Principal, id uuid.UUID) (any, error) {
+		s, level, err := a.Knowledge.KnowledgeTree(c.Context(), p, id, knowledgeRef(c), c.Query("dir"))
+		return responses.KnowledgeTreeOf(s, level), err
+	})
+}
+
 func (a *Handlers) KnowledgeFile(c fiber.Ctx) error {
 	return a.knowledgeCall(c, func(p access.Principal, id uuid.UUID) (any, error) {
 		s, f, err := a.Knowledge.KnowledgeFile(c.Context(), p, id, knowledgeRef(c), c.Query("path"))

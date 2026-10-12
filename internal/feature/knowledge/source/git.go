@@ -102,9 +102,12 @@ func (g *localGit) Heads(ctx context.Context) (map[string]string, string, error)
 		if err != nil {
 			return nil, "", err
 		}
-		tracked := make(map[string]bool, len(committed))
-		for _, e := range committed {
-			tracked[e.Path] = true
+		tracked := g.indexed()
+		if tracked == nil {
+			tracked = make(map[string]bool, len(committed))
+			for _, e := range committed {
+				tracked[e.Path] = true
+			}
 		}
 		wt, err := readWorktree(ctx, g.dir, g.settings, g.maxFile, worktreeOptions{includeIgnored: g.includeIgnored, tracked: tracked})
 		if err != nil {
@@ -159,4 +162,16 @@ func (g *localGit) Read(_ context.Context, e knowledge.Entry, limit int64) ([]by
 		return nil, knowledge.FailSourceUnreadable
 	}
 	return content, nil
+}
+
+func (g *localGit) indexed() map[string]bool {
+	idx, err := g.repo.Storer.Index()
+	if err != nil {
+		return nil
+	}
+	out := make(map[string]bool, len(idx.Entries))
+	for _, e := range idx.Entries {
+		out[e.Name] = true
+	}
+	return out
 }

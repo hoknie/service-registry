@@ -16,15 +16,16 @@ const (
 )
 
 type Meta struct {
-	Capability   string   `json:"capability,omitempty"`
-	Purpose      string   `json:"purpose,omitempty"`
-	Requirements []string `json:"requirements,omitempty"`
-	Change       string   `json:"change,omitempty"`
-	Archived     bool     `json:"archived,omitempty"`
-	Number       int      `json:"number,omitempty"`
-	Title        string   `json:"title,omitempty"`
-	Status       string   `json:"status,omitempty"`
-	Supersedes   string   `json:"supersedes,omitempty"`
+	Capability   string    `json:"capability,omitempty"`
+	Purpose      string    `json:"purpose,omitempty"`
+	Requirements []string  `json:"requirements,omitempty"`
+	Change       string    `json:"change,omitempty"`
+	Archived     bool      `json:"archived,omitempty"`
+	Number       int       `json:"number,omitempty"`
+	Title        string    `json:"title,omitempty"`
+	Status       string    `json:"status,omitempty"`
+	Supersedes   string    `json:"supersedes,omitempty"`
+	Git          GitStatus `json:"git,omitempty"`
 }
 
 var adrName = regexp.MustCompile(`^openspec/decisions/(\d{4,})-[^/]+\.md$`)

@@ -33,6 +33,7 @@ func (d *Dist) WriteExport(t testing.TB) {
 		d.Write(t, l+".txt", l+" home data")
 		d.Write(t, l+"/login.html", `<!DOCTYPE html><html lang="`+l+`"><body>`+l+` login</body></html>`)
 		d.Write(t, l+"/404.html", `<!DOCTYPE html><html lang="`+l+`"><body>`+l+` not found</body></html>`)
+		d.Write(t, l+"/doc.html", `<!DOCTYPE html><html lang="`+l+`"><body>`+l+` docs</body></html>`)
 	}
 	d.Write(t, "ru/catalog.html", `<!DOCTYPE html><html lang="ru"><body>ru catalog</body></html>`)
 	d.Write(t, "ru/catalog.txt", "ru catalog data")

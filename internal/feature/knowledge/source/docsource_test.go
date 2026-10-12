@@ -305,3 +305,61 @@ func TestLocalGitIgnoredFilesMatchingTheIncludePatterns(t *testing.T) {
 		t.Fatalf("got %s", got)
 	}
 }
+
+func TestLocalGitMarksFilesOutsideTheIndex(t *testing.T) {
+	ctx := context.Background()
+	root := realDir(t)
+	dir := filepath.Join(root, "repo")
+	repo, err := git.PlainInit(dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wt, _ := repo.Worktree()
+	commit(t, wt, dir, map[string]string{"README.md": "# Repo", ".gitignore": "drafts/\n"}, "first")
+	write(t, filepath.Join(dir, "docs/new.md"), "untracked")
+	write(t, filepath.Join(dir, "docs/staged.md"), "staged")
+	if _, err := wt.Add("docs/staged.md"); err != nil {
+		t.Fatal(err)
+	}
+	write(t, filepath.Join(dir, "drafts/idea.md"), "ignored")
+	settings := knowledge.Settings{Include: []string{"*.md", "docs/**", "drafts/**"}}
+	f := &Factory{Roots: []string{root}, MaxFileBytes: 1 << 20}
+	r, err := f.Open(ctx, knowledge.Source{Kind: knowledge.SourceLocalGit, Path: dir, WorkingTree: true, IncludeIgnored: true}, settings, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	heads, _, err := r.Heads(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tree, _, err := r.Tree(ctx, "master", heads["master"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]knowledge.GitStatus{}
+	for _, e := range tree {
+		got[e.Path] = e.Git
+	}
+	want := map[string]knowledge.GitStatus{
+		"README.md":      "",
+		"docs/new.md":    knowledge.GitUntracked,
+		"docs/staged.md": "",
+		"drafts/idea.md": knowledge.GitIgnored,
+	}
+	for p, s := range want {
+		if g, ok := got[p]; !ok || g != s {
+			t.Errorf("%s: got %q (present %v), want %q", p, g, ok, s)
+		}
+	}
+
+	files, err := knowledge.Collect(tree, settings, knowledge.Limits{MaxFiles: 10, MaxFileBytes: 1 << 20, MaxSnapshotBytes: 1 << 20},
+		func(e knowledge.Entry, limit int64) ([]byte, error) { return r.Read(ctx, e, limit) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, file := range files {
+		if file.Meta.Git != want[file.Path] {
+			t.Errorf("collected %s: got %q, want %q", file.Path, file.Meta.Git, want[file.Path])
+		}
+	}
+}

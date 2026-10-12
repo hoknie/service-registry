@@ -11,7 +11,15 @@ type Entry struct {
 	Path    string
 	BlobSHA string
 	Size    int64
+	Git     GitStatus
 }
+
+type GitStatus string
+
+const (
+	GitUntracked GitStatus = "untracked"
+	GitIgnored   GitStatus = "ignored"
+)
 
 type SkipReason string
 
@@ -74,6 +82,7 @@ func Collect(entries []Entry, s Settings, l Limits, fetch Fetch) ([]File, error)
 	for _, e := range picked {
 		f := File{Path: e.Path, GitBlobSHA: e.BlobSHA, Bytes: max(e.Size, 0)}
 		f.Kind, f.Meta = Classify(e.Path)
+		f.Meta.Git = e.Git
 		switch {
 		case stored >= l.MaxFiles:
 			f.Skip = SkipLimit
@@ -97,6 +106,7 @@ func Collect(entries []Entry, s Settings, l Limits, fetch Fetch) ([]File, error)
 				f.Content = content
 				f.SHA256 = sha256.Sum256(content)
 				f.Meta = Parse(f.Kind, e.Path, string(content), f.Meta)
+				f.Meta.Git = e.Git
 				stored++
 				total += f.Bytes
 			}

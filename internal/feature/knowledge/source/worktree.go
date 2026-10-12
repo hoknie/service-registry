@@ -106,17 +106,25 @@ func readWorktree(ctx context.Context, dir string, settings knowledge.Settings, 
 		if err != nil {
 			return err
 		}
+		status := knowledge.GitStatus("")
+		switch {
+		case o.tracked[p]:
+		case skipped:
+			status = knowledge.GitIgnored
+		default:
+			status = knowledge.GitUntracked
+		}
 		if int64(len(head)) <= maxFile {
 			sha := blobSHA(head)
 			w.content[sha] = head
-			w.entries = append(w.entries, knowledge.Entry{Path: p, BlobSHA: sha, Size: int64(len(head))})
+			w.entries = append(w.entries, knowledge.Entry{Path: p, BlobSHA: sha, Size: int64(len(head)), Git: status})
 			return nil
 		}
 		sha, err := streamBlobSHA(head, info.Size(), f)
 		if err != nil {
 			return err
 		}
-		w.entries = append(w.entries, knowledge.Entry{Path: p, BlobSHA: sha, Size: info.Size()})
+		w.entries = append(w.entries, knowledge.Entry{Path: p, BlobSHA: sha, Size: info.Size(), Git: status})
 		return nil
 	})
 	if err != nil {
@@ -143,7 +151,7 @@ func (w worktree) sameAs(commit []knowledge.Entry, settings knowledge.Settings) 
 func (w worktree) fingerprint() string {
 	var b bytes.Buffer
 	for _, e := range w.entries {
-		fmt.Fprintf(&b, "%s\x00%s\n", e.Path, e.BlobSHA)
+		fmt.Fprintf(&b, "%s\x00%s\x00%s\n", e.Path, e.BlobSHA, e.Git)
 	}
 	sum := sha256.Sum256(b.Bytes())
 	return hex.EncodeToString(sum[:])

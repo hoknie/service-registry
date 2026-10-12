@@ -42,6 +42,16 @@ func Serve(dist Dist) fiber.Handler {
 		if len(segments) > 0 {
 			prefix, hasPrefix = pathLocale(segments[0])
 		}
+		if !hasPrefix && isDocsPath(segments) {
+			ae := c.Get(fiber.HeaderAcceptEncoding) != ""
+			w := want{br: ae && c.AcceptsEncodings("br") != "", gzip: ae && c.AcceptsEncodings("gzip") != "", locale: negotiate(c, remembered)}
+			return serveDocs(c, dist, w.locale, w, method == fiber.MethodHead)
+		}
+		if hasPrefix && segments[0] == prefix && isDocsPath(segments[1:]) {
+			cookie := http.Cookie{Name: LocaleCookie, Value: prefix, Path: "/", MaxAge: localeCookieMaxAge, SameSite: http.SameSiteLaxMode}
+			c.Append(fiber.HeaderSetCookie, cookie.String())
+			return redirect(c, http.StatusPermanentRedirect, docsWithoutLocale(raw, prefix)+query)
+		}
 		if !hasPrefix && isPagePath(segments) {
 			rest := raw
 			if raw == "/" {

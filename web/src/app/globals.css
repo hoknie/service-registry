@@ -448,3 +448,96 @@
 .readme hr {
   border-color: var(--line);
 }
+.readme .table-wrap {
+  overflow-x: auto;
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+}
+.readme td,
+.readme th {
+  vertical-align: top;
+  overflow-wrap: break-word;
+}
+.readme td code {
+  overflow-wrap: anywhere;
+}
+.readme .table-wrap table {
+  display: table;
+  overflow: visible;
+}
+.readme th {
+  color: var(--ink);
+  font-weight: 600;
+  background: var(--surface-2);
+}
+.readme s {
+  color: var(--muted);
+}
+.readme ul.contains-task-list {
+  list-style: none;
+  padding-left: 0.25rem;
+}
+.readme li.task-list-item {
+  position: relative;
+  padding-left: 1.6rem;
+}
+.readme .task-list-item-checkbox {
+  position: absolute;
+  left: 0.1rem;
+  top: 0.3em;
+  width: 0.95rem;
+  height: 0.95rem;
+  margin: 0;
+  accent-color: var(--signal);
+  opacity: 1;
+}
+.readme [id] {
+  scroll-margin-top: 5rem;
+}
+.readme blockquote.markdown-alert {
+  border-left-width: 4px;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--ink-2);
+}
+.readme blockquote.markdown-alert > * + * {
+  margin-top: 0.4rem;
+}
+.readme .markdown-alert-title {
+  font-weight: 600;
+}
+.readme .markdown-alert-note { border-left-color: var(--cobalt); background: var(--cobalt-soft); }
+.readme .markdown-alert-note .markdown-alert-title { color: var(--cobalt); }
+.readme .markdown-alert-tip { border-left-color: var(--signal); background: var(--signal-soft); }
+.readme .markdown-alert-tip .markdown-alert-title { color: var(--signal); }
+.readme .markdown-alert-important { border-left-color: var(--kind-project); background: var(--kind-project-soft); }
+.readme .markdown-alert-important .markdown-alert-title { color: var(--kind-project); }
+.readme .markdown-alert-warning { border-left-color: var(--amber); background: var(--amber-soft); }
+.readme .markdown-alert-warning .markdown-alert-title { color: var(--amber); }
+.readme .markdown-alert-caution { border-left-color: var(--danger); background: var(--danger-soft); }
+.readme .markdown-alert-caution .markdown-alert-title { color: var(--danger); }
+.readme .heading-anchor {
+  margin-left: 0.25rem;
+  color: var(--muted);
+  font-weight: 400;
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity var(--dur-fast) ease-out;
+}
+.readme h1:hover .heading-anchor,
+.readme h2:hover .heading-anchor,
+.readme h3:hover .heading-anchor,
+.readme h4:hover .heading-anchor,
+.readme h5:hover .heading-anchor,
+.readme h6:hover .heading-anchor,
+.readme .heading-anchor:focus-visible {
+  opacity: 1;
+}
+.readme .heading-anchor:hover {
+  color: var(--signal);
+}
+@media (hover: none) {
+  .readme .heading-anchor {
+    opacity: 1;
+  }
+}

@@ -21,7 +21,8 @@
       "environments": "Environments",
       "docsSearch": "Documentation search",
       "scans": "Scans",
-      "secrets": "Secrets"
+      "secrets": "Secrets",
+      "docs": "Documentation"
     },
     "language": "Language",
     "user": {
@@ -84,7 +85,15 @@
     "labelFormat": "Expected key or key=value (key: a-z, 0-9, . _ -)",
     "fixLabels": "Fix the labels to save",
     "suggestions": "Suggestions",
-    "actions": "Actions"
+    "actions": "Actions",
+    "alerts": {
+      "note": "Note",
+      "tip": "Tip",
+      "important": "Important",
+      "warning": "Warning",
+      "caution": "Caution"
+    },
+    "headingAnchor": "Link to this section"
   },
   "home": {
     "title": "Service registry",
@@ -1294,7 +1303,16 @@
         "items": "{n} items",
         "document": "Document {n}"
       },
-      "workingTree": "working copy"
+      "workingTree": "working copy",
+      "openInSpace": "Open in the documentation section",
+      "gitStatus": {
+        "untracked": "Not in the git index",
+        "ignored": "Ignored by git"
+      },
+      "gitStatusHint": {
+        "untracked": "Not in the git index — the file is only in the working copy",
+        "ignored": "Ignored by git — the file is collected because of the “collect ignored files” setting"
+      }
     },
     "summary": {
       "environments": "Environments",
@@ -1680,5 +1698,38 @@
     "legacy": "Inline token (deprecated) — choose a secret",
     "noneAvailable": "No secrets available.",
     "legacyShort": "Inline token (deprecated)"
+  },
+  "docSpace": {
+    "title": "Documentation",
+    "lead": "Documentation of every project, by space and folder.",
+    "spaces": "Spaces",
+    "contents": "Contents",
+    "openContents": "Open contents",
+    "branch": "Branch",
+    "openInCatalog": "Open in catalog",
+    "notCollected": "Documentation is not collected",
+    "notCollectedText": "Nothing has been collected for this project yet.",
+    "settings": "Documentation settings",
+    "empty": "No projects here yet.",
+    "notFound": "Documentation page not found",
+    "toRoot": "To the list of spaces",
+    "fileMissing": "File not found in branch {branch}",
+    "toStart": "To the start page",
+    "snapshot": "Commit {commit} · collected {when}",
+    "files": "Files",
+    "noMarkdown": "This project has no Markdown files; pick a file in the contents.",
+    "kinds": {
+      "organization": "Space",
+      "folder": "Folder",
+      "project": "Project"
+    },
+    "space": "Space",
+    "chooseSpace": "Choose a space",
+    "chooseSpaceHint": "Choose a space to see its folders and projects.",
+    "retry": "Failed to load — retry",
+    "toc": "On this page",
+    "structure": "Structure",
+    "panelHide": "Collapse the panel",
+    "panelShow": "Expand the panel"
   }
 }

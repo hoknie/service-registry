@@ -151,3 +151,24 @@ func TestFilesAndOpenSpecThroughTheAPI(t *testing.T) {
 	eq(t, at(r.json(t), "snapshot", "branch"), any("release/1"))
 	eq(t, len(list(t, r.json(t), "items")), 1)
 }
+
+func TestKnowledgeTreeListsOneDirectoryAtATime(t *testing.T) {
+	t.Parallel()
+	d := startDocs(t, map[string]string{"README.md": "# API", "docs/guide.md": "# Guide", "docs/api/v1.md": "# V1"})
+	r := d.app.send("PUT", "/api/v1/catalog/nodes/"+d.id+"/knowledge/settings", d.admin, obj{"include": []string{"README.md", "docs/**"}})
+	eq(t, r.status, 200, r.text())
+	eq(t, d.app.collect(), 1)
+	base := "/api/v1/catalog/nodes/" + d.id + "/knowledge/tree"
+	r = d.app.get(base, d.admin)
+	eq(t, r.status, 200, r.text())
+	body := r.json(t)
+	eq(t, jsonText(body["dirs"]), `[{"files":2,"git_status":null,"name":"docs","path":"docs"}]`)
+	eq(t, at(body, "files", 0, "path"), any("README.md"))
+	eq(t, len(list(t, body, "files")), 1)
+	body = d.app.get(base+"?dir=docs", d.admin).json(t)
+	eq(t, at(body, "dirs", 0, "path"), any("docs/api"))
+	eq(t, at(body, "files", 0, "path"), any("docs/guide.md"))
+	for _, dir := range []string{"nope", "../x", "doc"} {
+		eq(t, d.app.get(base+"?dir="+dir, d.admin).status, 404, dir)
+	}
+}

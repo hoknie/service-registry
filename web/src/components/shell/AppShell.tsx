@@ -22,7 +22,10 @@ import { BrandMark } from "./BrandMark";
 import { CommandPalette } from "./CommandPalette";
 import { CrumbMenu } from "./CrumbMenu";
 import { CrumbsProvider, useCrumbTrail } from "./crumbs";
+import { DocLink } from "../docs/DocLink";
+import { isDocPath } from "@/lib/docPath";
 import { isActive, navItems, type NavItem } from "./nav";
+import { NavAnchor } from "./NavAnchor";
 import { useShortcutLabel } from "./shortcut";
 import { ThemeSwitcher, useTheme } from "./ThemeSwitcher";
 
@@ -153,7 +156,7 @@ function Sidebar({
     return (
       <li key={item.key}>
         <Tooltip content={tip(item.label)} side="right">
-          <Link
+          <NavAnchor
             href={item.href}
             onClick={onNavigate}
             aria-current={active ? "page" : undefined}
@@ -167,7 +170,7 @@ function Sidebar({
             {active && <span aria-hidden="true" className="absolute inset-y-1.5 -left-3 w-[3px] rounded-r bg-signal rail:-left-2" />}
             <item.icon aria-hidden="true" className={cn("size-4 shrink-0", active ? "text-signal" : "text-muted")} />
             <span className="truncate rail:sr-only">{item.label}</span>
-          </Link>
+          </NavAnchor>
         </Tooltip>
       </li>
     );
@@ -284,7 +287,11 @@ function Breadcrumbs({ label, locale, navigator }: { label: string; locale: Loca
               className={cn("flex min-w-0 items-center gap-1", !last && i < crumbs.length - 2 && "hidden sm:flex")}
             >
               {i > 0 && <ChevronRight aria-hidden="true" className="size-3.5 shrink-0 text-muted" />}
-              {c.href && !last ? (
+              {c.href && !last && isDocPath(c.href) ? (
+                <DocLink href={c.href} className="motion-control truncate rounded px-1 text-muted hover:text-ink">
+                  {c.label}
+                </DocLink>
+              ) : c.href && !last ? (
                 <Link href={c.href} className="motion-control truncate rounded px-1 text-muted hover:text-ink">
                   {c.label}
                 </Link>

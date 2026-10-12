@@ -61,7 +61,8 @@ func routeNeed(method, route string) access.Need {
 		return access.NeedRead
 	case route == "/api/mcp":
 		return access.NeedAny
-	case route == "/api/v1/knowledge/search", route == "/api/v1/knowledge/search/modes", route == "/api/v1/link-icons/:id":
+	case route == "/api/v1/knowledge/search", route == "/api/v1/knowledge/search/modes", route == "/api/v1/link-icons/:id",
+		route == "/api/v1/docs/space":
 		return access.NeedRead
 	case strings.HasPrefix(route, "/api/v1/catalog/"):
 		if method == fiber.MethodGet || method == fiber.MethodHead {

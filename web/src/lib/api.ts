@@ -494,9 +494,15 @@ export type SourceCheck = { ok: boolean; branches?: number; error_code?: string 
 export type DocKind = "doc" | "spec" | "change" | "adr";
 export type SkipReason = "too_large" | "binary" | "limit";
 
-export type KnowledgeFile = { path: string; kind: DocKind; bytes: number; skip_reason: SkipReason | null };
+export type GitStatus = "untracked" | "ignored";
+
+export type KnowledgeFile = { path: string; kind: DocKind; bytes: number; skip_reason: SkipReason | null; git_status?: GitStatus | null };
 
 export type KnowledgeFiles = { snapshot: Snapshot; items: KnowledgeFile[] };
+
+export type KnowledgeTreeDir = { name: string; path: string; files: number; git_status: GitStatus | null };
+
+export type KnowledgeTreeLevel = { snapshot: Snapshot; dirs: KnowledgeTreeDir[]; files: KnowledgeFile[] };
 
 export type KnowledgeFileContent = KnowledgeFile & { snapshot: Snapshot; content: string | null };
 
@@ -608,3 +614,21 @@ export type Scan = {
   warnings: string[];
 };
 
+
+export type DocSpaceNode = {
+  id: string;
+  kind: NodeKind;
+  slug: string;
+  name: string;
+  description?: string;
+  access: "read" | "navigate";
+  has_docs?: boolean;
+};
+
+export type DocSpace = {
+  node: DocSpaceNode | null;
+  ancestors: DocSpaceNode[];
+  children: DocSpaceNode[];
+  docs: { source: string | null; default_branch: string; branches: { name: string; collected_at: string }[] } | null;
+  doc_path: string | null;
+};

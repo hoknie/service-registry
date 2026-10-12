@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { errorText } from "@/i18n/errors";
 import { format } from "@/i18n/format";
@@ -8,6 +8,7 @@ import { apiGet, errorCode, type CatalogNode, type KnowledgeFileContent } from "
 import { structuredKind } from "@/lib/structured";
 
 import { useUiText } from "../UiText";
+import { Badge } from "../ui/Badge";
 import { Message } from "../ui/Message";
 import { Panel } from "../ui/Panel";
 import { SkeletonPanel } from "../ui/Skeleton";
@@ -22,9 +23,26 @@ type Props = {
   docHref: (path: string) => string;
   onOpenDoc: (path: string) => void;
   labels: CatalogLabels["docs"];
+  docOf?: (href: string) => string | null;
+  onHeadings?: (headings: DocHeading[]) => void;
 };
 
-export function DocViewer({ node, branch, path, paths, docHref, onOpenDoc, labels: t }: Props) {
+export type DocHeading = { id: string; text: string; level: number };
+
+function headingsOf(root: HTMLElement): DocHeading[] {
+  const all = [...root.querySelectorAll<HTMLElement>("h1[id], h2[id], h3[id], h4[id]")].map((h) => {
+    const copy = h.cloneNode(true) as HTMLElement;
+    copy.querySelectorAll(".heading-anchor").forEach((a) => a.remove());
+    return { id: h.id, text: (copy.textContent ?? "").trim(), level: Number(h.tagName.slice(1)) };
+  });
+  const sub = all.filter((h) => h.level > 1);
+  return sub.length > 0 ? sub : all;
+}
+
+const docQuery = (href: string) => new URL(href, window.location.origin).searchParams.get("doc");
+
+export function DocViewer({ node, branch, path, paths, docHref, onOpenDoc, labels: t, docOf = docQuery, onHeadings }: Props) {
+  const body = useRef<HTMLDivElement>(null);
   const { errors, common } = useUiText();
   const [file, setFile] = useState<KnowledgeFileContent | null>(null);
   const [html, setHtml] = useState<string | null>(null);
@@ -42,7 +60,7 @@ export function DocViewer({ node, branch, path, paths, docHref, onOpenDoc, label
           const dir = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : undefined;
           const known = new Set(paths);
           const docLink = (p: string) => (known.has(p) ? docHref(p) : null);
-          if (live) setHtml(renderReadme(f.content, { webUrl: node.repo_url, branch, kind: node.forge, dir, docLink }));
+          if (live) setHtml(renderReadme(f.content, { webUrl: node.repo_url, branch, kind: node.forge, dir, docLink, alerts: common.alerts, anchorLabel: common.headingAnchor }));
         }
       })
       .catch((e: unknown) => live && setError(errorText(errors, errorCode(e))));
@@ -50,27 +68,56 @@ export function DocViewer({ node, branch, path, paths, docHref, onOpenDoc, label
       live = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [node.id, node.repo_url, node.forge, branch, path, errors]);
+  }, [node.id, node.repo_url, node.forge, branch, path, errors, common.alerts, common.headingAnchor]);
+
+  const markdown = !!file && file.content !== null && /\.(md|markdown)$/i.test(file.path);
+
+  useEffect(() => {
+    if (html && body.current) {
+      onHeadings?.(headingsOf(body.current));
+      const hash = decodeURIComponent(window.location.hash.slice(1));
+      if (hash) document.getElementById(hash)?.scrollIntoView();
+      return;
+    }
+    if ((file && !markdown) || error) onHeadings?.([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [html, file, markdown, error]);
 
   const onClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const a = (e.target as HTMLElement).closest("a");
     const href = a?.getAttribute("href");
     if (!href || !href.startsWith("/") || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-    const doc = new URL(href, window.location.origin).searchParams.get("doc");
+    const doc = docOf(href);
     if (doc === null) return;
     e.preventDefault();
     onOpenDoc(doc);
   };
 
   return (
-    <Panel title={<span className="font-mono text-sm">{path}</span>}>
+    <Panel
+      title={
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-sm">{path}</span>
+          {file?.git_status && (
+            <Badge tone={file.git_status === "untracked" ? "amber" : "outline"} title={t.gitStatusHint[file.git_status]}>
+              {t.gitStatus[file.git_status]}
+            </Badge>
+          )}
+        </span>
+      }
+    >
       {error && <Message note={{ kind: "error", text: error }} />}
       {!file && !error && <SkeletonPanel lines={6} label={common.loading} />}
       {file && file.content === null && (
         <p className="text-sm text-muted">{format(t.skippedFile, { reason: file.skip_reason ? t.skipped[file.skip_reason] : "" })}</p>
       )}
       {file && file.content !== null && html && (
-        <div className="readme max-w-none animate-rise-in text-sm leading-relaxed text-ink-2" onClick={onClick} dangerouslySetInnerHTML={{ __html: html }} />
+        <div
+          ref={body}
+          className="readme max-w-none animate-rise-in text-sm leading-relaxed text-ink-2"
+          onClick={onClick}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
       )}
       {file && file.content !== null && !html && structuredKind(file.path) && (
         <StructuredView kind={structuredKind(file.path)!} content={file.content} labels={t.viewer} />
