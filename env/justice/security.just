@@ -8,7 +8,7 @@ HADOLINT_IMAGE := 'hadolint/hadolint:v2.15.1'
 # Known vulnerabilities reachable from the code, in its modules and in the Go standard library
 [group('security')]
 vuln:
-    {{ GO }} run {{ GOVULNCHECK }} ./...
+    GOTOOLCHAIN="$({{ GO }} env GOVERSION)" {{ GO }} run {{ GOVULNCHECK }} ./...
 
 # Static security analysis of the Go code (exceptions: `#nosec G<n> -- <reason>` in the code).
 # G115 (integer conversions) is off: every converted value is bounded by config validation, page
