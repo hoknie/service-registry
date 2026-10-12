@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { constants, gzipSync } from "node:zlib";
 
@@ -7,12 +7,13 @@ const kinds = /\.(html|js|css|txt|json|svg|map)$/;
 
 let count = 0;
 const walk = (dir) => {
-  for (const name of readdirSync(dir)) {
-    const path = join(dir, name);
-    const info = statSync(path);
-    if (info.isDirectory()) walk(path);
-    else if (kinds.test(name) && info.size > 1024) {
-      writeFileSync(`${path}.gz`, gzipSync(readFileSync(path), { level: constants.Z_BEST_COMPRESSION }));
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) walk(path);
+    else if (entry.isFile() && kinds.test(entry.name)) {
+      const body = readFileSync(path);
+      if (body.length <= 1024) continue;
+      writeFileSync(`${path}.gz`, gzipSync(body, { level: constants.Z_BEST_COMPRESSION }));
       count++;
     }
   }

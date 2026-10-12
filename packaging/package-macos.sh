@@ -181,19 +181,26 @@ check() {
     (cd "$data" && SVC_REGISTRY_PREFIX="$root" exec sh "$root/libexec/svc-registry/launch" "$settings") > "$work/service.log" 2>&1 &
     local service=$!
     for _ in $(seq 1 60); do
-        curl -fsS "http://127.0.0.1:$port/api/ready" >/dev/null 2>&1 && break
+        curl -fsS --max-time 5 "http://127.0.0.1:$port/api/ready" >/dev/null 2>&1 && break
         kill -0 "$service" 2>/dev/null || sleep 1
         sleep 0.5
     done
-    verdict 'curl -fsS "http://127.0.0.1:$port/api/ready" >/dev/null' "GET /api/ready answers 200 after db:migrate"
-    verdict '[ "$(curl -s -o /dev/null -w "%{http_code}" "http://127.0.0.1:$port/en/login")" = 200 ]' "GET /en/login answers the interface from share/svc-registry/web"
+    verdict 'curl -fsS --max-time 5 "http://127.0.0.1:$port/api/ready" >/dev/null' "GET /api/ready answers 200 after db:migrate"
+    verdict '[ "$(curl -s --max-time 10 -o /dev/null -w "%{http_code}" "http://127.0.0.1:$port/en/login")" = 200 ]' "GET /en/login answers the interface from share/svc-registry/web"
     local body password; password="$(cat "$folder/initial-password")"
     body="$(printf '{"email":"admin@example.com","password":"%s"}' "$password")"
-    status="$(curl -s -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' -d "$body" \
+    status="$(curl -s --max-time 30 -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' -d "$body" \
         "http://127.0.0.1:$port/api/v1/auth/login" || true)"
     verdict '[ "$status" = 200 ]' "admin@example.com signs in with initial-password (HTTP $status)"
     pkill -P "$service" 2>/dev/null || true
     kill "$service" 2>/dev/null || true
+    local stopped=0
+    for _ in $(seq 1 40); do
+        kill -0 "$service" 2>/dev/null || { stopped=1; break; }
+        sleep 0.5
+    done
+    verdict '[ "$stopped" = 1 ]' "the service stops on SIGTERM within 20 s"
+    [ "$stopped" = 1 ] || kill -KILL "$service" 2>/dev/null || true
     wait "$service" 2>/dev/null || true
     [ "$failed" -eq 0 ] || { cat "$work/service.log"; die "the package is not what it should be"; }
     say "the .pkg is what it should be"

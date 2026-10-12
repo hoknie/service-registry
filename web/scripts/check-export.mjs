@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -15,12 +15,12 @@ if (!existsSync(out)) {
 }
 
 function read(rel) {
-  const file = join(out, rel);
-  if (!existsSync(file) || !statSync(file).isFile()) {
+  try {
+    return readFileSync(join(out, rel), "utf8");
+  } catch {
     problems.push(`${rel}: missing`);
     return undefined;
   }
-  return readFileSync(file, "utf8");
 }
 
 for (const locale of LOCALES) {

@@ -23,6 +23,7 @@ env:
 jobs:
   check:
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: The tag names the version in internal/app/version.go
@@ -37,6 +38,7 @@ jobs:
   web:
     needs: check
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -63,6 +65,7 @@ jobs:
   linux:
     needs: [gates, web]
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     strategy:
       fail-fast: true
       matrix:
@@ -103,6 +106,7 @@ jobs:
   macos:
     needs: [gates, web]
     runs-on: macos-14
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -120,8 +124,15 @@ jobs:
           for _ in $(seq 1 60); do "$bin/pg_isready" -q -h 127.0.0.1 && break; sleep 1; done
           "$bin/createdb" -h 127.0.0.1 registry
           echo "CHECK_DATABASE_URL=postgres://$(id -un)@127.0.0.1:5432/registry?sslmode=disable" >> "$GITHUB_ENV"
-      - name: A universal binary, its archive and the .pkg, checked
-        run: ./packaging/package-macos.sh all
+      - name: A universal binary (arm64 + amd64)
+        run: ./packaging/package-macos.sh binaries
+      - name: The archive
+        run: ./packaging/package-macos.sh archive
+      - name: The .pkg
+        run: ./packaging/package-macos.sh pkg
+      - name: The .pkg holds what it should, the service starts and admin signs in
+        timeout-minutes: 10
+        run: ./packaging/package-macos.sh check
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: packages-macos
@@ -132,6 +143,7 @@ jobs:
   image:
     needs: [linux, macos]
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -175,6 +187,7 @@ jobs:
   publish:
     needs: [linux, macos, image]
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: write
     env:

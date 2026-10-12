@@ -42,8 +42,4 @@ export function watchSystemTheme(onChange: () => void): () => void {
   return () => query.removeEventListener("change", onChange);
 }
 
-export const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem(${JSON.stringify(
-  THEME_KEY,
-)});var d=t==="dark"||(t!=="light"&&matchMedia(${JSON.stringify(
-  darkQuery,
-)}).matches);var r=document.documentElement;r.dataset.theme=d?"dark":"light";r.style.colorScheme=d?"dark":"light"}catch(e){}})()`;
+export const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem("${THEME_KEY}");var d=t==="dark"||(t!=="light"&&matchMedia("${darkQuery}").matches);var r=document.documentElement;r.dataset.theme=d?"dark":"light";r.style.colorScheme=d?"dark":"light"}catch(e){}})()`;

@@ -32,6 +32,4 @@ export function watchSidebar(onChange: () => void): () => void {
   };
 }
 
-export const SIDEBAR_SCRIPT = `(function(){try{var s=localStorage.getItem(${JSON.stringify(
-  SIDEBAR_KEY,
-)});if(s==="expanded"||s==="collapsed")document.documentElement.dataset.sidebar=s}catch(e){}})()`;
+export const SIDEBAR_SCRIPT = `(function(){try{var s=localStorage.getItem("${SIDEBAR_KEY}");if(s==="expanded"||s==="collapsed")document.documentElement.dataset.sidebar=s}catch(e){}})()`;
