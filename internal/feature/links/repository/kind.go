@@ -16,7 +16,7 @@ func NewKinds(db *postgres.DB) *Kinds { return &Kinds{db: db} }
 
 func (s *Kinds) List(ctx context.Context) ([]links.Kind, error) {
 	rows, err := s.db.From(ctx).Query(ctx, `
-		SELECT k.id, k.key, k.names, k.icon, k.position, rfc3339(k.created_at) AS created_at,
+		SELECT k.id, k.key, k.names, k.icon, k.icon_url, k.position, rfc3339(k.created_at) AS created_at,
 			rfc3339(k.updated_at) AS updated_at
 		FROM link_kinds k
 		ORDER BY k.position, k.key`)
@@ -36,10 +36,11 @@ func (s *Kinds) List(ctx context.Context) ([]links.Kind, error) {
 
 func (s *Kinds) Insert(ctx context.Context, k links.NewKind) (links.Kind, error) {
 	rows, err := s.db.From(ctx).Query(ctx, `
-		INSERT INTO link_kinds AS k (id, key, names, icon, position)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING k.id, k.key, k.names, k.icon, k.position, rfc3339(k.created_at) AS created_at,
-			rfc3339(k.updated_at) AS updated_at`, k.ID, k.Key, map[string]string(k.Names), string(k.Icon), k.Position)
+		INSERT INTO link_kinds AS k (id, key, names, icon, icon_url, position)
+		SELECT $1, $2, $3, $4, $5, COALESCE($6, LEAST(COALESCE(max(position), 0) + 10, 10000))
+		FROM link_kinds
+		RETURNING k.id, k.key, k.names, k.icon, k.icon_url, k.position, rfc3339(k.created_at) AS created_at,
+			rfc3339(k.updated_at) AS updated_at`, k.ID, k.Key, map[string]string(k.Names), k.Icon, k.IconURL, k.Position)
 	if err != nil {
 		return links.Kind{}, dbErr(err)
 	}
@@ -55,18 +56,14 @@ func (s *Kinds) Update(ctx context.Context, key string, c links.KindChanges) (*l
 	if c.Names != nil {
 		names = map[string]string(c.Names)
 	}
-	var icon *string
-	if c.Icon != nil {
-		v := string(*c.Icon)
-		icon = &v
-	}
 	rows, err := s.db.From(ctx).Query(ctx, `
 		UPDATE link_kinds AS k
-		SET names = COALESCE($2, k.names), icon = COALESCE($3, k.icon), position = COALESCE($4, k.position),
+		SET names = COALESCE($2, k.names), icon = COALESCE($3, k.icon),
+			icon_url = CASE WHEN $4 THEN $5 ELSE k.icon_url END, position = COALESCE($6, k.position),
 			updated_at = now()
 		WHERE k.key = $1
-		RETURNING k.id, k.key, k.names, k.icon, k.position, rfc3339(k.created_at) AS created_at,
-			rfc3339(k.updated_at) AS updated_at`, key, names, icon, c.Position)
+		RETURNING k.id, k.key, k.names, k.icon, k.icon_url, k.position, rfc3339(k.created_at) AS created_at,
+			rfc3339(k.updated_at) AS updated_at`, key, names, c.Icon, c.IconURLSet, c.IconURL, c.Position)
 	if err != nil {
 		return nil, dbErr(err)
 	}
@@ -79,6 +76,44 @@ func (s *Kinds) Update(ctx context.Context, key string, c links.KindChanges) (*l
 	}
 	k := r.kind()
 	return &k, nil
+}
+
+func (s *Kinds) Reorder(ctx context.Context, keys []string) error {
+	err := s.db.InTx(ctx, func(ctx context.Context) error {
+		tx := s.db.From(ctx)
+		rows, err := tx.Query(ctx, `
+			SELECT key
+			FROM link_kinds
+			ORDER BY key
+			FOR UPDATE`)
+		if err != nil {
+			return err
+		}
+		current, err := pgx.CollectRows(rows, pgx.RowTo[string])
+		if err != nil {
+			return err
+		}
+		if len(current) != len(keys) {
+			return links.ConflictKindOrderStale
+		}
+		given := make(map[string]bool, len(keys))
+		for _, k := range keys {
+			given[k] = true
+		}
+		for _, k := range current {
+			if !given[k] {
+				return links.ConflictKindOrderStale
+			}
+		}
+		_, err = tx.Exec(ctx, `
+			UPDATE link_kinds AS k
+			SET position = o.ord * 10, updated_at = now()
+			FROM unnest($1::text[]) WITH ORDINALITY AS o(key, ord)
+			WHERE k.key = o.key
+				AND k.position <> o.ord * 10`, keys)
+		return err
+	})
+	return dbErr(err)
 }
 
 func (s *Kinds) Delete(ctx context.Context, key string) error {

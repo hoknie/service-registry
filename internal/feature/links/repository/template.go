@@ -44,7 +44,7 @@ func effectiveTemplates(ctx context.Context, q querier, nodeID uuid.UUID) ([]lin
 		)
 		SELECT DISTINCT ON (t.link_key) t.id, t.node_id, t.link_key, k.key AS kind_key,
 			k.position AS kind_position, t.template, t.disabled, t.position, t.title, t.icon_url, t.icon_file,
-			k.icon AS kind_icon, rfc3339(t.created_at) AS created_at, rfc3339(t.updated_at) AS updated_at, up.lvl > 0 AS inherited
+			k.icon AS kind_icon, k.icon_url AS kind_icon_url, rfc3339(t.created_at) AS created_at, rfc3339(t.updated_at) AS updated_at, up.lvl > 0 AS inherited
 		FROM up
 		JOIN link_templates t ON t.node_id = up.id
 		JOIN link_kinds k ON k.id = t.kind_id
@@ -132,7 +132,7 @@ func (s *Templates) Put(ctx context.Context, t links.NewTemplate) (links.Templat
 		}
 		rows, err := tx.Query(ctx, `
 			SELECT t.id, t.node_id, t.link_key, k.key AS kind_key, k.position AS kind_position, t.template,
-				t.disabled, t.position, t.title, t.icon_url, t.icon_file, k.icon AS kind_icon, rfc3339(t.created_at) AS created_at, rfc3339(t.updated_at) AS updated_at,
+				t.disabled, t.position, t.title, t.icon_url, t.icon_file, k.icon AS kind_icon, k.icon_url AS kind_icon_url, rfc3339(t.created_at) AS created_at, rfc3339(t.updated_at) AS updated_at,
 				false AS inherited
 			FROM link_templates t
 			JOIN link_kinds k ON k.id = t.kind_id
@@ -212,7 +212,7 @@ func (s *Templates) ProjectData(ctx context.Context, projectID uuid.UUID) (links
 			return err
 		}
 		rows, err := tx.Query(ctx, `
-			SELECT d.service, d.environment, d.version, d.commit_sha, d.cluster, d.namespace, d.url
+			SELECT d.service, d.environment, d.version, d.commit_sha, d.cluster, d.namespace, d.url, d.links
 			FROM service_environments e
 			JOIN service_deployments d ON d.id = e.deployment_id
 			WHERE e.project_id = $1`, projectID)
@@ -226,7 +226,8 @@ func (s *Templates) ProjectData(ctx context.Context, projectID uuid.UUID) (links
 		for _, d := range deployments {
 			out.Deployments = append(out.Deployments, links.Deployment(d))
 		}
-		return nil
+		out.Kinds, err = kindInfos(ctx, tx)
+		return err
 	})
 	return out, dbErr(err)
 }
@@ -260,4 +261,21 @@ func (s *Templates) Projects(ctx context.Context, after uuid.UUID, limit int) ([
 	}
 	ids, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
 	return ids, dbErr(err)
+}
+
+func kindInfos(ctx context.Context, q querier) (map[string]links.KindInfo, error) {
+	rows, err := q.Query(ctx, `
+		SELECT key, position, icon, icon_url
+		FROM link_kinds`)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]links.KindInfo{}
+	var key string
+	var info links.KindInfo
+	_, err = pgx.ForEachRow(rows, []any{&key, &info.Position, &info.Icon, &info.IconURL}, func() error {
+		out[key] = info
+		return nil
+	})
+	return out, err
 }

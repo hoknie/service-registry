@@ -57,3 +57,18 @@ func (s *Service) DeleteLinkKind(ctx context.Context, p access.Principal, rawKey
 	}
 	return apperr.Wrap(s.kinds.Delete(ctx, key))
 }
+
+func (s *Service) ReorderLinkKinds(ctx context.Context, p access.Principal, rawKeys []string) ([]links.Kind, error) {
+	if err := access.RequireSuperadmin(p); err != nil {
+		return nil, err
+	}
+	keys, err := links.ValidateOrder(rawKeys)
+	if err != nil {
+		return nil, apperr.Wrap(err)
+	}
+	if err := s.kinds.Reorder(ctx, keys); err != nil {
+		return nil, apperr.Wrap(err)
+	}
+	items, err := s.kinds.List(ctx)
+	return items, apperr.Wrap(err)
+}

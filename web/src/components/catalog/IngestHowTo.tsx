@@ -91,6 +91,7 @@ export function IngestHowTo({ projectId, labels, onKeys }: Props) {
               ))}
             </Tabs>
             <p className="text-sm text-muted">{labels.idempotency}</p>
+            <p className="text-sm text-muted">{labels.links}</p>
           </div>
         </li>
       </ol>

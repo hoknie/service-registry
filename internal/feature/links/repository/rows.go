@@ -15,13 +15,14 @@ type kindRow struct {
 	Key       string            `db:"key"`
 	Names     map[string]string `db:"names"`
 	Icon      string            `db:"icon"`
+	IconURL   *string           `db:"icon_url"`
 	Position  int32             `db:"position"`
 	CreatedAt string            `db:"created_at"`
 	UpdatedAt string            `db:"updated_at"`
 }
 
 func (r kindRow) kind() links.Kind {
-	return links.Kind{ID: r.ID, Key: r.Key, Names: r.Names, Icon: links.Icon(r.Icon), Position: r.Position,
+	return links.Kind{ID: r.ID, Key: r.Key, Names: r.Names, Icon: r.Icon, IconURL: r.IconURL, Position: r.Position,
 		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
 }
 
@@ -38,6 +39,7 @@ type templateRow struct {
 	IconURL      *string   `db:"icon_url"`
 	IconFile     *string   `db:"icon_file"`
 	KindIcon     string    `db:"kind_icon"`
+	KindIconURL  *string   `db:"kind_icon_url"`
 	CreatedAt    string    `db:"created_at"`
 	UpdatedAt    string    `db:"updated_at"`
 	Inherited    bool      `db:"inherited"`
@@ -53,13 +55,14 @@ type varRow struct {
 }
 
 type deploymentRow struct {
-	Service     string  `db:"service"`
-	Environment string  `db:"environment"`
-	Version     string  `db:"version"`
-	Commit      *string `db:"commit_sha"`
-	Cluster     *string `db:"cluster"`
-	Namespace   *string `db:"namespace"`
-	URL         *string `db:"url"`
+	Service     string            `db:"service"`
+	Environment string            `db:"environment"`
+	Version     string            `db:"version"`
+	Commit      *string           `db:"commit_sha"`
+	Cluster     *string           `db:"cluster"`
+	Namespace   *string           `db:"namespace"`
+	URL         *string           `db:"url"`
+	Links       []links.EventLink `db:"links"`
 }
 
 type checkRow struct {

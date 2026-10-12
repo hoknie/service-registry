@@ -275,8 +275,11 @@ export type Deployment = {
   received_at: string;
   event_id: string | null;
   source: DeploymentSource;
+  links: DeploymentLink[];
   current: boolean;
 };
+
+export type DeploymentLink = { key: string; kind: string; url: string; title: string | null };
 
 export type DeploymentSource = "event" | "cluster";
 
@@ -361,19 +364,17 @@ export type UnmatchedWorkload = {
   observed_at: string;
 };
 
-export const LINK_ICONS = ["link", "logs", "dashboard", "errors", "alerts", "traces", "runbook", "docs"] as const;
-export type LinkIcon = (typeof LINK_ICONS)[number];
-
 export type LinkKind = {
   key: string;
   names: Record<"en" | "es" | "ru" | "zh", string>;
-  icon: LinkIcon;
+  icon: string;
+  icon_url: string | null;
   position: number;
   created_at: string;
   updated_at: string;
 };
 
-export type LinkGlyph = { kind: "builtin"; name: string } | { kind: "url" | "file"; url: string };
+export type LinkGlyph = { kind: "builtin"; name: string } | { kind: "url" | "file"; url: string; name: string };
 
 export type LinkBadge = { link_key: string; kind_key: string; title: string | null; icon: LinkGlyph; url: string | null };
 
@@ -434,6 +435,7 @@ export type ProjectLink = {
   url: string | null;
   missing: string[];
   check: LinkCheck | null;
+  source: "template" | "event";
 };
 
 export type KnowledgeSettings = { include: string[] | null; exclude: string[]; branches: string[] };

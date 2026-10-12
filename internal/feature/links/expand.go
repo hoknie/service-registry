@@ -17,7 +17,20 @@ type Deployment struct {
 	Cluster     *string
 	Namespace   *string
 	URL         *string
+	Links       []EventLink
 }
+
+type EventLink struct {
+	Key   string  `json:"key"`
+	Kind  string  `json:"kind"`
+	URL   string  `json:"url"`
+	Title *string `json:"title"`
+}
+
+const (
+	SourceTemplate = "template"
+	SourceEvent    = "event"
+)
 
 type Context struct {
 	ProjectID    uuid.UUID
@@ -29,6 +42,7 @@ type Context struct {
 	RepoFullPath *string
 	Branch       *string
 	Deployments  []Deployment
+	Kinds        map[string]KindInfo
 }
 
 type Link struct {
@@ -43,9 +57,13 @@ type Link struct {
 	URL         *string
 	Missing     []string
 	Check       *Check
+	Source      string
+
+	kindPosition int32
+	position     int32
 }
 
-func Expand(c Context, templates []Template, environment string) []Link {
+func currentDeployments(c Context, environment string) []Deployment {
 	deployments := slices.Clone(c.Deployments)
 	if environment != "" {
 		deployments = slices.DeleteFunc(deployments, func(d Deployment) bool { return d.Environment != environment })
@@ -53,6 +71,11 @@ func Expand(c Context, templates []Template, environment string) []Link {
 	slices.SortFunc(deployments, func(a, b Deployment) int {
 		return cmp.Or(strings.Compare(a.Service, b.Service), strings.Compare(a.Environment, b.Environment))
 	})
+	return deployments
+}
+
+func Expand(c Context, templates []Template, environment string) []Link {
+	deployments := currentDeployments(c, environment)
 	var out []Link
 	for _, t := range templates {
 		if t.Disabled || t.Template == nil {
@@ -62,7 +85,8 @@ func Expand(c Context, templates []Template, environment string) []Link {
 		if err != nil {
 			continue
 		}
-		base := Link{LinkKey: t.LinkKey, KindKey: t.KindKey, Title: t.Title, Icon: t.LinkIcon(), NodeID: t.NodeID, Inherited: t.Inherited}
+		base := Link{LinkKey: t.LinkKey, KindKey: t.KindKey, Title: t.Title, Icon: t.LinkIcon(), NodeID: t.NodeID, Inherited: t.Inherited,
+			Source: SourceTemplate, kindPosition: t.KindPosition, position: t.Position}
 		if !usesDeployment(p) || len(deployments) == 0 {
 			out = append(out, expandOne(p, base, c, nil))
 			continue
@@ -74,6 +98,48 @@ func Expand(c Context, templates []Template, environment string) []Link {
 		}
 	}
 	return out
+}
+
+type linkPair struct{ key, service, environment string }
+
+func ExpandProject(c Context, templates []Template, environment string) []Link {
+	out := Expand(c, templates, environment)
+	var events []Link
+	replaced := map[linkPair]bool{}
+	for _, d := range currentDeployments(c, environment) {
+		for _, e := range d.Links {
+			service, env, url := d.Service, d.Environment, e.URL
+			l := Link{LinkKey: e.Key, KindKey: e.Kind, Title: e.Title, NodeID: c.ProjectID, Service: &service,
+				Environment: &env, URL: &url, Missing: []string{}, Source: SourceEvent, kindPosition: MaxPosition + 1}
+			if k, ok := c.Kinds[e.Kind]; ok {
+				l.Icon, l.kindPosition = k.LinkIcon(), k.Position
+			} else {
+				l.Icon = LinkIcon{Kind: "builtin", Name: DefaultIcon}
+			}
+			events = append(events, l)
+			replaced[linkPair{e.Key, service, env}] = true
+		}
+	}
+	if len(events) == 0 {
+		return out
+	}
+	out = slices.DeleteFunc(out, func(l Link) bool {
+		return l.Service != nil && replaced[linkPair{l.LinkKey, *l.Service, *l.Environment}]
+	})
+	out = append(out, events...)
+	slices.SortStableFunc(out, func(a, b Link) int {
+		return cmp.Or(cmp.Compare(a.kindPosition, b.kindPosition), cmp.Compare(a.position, b.position),
+			strings.Compare(a.LinkKey, b.LinkKey), strings.Compare(deref(a.Service), deref(b.Service)),
+			strings.Compare(deref(a.Environment), deref(b.Environment)))
+	})
+	return out
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 func expandOne(p *Pattern, l Link, c Context, d *Deployment) Link {

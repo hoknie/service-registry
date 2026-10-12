@@ -21,7 +21,7 @@ export function Glyph({ icon, kindIcon, size = 16, className }: { icon: LinkGlyp
   const [broken, setBroken] = useState(false);
   const box = size === 20 ? "size-5" : "size-4";
   if (icon.kind === "builtin" || broken) {
-    return <LinkIcon icon={icon.kind === "builtin" ? icon.name : kindIcon} className={cn(box, "text-ink-2", className)} />;
+    return <LinkIcon icon={icon.name ?? kindIcon} className={cn(box, "text-ink-2", className)} />;
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element

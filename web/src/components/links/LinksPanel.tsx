@@ -103,7 +103,7 @@ export function LinksPanel({ projectId, branch, kinds, locale, labels }: Props) 
     >
       {error && <Message note={{ kind: "error", text: error }} className="mb-4" />}
       {!items && !error && <SkeletonTable rows={3} label={common.loading} />}
-      {items && items.length === 0 && <EmptyState icon={Link2} title={t.empty} text={t.emptyText} />}
+      {items && items.length === 0 && <EmptyState icon={Link2} title={t.empty} text={`${t.emptyText} ${t.emptyEvents}`} />}
       {items && items.length > 0 && (
         <ul className="grid divide-y divide-line">
           {items.map((l) => {
@@ -132,6 +132,7 @@ export function LinksPanel({ projectId, branch, kinds, locale, labels }: Props) 
                   )}
                   <span className="ml-2 inline-flex flex-wrap gap-1 align-middle">
                     {l.link_key !== l.kind_key && <code className="text-xs text-ink-2">{l.link_key}</code>}
+                    {l.source === "event" && <Badge tone="signal">{t.fromEvent}</Badge>}
                     {l.environment && <Badge tone="cobalt">{l.environment}</Badge>}
                     {l.service && (
                       <Badge tone="outline" title={t.service}>

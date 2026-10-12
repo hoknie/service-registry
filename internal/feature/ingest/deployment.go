@@ -16,6 +16,7 @@ type Deployment struct {
 	URL         *string
 	DeployedBy  *string
 	Metadata    map[string]string
+	Links       []DeploymentLink
 	OccurredAt  string
 	ReceivedAt  string
 	Current     bool
@@ -34,4 +35,5 @@ type Environment struct {
 	DeploymentID uuid.UUID
 	UpdatedAt    string
 	Source       string
+	Links        []DeploymentLink
 }

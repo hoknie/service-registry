@@ -81,7 +81,23 @@ type Deployment struct {
 	ReceivedAt  string            `json:"received_at"`
 	EventID     *uuid.UUID        `json:"event_id"`
 	Source      string            `json:"source"`
+	Links       []DeploymentLink  `json:"links"`
 	Current     bool              `json:"current"`
+}
+
+type DeploymentLink struct {
+	Key   string  `json:"key"`
+	Kind  string  `json:"kind"`
+	URL   string  `json:"url"`
+	Title *string `json:"title"`
+}
+
+func DeploymentLinksOf(in []ingest.DeploymentLink) []DeploymentLink {
+	out := make([]DeploymentLink, 0, len(in))
+	for _, l := range in {
+		out = append(out, DeploymentLink(l))
+	}
+	return out
 }
 
 func DeploymentOf(d ingest.Deployment) Deployment {
@@ -93,7 +109,7 @@ func DeploymentOf(d ingest.Deployment) Deployment {
 		ID: d.ID, Service: d.Service, Environment: d.Environment, Version: d.Version,
 		CommitSHA: d.CommitSHA, Branch: d.Branch, Cluster: d.Cluster, Namespace: d.Namespace,
 		URL: d.URL, DeployedBy: d.DeployedBy, Metadata: metadata, OccurredAt: d.OccurredAt,
-		ReceivedAt: d.ReceivedAt, EventID: d.EventID, Current: d.Current, Source: d.Source,
+		ReceivedAt: d.ReceivedAt, EventID: d.EventID, Current: d.Current, Source: d.Source, Links: DeploymentLinksOf(d.Links),
 	}
 }
 
@@ -131,23 +147,25 @@ func ObservedOf(o deploy.Observed) Observed {
 }
 
 type Environment struct {
-	Service      string     `json:"service"`
-	Environment  string     `json:"environment"`
-	Version      *string    `json:"version"`
-	CommitSHA    *string    `json:"commit_sha"`
-	Branch       *string    `json:"branch"`
-	URL          *string    `json:"url"`
-	DeployedBy   *string    `json:"deployed_by"`
-	OccurredAt   *string    `json:"occurred_at"`
-	Source       *string    `json:"source"`
-	DeploymentID *uuid.UUID `json:"deployment_id"`
-	UpdatedAt    *string    `json:"updated_at"`
-	Observed     []Observed `json:"observed"`
-	Drift        bool       `json:"drift"`
+	Service      string           `json:"service"`
+	Environment  string           `json:"environment"`
+	Version      *string          `json:"version"`
+	CommitSHA    *string          `json:"commit_sha"`
+	Branch       *string          `json:"branch"`
+	URL          *string          `json:"url"`
+	DeployedBy   *string          `json:"deployed_by"`
+	OccurredAt   *string          `json:"occurred_at"`
+	Source       *string          `json:"source"`
+	DeploymentID *uuid.UUID       `json:"deployment_id"`
+	UpdatedAt    *string          `json:"updated_at"`
+	Links        []DeploymentLink `json:"links"`
+	Observed     []Observed       `json:"observed"`
+	Drift        bool             `json:"drift"`
 }
 
 func EnvironmentOf(e deployservice.EnvironmentState) Environment {
-	out := Environment{Service: e.Service, Environment: e.Environment, Drift: e.Drift, Observed: make([]Observed, 0, len(e.Observed))}
+	out := Environment{Service: e.Service, Environment: e.Environment, Drift: e.Drift, Observed: make([]Observed, 0, len(e.Observed)),
+		Links: []DeploymentLink{}}
 	for _, o := range e.Observed {
 		out.Observed = append(out.Observed, ObservedOf(o))
 	}
@@ -155,6 +173,7 @@ func EnvironmentOf(e deployservice.EnvironmentState) Environment {
 		version, occurred, source, id, updated := c.Version, c.OccurredAt, c.Source, c.DeploymentID, c.UpdatedAt
 		out.Version, out.CommitSHA, out.Branch, out.URL, out.DeployedBy = &version, c.CommitSHA, c.Branch, c.URL, c.DeployedBy
 		out.OccurredAt, out.Source, out.DeploymentID, out.UpdatedAt = &occurred, &source, &id, &updated
+		out.Links = DeploymentLinksOf(c.Links)
 	}
 	return out
 }

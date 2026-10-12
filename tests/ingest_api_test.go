@@ -267,6 +267,35 @@ func TestOptionalFieldsAreStoredAndBlankMeansUnset(t *testing.T) {
 	eq(t, row["namespace"], any("prod"))
 	eq(t, row["deployed_by"], any("octocat"))
 	eq(t, jsonText(row["metadata"]), `{"run_id":"42"}`)
+	eq(t, jsonText(row["links"]), `[]`)
+}
+
+func TestDeploymentLinksAreStoredWithTheDeployment(t *testing.T) {
+	t.Parallel()
+	app := startApp(t)
+	admin := app.admin()
+	pid, key := app.projectWithKey(admin, "api")
+	eq(t, app.ingest(pid, key, deployed("k-0", "api", "production", "2.0.0", t1)).status, 201)
+	e := deployed("k-1", "api", "production", "2.1.0", t2)
+	e["payload"].(obj)["links"] = []any{
+		obj{"kind": "Runbook", "url": "https://ci.example/runs/42", "title": "Пайплайн"},
+		obj{"kind": "logs", "key": "logs-raw", "url": "https://logs.example/?q=api"},
+	}
+	r := app.ingest(pid, key, e)
+	eq(t, r.status, 201, r.text())
+	want := `[{"key":"runbook","kind":"runbook","title":"Пайплайн","url":"https://ci.example/runs/42"},` +
+		`{"key":"logs-raw","kind":"logs","title":null,"url":"https://logs.example/?q=api"}]`
+	items := list(t, app.get(recordsPath(pid, "deployments"), admin).json(t), "items")
+	eq(t, jsonText(items[0].(obj)["links"]), want)
+	eq(t, jsonText(items[1].(obj)["links"]), `[]`)
+	envs := app.environments(admin, pid)
+	eq(t, jsonText(envs[0].(obj)["links"]), want)
+
+	bad := deployed("k-2", "api", "production", "2.2.0", t2)
+	bad["payload"].(obj)["links"] = []any{obj{"kind": "logs", "url": "ftp://x"}, "oops"}
+	r = app.ingest(pid, key, bad)
+	eq(t, r.status, 422)
+	eq(t, jsonText(r.json(t)["fields"]), `[{"code":"invalid_value","path":"payload.links.0.url"},{"code":"invalid_type","path":"payload.links.1"}]`)
 }
 
 func TestAReplayedEventReturnsTheOriginalResultWithoutDuplicates(t *testing.T) {

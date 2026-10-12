@@ -16,12 +16,16 @@ func InsertDeployment(ctx context.Context, tx postgres.Querier, d ingest.Deploym
 	if metadata == nil {
 		metadata = map[string]string{}
 	}
+	links := d.Links
+	if links == nil {
+		links = []ingest.DeploymentLink{}
+	}
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO service_deployments (id, project_id, event_id, service, environment, version,
-			commit_sha, branch, cluster, namespace, url, deployed_by, metadata, occurred_at, source)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14::timestamptz, $15)`,
+			commit_sha, branch, cluster, namespace, url, deployed_by, metadata, occurred_at, source, links)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14::timestamptz, $15, $16::jsonb)`,
 		d.ID, d.ProjectID, d.EventID, d.Service, d.Environment, d.Version,
-		d.CommitSHA, d.Branch, d.Cluster, d.Namespace, d.URL, d.DeployedBy, metadata, d.OccurredAt, d.Source); err != nil {
+		d.CommitSHA, d.Branch, d.Cluster, d.Namespace, d.URL, d.DeployedBy, metadata, d.OccurredAt, d.Source, links); err != nil {
 		return false, err
 	}
 	envRow := d.EnvironmentID

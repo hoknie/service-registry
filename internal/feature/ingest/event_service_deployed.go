@@ -3,12 +3,14 @@ package ingest
 import (
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 )
 
 const (
 	MetadataMaxPairs = 32
 	MetadataValueMax = 1024
+	LinksMax         = 20
 )
 
 type ServiceDeployedV1 struct {
@@ -22,6 +24,7 @@ type ServiceDeployedV1 struct {
 	URL         Field[string]         `json:"url"`
 	DeployedBy  Field[string]         `json:"deployed_by"`
 	Metadata    Field[map[string]any] `json:"metadata"`
+	Links       Field[[]any]          `json:"links"`
 }
 
 var (
@@ -34,6 +37,8 @@ var (
 	urlRule        = rule{tags: "max=2048,token,http_url"}
 	deployedByRule = rule{norm: trim, tags: "max=200,nocontrol"}
 	metaValueTags  = "max=1024,nocontrol"
+	linkKeyRule    = rule{norm: lowerTrim, tags: "dnslabel"}
+	linkTitleRule  = rule{norm: trim, tags: "max=100,nocontrol"}
 )
 
 func (p ServiceDeployedV1) parse(errs *fields) ServiceDeployed {
@@ -48,7 +53,65 @@ func (p ServiceDeployedV1) parse(errs *fields) ServiceDeployed {
 		URL:         errs.optional("payload.url", p.URL, urlRule),
 		DeployedBy:  errs.optional("payload.deployed_by", p.DeployedBy, deployedByRule),
 		Metadata:    p.metadata(errs),
+		Links:       p.links(errs),
 	}
+}
+
+func (p ServiceDeployedV1) links(errs *fields) []DeploymentLink {
+	out := []DeploymentLink{}
+	switch p.Links.State {
+	case Absent, Null:
+		return out
+	case WrongType:
+		errs.add("payload.links", FieldInvalidType)
+		return out
+	}
+	if len(p.Links.Value) > LinksMax {
+		errs.add("payload.links", FieldInvalidValue)
+		return out
+	}
+	seen := map[string]bool{}
+	for i, raw := range p.Links.Value {
+		path := "payload.links." + strconv.Itoa(i)
+		m, ok := raw.(map[string]any)
+		if !ok {
+			errs.add(path, FieldInvalidType)
+			continue
+		}
+		before := len(*errs)
+		kind := errs.required(path+".kind", stringField(m, "kind"), linkKeyRule)
+		url := errs.required(path+".url", stringField(m, "url"), urlRule)
+		key := errs.optional(path+".key", stringField(m, "key"), linkKeyRule)
+		title := errs.optional(path+".title", stringField(m, "title"), linkTitleRule)
+		if key == nil && kind != "" {
+			key = &kind
+		}
+		if key != nil {
+			if seen[*key] {
+				errs.add(path+".key", FieldInvalidValue)
+			}
+			seen[*key] = true
+		}
+		if len(*errs) == before {
+			out = append(out, DeploymentLink{Key: *key, Kind: kind, URL: url, Title: title})
+		}
+	}
+	return out
+}
+
+func stringField(m map[string]any, name string) Field[string] {
+	v, ok := m[name]
+	switch {
+	case !ok:
+		return Field[string]{State: Absent}
+	case v == nil:
+		return Field[string]{State: Null}
+	}
+	s, ok := v.(string)
+	if !ok {
+		return Field[string]{State: WrongType}
+	}
+	return Field[string]{Value: s, State: Set}
 }
 
 func (p ServiceDeployedV1) metadata(errs *fields) map[string]string {

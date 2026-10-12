@@ -54,7 +54,7 @@ func applyDeployed(ctx context.Context, tx postgres.Querier, e ingest.NewEvent, 
 	became, err := InsertDeployment(ctx, tx, ingest.DeploymentRecord{
 		ID: e.DeploymentID, EnvironmentID: e.EnvironmentID, ProjectID: e.ProjectID, EventID: &eventID, Source: "event",
 		Service: p.Service, Environment: p.Environment, Version: p.Version, CommitSHA: p.CommitSHA, Branch: p.Branch,
-		Cluster: p.Cluster, Namespace: p.Namespace, URL: p.URL, DeployedBy: p.DeployedBy, Metadata: p.Metadata, OccurredAt: at,
+		Cluster: p.Cluster, Namespace: p.Namespace, URL: p.URL, DeployedBy: p.DeployedBy, Metadata: p.Metadata, Links: p.Links, OccurredAt: at,
 	})
 	if err != nil {
 		return ingest.DeploymentResult{}, dbErr(err)

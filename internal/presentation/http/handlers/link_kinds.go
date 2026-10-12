@@ -63,3 +63,19 @@ func (a *Handlers) DeleteLinkKind(c fiber.Ctx) error {
 	}
 	return c.SendStatus(http.StatusNoContent)
 }
+
+func (a *Handlers) ReorderLinkKinds(c fiber.Ctx) error {
+	p, _, err := a.currentUser(c)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	var in requests.ReorderLinkKinds
+	if err := bindJSON(c, &in); err != nil {
+		return responses.Fail(c, err)
+	}
+	items, err := a.Links.ReorderLinkKinds(c.Context(), p, *in.Keys)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	return c.Status(http.StatusOK).JSON(responses.ItemsOf(items, responses.LinkKindOf))
+}

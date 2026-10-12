@@ -3,7 +3,7 @@ import type { NodeKind } from "./api";
 export const SECTIONS = ["general", "branches", "links", "docs", "keys", "access", "connect", "forge", "secrets", "scans"] as const;
 export type Section = (typeof SECTIONS)[number];
 
-export const PROJECT_TABS = ["overview", "about", "deployments", "events", "docs", "settings"] as const;
+export const PROJECT_TABS = ["overview", "about", "details", "deployments", "events", "docs", "settings"] as const;
 export const CONTAINER_TABS = ["overview", "details", "settings"] as const;
 export type NodeTab = (typeof PROJECT_TABS)[number] | (typeof CONTAINER_TABS)[number];
 

@@ -31,7 +31,6 @@ export function TokenTable({ tokens, locale, labels, showOwner, onRevoke }: Prop
         <tr>
           <Th>{t.name}</Th>
           {showOwner && <Th>{t.owner}</Th>}
-          <Th>{t.prefix}</Th>
           <Th>{t.scopes}</Th>
           <Th>{t.created}</Th>
           <Th>{t.expires}</Th>
@@ -45,7 +44,12 @@ export function TokenTable({ tokens, locale, labels, showOwner, onRevoke }: Prop
       <tbody>
         {tokens.map((tok) => (
           <Tr key={tok.id}>
-            <Td className="font-medium text-ink">{tok.name}</Td>
+            <Td className="min-w-48">
+              <span className="block font-medium break-words text-ink">{tok.name}</span>
+              <code className="block text-xs text-muted" title={t.prefix}>
+                {tok.prefix}…
+              </code>
+            </Td>
             {showOwner && (
               <Td className="text-ink-2">
                 {tok.user_id ? (
@@ -57,9 +61,6 @@ export function TokenTable({ tokens, locale, labels, showOwner, onRevoke }: Prop
                 )}
               </Td>
             )}
-            <Td>
-              <code className="text-ink">{tok.prefix}…</code>
-            </Td>
             <Td>
               <span className="flex flex-wrap gap-1">
                 {tok.scopes.map((s) => (

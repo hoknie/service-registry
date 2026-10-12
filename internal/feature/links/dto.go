@@ -4,29 +4,35 @@ import "github.com/google/uuid"
 
 type CreateKind struct {
 	Key      string
-	Names    map[string]string
+	Names    map[string]*string
 	Icon     *string
+	IconURL  *string
 	Position *int64
 }
 
 type UpdateKind struct {
-	Names    map[string]string
-	Icon     *string
-	Position *int64
+	Names      map[string]*string
+	Icon       *string
+	IconURL    *string
+	IconURLSet bool
+	Position   *int64
 }
 
 type NewKind struct {
 	ID       uuid.UUID
 	Key      string
 	Names    Names
-	Icon     Icon
-	Position int32
+	Icon     string
+	IconURL  *string
+	Position *int32
 }
 
 type KindChanges struct {
-	Names    Names
-	Icon     *Icon
-	Position *int32
+	Names      Names
+	Icon       *string
+	IconURL    *string
+	IconURLSet bool
+	Position   *int32
 }
 
 type IconInput struct {

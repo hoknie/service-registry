@@ -80,7 +80,7 @@ func (s *Templates) ProjectsData(ctx context.Context, ids []uuid.UUID) (map[uuid
 			)
 			SELECT DISTINCT ON (up.project_id, t.link_key) up.project_id, t.id, t.node_id, t.link_key, k.key AS kind_key,
 				k.position AS kind_position, t.template, t.disabled, t.position, t.title, t.icon_url, t.icon_file,
-				k.icon AS kind_icon, rfc3339(t.created_at) AS created_at, rfc3339(t.updated_at) AS updated_at,
+				k.icon AS kind_icon, k.icon_url AS kind_icon_url, rfc3339(t.created_at) AS created_at, rfc3339(t.updated_at) AS updated_at,
 				up.lvl > 0 AS inherited
 			FROM up
 			JOIN link_templates t ON t.node_id = up.id
@@ -145,7 +145,7 @@ func (s *Templates) ProjectsData(ctx context.Context, ids []uuid.UUID) (map[uuid
 			return err
 		}
 		rows, err = tx.Query(ctx, `
-			SELECT e.project_id, d.service, d.environment, d.version, d.commit_sha, d.cluster, d.namespace, d.url
+			SELECT e.project_id, d.service, d.environment, d.version, d.commit_sha, d.cluster, d.namespace, d.url, d.links
 			FROM service_environments e
 			JOIN service_deployments d ON d.id = e.deployment_id
 			WHERE e.project_id = ANY($1)`, ids)
@@ -158,9 +158,16 @@ func (s *Templates) ProjectsData(ctx context.Context, ids []uuid.UUID) (map[uuid
 		}
 		for _, d := range deployments {
 			b := out[d.ProjectID]
-			b.Deployments = append(b.Deployments, links.Deployment{Service: d.Service, Environment: d.Environment,
-				Version: d.Version, Commit: d.Commit, Cluster: d.Cluster, Namespace: d.Namespace, URL: d.URL})
+			b.Deployments = append(b.Deployments, links.Deployment(d.deploymentRow))
 			out[d.ProjectID] = b
+		}
+		kinds, err := kindInfos(ctx, tx)
+		if err != nil {
+			return err
+		}
+		for id, b := range out {
+			b.Kinds = kinds
+			out[id] = b
 		}
 		return nil
 	})

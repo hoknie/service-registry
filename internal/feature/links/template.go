@@ -27,6 +27,7 @@ type Template struct {
 	IconURL      *string
 	IconFile     *string
 	KindIcon     string
+	KindIconURL  *string
 	CreatedAt    string
 	UpdatedAt    string
 	Inherited    bool
@@ -41,11 +42,18 @@ type LinkIcon struct {
 func (t Template) LinkIcon() LinkIcon {
 	switch {
 	case t.IconURL != nil:
-		return LinkIcon{Kind: "url", URL: *t.IconURL}
+		return LinkIcon{Kind: "url", URL: *t.IconURL, Name: t.KindIcon}
 	case t.IconFile != nil:
-		return LinkIcon{Kind: "file", URL: "/api/v1/link-icons/" + *t.IconFile}
+		return LinkIcon{Kind: "file", URL: "/api/v1/link-icons/" + *t.IconFile, Name: t.KindIcon}
 	}
-	return LinkIcon{Kind: "builtin", Name: t.KindIcon}
+	return KindInfo{Icon: t.KindIcon, IconURL: t.KindIconURL}.LinkIcon()
+}
+
+func (k KindInfo) LinkIcon() LinkIcon {
+	if k.IconURL != nil {
+		return LinkIcon{Kind: "url", URL: *k.IconURL, Name: k.Icon}
+	}
+	return LinkIcon{Kind: "builtin", Name: k.Icon}
 }
 
 func ValidateTemplate(nodeID uuid.UUID, rawLinkKey string, in PutTemplate) (NewTemplate, error) {

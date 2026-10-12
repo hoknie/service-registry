@@ -25,23 +25,24 @@ type eventRow struct {
 func (r eventRow) event() ingest.Event { return ingest.Event(r) }
 
 type deploymentRow struct {
-	ID          uuid.UUID         `db:"id"`
-	ProjectID   uuid.UUID         `db:"project_id"`
-	EventID     *uuid.UUID        `db:"event_id"`
-	Service     string            `db:"service"`
-	Environment string            `db:"environment"`
-	Version     string            `db:"version"`
-	CommitSHA   *string           `db:"commit_sha"`
-	Branch      *string           `db:"branch"`
-	Cluster     *string           `db:"cluster"`
-	Namespace   *string           `db:"namespace"`
-	URL         *string           `db:"url"`
-	DeployedBy  *string           `db:"deployed_by"`
-	Metadata    map[string]string `db:"metadata"`
-	OccurredAt  string            `db:"occurred_at"`
-	ReceivedAt  string            `db:"received_at"`
-	Current     bool              `db:"current"`
-	Source      string            `db:"source"`
+	ID          uuid.UUID               `db:"id"`
+	ProjectID   uuid.UUID               `db:"project_id"`
+	EventID     *uuid.UUID              `db:"event_id"`
+	Service     string                  `db:"service"`
+	Environment string                  `db:"environment"`
+	Version     string                  `db:"version"`
+	CommitSHA   *string                 `db:"commit_sha"`
+	Branch      *string                 `db:"branch"`
+	Cluster     *string                 `db:"cluster"`
+	Namespace   *string                 `db:"namespace"`
+	URL         *string                 `db:"url"`
+	DeployedBy  *string                 `db:"deployed_by"`
+	Metadata    map[string]string       `db:"metadata"`
+	Links       []ingest.DeploymentLink `db:"links"`
+	OccurredAt  string                  `db:"occurred_at"`
+	ReceivedAt  string                  `db:"received_at"`
+	Current     bool                    `db:"current"`
+	Source      string                  `db:"source"`
 }
 
 func (r deploymentRow) deployment() ingest.Deployment { return ingest.Deployment(r) }

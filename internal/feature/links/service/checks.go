@@ -72,7 +72,7 @@ func (s *Service) projectURLs(ctx context.Context, id uuid.UUID) ([]string, erro
 	if err != nil {
 		return nil, err
 	}
-	return links.URLs(links.Expand(c, templates, "")), nil
+	return links.URLs(links.ExpandProject(c, templates, "")), nil
 }
 
 func (s *Service) PruneLinkTargets(ctx context.Context) (int64, error) {

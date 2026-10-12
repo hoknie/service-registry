@@ -201,8 +201,8 @@
       "invalid_webhook_mode": "Choose how to set up the webhook.",
       "invalid_branch_state": "Unknown branch filter.",
       "invalid_link_kind_key": "The key must be 1–63 letters a–z, digits and '-', not starting or ending with '-'.",
-      "invalid_link_kind_names": "Enter a name in all four languages, up to 100 characters each.",
-      "invalid_link_icon": "Choose an icon from the list.",
+      "invalid_link_kind_names": "Give a name in at least one language, each up to 100 characters.",
+      "invalid_link_icon": "Pick an icon from the set or give an https:// image address.",
       "invalid_position": "The position must be a whole number from 0 to 10000.",
       "invalid_template": "The template is not valid: check the braces, variable names and filters.",
       "unknown_variable": "The template uses an unknown variable.",
@@ -229,7 +229,8 @@
       "icon_too_large": "The icon is larger than 64 KiB.",
       "invalid_secret": "Give a name of up to 100 characters and a value or an env:/file: reference.",
       "secret_not_available": "This secret is not available here — choose a secret of this node, its ancestors or a global one.",
-      "credentials_inline_removed": "Tokens are no longer entered in the form — create a secret and choose it."
+      "credentials_inline_removed": "Tokens are no longer entered in the form — create a secret and choose it.",
+      "invalid_link_kind_order": "The order must list every link kind once."
     },
     "conflict": {
       "email_taken": "A user with this email already exists.",
@@ -257,7 +258,8 @@
       "user_disabled": "The user is disabled.",
       "uploads_disabled": "File uploads are turned off on the server.",
       "secret_in_use": "The secret is in use — replace it in connections, sources and clusters first.",
-      "secret_name_taken": "A secret with this name already exists here."
+      "secret_name_taken": "A secret with this name already exists here.",
+      "link_kind_order_stale": "The list of link kinds has changed; it was reloaded — try again."
     },
     "ingest": {
       "unknown_event_type": "Unknown event type.",
@@ -536,7 +538,7 @@
     },
     "linkKinds": {
       "title": "Link kinds",
-      "lead": "Kinds of links projects show: a name in every language, an icon and the order.",
+      "lead": "Kinds of links projects show: a name, an icon from the set or by address, and the order.",
       "empty": "No link kinds.",
       "add": "New kind",
       "edit": "Edit",
@@ -545,32 +547,32 @@
         "icon": "Icon",
         "key": "Key",
         "name": "Name",
-        "position": "Position",
-        "actions": "Actions"
+        "actions": "Actions",
+        "order": "Order"
       },
       "createTitle": "New link kind",
       "editTitle": "Link kind {key}",
       "key": "Key",
       "keyHint": "Letters a–z, digits and '-'; cannot be changed later.",
-      "names": "Name in every language",
+      "names": "Name",
       "icon": "Icon",
-      "position": "Position",
       "submit": "Save",
       "created": "Link kind created.",
       "saved": "Saved.",
       "deleteTitle": "Delete link kind",
       "confirmDelete": "Delete the link kind “{key}”?",
       "deleted": "Link kind deleted.",
-      "icons": {
-        "link": "Link",
-        "logs": "Logs",
-        "dashboard": "Dashboard",
-        "errors": "Errors",
-        "alerts": "Alerts",
-        "traces": "Traces",
-        "runbook": "Runbook",
-        "docs": "Docs"
-      }
+      "namesHint": "Required in the language of this page; empty ones get a copy of the first name filled in English, Spanish, Russian, Chinese order.",
+      "iconSet": "From the set",
+      "iconUrl": "By address",
+      "iconSearch": "Search icons",
+      "iconEmpty": "No icons found.",
+      "iconChoose": "Choose an icon",
+      "iconSetHint": "Any icon of the interface set; type a name in English to search.",
+      "iconUrlHint": "An https:// image; if it does not load, the plain link icon is shown.",
+      "drag": "Drag to reorder, or focus and press ↑/↓",
+      "reordered": "Order saved.",
+      "dragKey": "Reorder {key}: drag, or press ↑/↓"
     },
     "clusters": {
       "title": "Clusters",
@@ -922,7 +924,8 @@
       "stepKey": "Issue a project key on the “Keys” tab and copy it — it is shown only once.",
       "toKeys": "Go to keys",
       "stepSend": "Add a step that reports each rollout to the endpoint above:",
-      "examples": "Examples"
+      "examples": "Examples",
+      "links": "links is optional: links of this deployment (CI run, release) shown on the project while it is current."
     },
     "lead": "Organizations, folders and projects you can see.",
     "actions": {
@@ -1178,7 +1181,9 @@
           "value": "Value",
           "source": "Source"
         }
-      }
+      },
+      "fromEvent": "From event",
+      "emptyEvents": "Or send links with deployments: the links field of the service.deployed event."
     },
     "docs": {
       "lead": "Files collected from the project's documentation source.",
@@ -1384,6 +1389,18 @@
       "missing": "Missing: {vars}",
       "noUrl": "No address",
       "links": "Links"
+    },
+    "detailsLinks": {
+      "title": "Links",
+      "empty": "No links.",
+      "emptyTemplates": "No link templates.",
+      "settings": "Set up links",
+      "source": "Source",
+      "here": "Here",
+      "kind": "Kind",
+      "copy": "Copy address",
+      "copyTemplate": "Copy template",
+      "template": "Template"
     }
   },
   "notFound": {

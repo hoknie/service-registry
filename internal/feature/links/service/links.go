@@ -213,7 +213,7 @@ func (s *Service) expandProject(ctx context.Context, p access.Principal, id uuid
 	if err != nil {
 		return nil, err
 	}
-	return links.Expand(c, templates, q.Environment), nil
+	return links.ExpandProject(c, templates, q.Environment), nil
 }
 
 func (s *Service) projectContext(ctx context.Context, sc catalogservice.Scoped, rawBranch string) (links.Context, []links.Template, error) {
@@ -244,6 +244,7 @@ func (s *Service) loadContext(ctx context.Context, project catalog.Node, ancesto
 		ProjectID: project.ID, ProjectSlug: project.Slug, ProjectName: project.Name,
 		Labels: map[string]string{}, Vars: map[string]string{},
 		RepoFullPath: data.RepoFullPath, Branch: project.Repo.DefaultBranch, Deployments: data.Deployments,
+		Kinds: data.Kinds,
 	}
 	for _, n := range append(ancestors, project) {
 		c.Path = append(c.Path, n.Slug)

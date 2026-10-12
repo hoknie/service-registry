@@ -398,7 +398,6 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
       {project && readable && <ProjectSummary projectId={node.id} locale={locale} labels={t} />}
       {project && readable && (
         <div className="grid items-start gap-4 md:grid-cols-2">
-          <NodeDetails node={node} locale={locale} labels={t} />
           <Panel title={t.repo.title}>
             <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-2.5 text-sm">
               <dt className="text-muted">{t.repo.forge}</dt>
@@ -504,7 +503,7 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
           <TabsContent value="overview">{overview}</TabsContent>
           {tabs.includes("details") && (
             <TabsContent value="details">
-              <NodeDetails node={node} locale={locale} labels={t} />
+              <NodeDetails node={node} locale={locale} labels={t} branch={branchParam} canWrite={canWrite} />
             </TabsContent>
           )}
           {project && (

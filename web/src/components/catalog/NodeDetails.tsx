@@ -2,10 +2,13 @@ import type { Locale } from "@/i18n/config";
 import { ago, when } from "@/i18n/time";
 import type { CatalogNode } from "@/lib/api";
 
+import { LinksDetails } from "../links/LinksDetails";
 import { Panel } from "../ui/Panel";
 import type { CatalogLabels } from "./shared";
 
-export function NodeDetails({ node, locale, labels: t }: { node: CatalogNode; locale: Locale; labels: CatalogLabels }) {
+type Props = { node: CatalogNode; locale: Locale; labels: CatalogLabels; branch: string | null; canWrite: boolean };
+
+export function NodeDetails({ node, locale, labels: t, branch, canWrite }: Props) {
   return (
     <Panel title={t.node.details}>
       <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-2.5 text-sm">
@@ -24,6 +27,9 @@ export function NodeDetails({ node, locale, labels: t }: { node: CatalogNode; lo
           {ago(node.updated_at, locale, t.node.none)}
         </dd>
       </dl>
+      <div className="mt-6 border-t border-line pt-4">
+        <LinksDetails node={node} locale={locale} labels={t} branch={branch} canWrite={canWrite} />
+      </div>
     </Panel>
   );
 }

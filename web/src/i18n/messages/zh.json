@@ -201,8 +201,8 @@
       "invalid_webhook_mode": "请选择 webhook 的设置方式。",
       "invalid_branch_state": "未知的分支筛选条件。",
       "invalid_link_kind_key": "键必须为 1–63 个字母 a–z、数字和“-”，且不能以“-”开头或结尾。",
-      "invalid_link_kind_names": "请填写全部四种语言的名称，每个不超过 100 个字符。",
-      "invalid_link_icon": "请从列表中选择图标。",
+      "invalid_link_kind_names": "请至少用一种语言填写名称，每个不超过 100 个字符。",
+      "invalid_link_icon": "请从图标集中选择图标，或填写 https:// 图片地址。",
       "invalid_position": "位置必须是 0 到 10000 之间的整数。",
       "invalid_template": "模板无效：请检查花括号、变量名和过滤器。",
       "unknown_variable": "模板使用了未知变量。",
@@ -229,7 +229,8 @@
       "icon_too_large": "图标超过 64 KiB。",
       "invalid_secret": "请填写不超过 100 个字符的名称，以及值或 env:/file: 引用。",
       "secret_not_available": "此处不可用该密钥——请选择此节点、其上级节点的密钥或全局密钥。",
-      "credentials_inline_removed": "不再在表单中输入令牌——请创建密钥并选择它。"
+      "credentials_inline_removed": "不再在表单中输入令牌——请创建密钥并选择它。",
+      "invalid_link_kind_order": "顺序必须包含每个链接类型且仅一次。"
     },
     "conflict": {
       "email_taken": "该邮箱已被其他用户使用。",
@@ -257,7 +258,8 @@
       "user_disabled": "该用户已停用。",
       "uploads_disabled": "服务器已关闭文件上传。",
       "secret_in_use": "密钥正在使用中——请先在连接、来源和集群中替换它。",
-      "secret_name_taken": "此处已有同名密钥。"
+      "secret_name_taken": "此处已有同名密钥。",
+      "link_kind_order_stale": "链接类型列表已变化并已重新加载，请重试。"
     },
     "ingest": {
       "unknown_event_type": "未知的事件类型。",
@@ -536,7 +538,7 @@
     },
     "linkKinds": {
       "title": "链接类型",
-      "lead": "项目显示的链接类型：各语言名称、图标和顺序。",
+      "lead": "项目显示的链接类型：名称、图标集中的图标或图片地址，以及顺序。",
       "empty": "没有链接类型。",
       "add": "新建类型",
       "edit": "编辑",
@@ -545,32 +547,32 @@
         "icon": "图标",
         "key": "键",
         "name": "名称",
-        "position": "位置",
-        "actions": "操作"
+        "actions": "操作",
+        "order": "顺序"
       },
       "createTitle": "新建链接类型",
       "editTitle": "链接类型 {key}",
       "key": "键",
       "keyHint": "字母 a–z、数字和“-”；创建后不可更改。",
-      "names": "各语言名称",
+      "names": "名称",
       "icon": "图标",
-      "position": "位置",
       "submit": "保存",
       "created": "链接类型已创建。",
       "saved": "已保存。",
       "deleteTitle": "删除链接类型",
       "confirmDelete": "删除链接类型“{key}”？",
       "deleted": "链接类型已删除。",
-      "icons": {
-        "link": "链接",
-        "logs": "日志",
-        "dashboard": "仪表盘",
-        "errors": "错误",
-        "alerts": "告警",
-        "traces": "链路追踪",
-        "runbook": "运维手册",
-        "docs": "文档"
-      }
+      "namesHint": "本页语言的名称必填；空的名称将按英语、西班牙语、俄语、中文的顺序复制第一个已填写的名称。",
+      "iconSet": "图标集",
+      "iconUrl": "图片地址",
+      "iconSearch": "搜索图标",
+      "iconEmpty": "未找到图标。",
+      "iconChoose": "选择图标",
+      "iconSetHint": "界面图标集中的任意图标；请输入英文名称搜索。",
+      "iconUrlHint": "https:// 图片；加载失败时显示普通链接图标。",
+      "drag": "拖动以调整顺序，或聚焦后按 ↑/↓",
+      "reordered": "顺序已保存。",
+      "dragKey": "调整 {key} 的顺序：拖动或按 ↑/↓"
     },
     "clusters": {
       "title": "集群",
@@ -922,7 +924,8 @@
       "stepKey": "在“密钥”选项卡中签发项目密钥并复制——密钥只显示一次。",
       "toKeys": "前往密钥",
       "stepSend": "添加一个步骤，将每次发布上报到上面的端点：",
-      "examples": "示例"
+      "examples": "示例",
+      "links": "links 可选：本次部署的链接（CI 运行、发布）在其为当前部署期间显示在项目上。"
     },
     "lead": "你可以查看的组织、文件夹和项目。",
     "actions": {
@@ -1178,7 +1181,9 @@
           "value": "值",
           "source": "来源"
         }
-      }
+      },
+      "fromEvent": "来自事件",
+      "emptyEvents": "也可以随部署发送链接：service.deployed 事件的 links 字段。"
     },
     "docs": {
       "lead": "从项目文档来源收集的文件。",
@@ -1384,6 +1389,18 @@
       "missing": "缺少：{vars}",
       "noUrl": "没有地址",
       "links": "链接"
+    },
+    "detailsLinks": {
+      "title": "链接",
+      "empty": "没有链接。",
+      "emptyTemplates": "没有链接模板。",
+      "settings": "设置链接",
+      "source": "来源",
+      "here": "此处",
+      "kind": "类型",
+      "copy": "复制地址",
+      "copyTemplate": "复制模板",
+      "template": "模板"
     }
   },
   "notFound": {

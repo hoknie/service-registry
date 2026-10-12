@@ -10,26 +10,25 @@ type LinkKind struct {
 	Key       string            `json:"key"`
 	Names     map[string]string `json:"names"`
 	Icon      string            `json:"icon"`
+	IconURL   *string           `json:"icon_url"`
 	Position  int32             `json:"position"`
 	CreatedAt string            `json:"created_at"`
 	UpdatedAt string            `json:"updated_at"`
 }
 
 func LinkKindOf(k links.Kind) LinkKind {
-	return LinkKind{Key: k.Key, Names: k.Names, Icon: string(k.Icon), Position: k.Position, CreatedAt: k.CreatedAt, UpdatedAt: k.UpdatedAt}
+	return LinkKind{Key: k.Key, Names: k.Names, Icon: k.Icon, IconURL: k.IconURL, Position: k.Position, CreatedAt: k.CreatedAt, UpdatedAt: k.UpdatedAt}
 }
 
 type LinkIcon struct {
 	Kind string  `json:"kind"`
-	Name *string `json:"name,omitempty"`
+	Name string  `json:"name"`
 	URL  *string `json:"url,omitempty"`
 }
 
 func LinkIconOf(i links.LinkIcon) LinkIcon {
-	out := LinkIcon{Kind: i.Kind}
-	if i.Kind == "builtin" {
-		out.Name = &i.Name
-	} else {
+	out := LinkIcon{Kind: i.Kind, Name: i.Name}
+	if i.Kind != "builtin" {
 		out.URL = &i.URL
 	}
 	return out
@@ -84,11 +83,12 @@ type Link struct {
 	URL         *string    `json:"url"`
 	Missing     []string   `json:"missing"`
 	Check       *LinkCheck `json:"check"`
+	Source      string     `json:"source"`
 }
 
 func LinkOf(l links.Link) Link {
 	out := Link{LinkKey: l.LinkKey, KindKey: l.KindKey, Title: l.Title, Icon: LinkIconOf(l.Icon), NodeID: l.NodeID, Inherited: l.Inherited, Service: l.Service,
-		Environment: l.Environment, URL: l.URL, Missing: l.Missing}
+		Environment: l.Environment, URL: l.URL, Missing: l.Missing, Source: l.Source}
 	if out.Missing == nil {
 		out.Missing = []string{}
 	}

@@ -1,6 +1,8 @@
 package links
 
 import (
+	"net/url"
+	"regexp"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -12,13 +14,17 @@ import (
 
 var Locales = []string{"en", "es", "ru", "zh"}
 
-type Icon string
+const DefaultIcon = "link"
 
-var Icons = []Icon{"link", "logs", "dashboard", "errors", "alerts", "traces", "runbook", "docs"}
+const (
+	MaxPosition     = 10_000
+	MaxIconNameLen  = 64
+	MaxIconURLLen   = 2048
+	MaxKindNameLen  = 100
+	MaxReorderedKey = 1000
+)
 
-const DefaultIcon Icon = "link"
-
-const MaxPosition = 10_000
+var iconName = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 type Names map[string]string
 
@@ -26,10 +32,21 @@ type Kind struct {
 	ID        uuid.UUID
 	Key       string
 	Names     Names
-	Icon      Icon
+	Icon      string
+	IconURL   *string
 	Position  int32
 	CreatedAt string
 	UpdatedAt string
+}
+
+type KindInfo struct {
+	Position int32
+	Icon     string
+	IconURL  *string
+}
+
+func (k Kind) Info() KindInfo {
+	return KindInfo{Position: k.Position, Icon: k.Icon, IconURL: k.IconURL}
 }
 
 func ValidateKey(raw string) (string, error) {
@@ -40,32 +57,68 @@ func ValidateKey(raw string) (string, error) {
 	return k, nil
 }
 
-func ValidateNames(raw map[string]string) (Names, error) {
-	if len(raw) != len(Locales) {
+func ValidateNames(raw map[string]*string) (Names, error) {
+	given := make(map[string]string, len(Locales))
+	for l, v := range raw {
+		if !isLocale(l) {
+			return nil, InvalidKindNames
+		}
+		if v == nil {
+			continue
+		}
+		s := strings.TrimFunc(*v, unicode.IsSpace)
+		if s == "" {
+			continue
+		}
+		if utf8.RuneCountInString(s) > MaxKindNameLen || strings.IndexFunc(s, unicode.IsControl) >= 0 {
+			return nil, InvalidKindNames
+		}
+		given[l] = s
+	}
+	fallback := ""
+	for _, l := range Locales {
+		if v, ok := given[l]; ok {
+			fallback = v
+			break
+		}
+	}
+	if fallback == "" {
 		return nil, InvalidKindNames
 	}
 	out := make(Names, len(Locales))
 	for _, l := range Locales {
-		v, ok := raw[l]
-		if !ok {
-			return nil, InvalidKindNames
+		if v, ok := given[l]; ok {
+			out[l] = v
+		} else {
+			out[l] = fallback
 		}
-		v = strings.TrimFunc(v, unicode.IsSpace)
-		if n := utf8.RuneCountInString(v); n < 1 || n > 100 || strings.IndexFunc(v, unicode.IsControl) >= 0 {
-			return nil, InvalidKindNames
-		}
-		out[l] = v
 	}
 	return out, nil
 }
 
-func ValidateIcon(raw string) (Icon, error) {
-	for _, i := range Icons {
-		if string(i) == raw {
-			return i, nil
+func isLocale(l string) bool {
+	for _, x := range Locales {
+		if x == l {
+			return true
 		}
 	}
-	return "", InvalidIcon
+	return false
+}
+
+func ValidateIcon(raw string) (string, error) {
+	if len(raw) > MaxIconNameLen || !iconName.MatchString(raw) {
+		return "", InvalidIcon
+	}
+	return raw, nil
+}
+
+func ValidateIconURL(raw string) (string, error) {
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" || u.Host == "" || len(raw) > MaxIconURLLen ||
+		strings.IndexFunc(raw, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) >= 0 {
+		return "", InvalidIcon
+	}
+	return raw, nil
 }
 
 func ValidatePosition(raw int64) (int32, error) {
@@ -90,10 +143,19 @@ func ValidateNewKind(in CreateKind) (NewKind, error) {
 			return NewKind{}, err
 		}
 	}
-	if in.Position != nil {
-		if out.Position, err = ValidatePosition(*in.Position); err != nil {
+	if in.IconURL != nil {
+		u, err := ValidateIconURL(*in.IconURL)
+		if err != nil {
 			return NewKind{}, err
 		}
+		out.IconURL = &u
+	}
+	if in.Position != nil {
+		pos, err := ValidatePosition(*in.Position)
+		if err != nil {
+			return NewKind{}, err
+		}
+		out.Position = &pos
 	}
 	return out, nil
 }
@@ -114,12 +176,39 @@ func ValidateKindChanges(in UpdateKind) (KindChanges, error) {
 		}
 		out.Icon = &icon
 	}
+	if in.IconURLSet {
+		out.IconURLSet = true
+		if in.IconURL != nil {
+			u, err := ValidateIconURL(*in.IconURL)
+			if err != nil {
+				return KindChanges{}, err
+			}
+			out.IconURL = &u
+		}
+	}
 	if in.Position != nil {
 		pos, err := ValidatePosition(*in.Position)
 		if err != nil {
 			return KindChanges{}, err
 		}
 		out.Position = &pos
+	}
+	return out, nil
+}
+
+func ValidateOrder(keys []string) ([]string, error) {
+	if keys == nil || len(keys) > MaxReorderedKey {
+		return nil, InvalidKindOrder
+	}
+	seen := make(map[string]bool, len(keys))
+	out := make([]string, 0, len(keys))
+	for _, raw := range keys {
+		k, err := ValidateKey(raw)
+		if err != nil || seen[k] {
+			return nil, InvalidKindOrder
+		}
+		seen[k] = true
+		out = append(out, k)
 	}
 	return out, nil
 }

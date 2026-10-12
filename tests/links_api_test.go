@@ -3,6 +3,7 @@ package tests
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 type linkTree struct {
@@ -263,4 +264,48 @@ func TestLinkRightsAndScopes(t *testing.T) {
 	r = app.call("POST", templatesPath(tr.folder), root)
 	eq(t, r.status, 405)
 	eq(t, r.header("Allow"), "GET,HEAD")
+}
+
+func TestDeploymentLinksJoinTheProjectLinks(t *testing.T) {
+	t.Parallel()
+	tr := newLinkTree(t)
+	app, root := tr.app, tr.root
+	app.putTemplate(root, tr.org, "logs", "https://logs.example/?ns={namespace}")
+	app.deployWith(tr.project, tr.key, "k1", "api", "staging", obj{"namespace": "api-stg"})
+	app.deployWith(tr.project, tr.key, "k2", "api", "production", obj{"namespace": "api-prod", "links": []any{
+		obj{"kind": "runbook", "url": "https://ci.example/runs/42", "title": "Пайплайн"},
+		obj{"kind": "logs", "url": "https://logs.example/event"},
+		obj{"kind": "pipeline", "url": "https://ci.example/p"},
+	}})
+
+	items := app.links(root, tr.project, "")
+	eq(t, keysOf(items), "logs@production=https://logs.example/event logs@staging=https://logs.example/?ns=api-stg "+
+		"runbook@production=https://ci.example/runs/42 pipeline@production=https://ci.example/p")
+	eq(t, items[0].(obj)["source"], any("event"))
+	eq(t, items[1].(obj)["source"], any("template"))
+	runbook := items[2].(obj)
+	eq(t, runbook["title"], any("Пайплайн"))
+	eq(t, runbook["node_id"], any(tr.project))
+	eq(t, runbook["inherited"], any(false))
+	eq(t, runbook["service"], any("api"))
+	eq(t, jsonText(runbook["icon"]), `{"kind":"builtin","name":"book-open-check"}`)
+	eq(t, jsonText(items[3].(obj)["icon"]), `{"kind":"builtin","name":"link"}`, "unknown kind")
+	eq(t, keysOf(app.links(root, tr.project, "?environment=staging")), "logs@staging=https://logs.example/?ns=api-stg")
+	eq(t, scalar[int64](t, app.db, "SELECT count(*) FROM link_targets WHERE url = 'https://ci.example/runs/42'"), int64(1),
+		"event addresses are registered for checks")
+
+	r := app.get(tablePath("parent="+tr.folder), root)
+	eq(t, r.status, 200, r.text())
+	byKey := map[string]obj{}
+	for _, it := range at(r.json(t), "items", 0, "links").([]any) {
+		byKey[it.(obj)["link_key"].(string)] = it.(obj)
+	}
+	eq(t, byKey["runbook"]["url"], any("https://ci.example/runs/42"))
+	eq(t, byKey["logs"]["url"], any("https://logs.example/event"), "the event address comes first")
+
+	newer := deployed("k3", "api", "production", "2.0.0", time.Now().UTC().Format(time.RFC3339))
+	newer["payload"].(obj)["namespace"] = "api-prod"
+	eq(t, app.ingest(tr.project, tr.key, newer).status, 201)
+	eq(t, keysOf(app.links(root, tr.project, "")), "logs@production=https://logs.example/?ns=api-prod logs@staging=https://logs.example/?ns=api-stg")
+	eq(t, app.call("DELETE", linkKindsPath+"/runbook", root).status, 204, "event links do not hold kinds")
 }

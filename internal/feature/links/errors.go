@@ -24,6 +24,7 @@ const (
 	InvalidTemplateIcon
 	InvalidLinkTitle
 	InvalidIconFormat
+	InvalidKindOrder
 )
 
 func (i Invalid) Code() string {
@@ -56,6 +57,8 @@ func (i Invalid) Code() string {
 		return "validation.invalid_link_title"
 	case InvalidIconFormat:
 		return "validation.invalid_icon_format"
+	case InvalidKindOrder:
+		return "validation.invalid_link_kind_order"
 	}
 	return "validation.invalid"
 }
@@ -65,9 +68,9 @@ func (i Invalid) Message() string {
 	case InvalidKindKey:
 		return "key must be 1 to 63 characters a-z, 0-9 and '-', not starting or ending with '-'"
 	case InvalidKindNames:
-		return `names must have "en", "es", "ru" and "zh", each 1 to 100 characters without control characters`
+		return `names may have only "en", "es", "ru" and "zh", at least one non-empty, each at most 100 characters without control characters`
 	case InvalidIcon:
-		return `icon must be one of "link", "logs", "dashboard", "errors", "alerts", "traces", "runbook", "docs"`
+		return "icon must be an icon name of 1 to 64 characters a-z, 0-9 and single '-'; icon_url must be null or an https:// URL of at most 2048 characters"
 	case InvalidPosition:
 		return "position must be an integer 0..=10000"
 	case InvalidTemplate:
@@ -90,6 +93,8 @@ func (i Invalid) Message() string {
 		return "title must be null or 1 to 100 characters without control characters"
 	case InvalidIconFormat:
 		return "the icon must be a PNG, WebP, ICO or SVG image"
+	case InvalidKindOrder:
+		return "keys must list link kind keys, each once, at most 1000"
 	}
 	return "invalid input"
 }
@@ -116,6 +121,7 @@ const (
 	ConflictKindTaken Conflict = iota + 1
 	ConflictKindInUse
 	ConflictUploadsDisabled
+	ConflictKindOrderStale
 )
 
 func (c Conflict) Code() string {
@@ -126,6 +132,8 @@ func (c Conflict) Code() string {
 		return "conflict.link_kind_in_use"
 	case ConflictUploadsDisabled:
 		return "conflict.uploads_disabled"
+	case ConflictKindOrderStale:
+		return "conflict.link_kind_order_stale"
 	}
 	return "conflict.unknown"
 }
@@ -138,6 +146,8 @@ func (c Conflict) Message() string {
 		return "the link kind is used by a link template"
 	case ConflictUploadsDisabled:
 		return "file uploads are disabled (UPLOADS_DIR=off)"
+	case ConflictKindOrderStale:
+		return "the keys do not match the current link kinds; reload the list"
 	}
 	return "conflict"
 }

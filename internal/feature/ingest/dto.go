@@ -44,6 +44,14 @@ type ServiceDeployed struct {
 	URL         *string
 	DeployedBy  *string
 	Metadata    map[string]string
+	Links       []DeploymentLink
+}
+
+type DeploymentLink struct {
+	Key   string  `json:"key"`
+	Kind  string  `json:"kind"`
+	URL   string  `json:"url"`
+	Title *string `json:"title"`
 }
 
 type NewEvent struct {

@@ -67,7 +67,7 @@ func TestAMinimalEventIsNormalized(t *testing.T) {
 	if e.Type != TypeServiceDeployed || e.Version != 1 || e.IdempotencyKey != "run-1" {
 		t.Errorf("%+v", e)
 	}
-	want := ServiceDeployed{Service: "api", Version: "1.4.2", Environment: "production", Metadata: map[string]string{}}
+	want := ServiceDeployed{Service: "api", Version: "1.4.2", Environment: "production", Metadata: map[string]string{}, Links: []DeploymentLink{}}
 	if !reflect.DeepEqual(*e.ServiceDeployed, want) {
 		t.Errorf("payload %+v", *e.ServiceDeployed)
 	}
@@ -215,4 +215,50 @@ func TestDeploymentFilterNormalizes(t *testing.T) {
 	if f.Service != nil || f.Environment != nil || f.Branch != nil {
 		t.Errorf("blank is no filter: %+v", f)
 	}
+}
+
+func TestDeploymentLinksAreNormalized(t *testing.T) {
+	e, err := base(t, func(_, p map[string]any) {
+		set(p, "links", `[{"kind":"Runbook","url":"https://ci.example/runs/42","title":" Пайплайн "},`+
+			`{"kind":"logs","key":"Logs-Raw","url":"https://logs.example/?q=api","title":null}]`)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	title := "Пайплайн"
+	want := []DeploymentLink{
+		{Key: "runbook", Kind: "runbook", URL: "https://ci.example/runs/42", Title: &title},
+		{Key: "logs-raw", Kind: "logs", URL: "https://logs.example/?q=api"},
+	}
+	if !reflect.DeepEqual(e.ServiceDeployed.Links, want) {
+		t.Errorf("%+v", e.ServiceDeployed.Links)
+	}
+	for _, empty := range []string{"null", "[]"} {
+		e, err := base(t, func(_, p map[string]any) { set(p, "links", empty) })
+		if err != nil || len(e.ServiceDeployed.Links) != 0 {
+			t.Errorf("%s: %v %+v", empty, err, e.ServiceDeployed)
+		}
+	}
+}
+
+func TestDeploymentLinkErrorsHavePaths(t *testing.T) {
+	_, err := base(t, func(_, p map[string]any) {
+		set(p, "links", `[{"kind":"logs","url":"ftp://x"},"oops",{"url":"https://x.example"},{"kind":"logs","url":"https://y.example"},`+
+			`{"kind":"-x","url":5,"title":"a\nb"}]`)
+	})
+	eqList(t, fieldList(t, err),
+		"payload.links.0.url invalid_value", "payload.links.1 invalid_type", "payload.links.2.kind required",
+		"payload.links.3.key invalid_value", "payload.links.4.kind invalid_value", "payload.links.4.url invalid_type",
+		"payload.links.4.title invalid_value")
+	_, err = base(t, func(_, p map[string]any) { set(p, "links", `{"kind":"logs"}`) })
+	eqList(t, fieldList(t, err), "payload.links invalid_type")
+	many := "["
+	for i := range LinksMax + 1 {
+		if i > 0 {
+			many += ","
+		}
+		many += `{"kind":"logs","key":"k` + string(rune('a'+i)) + `","url":"https://x.example"}`
+	}
+	_, err = base(t, func(_, p map[string]any) { set(p, "links", many+"]") })
+	eqList(t, fieldList(t, err), "payload.links invalid_value")
 }

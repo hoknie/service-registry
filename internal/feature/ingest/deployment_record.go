@@ -20,5 +20,6 @@ type DeploymentRecord struct {
 	URL           *string
 	DeployedBy    *string
 	Metadata      map[string]string
+	Links         []DeploymentLink
 	OccurredAt    any
 }

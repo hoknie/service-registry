@@ -1,10 +1,15 @@
 import type { Locale } from "@/i18n/config";
-import type { LinkKind, LinkStatus } from "@/lib/api";
+import type { LinkGlyph, LinkKind, LinkStatus } from "@/lib/api";
 
 import type { Tone } from "../ui/Badge";
 
 export function kindName(kinds: LinkKind[], key: string, locale: Locale): string {
   return kinds.find((k) => k.key === key)?.names[locale] ?? key;
+}
+
+export function kindGlyph(kind: Pick<LinkKind, "icon" | "icon_url"> | undefined): LinkGlyph {
+  const name = kind?.icon ?? "link";
+  return kind?.icon_url ? { kind: "url", url: kind.icon_url, name } : { kind: "builtin", name };
 }
 
 export function statusTone(status: LinkStatus): Tone {

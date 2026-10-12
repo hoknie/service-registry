@@ -30,7 +30,7 @@ func (s *Deployments) List(ctx context.Context, projectID uuid.UUID, f ingest.De
 	}
 	rows, _ := s.db.From(ctx).Query(ctx, `
 		SELECT d.id, d.project_id, d.event_id, d.service, d.environment, d.version, d.commit_sha, d.branch,
-			d.cluster, d.namespace, d.url, d.deployed_by, d.metadata, rfc3339(d.occurred_at) AS occurred_at,
+			d.cluster, d.namespace, d.url, d.deployed_by, d.metadata, d.links, rfc3339(d.occurred_at) AS occurred_at,
 			rfc3339(d.created_at) AS received_at, EXISTS (
 			SELECT 1
 			FROM service_environments s
@@ -58,7 +58,7 @@ func (s *Deployments) Environments(ctx context.Context, projectID uuid.UUID) ([]
 	rows, err := s.db.From(ctx).Query(ctx, `
 		SELECT s.service, s.environment, d.version, d.commit_sha, d.branch, d.url, d.deployed_by,
 			rfc3339(s.occurred_at) AS occurred_at, s.deployment_id, rfc3339(s.updated_at) AS updated_at,
-			d.source
+			d.source, d.links
 		FROM service_environments s
 		JOIN service_deployments d ON d.id = s.deployment_id
 		WHERE s.project_id = $1

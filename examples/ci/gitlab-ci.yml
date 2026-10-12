@@ -3,6 +3,7 @@
 #   SVCR_URL         = https://registry.example.com
 #   SVCR_PROJECT_ID  = <project id from the catalog page>
 #   SVCR_PROJECT_KEY = svcr_… (a key of that project; Masked, Protected)
+# payload.links is optional: deployment links shown on the project while this deployment is current.
 register-deployment:
   stage: deploy
   image: curlimages/curl:8.11.1
@@ -29,7 +30,9 @@ register-deployment:
           "commit_sha": "$CI_COMMIT_SHA",
           "branch": "$CI_COMMIT_REF_NAME",
           "deployed_by": "$GITLAB_USER_LOGIN",
-          "metadata": { "pipeline_url": "$CI_PIPELINE_URL" }
+          "links": [
+            { "kind": "runbook", "title": "CI pipeline", "url": "$CI_PIPELINE_URL" }
+          ]
         }
       }
       EOF

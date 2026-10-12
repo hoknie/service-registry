@@ -38,7 +38,7 @@ import { Panel } from "../ui/Panel";
 import { SkeletonTable } from "../ui/Skeleton";
 import { Table, Td, Th, Tr } from "../ui/Table";
 import { Glyph } from "./LinkIcons";
-import { kindName } from "./shared";
+import { kindGlyph, kindName } from "./shared";
 
 type Props = {
   node: CatalogNode;
@@ -63,9 +63,10 @@ type Draft = {
   iconFile: string;
 };
 
-function iconOf(tpl?: LinkTemplate): Pick<Draft, "iconMode" | "iconUrl" | "iconFile"> {
+function iconOf(tpl: LinkTemplate | undefined, kinds: LinkKind[]): Pick<Draft, "iconMode" | "iconUrl" | "iconFile"> {
   const icon = tpl?.icon;
-  if (icon?.kind === "url") return { iconMode: "url", iconUrl: icon.url, iconFile: "" };
+  const kindUrl = kinds.find((k) => k.key === tpl?.kind_key)?.icon_url;
+  if (icon?.kind === "url" && icon.url !== kindUrl) return { iconMode: "url", iconUrl: icon.url, iconFile: "" };
   if (icon?.kind === "file") return { iconMode: "file", iconUrl: "", iconFile: icon.url.split("/").pop() ?? "" };
   return { iconMode: "builtin", iconUrl: "", iconFile: "" };
 }
@@ -124,7 +125,7 @@ export function TemplatesEditor({ node, kinds, locale, labels, canWrite, onChang
       template: tpl?.template ?? "",
       position: String(tpl?.position ?? 0),
       title: tpl?.title ?? "",
-      ...iconOf(tpl),
+      ...iconOf(tpl, kinds),
     });
 
   return (
@@ -330,12 +331,13 @@ function TemplateDialog({ node, kinds, locale, labels, initial, onClose, onSaved
       setUploading(false);
     }
   };
+  const kind = kinds.find((k) => k.key === draft.kind_key);
   const glyph: LinkGlyph =
     draft.iconMode === "url" && draft.iconUrl.trim()
-      ? { kind: "url", url: draft.iconUrl.trim() }
+      ? { kind: "url", url: draft.iconUrl.trim(), name: kind?.icon ?? "link" }
       : draft.iconMode === "file" && draft.iconFile
-        ? { kind: "file", url: `/api/v1/link-icons/${draft.iconFile}` }
-        : { kind: "builtin", name: kinds.find((k) => k.key === draft.kind_key)?.icon ?? "link" };
+        ? { kind: "file", url: `/api/v1/link-icons/${draft.iconFile}`, name: kind?.icon ?? "link" }
+        : kindGlyph(kind);
   const previewing = !!draft.template.trim() && !!projectId;
 
   const save = async () => {

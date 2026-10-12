@@ -11,6 +11,7 @@ type ProjectData struct {
 	Vars         []Var
 	RepoFullPath *string
 	Deployments  []Deployment
+	Kinds        map[string]KindInfo
 }
 
 type Target struct {

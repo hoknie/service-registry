@@ -201,8 +201,8 @@
       "invalid_webhook_mode": "Elige cómo configurar el webhook.",
       "invalid_branch_state": "Filtro de ramas desconocido.",
       "invalid_link_kind_key": "La clave debe tener 1–63 letras a–z, dígitos y '-', sin empezar ni terminar en '-'.",
-      "invalid_link_kind_names": "Escriba un nombre en los cuatro idiomas, de hasta 100 caracteres cada uno.",
-      "invalid_link_icon": "Elija un icono de la lista.",
+      "invalid_link_kind_names": "Indique un nombre en al menos un idioma, cada uno de hasta 100 caracteres.",
+      "invalid_link_icon": "Elija un icono del conjunto o indique una dirección https:// de imagen.",
       "invalid_position": "La posición debe ser un número entero de 0 a 10000.",
       "invalid_template": "La plantilla no es válida: revise las llaves, los nombres de variables y los filtros.",
       "unknown_variable": "La plantilla usa una variable desconocida.",
@@ -229,7 +229,8 @@
       "icon_too_large": "El icono supera los 64 KiB.",
       "invalid_secret": "Indica un nombre de hasta 100 caracteres y un valor o una referencia env:/file:.",
       "secret_not_available": "Este secreto no está disponible aquí: elige un secreto de este nodo, de sus ancestros o uno global.",
-      "credentials_inline_removed": "Los tokens ya no se introducen en el formulario: crea un secreto y elígelo."
+      "credentials_inline_removed": "Los tokens ya no se introducen en el formulario: crea un secreto y elígelo.",
+      "invalid_link_kind_order": "El orden debe incluir cada tipo de enlace una vez."
     },
     "conflict": {
       "email_taken": "Ya existe un usuario con este correo.",
@@ -257,7 +258,8 @@
       "user_disabled": "El usuario está desactivado.",
       "uploads_disabled": "La subida de archivos está desactivada en el servidor.",
       "secret_in_use": "El secreto está en uso: reemplázalo primero en conexiones, fuentes y clústeres.",
-      "secret_name_taken": "Ya existe aquí un secreto con este nombre."
+      "secret_name_taken": "Ya existe aquí un secreto con este nombre.",
+      "link_kind_order_stale": "La lista de tipos de enlace ha cambiado; se ha recargado, inténtelo de nuevo."
     },
     "ingest": {
       "unknown_event_type": "Tipo de evento desconocido.",
@@ -536,7 +538,7 @@
     },
     "linkKinds": {
       "title": "Tipos de enlace",
-      "lead": "Tipos de enlaces que muestran los proyectos: un nombre en cada idioma, un icono y el orden.",
+      "lead": "Tipos de enlaces que muestran los proyectos: un nombre, un icono del conjunto o por dirección, y el orden.",
       "empty": "No hay tipos de enlace.",
       "add": "Nuevo tipo",
       "edit": "Editar",
@@ -545,32 +547,32 @@
         "icon": "Icono",
         "key": "Clave",
         "name": "Nombre",
-        "position": "Posición",
-        "actions": "Acciones"
+        "actions": "Acciones",
+        "order": "Orden"
       },
       "createTitle": "Nuevo tipo de enlace",
       "editTitle": "Tipo de enlace {key}",
       "key": "Clave",
       "keyHint": "Letras a–z, dígitos y '-'; no se puede cambiar después.",
-      "names": "Nombre en cada idioma",
+      "names": "Nombre",
       "icon": "Icono",
-      "position": "Posición",
       "submit": "Guardar",
       "created": "Tipo de enlace creado.",
       "saved": "Guardado.",
       "deleteTitle": "Eliminar tipo de enlace",
       "confirmDelete": "¿Eliminar el tipo de enlace «{key}»?",
       "deleted": "Tipo de enlace eliminado.",
-      "icons": {
-        "link": "Enlace",
-        "logs": "Registros",
-        "dashboard": "Panel",
-        "errors": "Errores",
-        "alerts": "Alertas",
-        "traces": "Trazas",
-        "runbook": "Runbook",
-        "docs": "Documentación"
-      }
+      "namesHint": "Obligatorio en el idioma de esta página; los vacíos copian el primer nombre rellenado en el orden inglés, español, ruso, chino.",
+      "iconSet": "Del conjunto",
+      "iconUrl": "Por dirección",
+      "iconSearch": "Buscar iconos",
+      "iconEmpty": "No se encontraron iconos.",
+      "iconChoose": "Elegir un icono",
+      "iconSetHint": "Cualquier icono del conjunto de la interfaz; escriba un nombre en inglés para buscar.",
+      "iconUrlHint": "Una imagen https://; si no carga, se muestra el icono de enlace normal.",
+      "drag": "Arrastre para reordenar, o enfoque y pulse ↑/↓",
+      "reordered": "Orden guardado.",
+      "dragKey": "Reordenar {key}: arrastre o pulse ↑/↓"
     },
     "clusters": {
       "title": "Clústeres",
@@ -922,7 +924,8 @@
       "stepKey": "Emite una clave del proyecto en la pestaña «Claves» y cópiala: solo se muestra una vez.",
       "toKeys": "Ir a las claves",
       "stepSend": "Añade un paso que informe de cada despliegue al endpoint de arriba:",
-      "examples": "Ejemplos"
+      "examples": "Ejemplos",
+      "links": "links es opcional: enlaces de este despliegue (ejecución de CI, versión) que se muestran en el proyecto mientras sea el actual."
     },
     "lead": "Organizaciones, carpetas y proyectos que puedes ver.",
     "actions": {
@@ -1178,7 +1181,9 @@
           "value": "Valor",
           "source": "Origen"
         }
-      }
+      },
+      "fromEvent": "Del evento",
+      "emptyEvents": "O envíe enlaces con los despliegues: el campo links del evento service.deployed."
     },
     "docs": {
       "lead": "Archivos recopilados de la fuente de documentación del proyecto.",
@@ -1384,6 +1389,18 @@
       "missing": "Falta: {vars}",
       "noUrl": "Sin dirección",
       "links": "Enlaces"
+    },
+    "detailsLinks": {
+      "title": "Enlaces",
+      "empty": "No hay enlaces.",
+      "emptyTemplates": "No hay plantillas de enlaces.",
+      "settings": "Configurar enlaces",
+      "source": "Origen",
+      "here": "Aquí",
+      "kind": "Tipo",
+      "copy": "Copiar dirección",
+      "copyTemplate": "Copiar plantilla",
+      "template": "Plantilla"
     }
   },
   "notFound": {

@@ -3,7 +3,7 @@
 #   variable SVCR_URL         = https://registry.example.com
 #   variable SVCR_PROJECT_ID  = <project id from the catalog page>
 #   secret   SVCR_PROJECT_KEY = svcr_… (a key of that project)
-# Empty optional fields (e.g. url) are treated as unset by the registry.
+# Empty optional fields (e.g. url) are treated as unset by the registry; links are optional too.
 - name: Register the deployment in svc-registry
   env:
     SVCR_URL: ${{ vars.SVCR_URL }}
@@ -30,7 +30,9 @@
         "branch": "${{ github.ref_name }}",
         "url": "https://my-service.example.com",
         "deployed_by": "${{ github.actor }}",
-        "metadata": { "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" }
+        "links": [
+          { "kind": "runbook", "title": "CI run", "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" }
+        ]
       }
     }
     EOF

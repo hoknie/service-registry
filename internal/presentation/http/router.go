@@ -38,7 +38,7 @@ func NewRouter(d Deps, dist webui.Dist) *fiber.App {
 	r.add("/api/v1/account/tokens/:id", true, del(api.RevokeOwnToken))
 	r.add("/api/v1/tokens", true, get(api.ListTokens))
 	r.add("/api/v1/tokens/:id", true, del(api.RevokeToken))
-	r.add("/api/v1/link-kinds", true, get(api.ListLinkKinds), post(api.CreateLinkKind))
+	r.add("/api/v1/link-kinds", true, get(api.ListLinkKinds), post(api.CreateLinkKind), put(api.ReorderLinkKinds))
 	r.add("/api/v1/link-kinds/:key", true, patch(api.UpdateLinkKind), del(api.DeleteLinkKind))
 	r.add("/api/v1/clusters", true, get(api.ListClusters), post(api.CreateCluster))
 	r.add("/api/v1/clusters/:id", true, get(api.GetCluster), patch(api.UpdateCluster), del(api.DeleteCluster))
