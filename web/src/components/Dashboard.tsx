@@ -127,7 +127,7 @@ export function Dashboard({ locale, labels }: { locale: Locale; labels: Labels }
               {recent.map((r) => (
                 <li key={`${r.project.id}/${r.service}/${r.environment}`}>
                   <Link
-                    href={catalogHref(locale, r.project.id, "deployments")}
+                    href={catalogHref(locale, r.project.id, "releases")}
                     className="motion-control flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 hover:bg-surface-2"
                   >
                     <KindIcon kind="project" tile className="size-8 rounded-lg [&>svg]:size-4" />

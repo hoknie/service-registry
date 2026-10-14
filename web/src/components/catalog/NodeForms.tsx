@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { errorText } from "@/i18n/errors";
 import { format } from "@/i18n/format";
-import { apiGet, apiSend, errorCode, type CatalogNode, type KnowledgeSource, type NodeKind, type SourceCheck, type SourceKind } from "@/lib/api";
+import { apiGet, apiSend, errorCode, type CatalogNode, type KnowledgeSource, type SourceCheck } from "@/lib/api";
 import { labelsOf, labelsToLines } from "@/lib/tags";
 import { useCatalogTree } from "@/lib/catalogTree";
 
@@ -13,134 +13,17 @@ import { useUiText } from "../UiText";
 import { Button } from "../ui/Button";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { Dialog } from "../ui/Dialog";
-import { Checkbox, Field, Input, Textarea } from "../ui/Field";
+import { Field, Input } from "../ui/Field";
 import { Combobox } from "../ui/Combobox";
-import { Segmented } from "../ui/Segmented";
-import { Select } from "../ui/Select";
-import { hasInvalidTags, LabelsInput, labelError as labelRule } from "../ui/TagInput";
+import { hasInvalidTags, LabelsInput } from "../ui/TagInput";
 import { Message, type Note } from "../ui/Message";
-import { draftOf, emptyDraft, SOURCE_KINDS, SourceFields, sourceBody, secretChanged, type SecretScope, type SourceDraft } from "../knowledge/SourceFields";
-import { KeyDialog } from "./KeyDialog";
-import { Markdown } from "./Markdown";
+import { draftOf, emptyDraft, sourceBody, secretChanged, type SourceDraft } from "../knowledge/SourceFields";
+import { projectBranches } from "./BranchInput";
+import { DescriptionField, labelError, ObservationField, RepoSection, type Repo, type RepoMode } from "./NodeFields";
 import { type CatalogLabels } from "./shared";
 
 type Fail = (e: unknown) => string;
-type Repo = { forge: string; repo_url: string; default_branch: string };
 type OpenProps = { open: boolean; onOpenChange: (open: boolean) => void };
-
-export function slugify(name: string): string {
-  return name
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 63);
-}
-
-type RepoMode = "link" | SourceKind;
-
-function RepoSection({
-  labels,
-  mode,
-  onMode,
-  repo,
-  onRepo,
-  draft,
-  onDraft,
-  scope,
-  managed,
-  children,
-}: {
-  labels: CatalogLabels;
-  mode: RepoMode;
-  onMode: (m: RepoMode) => void;
-  repo: Repo;
-  onRepo: (v: Repo) => void;
-  draft: SourceDraft;
-  onDraft: (v: SourceDraft) => void;
-  scope: SecretScope;
-  managed?: boolean;
-  children?: ReactNode;
-}) {
-  const s = labels.docs.source;
-  return (
-    <fieldset className="grid gap-4 rounded-lg border border-line p-4">
-      <legend className="px-1 text-sm font-medium text-ink-2">
-        {labels.repo.section}
-        {managed && <span className="ml-2 font-normal text-muted">· {labels.edit.fromForge}</span>}
-      </legend>
-      {managed && <p className="text-xs text-muted">{labels.repo.managedSource}</p>}
-      <Field label={labels.repo.mode}>
-        {(p) => (
-          <Select
-            {...p}
-            value={mode}
-            onChange={(e) => {
-              const next = e.target.value as RepoMode;
-              onMode(next);
-              if (next !== "link") onDraft({ ...draft, kind: next });
-            }}
-          >
-            <option value="link">{labels.repo.link}</option>
-            {SOURCE_KINDS.map((k) => (
-              <option key={k} value={k}>
-                {s.kinds[k]}
-              </option>
-            ))}
-          </Select>
-        )}
-      </Field>
-      {mode === "link" ? (
-        <fieldset disabled={managed} className="grid gap-4">
-          <Field label={labels.repo.forge}>
-            {(p) => (
-              <Select {...p} value={repo.forge} onChange={(e) => onRepo({ ...repo, forge: e.target.value })}>
-                <option value="">{labels.repo.noForge}</option>
-                <option value="github">GitHub</option>
-                <option value="gitlab">GitLab</option>
-                <option value="forgejo">Forgejo</option>
-                <option value="gitea">Gitea</option>
-              </Select>
-            )}
-          </Field>
-          <Field label={labels.repo.url}>
-            {(p) => <Input {...p} type="url" value={repo.repo_url} onChange={(e) => onRepo({ ...repo, repo_url: e.target.value })} />}
-          </Field>
-        </fieldset>
-      ) : (
-        <SourceFields value={draft} onChange={onDraft} labels={s} scope={scope} />
-      )}
-      <Field label={labels.repo.branch}>
-        {(p) => (
-          <Input
-            {...p}
-            className="font-mono"
-            readOnly={managed}
-            value={repo.default_branch}
-            onChange={(e) => onRepo({ ...repo, default_branch: e.target.value })}
-          />
-        )}
-      </Field>
-      {children}
-    </fieldset>
-  );
-}
-
-const labelError = (tag: string) => labelRule(tag, "label");
-
-const noRepo: Repo = { forge: "", repo_url: "", default_branch: "" };
-
-function ObservationField({ labels, value, onChange }: { labels: CatalogLabels; value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div className="grid gap-1">
-      <Checkbox label={labels.repo.clusterObservation} checked={value} onChange={(e) => onChange(e.target.checked)} aria-describedby="cluster-observation-hint" />
-      <p id="cluster-observation-hint" className="text-xs text-muted">
-        {labels.repo.clusterObservationHint}
-      </p>
-    </div>
-  );
-}
 
 function Footer({ form, submit, onCancel, busy, disabled }: { form: string; submit: string; onCancel: () => void; busy?: boolean; disabled?: boolean }) {
   const { common } = useUiText();
@@ -151,153 +34,6 @@ function Footer({ form, submit, onCancel, busy, disabled }: { form: string; subm
       <Button type="submit" form={form} variant="primary" busy={busy} disabled={disabled}>
         {submit}
       </Button>
-    </>
-  );
-}
-
-export function CreateDialog({
-  open,
-  onOpenChange,
-  parent,
-  kinds,
-  labels,
-  fail,
-  onCreated,
-}: OpenProps & { parent: CatalogNode | null; kinds: NodeKind[]; labels: CatalogLabels; fail: Fail; onCreated: () => void }) {
-  const t = labels.create;
-  const [kind, setKind] = useState<NodeKind>(kinds[0] ?? "organization");
-  const [slug, setSlug] = useState("");
-  const [slugTouched, setSlugTouched] = useState(false);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [labelLines, setLabelLines] = useState("");
-  const [labelDraft, setLabelDraft] = useState("");
-  const [repo, setRepo] = useState(noRepo);
-  const [mode, setMode] = useState<RepoMode>("link");
-  const [draft, setDraft] = useState<SourceDraft>(emptyDraft);
-  const [observe, setObserve] = useState(true);
-  const [note, setNote] = useState<Note>(null);
-  const [busy, setBusy] = useState(false);
-  const [secret, setSecret] = useState<string | null>(null);
-
-  const reset = () => {
-    setSlug("");
-    setSlugTouched(false);
-    setName("");
-    setDescription("");
-    setLabelLines("");
-    setLabelDraft("");
-    setRepo(noRepo);
-    setMode("link");
-    setDraft(emptyDraft);
-    setObserve(true);
-    setNote(null);
-  };
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setBusy(true);
-    setNote(null);
-    try {
-      const created = await apiSend<CatalogNode>("POST", "/v1/catalog/nodes", {
-        kind,
-        parent_id: parent?.id ?? null,
-        slug,
-        name,
-        description,
-        labels: labelsOf(labelLines, labelDraft),
-        ...(kind === "project"
-          ? {
-              ...(mode === "link" ? repo : { default_branch: repo.default_branch, source: sourceBody(draft) }),
-              cluster_observation: observe,
-            }
-          : {}),
-      });
-      reset();
-      onOpenChange(false);
-      toast.success(t.done);
-      if (created.key?.secret) setSecret(created.key.secret);
-      onCreated();
-    } catch (e) {
-      setNote({ kind: "error", text: fail(e) });
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <>
-      <Dialog
-        open={open}
-        onOpenChange={(next) => {
-          if (!next) setNote(null);
-          onOpenChange(next);
-        }}
-        title={parent ? format(t.titleIn, { name: parent.name }) : t.title}
-        footer={<Footer form="create-node" submit={t.submit} busy={busy} disabled={hasInvalidTags(labelLines, labelError)} onCancel={() => onOpenChange(false)} />}
-      >
-        <form id="create-node" className="grid gap-4" onSubmit={submit}>
-          {kinds.length > 1 && (
-            <Field label={t.kind}>
-              {(p) => (
-                <Select {...p} value={kind} onChange={(e) => setKind(e.target.value as NodeKind)}>
-                  {kinds.map((k) => (
-                    <option key={k} value={k}>
-                      {labels.kinds[k]}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </Field>
-          )}
-          <Field label={t.name}>
-            {(p) => (
-              <Input
-                {...p}
-                required
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  if (!slugTouched) setSlug(slugify(e.target.value));
-                }}
-              />
-            )}
-          </Field>
-          <Field label={t.slug} hint={t.slugHint}>
-            {(p) => (
-              <Input
-                {...p}
-                required
-                className="font-mono"
-                value={slug}
-                onChange={(e) => {
-                  setSlugTouched(true);
-                  setSlug(e.target.value);
-                }}
-              />
-            )}
-          </Field>
-          <Field label={t.description}>{(p) => <Textarea {...p} rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />}</Field>
-          <Field label={t.labels} hint={t.labelsHint}>
-            {(p) => <LabelsInput {...p} value={labelLines} onChange={setLabelLines} onDraft={setLabelDraft} />}
-          </Field>
-          {kind === "project" && (
-            <RepoSection
-              labels={labels}
-              mode={mode}
-              onMode={setMode}
-              repo={repo}
-              onRepo={setRepo}
-              draft={draft}
-              onDraft={setDraft}
-              scope={{ listOn: parent?.id ?? null, parent: parent?.id ?? null, canCreate: !!parent?.permissions?.includes("catalog.access") }}
-            />
-          )}
-          {kind === "project" && <ObservationField labels={labels} value={observe} onChange={setObserve} />}
-          <Message note={note} />
-        </form>
-      </Dialog>
-      {secret && <KeyDialog secret={secret} labels={labels.keys.dialog} onClose={() => setSecret(null)} />}
     </>
   );
 }
@@ -335,7 +71,6 @@ export function EditForm({
   const [mode, setMode] = useState<RepoMode>("link");
   const [draft, setDraft] = useState<SourceDraft>(emptyDraft);
   const [busy, setBusy] = useState(false);
-  const [preview, setPreview] = useState(false);
   const sourceUrl = `/v1/catalog/nodes/${node.id}/knowledge/source` as const;
 
   useEffect(() => {
@@ -354,7 +89,13 @@ export function EditForm({
     };
   }, [isProject, sourceUrl]);
 
+  const branchSuggest = useMemo(
+    () => (isProject ? projectBranches(node.id, node.default_branch ?? null, labels.branches.badges.default) : undefined),
+    [isProject, node.id, node.default_branch, labels.branches.badges.default],
+  );
+
   const sourceChanged = () => {
+    if (managed || source?.origin === "forge") return false;
     if (mode === "link") return !!source;
     return !source || secretChanged(draft) || JSON.stringify(sourceBody(draft)) !== JSON.stringify(sourceBody(draftOf(source)));
   };
@@ -419,30 +160,7 @@ export function EditForm({
           {(p) => <Input {...p} required className="font-mono" value={slug} onChange={(e) => setSlug(e.target.value)} />}
         </Field>
         {managed && <p className="rounded-md bg-surface-2 px-3 py-2 text-sm text-ink-2">{t.managedNote}</p>}
-        <div className="grid gap-1.5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm font-medium text-ink-2">{labels.create.description}</span>
-            <Segmented
-              label={labels.create.description}
-              value={preview ? "preview" : "text"}
-              onChange={(v) => setPreview(v === "preview")}
-              options={[
-                { value: "text", label: labels.about.text },
-                { value: "preview", label: labels.about.preview },
-              ]}
-            />
-          </div>
-          {preview ? (
-            <div className="min-h-24 rounded-md border border-line bg-surface p-3">
-              {description.trim() ? <Markdown source={description} /> : <p className="text-sm text-muted">{labels.about.empty}</p>}
-            </div>
-          ) : (
-            <>
-              <Textarea aria-label={labels.create.description} rows={6} readOnly={managed} value={description} onChange={(e) => setDescription(e.target.value)} />
-              <p className="text-xs text-muted">{managed ? t.fromForge : labels.about.markdownHint}</p>
-            </>
-          )}
-        </div>
+        <DescriptionField labels={labels} value={description} onChange={setDescription} readOnly={managed} hint={managed ? t.fromForge : undefined} />
         <Field label={labels.create.labels} hint={labels.create.labelsHint}>
           {(p) => <LabelsInput {...p} value={labelLines} onChange={setLabelLines} onDraft={setLabelDraft} />}
         </Field>
@@ -457,8 +175,9 @@ export function EditForm({
             onDraft={setDraft}
             scope={{ listOn: node.id, parent: node.parent_id, canCreate: !!node.permissions?.includes("catalog.access") }}
             managed={managed}
+            branchSuggest={branchSuggest}
           >
-            {mode !== "link" && (
+            {mode !== "link" && !managed && (
               <div>
                 <Button type="button" onClick={() => void check()} disabled={busy}>
                   {labels.repo.checkSource}

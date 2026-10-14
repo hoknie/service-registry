@@ -77,7 +77,13 @@ type Repository struct {
 	OrphanedAt    *string
 	HasReadme     bool
 	Kind          Kind
+	Origin        string
 }
+
+const (
+	OriginForge  = "forge"
+	OriginSource = "source"
+)
 
 type Readme struct {
 	Markdown      string

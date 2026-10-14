@@ -3,6 +3,8 @@ package forge
 import (
 	"math"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 func Slugify(name string) string {
@@ -47,8 +49,9 @@ func GroupPath(owner string, subgroups []string, n int) string {
 }
 
 type Target struct {
-	Remote RemoteRepo
-	Link   *Link
+	Remote  RemoteRepo
+	Link    *Link
+	Adopted bool
 }
 
 func Plan(remotes []RemoteRepo, links []Link) (targets []Target, orphans []Link) {
@@ -70,6 +73,19 @@ func Plan(remotes []RemoteRepo, links []Link) (targets []Target, orphans []Link)
 		}
 	}
 	return targets, orphans
+}
+
+func Adopt(targets []Target, adoptions map[string]uuid.UUID) {
+	for i := range targets {
+		t := &targets[i]
+		if t.Link != nil {
+			continue
+		}
+		if id, ok := adoptions[t.Remote.ExternalID]; ok {
+			t.Link = &Link{ProjectID: id, ExternalID: t.Remote.ExternalID, FullPath: t.Remote.FullPath}
+			t.Adopted = true
+		}
+	}
 }
 
 func NeedsDetails(t Target) bool {

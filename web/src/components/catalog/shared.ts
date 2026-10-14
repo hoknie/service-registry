@@ -1,7 +1,7 @@
 import type { Locale } from "@/i18n/config";
 import type { Messages } from "@/i18n/messages";
 import type { NodeKind } from "@/lib/api";
-import { LEGACY_TABS } from "@/lib/nodeSettings";
+import { LEGACY_TABS, RENAMED_TABS } from "@/lib/nodeSettings";
 
 export type CatalogLabels = Messages["catalog"] & { scans: Messages["scans"] };
 export type ErrorLabels = Messages["errors"];
@@ -10,6 +10,7 @@ export type { Note } from "../ui/Message";
 export function catalogHref(locale: Locale, id: string | null, tab?: string, branch?: string | null, doc?: string | null, section?: string | null): string {
   if (!id) return `/${locale}/catalog`;
   let href = `/${locale}/catalog?node=${id}`;
+  if (tab && RENAMED_TABS[tab]) tab = RENAMED_TABS[tab];
   const legacy = tab ? LEGACY_TABS[tab] : undefined;
   if (legacy) href += `&tab=settings&section=${legacy}`;
   else if (tab && tab !== "overview") href += `&tab=${tab}`;
@@ -17,6 +18,10 @@ export function catalogHref(locale: Locale, id: string | null, tab?: string, bra
   if (branch) href += `&branch=${encodeURIComponent(branch)}`;
   if (doc) href += `&doc=${encodeURIComponent(doc)}`;
   return href;
+}
+
+export function newNodeHref(locale: Locale, parent: string | null, kind: NodeKind): string {
+  return `/${locale}/catalog/new?${parent ? `parent=${parent}&` : ""}kind=${kind}`;
 }
 
 export const FORGE_NAMES = { github: "GitHub", gitlab: "GitLab", forgejo: "Forgejo", gitea: "Gitea" } as const;

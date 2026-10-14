@@ -4,9 +4,11 @@ import { useParams } from "next/navigation";
 
 import type { Locale } from "@/i18n/config";
 import type { KnowledgeSource, SourceKind } from "@/lib/api";
+import { guessForge, sourceApiUrl } from "@/lib/forgeAddress";
 
 import { catalogHref } from "../catalog/shared";
 import { SecretPicker } from "../secrets/SecretPicker";
+import { Button } from "../ui/Button";
 import { Checkbox, Field, Input } from "../ui/Field";
 import { Select } from "../ui/Select";
 import type { CatalogLabels } from "../catalog/shared";
@@ -19,6 +21,8 @@ export type SourceDraft = {
   forge: (typeof FORGES)[number];
   url: string;
   apiUrl: string;
+  forgeTouched: boolean;
+  apiTouched: boolean;
   secret: string | null;
   current: string | null;
   legacy: boolean;
@@ -33,6 +37,8 @@ export const emptyDraft: SourceDraft = {
   forge: "gitlab",
   url: "",
   apiUrl: "",
+  forgeTouched: false,
+  apiTouched: false,
   secret: null,
   current: null,
   legacy: false,
@@ -44,11 +50,14 @@ export const emptyDraft: SourceDraft = {
 
 export function draftOf(s: KnowledgeSource | null): SourceDraft {
   if (!s) return emptyDraft;
+  const forge = s.forge ?? "gitlab";
   return {
     kind: s.kind,
-    forge: s.forge ?? "gitlab",
+    forge,
     url: s.url ?? "",
     apiUrl: s.api_url ?? "",
+    forgeTouched: s.forge !== null,
+    apiTouched: !!s.api_url && s.api_url !== sourceApiUrl(forge, s.url ?? ""),
     secret: s.credentials.secret?.id ?? null,
     current: s.credentials.secret?.id ?? null,
     legacy: s.credentials.mode === "legacy",
@@ -68,6 +77,22 @@ export function sourceBody(d: SourceDraft): Record<string, unknown> {
   if (d.noToken) out.credentials = null;
   else if (d.secret && d.secret !== d.current) out.credentials = { secret_id: d.secret };
   return out;
+}
+
+export function withRemote(d: SourceDraft, patch: Partial<Pick<SourceDraft, "forge" | "url" | "apiUrl">>): SourceDraft {
+  const next = { ...d, ...patch };
+  if (patch.forge !== undefined) next.forgeTouched = true;
+  if (patch.apiUrl !== undefined) next.apiTouched = true;
+  if (patch.url !== undefined && !next.forgeTouched) {
+    const guessed = guessForge(patch.url);
+    if (guessed) next.forge = guessed;
+  }
+  if (!next.apiTouched && (patch.url !== undefined || patch.forge !== undefined)) next.apiUrl = sourceApiUrl(next.forge, next.url) ?? "";
+  return next;
+}
+
+export function recomputeApi(d: SourceDraft): SourceDraft {
+  return { ...d, apiTouched: false, apiUrl: sourceApiUrl(d.forge, d.url) ?? "" };
 }
 
 export function secretChanged(d: SourceDraft): boolean {
@@ -120,7 +145,7 @@ export function SourceFields({
     <>
       <Field label={t.forge}>
         {(p) => (
-          <Select {...p} value={value.forge} onChange={(e) => set({ forge: e.target.value as SourceDraft["forge"] })}>
+          <Select {...p} value={value.forge} onChange={(e) => onChange(withRemote(value, { forge: e.target.value as SourceDraft["forge"] }))}>
             {FORGES.map((f) => (
               <option key={f} value={f}>
                 {f}
@@ -130,10 +155,19 @@ export function SourceFields({
         )}
       </Field>
       <Field label={t.url} hint={t.urlHint}>
-        {(p) => <Input {...p} required value={value.url} onChange={(e) => set({ url: e.target.value })} />}
+        {(p) => <Input {...p} required value={value.url} onChange={(e) => onChange(withRemote(value, { url: e.target.value }))} />}
       </Field>
       <Field label={t.apiUrl} hint={t.apiUrlHint}>
-        {(p) => <Input {...p} value={value.apiUrl} onChange={(e) => set({ apiUrl: e.target.value })} />}
+        {(p) => (
+          <div className="flex gap-2">
+            <Input {...p} className="min-w-0 flex-1" value={value.apiUrl} onChange={(e) => onChange(withRemote(value, { apiUrl: e.target.value }))} />
+            {value.apiTouched && (
+              <Button type="button" onClick={() => onChange(recomputeApi(value))}>
+                {t.recompute}
+              </Button>
+            )}
+          </div>
+        )}
       </Field>
       <SecretPicker
         listOn={scope.listOn}

@@ -268,7 +268,8 @@
       "uploads_disabled": "File uploads are turned off on the server.",
       "secret_in_use": "The secret is in use — replace it in connections, sources and clusters first.",
       "secret_name_taken": "A secret with this name already exists here.",
-      "link_kind_order_stale": "The list of link kinds has changed; it was reloaded — try again."
+      "link_kind_order_stale": "The list of link kinds has changed; it was reloaded — try again.",
+      "forge_not_linked": "This project is not linked to a forge repository."
     },
     "ingest": {
       "unknown_event_type": "Unknown event type.",
@@ -739,8 +740,6 @@
     "tabs": {
       "overview": "Overview",
       "access": "Access",
-      "deployments": "Deployments",
-      "events": "Events",
       "label": "Sections",
       "keys": "Keys",
       "connect": "Send events",
@@ -749,9 +748,9 @@
       "links": "Links",
       "docs": "Documentation",
       "docsSettings": "Documentation settings",
-      "about": "Description",
       "settings": "Settings",
-      "details": "Details"
+      "details": "Details",
+      "releases": "Releases"
     },
     "create": {
       "title": "Add",
@@ -764,7 +763,14 @@
       "submit": "Create",
       "done": "Created.",
       "titleIn": "Add to {name}",
-      "slugHint": "Used in addresses: lowercase letters, digits and hyphens."
+      "slugHint": "Used in addresses: lowercase letters, digits and hyphens.",
+      "newTitle": {
+        "organization": "New organization",
+        "folder": "New folder",
+        "project": "New project"
+      },
+      "notAllowed": "You can't create this kind of node here",
+      "back": "Back"
     },
     "edit": {
       "title": "Edit",
@@ -801,7 +807,8 @@
       "mode": "What it is",
       "link": "Link only (no documentation)",
       "checkSource": "Check source",
-      "managedSource": "The link comes from the forge; a documentation source can still be set."
+      "managedSource": "The link and the documentation source come from the forge; unlink the project to change them.",
+      "branchHint": "Pick a known branch or type a name."
     },
     "keys": {
       "title": "Ingest keys",
@@ -860,7 +867,7 @@
     "deployments": {
       "current": "Current versions",
       "history": "History",
-      "empty": "No deployments yet.",
+      "empty": "No releases yet.",
       "service": "Service",
       "environment": "Environment",
       "version": "Version",
@@ -873,9 +880,9 @@
       "filter": "Filter",
       "reset": "Reset",
       "any": "any",
-      "emptyText": "Deployments appear here as soon as your CI reports them.",
+      "emptyText": "Releases appear here as soon as your CI reports deployments.",
       "connect": "Set up sending events",
-      "noMatch": "No deployments match the filters.",
+      "noMatch": "No releases match the filters.",
       "fromCluster": "From a cluster",
       "drift": "Drift",
       "driftHint": "A cluster runs a different version than the last deployment.",
@@ -1031,10 +1038,19 @@
       "disabled": "Webhook disabled.",
       "close": "Done",
       "branchInclude": "Branch patterns",
-      "branchIncludeHint": "Glob patterns of full branch names separated by commas, e.g. main, release/*; empty — every branch. The default branch is always taken."
+      "branchIncludeHint": "Glob patterns of full branch names separated by commas, e.g. main, release/*; empty — every branch. The default branch is always taken.",
+      "ownerUrl": "Owner address",
+      "ownerUrlHint": "Web address of the group, organization or user, e.g. https://gitlab.example.com/platform/team — the forge, owner and API address are filled in from it.",
+      "recompute": "Compute again",
+      "exclusions": {
+        "title": "Excluded repositories",
+        "empty": "No exclusions. A project is excluded with “Unlink from forge” on its page.",
+        "restore": "Bring back under sync",
+        "confirm": "Remove the exclusion? The project becomes synchronized again on the next run.",
+        "restored": "Exclusion removed; the next sync brings the project back."
+      }
     },
     "repoMeta": {
-      "title": "From the forge",
       "open": "Open on the forge",
       "topics": "Topics",
       "languages": "Languages",
@@ -1055,7 +1071,12 @@
       "readme": "README",
       "readmeTruncated": "The README is cut here.",
       "readmeFull": "Open the full README on the forge",
-      "none": "—"
+      "none": "—",
+      "origin": "Origin",
+      "originForge": "Synchronized from the forge: {owner}",
+      "originSource": "Documentation source: {kind}",
+      "originLink": "Link only",
+      "collected": "Last collected"
     },
     "branches": {
       "picker": "Branch",
@@ -1102,7 +1123,9 @@
       "confirmDelete": "Delete the record of {name}? Deployments of this branch stay; the branch comes back if the forge or CI shows it again.",
       "deleted": "Branch record deleted.",
       "never": "No activity",
-      "searchSubmit": "Find"
+      "searchSubmit": "Find",
+      "makeDefault": "Make default",
+      "defaultSet": "Default branch changed."
     },
     "links": {
       "title": "Links",
@@ -1264,7 +1287,7 @@
         "url": "Repository address",
         "urlHint": "e.g. https://gitlab.example.com/platform/api",
         "apiUrl": "API address",
-        "apiUrlHint": "Optional: derived from the repository address.",
+        "apiUrlHint": "Filled in from the repository address; you can change it.",
         "token": "Access token",
         "tokenHint": "Leave empty to keep the stored token.",
         "noToken": "Without a token (public repository)",
@@ -1290,7 +1313,10 @@
         "workingTreeOff": "commits only",
         "includeIgnored": "Collect files hidden by .gitignore",
         "includeIgnoredHint": "Files matching the include patterns are collected even when git ignores them; other ignored files stay out. Prefer narrow patterns like openspec/**/*.md.",
-        "includeIgnoredOn": "commits, uncommitted and git-ignored files matching the patterns"
+        "includeIgnoredOn": "commits, uncommitted and git-ignored files matching the patterns",
+        "recompute": "Compute again",
+        "fromForge": "From the forge: {owner}",
+        "unlinkLink": "Unlink from the forge…"
       },
       "onlyReadme": "Only the README at the root is collected — choose folders in the documentation settings.",
       "toSettings": "Open documentation settings",
@@ -1376,13 +1402,9 @@
     "about": {
       "title": "Description",
       "empty": "No description yet.",
-      "add": "Add a description",
       "text": "Text",
       "preview": "Preview",
-      "markdownHint": "Markdown: headings, lists, links, tables, code. HTML is shown as text.",
-      "fromReadme": "Description taken from the README:",
-      "onBranch": "branch {branch}",
-      "fromForge": "Description taken from the forge repository README."
+      "markdownHint": "Markdown: headings, lists, links, tables, code. HTML is shown as text."
     },
     "settings": {
       "menu": "Settings sections",
@@ -1419,6 +1441,15 @@
       "copy": "Copy address",
       "copyTemplate": "Copy template",
       "template": "Template"
+    },
+    "unlink": {
+      "button": "Unlink from forge",
+      "title": "Unlink from the forge",
+      "text": "Stop synchronizing this project with the forge and edit it by hand.",
+      "confirm": "The repository is added to the connection's exclusions and the project becomes manual. Its documentation source stays a repository by address with the connection's secret. To bring it back, remove the exclusion in the connection dialog.",
+      "noSecret": "The connection has no named secret: the new source will have no token.",
+      "submit": "Unlink",
+      "done": "Project unlinked from the forge."
     }
   },
   "notFound": {

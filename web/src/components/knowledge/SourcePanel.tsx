@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
@@ -23,11 +24,13 @@ type Props = {
   canAccess: boolean;
   synced: boolean;
   canWrite: boolean;
+  managed?: boolean;
+  generalHref?: string;
   labels: CatalogLabels["docs"]["source"];
   onChanged: () => void;
 };
 
-export function SourcePanel({ projectId, parentId, canAccess, synced, canWrite, labels: t, onChanged }: Props) {
+export function SourcePanel({ projectId, parentId, canAccess, synced, canWrite, managed, generalHref, labels: t, onChanged }: Props) {
   const { errors } = useUiText();
   const base = `/v1/catalog/nodes/${projectId}/knowledge/source` as const;
   const [source, setSource] = useState<KnowledgeSource | null | undefined>(undefined);
@@ -86,11 +89,14 @@ export function SourcePanel({ projectId, parentId, canAccess, synced, canWrite, 
     }
   };
 
+  const locked = !!managed || source?.origin === "forge";
+  const owner = source?.origin === "forge" && source.url ? new URL(source.url).pathname.replace(/^\/+|\/+$/g, "").split("/").slice(0, -1).join("/") : null;
+
   const current =
     source === undefined
       ? null
       : source
-        ? `${t.kinds[source.kind]}: ${source.url ?? source.path ?? ""} · ${
+        ? `${t.kinds[source.kind]}: ${source.url ?? source.path ?? ""}${source.api_url ? ` · ${source.api_url}` : ""} · ${
             source.kind === "local_git"
               ? source.include_ignored
                 ? t.includeIgnoredOn
@@ -110,7 +116,20 @@ export function SourcePanel({ projectId, parentId, canAccess, synced, canWrite, 
   return (
     <Panel title={t.title} description={t.lead}>
       {current && <p className="mb-4 text-sm break-all text-ink-2">{current}</p>}
-      {canWrite && (
+      {owner !== null && <p className="mb-4 text-sm text-muted">{format(t.fromForge, { owner })}</p>}
+      {locked && canWrite && generalHref && (
+        <div className="flex flex-wrap gap-2">
+          <Link href={generalHref} className="text-sm text-signal hover:underline">
+            {t.unlinkLink}
+          </Link>
+          {source?.origin === "own" && (
+            <Button type="button" variant="ghost" onClick={() => setRemoving(true)}>
+              {t.remove}
+            </Button>
+          )}
+        </div>
+      )}
+      {canWrite && !locked && (
         <form className="grid max-w-2xl gap-4" onSubmit={save}>
           <Field label={t.kind}>
             {(p) => (

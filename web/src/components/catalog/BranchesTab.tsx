@@ -1,6 +1,6 @@
 "use client";
 
-import { GitBranch, Pin, PinOff, Search, Trash } from "lucide-react";
+import { GitBranch, Pin, PinOff, Search, Star, Trash } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
@@ -29,9 +29,9 @@ const PAGE = 50;
 const STATES = ["active", "stale", "gone", "all"] as const;
 type State = (typeof STATES)[number];
 
-type Props = { projectId: string; locale: Locale; labels: CatalogLabels; canWrite: boolean };
+type Props = { projectId: string; locale: Locale; labels: CatalogLabels; canWrite: boolean; managed?: boolean; onDefault?: () => void };
 
-export function BranchesTab({ projectId, locale, labels, canWrite }: Props) {
+export function BranchesTab({ projectId, locale, labels, canWrite, managed, onDefault }: Props) {
   const { errors, common } = useUiText();
   const t = labels.branches;
   const [state, setState] = useState<State>("active");
@@ -72,6 +72,17 @@ export function BranchesTab({ projectId, locale, labels, canWrite }: Props) {
       await apiSend(b.pinned ? "DELETE" : "PUT", `${base}/pin?name=${encodeURIComponent(b.name)}` as `/${string}`);
       toast.success(b.pinned ? t.unpinned : t.pinned);
       void load();
+    } catch (e) {
+      toast.error(fail(e));
+    }
+  };
+
+  const makeDefault = async (b: Branch) => {
+    try {
+      await apiSend("PATCH", `/v1/catalog/nodes/${projectId}`, { default_branch: b.name });
+      toast.success(t.defaultSet);
+      void load();
+      onDefault?.();
     } catch (e) {
       toast.error(fail(e));
     }
@@ -129,7 +140,7 @@ export function BranchesTab({ projectId, locale, labels, canWrite }: Props) {
               {page.items.map((b) => (
                 <Tr key={b.name}>
                   <Td>
-                    <Link href={catalogHref(locale, projectId, "deployments", b.is_default ? undefined : b.name)} className="font-mono font-medium text-ink hover:underline">
+                    <Link href={catalogHref(locale, projectId, "releases", b.is_default ? undefined : b.name)} className="font-mono font-medium text-ink hover:underline">
                       {b.name}
                     </Link>
                     <span className="mt-1 flex flex-wrap gap-1">
@@ -147,6 +158,12 @@ export function BranchesTab({ projectId, locale, labels, canWrite }: Props) {
                   </Td>
                   {canWrite && (
                     <Td className="text-right whitespace-nowrap">
+                      {!managed && !b.is_default && !b.gone_at && (
+                        <Button size="sm" variant="ghost" onClick={() => void makeDefault(b)}>
+                          <Star aria-hidden="true" />
+                          {t.makeDefault}
+                        </Button>
+                      )}
                       <Button size="sm" variant="ghost" onClick={() => void pin(b)}>
                         {b.pinned ? <PinOff aria-hidden="true" /> : <Pin aria-hidden="true" />}
                         {b.pinned ? t.unpin : t.pin}

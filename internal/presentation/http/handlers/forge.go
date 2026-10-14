@@ -8,6 +8,8 @@ import (
 	"github.com/google/uuid"
 
 	"svc-registry/internal/feature/access"
+	"svc-registry/internal/feature/catalog"
+	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/presentation/http/requests"
 	"svc-registry/internal/presentation/http/responses"
 )
@@ -199,8 +201,66 @@ func (a *Handlers) Readme(c fiber.Ctx) error {
 		return responses.Fail(c, err)
 	}
 	r, err := a.Forge.ProjectReadme(c.Context(), p, id)
+	if e := apperr.From(err); e != nil && e.Kind == apperr.NotFound {
+		if _, aerr := a.Catalog.Authorize(c.Context(), p, catalog.PermRead, id); aerr != nil {
+			return responses.Fail(c, aerr)
+		}
+		src, serr := a.Knowledge.SourceReadme(c.Context(), id)
+		if serr != nil {
+			return responses.Fail(c, serr)
+		}
+		if src != nil {
+			r, err = *src, nil
+		}
+	}
 	if err != nil {
 		return responses.Fail(c, err)
 	}
 	return c.Status(http.StatusOK).JSON(responses.ReadmeOf(r))
+}
+
+func (a *Handlers) UnlinkProject(c fiber.Ctx) error {
+	p, _, err := a.currentUser(c)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	id, err := parseID(c, "id")
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	if err := a.Forge.UnlinkProject(c.Context(), p, id); err != nil {
+		return responses.Fail(c, err)
+	}
+	return a.sendFullNode(c, p, id)
+}
+
+func (a *Handlers) ListExclusions(c fiber.Ctx) error {
+	p, _, err := a.currentUser(c)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	node, conn, err := connectionIDs(c)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	list, err := a.Forge.ListExclusions(c.Context(), p, node, conn)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	return c.Status(http.StatusOK).JSON(responses.ItemsOf(list, responses.ExclusionOf))
+}
+
+func (a *Handlers) DeleteExclusion(c fiber.Ctx) error {
+	p, _, err := a.currentUser(c)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	node, conn, err := connectionIDs(c)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	if err := a.Forge.DeleteExclusion(c.Context(), p, node, conn, c.Params("external_id")); err != nil {
+		return responses.Fail(c, err)
+	}
+	return c.SendStatus(http.StatusNoContent)
 }

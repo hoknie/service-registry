@@ -311,6 +311,7 @@ func sourceCredentialsOf(c catalog.Credentials) SourceCredentials {
 
 type KnowledgeSource struct {
 	Kind           string            `json:"kind"`
+	Origin         string            `json:"origin"`
 	Forge          *string           `json:"forge"`
 	URL            *string           `json:"url"`
 	APIURL         *string           `json:"api_url"`
@@ -325,20 +326,42 @@ func KnowledgeSourceOf(s *knowledge.Source) *KnowledgeSource {
 	if s == nil {
 		return nil
 	}
-	return &KnowledgeSource{Kind: string(s.Kind), Forge: nonEmpty(s.Forge), URL: nonEmpty(s.URL), APIURL: nonEmpty(s.APIURL),
+	origin := s.Origin
+	if origin == "" {
+		origin = knowledge.OriginOwn
+	}
+	return &KnowledgeSource{Kind: string(s.Kind), Origin: origin, Forge: nonEmpty(s.Forge), URL: nonEmpty(s.URL), APIURL: nonEmpty(s.APIURL),
 		Path: nonEmpty(s.Path), Credentials: sourceCredentialsOf(s.Credentials),
 		WorkingTree: s.WorkingTree, IncludeIgnored: s.IncludeIgnored, UpdatedAt: s.UpdatedAt}
 }
 
 type SourceCheck struct {
-	OK        bool    `json:"ok"`
-	Branches  *int    `json:"branches,omitempty"`
-	ErrorCode *string `json:"error_code,omitempty"`
+	OK            bool     `json:"ok"`
+	Branches      int      `json:"branches"`
+	BranchNames   []string `json:"branch_names"`
+	DefaultBranch *string  `json:"default_branch"`
+	APIURL        *string  `json:"api_url"`
 }
 
-func SourceCheckOf(c knowledgeservice.SourceCheck) SourceCheck {
-	if c.OK {
-		return SourceCheck{OK: true, Branches: &c.Branches}
+type SourceCheckFailed struct {
+	OK        bool   `json:"ok"`
+	ErrorCode string `json:"error_code"`
+}
+
+func SourceCheckOf(c knowledgeservice.SourceCheck) any {
+	if !c.OK {
+		return SourceCheckFailed{ErrorCode: c.ErrorCode}
 	}
-	return SourceCheck{ErrorCode: &c.ErrorCode}
+	names := c.BranchNames
+	if names == nil {
+		names = []string{}
+	}
+	out := SourceCheck{OK: true, Branches: c.Branches, BranchNames: names}
+	if c.DefaultBranch != "" && c.DefaultBranch != knowledge.LocalBranch {
+		out.DefaultBranch = &c.DefaultBranch
+	}
+	if c.APIURL != "" {
+		out.APIURL = &c.APIURL
+	}
+	return out
 }

@@ -54,3 +54,35 @@ func (s *Connections) Signals(ctx context.Context, projects []uuid.UUID, busy bo
 	}
 	return out, nil
 }
+
+func (s *Connections) ContainerSignals(ctx context.Context, nodeID uuid.UUID) ([]catalog.ProcessSignals, error) {
+	rows, err := s.db.From(ctx).Query(ctx, `
+		SELECT 'forge'::text AS kind,
+			bool_or(COALESCE(c.lease_until > now(), false)) AS running,
+			bool_or(c.next_run_at <= now() AND NOT COALESCE(c.lease_until > now(), false)) AS queued,
+			bool_or(COALESCE(l.status = 'failed', false)) AS failed,
+			(array_agg(l.error_code ORDER BY c.created_at, c.id) FILTER (WHERE l.status = 'failed'))[1] AS code,
+			rfc3339(max(l.finished_at)) AS last_at
+		FROM forge_connections c
+		LEFT JOIN LATERAL (
+			SELECT w.status, w.error_code, w.finished_at
+			FROM forge_sync_runs w
+			WHERE w.connection_id = c.id
+				AND w.status <> 'running'
+			ORDER BY w.started_at DESC, w.id DESC
+			LIMIT 1
+		) l ON true
+		WHERE c.node_id = $1
+		HAVING count(*) > 0`, nodeID)
+	if err != nil {
+		return nil, dbErr(err)
+	}
+	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (catalog.ProcessSignals, error) {
+		var p catalog.ProcessSignals
+		var kind string
+		err := r.Scan(&kind, &p.Running, &p.Queued, &p.Failed, &p.Code, &p.LastAt)
+		p.Kind = catalog.ProcessKind(kind)
+		return p, err
+	})
+	return out, dbErr(err)
+}

@@ -142,9 +142,11 @@ func TestSourceBecomesProjectLink(t *testing.T) {
 	before := d.app.get(nodePath(d.id), d.admin).json(t)["repo_url"]
 	eq(t, before != nil, true, "a synced project has a link")
 	r = d.app.send("PUT", sourcePath(d.id), d.admin, obj{"kind": "remote", "forge": "gitlab", "url": "https://gitlab.example.com/platform/api"})
-	eq(t, r.status, 200, r.text())
+	eq(t, r.status, 409, r.text())
+	eq(t, code(t, r), any("conflict.managed_by_forge"))
 	eq(t, d.app.get(nodePath(d.id), d.admin).json(t)["repo_url"], before)
-	eq(t, d.app.get(sourcePath(d.id), d.admin).json(t)["url"], any("https://gitlab.example.com/platform/api"))
+	eq(t, d.app.get(sourcePath(d.id), d.admin).json(t)["origin"], any("forge"))
+	eq(t, d.app.get(sourcePath(d.id), d.admin).json(t)["url"], before)
 }
 
 func TestSourceWorkingTreeFlag(t *testing.T) {
@@ -196,4 +198,33 @@ func TestSourceIncludeIgnoredFlag(t *testing.T) {
 	eq(t, code(t, r), any("validation.invalid_knowledge_source"))
 	r = a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "local_dir", "path": dir})
 	eq(t, r.json(t)["include_ignored"], any(false), "other kinds report false")
+}
+
+func TestSourceCheckOnAContainerListsBranches(t *testing.T) {
+	t.Parallel()
+	a := startSources(t)
+	f := forgefake.Start(t, "gitea", forgeToken, "team")
+	f.Put(forgefake.Repo{ID: 1, Path: "team/api", DefaultBranch: "main",
+		Branches: []forgefake.Branch{{Name: "main", SHA: sha(1)}, {Name: "dev", SHA: sha(2)}, {Name: "alpha", SHA: sha(3)}}})
+	folder := a.nodeID(a.admin, "folder", a.org, "backend")
+	check := obj{"kind": "remote", "forge": "gitea", "url": "https://git.example.com/team/api", "credentials": nil}
+	r := a.send("POST", sourcePath(folder)+"/check", a.admin, check)
+	eq(t, r.status, 200, r.text())
+	eq(t, r.json(t)["ok"], any(false))
+
+	check["api_url"] = f.APIURL()
+	check["credentials"] = a.tokenOn(a.admin, a.org, forgeToken)
+	r = a.send("POST", sourcePath(folder)+"/check", a.admin, check)
+	eq(t, r.json(t)["ok"], any(true), r.text())
+	eq(t, r.json(t)["branches"], any(float64(3)))
+	eq(t, jsonText(r.json(t)["branch_names"]), `["main","alpha","dev"]`)
+	eq(t, r.json(t)["default_branch"], any("main"))
+	eq(t, r.json(t)["api_url"], any(f.APIURL()))
+
+	app := a.testApp
+	app.user("viewer@example.com", false)
+	app.grant(a.admin, a.org, "user", "viewer@example.com", "viewer")
+	viewer := app.session("viewer@example.com", password)
+	eq(t, code(t, a.send("POST", sourcePath(folder)+"/check", viewer, check)), any("auth.forbidden"))
+	eq(t, a.send("PUT", sourcePath(folder), a.admin, check).status, 404)
 }

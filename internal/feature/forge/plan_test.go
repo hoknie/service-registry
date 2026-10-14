@@ -108,3 +108,32 @@ func TestBranchFilter(t *testing.T) {
 		}
 	}
 }
+
+func TestExcludedReposLeaveThePlan(t *testing.T) {
+	a := uuid.New()
+	remotes := []RemoteRepo{{ExternalID: "1", FullPath: "acme/api"}, {ExternalID: "2", FullPath: "acme/web"}}
+	kept := WithoutExcluded(remotes, map[string]bool{"1": true})
+	if len(kept) != 1 || kept[0].ExternalID != "2" || len(remotes) != 2 {
+		t.Fatal(kept)
+	}
+	targets, orphans := Plan(kept, []Link{{ProjectID: a, ExternalID: "2"}})
+	if len(targets) != 1 || targets[0].Link == nil || len(orphans) != 0 {
+		t.Fatal(targets, orphans)
+	}
+}
+
+func TestAdoptionLinksTheRememberedProject(t *testing.T) {
+	adopted, linked := uuid.New(), uuid.New()
+	targets, _ := Plan([]RemoteRepo{{ExternalID: "1", FullPath: "acme/api"}, {ExternalID: "2"}, {ExternalID: "3"}},
+		[]Link{{ProjectID: linked, ExternalID: "2"}})
+	Adopt(targets, map[string]uuid.UUID{"1": adopted, "2": uuid.New()})
+	if !targets[0].Adopted || targets[0].Link.ProjectID != adopted || targets[0].Link.FullPath != "acme/api" {
+		t.Error(targets[0])
+	}
+	if targets[1].Adopted || targets[1].Link.ProjectID != linked {
+		t.Error(targets[1])
+	}
+	if targets[2].Adopted || targets[2].Link != nil {
+		t.Error(targets[2])
+	}
+}

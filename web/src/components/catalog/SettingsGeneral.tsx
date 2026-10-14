@@ -8,6 +8,7 @@ import type { CatalogNode } from "@/lib/api";
 import { Button } from "../ui/Button";
 import { Panel } from "../ui/Panel";
 import { DeleteDialog, EditForm, MoveDialog } from "./NodeForms";
+import { UnlinkForgeButton } from "./UnlinkForgeDialog";
 import type { CatalogLabels } from "./shared";
 
 type Props = {
@@ -25,14 +26,21 @@ type Props = {
 export function SettingsGeneral({ node, labels, fail, canWrite, canMove, canDelete, superadmin, onSaved, onDeleted }: Props) {
   const t = labels.settings;
   const [dialog, setDialog] = useState<"move" | "delete" | null>(null);
+  const canUnlink = canWrite && node.kind === "project" && !!node.managed;
   return (
     <div className="grid gap-6">
       <Panel title={t.general}>
         <EditForm key={node.updated_at} node={node} labels={labels} fail={fail} onSaved={onSaved} readOnly={!canWrite} />
       </Panel>
-      {(canMove || canDelete) && (
+      {(canMove || canDelete || canUnlink) && (
         <Panel title={t.danger}>
           <div className="grid gap-4">
+            {canUnlink && (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-ink-2">{labels.unlink.text}</p>
+                <UnlinkForgeButton node={node} labels={labels} fail={fail} onUnlinked={onSaved} />
+              </div>
+            )}
             {canMove && (
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-ink-2">{t.moveText}</p>

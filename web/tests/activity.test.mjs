@@ -22,6 +22,14 @@ test("reports processes that stopped running", () => {
   assert.deepEqual(settled(null, before), []);
 });
 
+test("reports a container whose subtree stopped running and its own forge run", () => {
+  const sum = (running) => ({ running, queued: 0, failed: 0 });
+  assert.deepEqual(settled({ summary: sum(2), processes: [] }, { summary: sum(0), processes: [] }), ["subtree"]);
+  assert.deepEqual(settled({ summary: sum(0), processes: [p("forge", "running")] }, { summary: sum(0), processes: [p("forge", "idle")] }), ["forge"]);
+  assert.deepEqual(settled({ summary: sum(1) }, { summary: sum(1) }), []);
+  assert.equal(busy({ summary: sum(0), processes: [p("forge", "queued")] }), true);
+});
+
 test("hides idle processes", () => {
   assert.deepEqual(visible([p("collect", "idle"), p("forge", "failed")]).map((x) => x.kind), ["forge"]);
 });

@@ -67,3 +67,30 @@ func TestValidateLocalSources(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestSourceAPIAddressMatchesTheWebForm(t *testing.T) {
+	for _, c := range []struct{ kind, url, api string }{
+		{"github", "https://github.com/acme/api", "https://api.github.com"},
+		{"github", "https://github.example.com/acme/api", "https://github.example.com/api/v3"},
+		{"gitlab", "https://gitlab.example.com/platform/api", "https://gitlab.example.com/api/v4"},
+		{"gitlab", "https://gitlab.com/acme/platform/api.git", "https://gitlab.com/api/v4"},
+		{"gitea", "https://git.example.com/team/api", "https://git.example.com/api/v1"},
+		{"forgejo", "https://forgejo.example.com:8443/team/api/", "https://forgejo.example.com:8443/api/v1"},
+		{"forgejo", "http://localhost:3000/team/api", "http://localhost:3000/api/v1"},
+		{"gitea", "http://git.example.com/team/api", ""},
+		{"gitea", "https://git.example.com/api", ""},
+		{"gitea", "https://git.example.com/team/api?x=1", ""},
+		{"gitea", "https://user@git.example.com/team/api", ""},
+	} {
+		v, err := ValidateSource(SourceInput{Kind: "remote", Forge: c.kind, URL: c.url})
+		if c.api == "" {
+			if err == nil {
+				t.Errorf("%s %s: accepted", c.kind, c.url)
+			}
+			continue
+		}
+		if err != nil || v.APIURL != c.api {
+			t.Errorf("%s %s: %q %v, want %q", c.kind, c.url, v.APIURL, err, c.api)
+		}
+	}
+}

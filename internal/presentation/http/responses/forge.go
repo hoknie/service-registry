@@ -8,7 +8,8 @@ import (
 )
 
 type Repository struct {
-	ConnectionID  uuid.UUID          `json:"connection_id"`
+	Origin        string             `json:"origin"`
+	ConnectionID  *uuid.UUID         `json:"connection_id"`
 	FullPath      string             `json:"full_path"`
 	WebURL        string             `json:"web_url"`
 	Description   string             `json:"description"`
@@ -29,8 +30,12 @@ func RepositoryOf(r *forge.Repository) *Repository {
 	if r == nil {
 		return nil
 	}
+	var conn *uuid.UUID
+	if r.ConnectionID != uuid.Nil {
+		conn = &r.ConnectionID
+	}
 	return &Repository{
-		ConnectionID: r.ConnectionID, FullPath: r.FullPath, WebURL: r.WebURL, Description: r.Description,
+		Origin: r.Origin, ConnectionID: conn, FullPath: r.FullPath, WebURL: r.WebURL, Description: r.Description,
 		Topics: r.Topics, Languages: r.Languages, DefaultBranch: r.DefaultBranch, Archived: r.Archived,
 		Visibility: string(r.Visibility), Stars: r.Stars, License: r.License, PushedAt: r.PushedAt,
 		SyncedAt: r.SyncedAt, OrphanedAt: r.OrphanedAt, HasReadme: r.HasReadme,
@@ -148,4 +153,27 @@ type Readme struct {
 
 func ReadmeOf(r forge.Readme) Readme {
 	return Readme{Markdown: r.Markdown, Truncated: r.Truncated, WebURL: r.WebURL, DefaultBranch: r.DefaultBranch, Kind: string(r.Kind)}
+}
+
+type ExcludedProject struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+	Path string    `json:"path"`
+}
+
+type Exclusion struct {
+	ExternalID string           `json:"external_id"`
+	FullPath   string           `json:"full_path"`
+	ProjectID  *uuid.UUID       `json:"project_id"`
+	Project    *ExcludedProject `json:"project"`
+	CreatedAt  string           `json:"created_at"`
+}
+
+func ExclusionOf(v forgeservice.ExclusionView) Exclusion {
+	out := Exclusion{ExternalID: v.Exclusion.ExternalID, FullPath: v.Exclusion.FullPath, ProjectID: v.Exclusion.ProjectID,
+		CreatedAt: v.Exclusion.CreatedAt}
+	if v.Project != nil {
+		out.Project = &ExcludedProject{ID: v.Project.ID, Name: v.Project.Name, Path: v.Project.Path}
+	}
+	return out
 }

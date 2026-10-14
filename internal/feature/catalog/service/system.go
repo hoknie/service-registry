@@ -40,6 +40,19 @@ func (s *Service) SetDefaultBranch(ctx context.Context, projectID uuid.UUID, nam
 	return s.branches.SetDefault(ctx, projectID, name)
 }
 
+func (s *Service) SetDefaultBranchIfEmpty(ctx context.Context, projectID uuid.UUID, name string) error {
+	if name == "" {
+		return nil
+	}
+	return s.db.InTx(ctx, func(ctx context.Context) error {
+		set, err := s.nodes.FillDefaultBranch(ctx, projectID, name)
+		if err != nil || !set {
+			return err
+		}
+		return s.branches.SetDefault(ctx, projectID, &name)
+	})
+}
+
 func (s *Service) SyncForgeBranches(ctx context.Context, projectID uuid.UUID, branches []catalog.ForgeBranch, complete bool) error {
 	return s.branches.SyncForge(ctx, projectID, branches, complete)
 }

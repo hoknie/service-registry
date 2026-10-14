@@ -73,6 +73,7 @@ const (
 	ConflictOwnerTaken Conflict = iota + 1
 	ConflictSecretsKeyMissing
 	ConflictPublicURLMissing
+	ConflictNotLinked
 )
 
 func (c Conflict) Code() string {
@@ -83,6 +84,8 @@ func (c Conflict) Code() string {
 		return "conflict.secrets_key_missing"
 	case ConflictPublicURLMissing:
 		return "conflict.public_url_missing"
+	case ConflictNotLinked:
+		return "conflict.forge_not_linked"
 	}
 	return "conflict.unknown"
 }
@@ -95,6 +98,8 @@ func (c Conflict) Message() string {
 		return "SECRETS_KEYS is not configured: secrets cannot be stored"
 	case ConflictPublicURLMissing:
 		return "PUBLIC_URL is not configured: the webhook address is unknown"
+	case ConflictNotLinked:
+		return "the project is not linked to a forge repository"
 	}
 	return "conflict"
 }

@@ -39,5 +39,6 @@ func ActivityOf(a catalog.Activity) Activity {
 		return Activity{Processes: &p}
 	}
 	s := SummaryOf(a.Summary)
-	return Activity{Summary: &s}
+	p := ProcessesOf(a.Processes)
+	return Activity{Summary: &s, Processes: &p}
 }

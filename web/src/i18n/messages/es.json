@@ -268,7 +268,8 @@
       "uploads_disabled": "La subida de archivos está desactivada en el servidor.",
       "secret_in_use": "El secreto está en uso: reemplázalo primero en conexiones, fuentes y clústeres.",
       "secret_name_taken": "Ya existe aquí un secreto con este nombre.",
-      "link_kind_order_stale": "La lista de tipos de enlace ha cambiado; se ha recargado, inténtelo de nuevo."
+      "link_kind_order_stale": "La lista de tipos de enlace ha cambiado; se ha recargado, inténtelo de nuevo.",
+      "forge_not_linked": "Este proyecto no está vinculado a un repositorio de la forja."
     },
     "ingest": {
       "unknown_event_type": "Tipo de evento desconocido.",
@@ -739,8 +740,6 @@
     "tabs": {
       "overview": "Resumen",
       "access": "Acceso",
-      "deployments": "Despliegues",
-      "events": "Eventos",
       "label": "Secciones",
       "keys": "Claves",
       "connect": "Enviar eventos",
@@ -749,9 +748,9 @@
       "links": "Enlaces",
       "docs": "Documentación",
       "docsSettings": "Ajustes de documentación",
-      "about": "Descripción",
       "settings": "Ajustes",
-      "details": "Detalles"
+      "details": "Detalles",
+      "releases": "Lanzamientos"
     },
     "create": {
       "title": "Añadir",
@@ -764,7 +763,14 @@
       "submit": "Crear",
       "done": "Creado.",
       "titleIn": "Añadir a {name}",
-      "slugHint": "Se usa en direcciones: minúsculas, dígitos y guiones."
+      "slugHint": "Se usa en direcciones: minúsculas, dígitos y guiones.",
+      "newTitle": {
+        "organization": "Nueva organización",
+        "folder": "Nueva carpeta",
+        "project": "Nuevo proyecto"
+      },
+      "notAllowed": "Aquí no se puede crear un nodo de este tipo",
+      "back": "Volver"
     },
     "edit": {
       "title": "Editar",
@@ -801,7 +807,8 @@
       "mode": "Qué es",
       "link": "Solo enlace (sin documentación)",
       "checkSource": "Comprobar fuente",
-      "managedSource": "El enlace viene del forge; aun así se puede definir una fuente de documentación."
+      "managedSource": "El enlace y la fuente de documentación vienen de la forja; desvincula el proyecto para cambiarlos.",
+      "branchHint": "Elige una rama conocida o escribe un nombre."
     },
     "keys": {
       "title": "Claves de ingesta",
@@ -860,7 +867,7 @@
     "deployments": {
       "current": "Versiones actuales",
       "history": "Historial",
-      "empty": "Aún no hay despliegues.",
+      "empty": "Aún no hay lanzamientos.",
       "service": "Servicio",
       "environment": "Entorno",
       "version": "Versión",
@@ -873,9 +880,9 @@
       "filter": "Filtrar",
       "reset": "Restablecer",
       "any": "cualquiera",
-      "emptyText": "Los despliegues aparecen aquí en cuanto tu CI los informa.",
+      "emptyText": "Los lanzamientos aparecen aquí en cuanto tu CI informa de los despliegues.",
       "connect": "Configurar el envío de eventos",
-      "noMatch": "Ningún despliegue coincide con los filtros.",
+      "noMatch": "Ningún lanzamiento coincide con los filtros.",
       "fromCluster": "Desde un clúster",
       "drift": "Divergencia",
       "driftHint": "Un clúster ejecuta una versión distinta del último despliegue.",
@@ -1031,10 +1038,19 @@
       "disabled": "Webhook desactivado.",
       "close": "Listo",
       "branchInclude": "Patrones de ramas",
-      "branchIncludeHint": "Patrones glob de nombres completos de ramas separados por comas, p. ej. main, release/*; vacío — todas. La rama predeterminada siempre se incluye."
+      "branchIncludeHint": "Patrones glob de nombres completos de ramas separados por comas, p. ej. main, release/*; vacío — todas. La rama predeterminada siempre se incluye.",
+      "ownerUrl": "Dirección del propietario",
+      "ownerUrlHint": "Dirección web del grupo, organización o usuario, p. ej. https://gitlab.example.com/platform/team; de ella se rellenan la forja, el propietario y la dirección de la API.",
+      "recompute": "Calcular de nuevo",
+      "exclusions": {
+        "title": "Repositorios excluidos",
+        "empty": "No hay exclusiones. Un proyecto se excluye con «Desvincular de la forja» en su página.",
+        "restore": "Volver a sincronizar",
+        "confirm": "¿Quitar la exclusión? El proyecto volverá a sincronizarse en la próxima ejecución.",
+        "restored": "Exclusión eliminada; la próxima sincronización recupera el proyecto."
+      }
     },
     "repoMeta": {
-      "title": "Desde el forge",
       "open": "Abrir en el forge",
       "topics": "Temas",
       "languages": "Lenguajes",
@@ -1055,7 +1071,12 @@
       "readme": "README",
       "readmeTruncated": "El README se corta aquí.",
       "readmeFull": "Abrir el README completo en el forge",
-      "none": "—"
+      "none": "—",
+      "origin": "Origen",
+      "originForge": "Sincronizado desde la forja: {owner}",
+      "originSource": "Fuente de documentación: {kind}",
+      "originLink": "Solo enlace",
+      "collected": "Última recopilación"
     },
     "branches": {
       "picker": "Rama",
@@ -1102,7 +1123,9 @@
       "confirmDelete": "¿Eliminar el registro de {name}? Los despliegues de esta rama se conservan; la rama vuelve si el forge o la CI la muestran de nuevo.",
       "deleted": "Registro de rama eliminado.",
       "never": "Sin actividad",
-      "searchSubmit": "Buscar"
+      "searchSubmit": "Buscar",
+      "makeDefault": "Hacer predeterminada",
+      "defaultSet": "Rama predeterminada cambiada."
     },
     "links": {
       "title": "Enlaces",
@@ -1264,7 +1287,7 @@
         "url": "Dirección del repositorio",
         "urlHint": "p. ej. https://gitlab.example.com/platform/api",
         "apiUrl": "Dirección de la API",
-        "apiUrlHint": "Opcional: se deduce de la dirección del repositorio.",
+        "apiUrlHint": "Se rellena a partir de la dirección del repositorio; puedes cambiarla.",
         "token": "Token de acceso",
         "tokenHint": "Déjalo vacío para conservar el token guardado.",
         "noToken": "Sin token (repositorio público)",
@@ -1290,7 +1313,10 @@
         "workingTreeOff": "solo commits",
         "includeIgnored": "Recopilar archivos ocultos por .gitignore",
         "includeIgnoredHint": "Los archivos que coinciden con los patrones de inclusión se recopilan aunque git los ignore; los demás ignorados no. Mejor patrones acotados como openspec/**/*.md.",
-        "includeIgnoredOn": "commits, archivos sin confirmar y archivos ignorados por git según los patrones"
+        "includeIgnoredOn": "commits, archivos sin confirmar y archivos ignorados por git según los patrones",
+        "recompute": "Calcular de nuevo",
+        "fromForge": "Desde la forja: {owner}",
+        "unlinkLink": "Desvincular de la forja…"
       },
       "onlyReadme": "Solo se recopila el README de la raíz: elige carpetas en los ajustes de documentación.",
       "toSettings": "Abrir ajustes de documentación",
@@ -1376,13 +1402,9 @@
     "about": {
       "title": "Descripción",
       "empty": "Aún no hay descripción.",
-      "add": "Añadir una descripción",
       "text": "Texto",
       "preview": "Vista previa",
-      "markdownHint": "Markdown: títulos, listas, enlaces, tablas, código. El HTML se muestra como texto.",
-      "fromReadme": "Descripción tomada del README:",
-      "onBranch": "rama {branch}",
-      "fromForge": "Descripción tomada del README del repositorio forge."
+      "markdownHint": "Markdown: títulos, listas, enlaces, tablas, código. El HTML se muestra como texto."
     },
     "settings": {
       "menu": "Secciones de ajustes",
@@ -1419,6 +1441,15 @@
       "copy": "Copiar dirección",
       "copyTemplate": "Copiar plantilla",
       "template": "Plantilla"
+    },
+    "unlink": {
+      "button": "Desvincular de la forja",
+      "title": "Desvincular de la forja",
+      "text": "Deja de sincronizar este proyecto con la forja y edítalo a mano.",
+      "confirm": "El repositorio se añade a las exclusiones de la conexión y el proyecto pasa a ser manual. Su fuente de documentación queda como repositorio por dirección con el secreto de la conexión. Para recuperarlo, quita la exclusión en el diálogo de la conexión.",
+      "noSecret": "La conexión no tiene un secreto con nombre: la nueva fuente no tendrá token.",
+      "submit": "Desvincular",
+      "done": "Proyecto desvinculado de la forja."
     }
   },
   "notFound": {

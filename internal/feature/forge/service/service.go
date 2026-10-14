@@ -24,9 +24,13 @@ type Deps struct {
 
 type Service struct {
 	cfg          *config.Config
+	db           *postgres.DB
 	connections  *repository.Connections
 	repositories *repository.Repos
+	exclusions   *repository.Exclusions
+	adoptions    *repository.Adoptions
 	runs         *repository.Runs
+	sources      forge.ProjectSources
 	clients      forge.ClientFactory
 	secrets      *secretbox.Box
 	catalog      *catalogservice.Service
@@ -35,8 +39,11 @@ type Service struct {
 func New(d Deps) *Service {
 	return &Service{
 		cfg:          d.Config,
+		db:           d.DB,
 		connections:  repository.NewConnections(d.DB),
 		repositories: repository.NewRepos(d.DB),
+		exclusions:   repository.NewExclusions(d.DB),
+		adoptions:    repository.NewAdoptions(d.DB),
 		runs:         repository.NewRuns(d.DB),
 		clients:      d.Clients,
 		secrets:      d.Secrets,
@@ -44,12 +51,18 @@ func New(d Deps) *Service {
 	}
 }
 
+func (s *Service) Use(sources forge.ProjectSources) { s.sources = sources }
+
 func (s *Service) Managed(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
 	return s.repositories.Managed(ctx, ids)
 }
 
 func (s *Service) ActivitySignals(ctx context.Context, projects []uuid.UUID, _, busy bool) (map[uuid.UUID][]catalog.ProcessSignals, error) {
 	return s.connections.Signals(ctx, projects, busy)
+}
+
+func (s *Service) ContainerSignals(ctx context.Context, nodeID uuid.UUID) ([]catalog.ProcessSignals, error) {
+	return s.connections.ContainerSignals(ctx, nodeID)
 }
 
 func (s *Service) SecretUsage(ctx context.Context, secrets []uuid.UUID) (map[uuid.UUID]int64, error) {

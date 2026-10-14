@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronRight, Inbox, Plug, RotateCcw } from "lucide-react";
-import { Fragment, useCallback, useEffect, useState, type FormEvent } from "react";
+import { Fragment, useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import type { Locale } from "@/i18n/config";
 import { errorText } from "@/i18n/errors";
@@ -24,7 +24,7 @@ const PAGE = 50;
 
 type Props = { projectId: string; locale: Locale; labels: CatalogLabels; onConnect: () => void };
 
-export function EventsTab({ projectId, locale, labels, onConnect }: Props) {
+export function ProjectEvents({ projectId, locale, labels, onConnect }: Props) {
   const { errors, common } = useUiText();
   const t = labels.events;
   const [page, setPage] = useState<Page<IngestEvent> | null>(null);
@@ -58,11 +58,18 @@ export function EventsTab({ projectId, locale, labels, onConnect }: Props) {
     setType(draft.trim());
   };
 
-  if (error && !page) return <Message note={{ kind: "error", text: error }} />;
-  if (!page) return <SkeletonTable rows={6} label={common.loading} />;
+  const titled = (body: ReactNode) => (
+    <section aria-labelledby="events-title" className="grid gap-4">
+      <h2 id="events-title">{t.title}</h2>
+      {body}
+    </section>
+  );
+
+  if (error && !page) return titled(<Message note={{ kind: "error", text: error }} />);
+  if (!page) return titled(<SkeletonTable rows={6} label={common.loading} />);
 
   if (page.items.length === 0 && !type) {
-    return (
+    return titled(
       <EmptyState
         icon={Inbox}
         title={t.empty}
@@ -73,7 +80,7 @@ export function EventsTab({ projectId, locale, labels, onConnect }: Props) {
             {labels.deployments.connect}
           </Button>
         }
-      />
+      />,
     );
   }
 

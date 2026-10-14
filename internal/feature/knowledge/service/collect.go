@@ -136,6 +136,14 @@ func (s *Service) RunKnowledgeCollect(ctx context.Context, id uuid.UUID) error {
 		if err := s.setHeads(ctx, id, kept, srcDef, branches); err != nil {
 			return apperr.Wrap(err)
 		}
+		if src.Kind != knowledge.SourceLocalDir {
+			if err := s.fillDefaultBranch(ctx, id, srcDef); err != nil {
+				return apperr.Wrap(err)
+			}
+		}
+		if err := s.recordRepository(ctx, id, reader); err != nil {
+			return apperr.Wrap(err)
+		}
 		if len(heads) == 0 {
 			scan.Warn(knowledge.WarnNoBranches)
 		}
@@ -375,6 +383,37 @@ func (s *Service) collectBranch(ctx context.Context, p knowledge.Project, reader
 func (s *Service) PruneKnowledgeBlobs(ctx context.Context) (int64, error) {
 	n, err := s.snapshots.PruneBlobs(ctx)
 	return n, apperr.Wrap(err)
+}
+
+func (s *Service) fillDefaultBranch(ctx context.Context, id uuid.UUID, name string) error {
+	if name == "" {
+		return nil
+	}
+	managed, err := s.forge.Managed(ctx, []uuid.UUID{id})
+	if err != nil || managed[id] {
+		return err
+	}
+	return s.catalog.SetDefaultBranchIfEmpty(ctx, id, name)
+}
+
+func (s *Service) recordRepository(ctx context.Context, id uuid.UUID, reader knowledge.Reader) error {
+	meta, ok := reader.(knowledge.RepoMetadata)
+	if !ok {
+		return nil
+	}
+	known, err := s.sourceRepos.ChangedAt(ctx, id)
+	if err != nil {
+		return err
+	}
+	repo, details, err := meta.Metadata(ctx, known)
+	if err != nil {
+		code, _ := failureOf(err)
+		slog.Warn("repository metadata unavailable", "project", id, "code", code)
+		if repo.FullPath == "" {
+			return nil
+		}
+	}
+	return s.sourceRepos.Upsert(ctx, id, repo, details)
 }
 
 func (s *Service) setHeads(ctx context.Context, projectID uuid.UUID, heads map[string]string, defaultBranch string,

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Locale } from "@/i18n/config";
 import { errorText } from "@/i18n/errors";
 import type { Messages } from "@/i18n/messages";
-import { ensureSpace, knownSpace, spaceEntry, useDocStore } from "@/lib/docSpaceStore";
+import { ensureSpace, knownSpace, spaceEntry, useDocRevalidate, useDocStore } from "@/lib/docSpaceStore";
 import { DOC_NAVIGATE, docHref, parseDocLocation, splitPath, type DocLocation } from "@/lib/docPath";
 
 import type { CatalogLabels } from "../catalog/shared";
@@ -82,6 +82,7 @@ export function DocSpace({ locale, labels }: Props) {
   const key = loc ? loc.segments.join("/") : null;
 
   useDocStore();
+  useDocRevalidate();
   useEffect(() => {
     if (key !== null && !knownSpace(splitPath(key))?.complete) ensureSpace(key);
   }, [key]);

@@ -101,7 +101,8 @@ export type CatalogTable = Page<CatalogTableRow> & { truncated: boolean };
 export type ForgeKind = "github" | "gitlab" | "forgejo" | "gitea";
 
 export type Repository = {
-  connection_id: string;
+  origin: "forge" | "source";
+  connection_id: string | null;
   full_path: string;
   web_url: string;
   description: string;
@@ -167,6 +168,14 @@ export type Branch = {
   first_seen_at: string;
   last_activity_at: string;
   gone_at: string | null;
+};
+
+export type ForgeExclusion = {
+  external_id: string;
+  full_path: string;
+  project_id: string | null;
+  project: { id: string; name: string; path: string } | null;
+  created_at: string;
 };
 
 export type PreviewItem = { full_path: string; action: "create" | "update" | "move" | "orphan" | "skip"; code?: string };
@@ -479,6 +488,7 @@ export type Knowledge = {
 
 export type KnowledgeSource = {
   kind: SourceKind;
+  origin: "own" | "forge";
   forge: "github" | "gitlab" | "gitea" | "forgejo" | null;
   url: string | null;
   api_url: string | null;
@@ -489,7 +499,14 @@ export type KnowledgeSource = {
   updated_at: string;
 };
 
-export type SourceCheck = { ok: boolean; branches?: number; error_code?: string };
+export type SourceCheck = {
+  ok: boolean;
+  branches?: number;
+  branch_names?: string[];
+  default_branch?: string | null;
+  api_url?: string | null;
+  error_code?: string;
+};
 
 export type DocKind = "doc" | "spec" | "change" | "adr";
 export type SkipReason = "too_large" | "binary" | "limit";
