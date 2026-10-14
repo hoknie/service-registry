@@ -15,7 +15,7 @@ export function staleCache<T>(emit: () => void, codeOf: (e: unknown) => string):
   const refresh = (key: string) => {
     const cur = entries.get(key);
     const load = loaders.get(key);
-    if (!cur || !load || cur.loading) return;
+    if (!cur || typeof load !== "function" || cur.loading) return;
     entries.set(key, { ...cur, stale: false });
     load()
       .then((value) => entries.set(key, { value, loading: false }))
