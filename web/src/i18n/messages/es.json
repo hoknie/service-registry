@@ -285,7 +285,8 @@
       "rate_limited": "Se agotó el límite de peticiones del forge. Inténtalo más tarde.",
       "upstream_error": "El forge no respondió correctamente.",
       "interrupted": "La sincronización se interrumpió.",
-      "not_found": "El repositorio o el commit ya no está en el forge."
+      "not_found": "El repositorio o el commit ya no está en el forge.",
+      "value_too_long": "La ruta o dirección del repositorio en el forge es demasiado larga; el repositorio se omite."
     },
     "branches": {
       "truncated": "El repositorio tiene más ramas que el límite; algunas no se incluyeron."

@@ -285,7 +285,8 @@
       "rate_limited": "forge 的请求限额已用完，请稍后重试。",
       "upstream_error": "forge 未正确响应。",
       "interrupted": "同步被中断。",
-      "not_found": "forge 上已不存在该仓库或提交。"
+      "not_found": "forge 上已不存在该仓库或提交。",
+      "value_too_long": "forge 上的仓库路径或地址过长，已跳过该仓库。"
     },
     "branches": {
       "truncated": "仓库的分支数超过上限，部分分支未被获取。"

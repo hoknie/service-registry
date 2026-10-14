@@ -37,11 +37,14 @@ func (s *Service) PlaceNode(ctx context.Context, id uuid.UUID, parent *uuid.UUID
 func (s *Service) RemoveNode(ctx context.Context, id uuid.UUID) error { return s.nodes.Delete(ctx, id) }
 
 func (s *Service) SetDefaultBranch(ctx context.Context, projectID uuid.UUID, name *string) error {
+	if name != nil && !catalog.BranchFits(*name) {
+		name = nil
+	}
 	return s.branches.SetDefault(ctx, projectID, name)
 }
 
 func (s *Service) SetDefaultBranchIfEmpty(ctx context.Context, projectID uuid.UUID, name string) error {
-	if name == "" {
+	if !catalog.BranchFits(name) {
 		return nil
 	}
 	return s.db.InTx(ctx, func(ctx context.Context) error {
@@ -54,7 +57,13 @@ func (s *Service) SetDefaultBranchIfEmpty(ctx context.Context, projectID uuid.UU
 }
 
 func (s *Service) SyncForgeBranches(ctx context.Context, projectID uuid.UUID, branches []catalog.ForgeBranch, complete bool) error {
-	return s.branches.SyncForge(ctx, projectID, branches, complete)
+	kept := make([]catalog.ForgeBranch, 0, len(branches))
+	for _, b := range branches {
+		if catalog.BranchFits(b.Name) {
+			kept = append(kept, b)
+		}
+	}
+	return s.branches.SyncForge(ctx, projectID, kept, complete)
 }
 
 func (s *Service) RecordIngestBranch(ctx context.Context, projectID uuid.UUID, name string, commit *string, at string) error {
@@ -62,9 +71,19 @@ func (s *Service) RecordIngestBranch(ctx context.Context, projectID uuid.UUID, n
 }
 
 func (s *Service) RecordClusterBranch(ctx context.Context, projectID uuid.UUID, name string, commit *string, activity *time.Time) error {
+	if !catalog.BranchFits(name) {
+		return nil
+	}
 	return repository.UpsertClusterBranch(ctx, s.db.From(ctx), projectID, name, commit, activity)
 }
 
 func (s *Service) SyncRepositoryBranches(ctx context.Context, projectID uuid.UUID, heads map[string]string, defaultBranch string) error {
+	kept := make(map[string]string, len(heads))
+	for name, head := range heads {
+		if catalog.BranchFits(name) {
+			kept[name] = head
+		}
+	}
+	heads = kept
 	return repository.SyncRepositoryBranches(ctx, s.db.From(ctx), projectID, heads, defaultBranch)
 }

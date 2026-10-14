@@ -52,6 +52,11 @@ const (
 	Provision
 )
 
+const (
+	MaxEmailLen   = 254
+	MaxSubjectLen = 255
+)
+
 func Decide(identityUser, emailUser *User, c Claims, p ProviderPolicy) (Outcome, error) {
 	if identityUser != nil {
 		if identityUser.IsService {

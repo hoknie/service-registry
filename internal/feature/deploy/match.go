@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	"svc-registry/internal/feature/catalog"
 )
@@ -29,7 +30,7 @@ type Match struct {
 }
 
 func MatchWorkload(w Workload, clusterEnv string, rules []Rule, resolve Resolver) (Match, error) {
-	m := Match{Version: VersionOf(w)}
+	m := Match{Version: boundedVersion(VersionOf(w))}
 	ann := func(key string) (string, bool) {
 		if v, ok := w.Annotations[key]; ok {
 			return v, true
@@ -49,7 +50,8 @@ func MatchWorkload(w Workload, clusterEnv string, rules []Rule, resolve Resolver
 	}
 	if ref, ok := ann(AnnotationProject); ok {
 		ref = strings.TrimSpace(ref)
-		m.Annotation = &ref
+		shown := clip(ref, MaxAnnotationLen)
+		m.Annotation = &shown
 		p, err := resolve(strings.Trim(ref, "/"))
 		if err != nil {
 			return Match{}, err
@@ -128,6 +130,25 @@ func ruleTarget(r Rule, w Workload) (string, bool) {
 		}
 	})
 	return path, !missing
+}
+
+const (
+	MaxAnnotationLen = 1024
+	MaxVersionLen    = 255
+)
+
+func boundedVersion(v *string) *string {
+	if v == nil || utf8.RuneCountInString(*v) > MaxVersionLen {
+		return nil
+	}
+	return v
+}
+
+func clip(s string, n int) string {
+	if utf8.RuneCountInString(s) <= n {
+		return s
+	}
+	return string([]rune(s)[:n])
 }
 
 func VersionOf(w Workload) *string {

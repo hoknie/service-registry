@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"svc-registry/internal/feature/catalog"
 	"svc-registry/internal/feature/forge"
 	"svc-registry/internal/feature/knowledge"
 	"svc-registry/internal/feature/knowledge/repository"
@@ -113,6 +114,14 @@ func (s *Service) RunKnowledgeCollect(ctx context.Context, id uuid.UUID) error {
 		shown, srcDef, err := reader.Heads(ctx)
 		if err != nil {
 			return fail(known, err)
+		}
+		for name := range shown {
+			if !catalog.BranchFits(name) {
+				delete(shown, name)
+			}
+		}
+		if !catalog.BranchFits(srcDef) {
+			srcDef = ""
 		}
 		if src.Kind == knowledge.SourceLocalDir {
 			def = knowledge.LocalBranch

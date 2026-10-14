@@ -285,7 +285,8 @@
       "rate_limited": "The forge's rate limit is exhausted. Try again later.",
       "upstream_error": "The forge did not answer properly.",
       "interrupted": "The synchronization was interrupted.",
-      "not_found": "The repository or commit is not on the forge any more."
+      "not_found": "The repository or commit is not on the forge any more.",
+      "value_too_long": "The repository path or address on the forge is too long; the repository is skipped."
     },
     "branches": {
       "truncated": "The repository has more branches than the limit; some were not taken."

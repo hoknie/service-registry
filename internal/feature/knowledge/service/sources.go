@@ -233,6 +233,14 @@ func (s *Service) CheckKnowledgeSource(ctx context.Context, p access.Principal, 
 		code, _ := failureOf(err)
 		return SourceCheck{ErrorCode: code}, nil
 	}
+	for name := range heads {
+		if !catalog.BranchFits(name) {
+			delete(heads, name)
+		}
+	}
+	if !catalog.BranchFits(def) {
+		def = ""
+	}
 	return SourceCheck{OK: true, Branches: len(heads), BranchNames: branchNames(heads, def), DefaultBranch: def, APIURL: v.APIURL}, nil
 }
 

@@ -46,8 +46,8 @@ func (s *SourceRepos) Upsert(ctx context.Context, projectID uuid.UUID, r forge.R
 	var changed *time.Time
 	if d != nil {
 		readme, truncated, languages = d.Readme, &d.Truncated, d.Languages
-		if d.License != nil {
-			license = d.License
+		if l := forge.BoundedLicense(d.License); l != nil {
+			license = l
 		}
 		changed = r.ChangedAt()
 	}

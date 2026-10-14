@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -115,6 +116,12 @@ func (s *Service) CompleteLogin(ctx context.Context, cb LoginCallback, previousT
 	claims, err := s.oauth.Exchange(ctx, cb.Provider, cb.Code, ls.Verifier, ls.Nonce)
 	if err != nil {
 		return done, err
+	}
+	if utf8.RuneCountInString(claims.Subject) > access.MaxSubjectLen {
+		return done, access.RefuseFailed
+	}
+	if utf8.RuneCountInString(claims.Email) > access.MaxEmailLen {
+		claims.Email = ""
 	}
 	var email *string
 	if claims.Email != "" {

@@ -131,7 +131,7 @@ func githubRepo(r *github.Repository) domain.RemoteRepo {
 		License:       license,
 		PushedAt:      timePtr(r.GetPushedAt().Time),
 		UpdatedAt:     timePtr(r.GetUpdatedAt().Time),
-	}
+	}.Bounded()
 }
 
 func (g *githubClient) Details(ctx context.Context, repo domain.RemoteRepo) (domain.Details, error) {

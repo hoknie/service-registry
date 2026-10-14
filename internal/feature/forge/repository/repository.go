@@ -80,8 +80,8 @@ func (s *Repos) Upsert(ctx context.Context, rec forge.RepoRecord) error {
 	var changed *time.Time
 	if withDetails {
 		readme, truncated, languages = rec.Details.Readme, &rec.Details.Truncated, rec.Details.Languages
-		if rec.Details.License != nil {
-			license = rec.Details.License
+		if l := forge.BoundedLicense(rec.Details.License); l != nil {
+			license = l
 		}
 		changed = r.ChangedAt()
 	}

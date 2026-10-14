@@ -234,6 +234,10 @@ func (s *Service) PreviewConnection(ctx context.Context, p access.Principal, nod
 func (s *Service) previewOne(ctx context.Context, c forge.Connection, groups map[string]uuid.UUID, t forge.Target) (PreviewItem, error) {
 	r := t.Remote
 	item := PreviewItem{FullPath: r.FullPath}
+	if r.TooLong() {
+		item.FullPath = forge.ProblemPath(r.FullPath)
+		return skipped(item, forge.CodeValueTooLong), nil
+	}
 	parent := &c.NodeID
 	segs := forge.Subgroups(c.OwnerPath, r.FullPath, c.MirrorSubgroups)
 	for i := range segs {

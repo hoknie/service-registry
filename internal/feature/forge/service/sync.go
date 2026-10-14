@@ -271,6 +271,10 @@ func (s *syncer) parentFor(ctx context.Context, r forge.RemoteRepo) (*uuid.UUID,
 
 func (s *syncer) apply(ctx context.Context, t forge.Target) error {
 	r := t.Remote
+	if r.TooLong() {
+		s.skip(forge.ProblemPath(r.FullPath), forge.CodeValueTooLong)
+		return nil
+	}
 	parent, code, err := s.parentFor(ctx, r)
 	if err != nil {
 		return err

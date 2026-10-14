@@ -18,7 +18,7 @@ func trim(s string) string { return strings.TrimFunc(s, unicode.IsSpace) }
 
 func ValidateEmail(raw string) (string, error) {
 	email := strings.ToLower(trim(raw))
-	if utf8.RuneCountInString(email) > 254 {
+	if utf8.RuneCountInString(email) > MaxEmailLen {
 		return "", InvalidEmail
 	}
 	for _, r := range email {
