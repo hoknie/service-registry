@@ -1,14 +1,11 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
 import { apiGet, errorCode, type DocSpace, type KnowledgeFiles, type KnowledgeTreeLevel } from "./api";
+import { onCatalogChange } from "./catalogEvents";
+import { staleCache, type Entry } from "./staleCache";
 
-type Entry<T> = { value?: T; error?: string; loading: boolean };
-
-const spaces = new Map<string, Entry<DocSpace>>();
-const files = new Map<string, Entry<KnowledgeFiles>>();
-const levels = new Map<string, Entry<KnowledgeTreeLevel>>();
 const listeners = new Set<() => void>();
 let version = 0;
 
@@ -22,23 +19,23 @@ function subscribe(l: () => void) {
   return () => listeners.delete(l);
 }
 
-function ensure<T>(map: Map<string, Entry<T>>, key: string, load: () => Promise<T>, retry: boolean) {
-  const cur = map.get(key);
-  if (cur?.loading || (!retry && cur && (cur.value !== undefined || cur.error !== undefined))) return;
-  map.set(key, { loading: true });
-  queueMicrotask(emit);
-  load()
-    .then((value) => map.set(key, { value, loading: false }))
-    .catch((e: unknown) => map.set(key, { error: errorCode(e), loading: false }))
-    .finally(emit);
+const spaces = staleCache<DocSpace>(emit, errorCode);
+const files = staleCache<KnowledgeFiles>(emit, errorCode);
+const levels = staleCache<KnowledgeTreeLevel>(emit, errorCode);
+
+export function revalidate() {
+  spaces.revalidate();
+  files.revalidate();
+  levels.revalidate();
+  emit();
 }
 
 export function ensureSpace(path: string, retry = false) {
-  ensure(spaces, path, () => apiGet<DocSpace>(`/v1/docs/space?path=${encodeURIComponent(path)}`), retry);
+  spaces.ensure(path, () => apiGet<DocSpace>(`/v1/docs/space?path=${encodeURIComponent(path)}`), retry);
 }
 
 export function ensureFiles(projectId: string, branch: string, retry = false) {
-  ensure(files, `${projectId}:${branch}`, () => apiGet<KnowledgeFiles>(`/v1/catalog/nodes/${projectId}/knowledge/files?branch=${encodeURIComponent(branch)}`), retry);
+  files.ensure(`${projectId}:${branch}`, () => apiGet<KnowledgeFiles>(`/v1/catalog/nodes/${projectId}/knowledge/files?branch=${encodeURIComponent(branch)}`), retry);
 }
 
 function levelKey(projectId: string, branch: string | null, dir: string): string {
@@ -50,19 +47,19 @@ export function ensureLevel(projectId: string, branch: string | null, dir: strin
   if (branch) q.set("branch", branch);
   if (dir) q.set("dir", dir);
   const qs = q.toString();
-  ensure(levels, levelKey(projectId, branch, dir), () => apiGet<KnowledgeTreeLevel>(`/v1/catalog/nodes/${projectId}/knowledge/tree${qs ? `?${qs}` : ""}`), retry);
+  levels.ensure(levelKey(projectId, branch, dir), () => apiGet<KnowledgeTreeLevel>(`/v1/catalog/nodes/${projectId}/knowledge/tree${qs ? `?${qs}` : ""}`), retry);
 }
 
 export function levelEntry(projectId: string, branch: string | null, dir: string): Entry<KnowledgeTreeLevel> | undefined {
-  return levels.get(levelKey(projectId, branch, dir));
+  return levels.read(levelKey(projectId, branch, dir));
 }
 
 export function spaceEntry(path: string): Entry<DocSpace> | undefined {
-  return spaces.get(path);
+  return spaces.read(path);
 }
 
 export function filesEntry(projectId: string, branch: string): Entry<KnowledgeFiles> | undefined {
-  return files.get(`${projectId}:${branch}`);
+  return files.read(`${projectId}:${branch}`);
 }
 
 export function useDocStore(): number {
@@ -78,7 +75,7 @@ function nodeSlugs(s: DocSpace): string[] {
 }
 
 export function knownSpace(segments: readonly string[]): { space: DocSpace; complete: boolean } | null {
-  const exact = spaces.get(segments.join("/"))?.value;
+  const exact = spaces.read(segments.join("/"))?.value;
   if (exact) return { space: exact, complete: true };
   for (const e of spaces.values()) {
     const v = e.value;
@@ -90,7 +87,7 @@ export function knownSpace(segments: readonly string[]): { space: DocSpace; comp
     }
   }
   for (let i = segments.length - 1; i >= 0; i--) {
-    const v = spaces.get(segments.slice(0, i).join("/"))?.value;
+    const v = spaces.read(segments.slice(0, i).join("/"))?.value;
     if (!v) continue;
     const slugs = nodeSlugs(v);
     const inside = slugs.length > 0 && slugs.every((s, j) => s === segments[j]?.toLowerCase());
@@ -101,4 +98,29 @@ export function knownSpace(segments: readonly string[]): { space: DocSpace; comp
     return { space: v, complete: false };
   }
   return null;
+}
+
+export const REVALIDATE_MS = 60000;
+
+export function useDocRevalidate(): void {
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const start = () => {
+      clearInterval(timer);
+      timer = setInterval(() => document.visibilityState === "visible" && revalidate(), REVALIDATE_MS);
+    };
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return clearInterval(timer);
+      revalidate();
+      start();
+    };
+    start();
+    document.addEventListener("visibilitychange", onVisible);
+    const off = onCatalogChange(revalidate);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      off();
+    };
+  }, []);
 }

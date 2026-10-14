@@ -161,11 +161,20 @@ func (s *Service) remoteState(ctx context.Context, conn forge.Connection, client
 			kept = append(kept, r)
 		}
 	}
+	excluded, err := s.exclusions.IDs(ctx, conn.ID)
+	if err != nil {
+		return nil, nil, err
+	}
 	links, err := s.repositories.Links(ctx, conn.ID)
 	if err != nil {
 		return nil, nil, err
 	}
-	targets, orphans := forge.Plan(kept, links)
+	adoptions, err := s.adoptions.Eligible(ctx, conn.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	targets, orphans := forge.Plan(forge.WithoutExcluded(kept, excluded), links)
+	forge.Adopt(targets, adoptions)
 	return targets, orphans, nil
 }
 
@@ -262,6 +271,10 @@ func (s *syncer) parentFor(ctx context.Context, r forge.RemoteRepo) (*uuid.UUID,
 
 func (s *syncer) apply(ctx context.Context, t forge.Target) error {
 	r := t.Remote
+	if r.TooLong() {
+		s.skip(forge.ProblemPath(r.FullPath), forge.CodeValueTooLong)
+		return nil
+	}
 	parent, code, err := s.parentFor(ctx, r)
 	if err != nil {
 		return err
@@ -343,6 +356,11 @@ func (s *syncer) apply(ctx context.Context, t forge.Target) error {
 	}
 	if err := s.svc.repositories.Upsert(ctx, forge.RepoRecord{ProjectID: projectID, ConnectionID: s.conn.ID, Remote: r, Details: details}); err != nil {
 		return err
+	}
+	if t.Adopted {
+		if err := s.svc.adopted(ctx, s.conn.ID, r.ExternalID, projectID); err != nil {
+			return err
+		}
 	}
 	s.counts.Updated++
 	return s.branches(ctx, projectID, r, changed)

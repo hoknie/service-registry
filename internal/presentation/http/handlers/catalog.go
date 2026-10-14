@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gofiber/fiber/v3"
@@ -8,6 +9,7 @@ import (
 
 	"svc-registry/internal/feature/access"
 	"svc-registry/internal/feature/catalog"
+	"svc-registry/internal/feature/forge"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/presentation/http/requests"
 	"svc-registry/internal/presentation/http/responses"
@@ -82,13 +84,17 @@ func (a *Handlers) GetNode(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
+	return a.sendFullNode(c, p, id)
+}
+
+func (a *Handlers) sendFullNode(c fiber.Ctx, p access.Principal, id uuid.UUID) error {
 	scoped, err := a.Catalog.GetNode(c.Context(), p, id)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
 	body := responses.ScopedNode(scoped)
 	if body.Access == "read" && scoped.Node.Kind == catalog.KindProject {
-		repo, err := a.Forge.ProjectRepository(c.Context(), id)
+		repo, err := a.projectRepository(c.Context(), id)
 		if err != nil {
 			return responses.Fail(c, err)
 		}
@@ -96,6 +102,14 @@ func (a *Handlers) GetNode(c fiber.Ctx) error {
 		body.Repository = &r
 	}
 	return a.sendNode(c, http.StatusOK, body)
+}
+
+func (a *Handlers) projectRepository(ctx context.Context, id uuid.UUID) (*forge.Repository, error) {
+	repo, err := a.Forge.ProjectRepository(ctx, id)
+	if err != nil || repo != nil {
+		return repo, err
+	}
+	return a.Knowledge.SourceRepository(ctx, id)
 }
 
 func (a *Handlers) UpdateNode(c fiber.Ctx) error {

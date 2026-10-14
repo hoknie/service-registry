@@ -33,6 +33,17 @@ func (s *Service) NodeActivity(ctx context.Context, p access.Principal, id uuid.
 		return catalog.Activity{}, err
 	}
 	out.Summary = summaries[id]
+	var own []catalog.ProcessSignals
+	for _, src := range s.sources {
+		if cs, ok := src.(catalog.ContainerActivitySource); ok {
+			found, err := cs.ContainerSignals(ctx, id)
+			if err != nil {
+				return catalog.Activity{}, apperr.Wrap(err)
+			}
+			own = append(own, found...)
+		}
+	}
+	out.Processes = catalog.ProcessesOf(own)
 	return out, nil
 }
 

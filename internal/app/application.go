@@ -77,6 +77,7 @@ func New(cfg config.Config, opts ...Option) (*App, error) {
 			MaxFileBytes: cfg.Knowledge.MaxFileBytes, MaxBranches: int(cfg.Branches.SyncMaxPerRepo)}})
 	a.Catalog.Use(a.Forge, a.Knowledge, a.Forge, a.Deploy)
 	a.Catalog.UseSecretUsers(a.Forge, a.Knowledge, a.Deploy)
+	a.Forge.Use(a.Knowledge)
 	if !a.Catalog.Wired() {
 		pool.Close()
 		return nil, ErrNotWired

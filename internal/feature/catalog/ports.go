@@ -10,6 +10,10 @@ type ActivitySource interface {
 	ActivitySignals(ctx context.Context, projects []uuid.UUID, pending, busy bool) (map[uuid.UUID][]ProcessSignals, error)
 }
 
+type ContainerActivitySource interface {
+	ContainerSignals(ctx context.Context, nodeID uuid.UUID) ([]ProcessSignals, error)
+}
+
 type ManagedNodes interface {
 	Managed(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error)
 }

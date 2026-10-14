@@ -3,6 +3,7 @@ package catalog
 import (
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
@@ -54,6 +55,12 @@ type BranchFilter struct {
 	State  BranchState
 	Limit  uint32
 	Offset uint64
+}
+
+const MaxBranchLen = 255
+
+func BranchFits(name string) bool {
+	return name != "" && utf8.RuneCountInString(name) <= MaxBranchLen
 }
 
 type ForgeBranch struct {

@@ -3,6 +3,7 @@ package source
 import (
 	"context"
 	"strings"
+	"time"
 
 	"svc-registry/internal/feature/forge"
 	"svc-registry/internal/feature/knowledge"
@@ -68,6 +69,21 @@ func (r *remote) Read(ctx context.Context, e knowledge.Entry, limit int64) ([]by
 		return nil, err
 	}
 	return r.client.ReadFile(ctx, repo, forge.TreeEntry{Path: e.Path, BlobSHA: e.BlobSHA, Size: e.Size}, limit)
+}
+
+func (r *remote) Metadata(ctx context.Context, known *time.Time) (forge.RemoteRepo, *forge.Details, error) {
+	repo, err := r.current(ctx)
+	if err != nil {
+		return forge.RemoteRepo{}, nil, err
+	}
+	if changed := repo.ChangedAt(); known != nil && changed != nil && !changed.After(*known) {
+		return repo, nil, nil
+	}
+	d, err := r.client.Details(ctx, repo)
+	if err != nil {
+		return repo, nil, err
+	}
+	return repo, &d, nil
 }
 
 func owner(fullPath string) string {

@@ -59,7 +59,7 @@ export function ProjectSummary({ projectId, locale, labels }: { projectId: strin
         icon={Rocket}
         tone="project"
         title={t.environments}
-        href={catalogHref(locale, projectId, "deployments")}
+        href={catalogHref(locale, projectId, "releases")}
         open={t.open}
         loading={!envs.data && !envs.error}
         error={envs.error}

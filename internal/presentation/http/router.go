@@ -106,6 +106,9 @@ func NewRouter(d Deps, dist webui.Dist) *fiber.App {
 	r.add("/api/v1/catalog/nodes/:id/forge/connections/:cid/sync", true, post(api.StartSync))
 	r.add("/api/v1/catalog/nodes/:id/forge/connections/:cid/runs", true, get(api.ListRuns))
 	r.add("/api/v1/catalog/nodes/:id/forge/connections/:cid/webhook", true, post(api.SetupWebhook), del(api.DeleteWebhook))
+	r.add("/api/v1/catalog/nodes/:id/forge/connections/:cid/exclusions", true, get(api.ListExclusions))
+	r.add("/api/v1/catalog/nodes/:id/forge/connections/:cid/exclusions/:external_id", true, del(api.DeleteExclusion))
+	r.add("/api/v1/catalog/nodes/:id/forge/unlink", true, post(api.UnlinkProject))
 	r.add("/api/v1/ingest/projects/:project_id/events", false, post(api.IngestEvent))
 	r.add("/api/v1/forge/hooks/:connection_id", false, post(api.ForgeHook))
 

@@ -92,7 +92,7 @@ func gitlabRepo(p *gitlab.Project) domain.RemoteRepo {
 	if p.License != nil {
 		r.License = p.License.Key
 	}
-	return r
+	return r.Bounded()
 }
 
 func readmePath(hint, branch string) string {

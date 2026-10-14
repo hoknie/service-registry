@@ -9,7 +9,7 @@ import (
 type SearchConfig struct {
 	Engine            string `env:"KNOWLEDGE_SEARCH_ENGINE" envDefault:"postgres" validate:"oneof=postgres pgvector qdrant meilisearch"`
 	EmbeddingsURL     string `env:"EMBEDDINGS_URL"`
-	EmbeddingsModel   string `env:"EMBEDDINGS_MODEL"`
+	EmbeddingsModel   string `env:"EMBEDDINGS_MODEL" validate:"max=255"`
 	EmbeddingsAPIKey  string `env:"EMBEDDINGS_API_KEY"`
 	EmbeddingsDims    int    `env:"EMBEDDINGS_DIMENSIONS" validate:"omitempty,min=8,max=8192"`
 	EmbeddingsBatch   int    `env:"EMBEDDINGS_BATCH" envDefault:"32" validate:"min=1,max=512"`

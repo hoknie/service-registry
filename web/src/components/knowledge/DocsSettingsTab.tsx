@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import type { Locale } from "@/i18n/config";
 import { apiGet, type CatalogNode, type Knowledge } from "@/lib/api";
 
-import type { CatalogLabels } from "../catalog/shared";
+import { catalogHref, type CatalogLabels } from "../catalog/shared";
 import { KnowledgeSettings } from "./KnowledgeSettings";
 import { SourcePanel } from "./SourcePanel";
 
@@ -28,7 +28,7 @@ export function DocsSettingsTab({ node, locale, labels, canWrite, onChanged }: P
 
   return (
     <div className="grid gap-6">
-      {project && <SourcePanel projectId={node.id} parentId={node.parent_id} canAccess={!!node.permissions?.includes("catalog.access")} synced={synced} canWrite={canWrite} labels={labels.docs.source} onChanged={() => onChanged?.()} />}
+      {project && <SourcePanel projectId={node.id} parentId={node.parent_id} canAccess={!!node.permissions?.includes("catalog.access")} synced={synced} canWrite={canWrite} managed={!!node.managed} generalHref={catalogHref(locale, node.id, "settings", null, null, "general")} labels={labels.docs.source} onChanged={() => onChanged?.()} />}
       <KnowledgeSettings
         key={node.id}
         nodeId={node.id}

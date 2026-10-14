@@ -286,6 +286,19 @@ func (s *Nodes) Move(ctx context.Context, id uuid.UUID, parent *uuid.UUID) (cata
 	return node, nil
 }
 
+func (s *Nodes) FillDefaultBranch(ctx context.Context, id uuid.UUID, name string) (bool, error) {
+	tag, err := s.db.From(ctx).Exec(ctx, `
+		UPDATE nodes
+		SET default_branch = $2, updated_at = now()
+		WHERE id = $1
+			AND kind = 'project'
+			AND default_branch IS NULL`, id, name)
+	if err != nil {
+		return false, dbErr(err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
 func (s *Nodes) Delete(ctx context.Context, id uuid.UUID) error {
 	tag, err := s.db.From(ctx).Exec(ctx, `
 		DELETE FROM nodes

@@ -6,11 +6,13 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
 
 	"svc-registry/internal/feature/catalog"
+	"svc-registry/internal/feature/forge"
 )
 
 type SourceKind string
@@ -41,7 +43,13 @@ type Source struct {
 	WorkingTree    bool
 	IncludeIgnored bool
 	UpdatedAt      string
+	Origin         string
 }
+
+const (
+	OriginOwn   = "own"
+	OriginForge = "forge"
+)
 
 func (s Source) IsLocal() bool { return s.Kind == SourceLocalDir || s.Kind == SourceLocalGit }
 
@@ -181,6 +189,10 @@ type Reader interface {
 	Heads(ctx context.Context) (heads map[string]string, defaultBranch string, err error)
 	Tree(ctx context.Context, branch, head string) ([]Entry, bool, error)
 	Read(ctx context.Context, e Entry, limit int64) ([]byte, error)
+}
+
+type RepoMetadata interface {
+	Metadata(ctx context.Context, known *time.Time) (forge.RemoteRepo, *forge.Details, error)
 }
 
 type ReaderFactory interface {

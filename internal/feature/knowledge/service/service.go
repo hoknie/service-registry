@@ -32,6 +32,7 @@ type Service struct {
 	docIndex     *repository.Indexes
 	scans        *repository.Scans
 	sources      *repository.Sources
+	sourceRepos  *repository.SourceRepos
 	searchEngine knowledge.Engine
 	external     knowledge.ExternalIndex
 	embedder     knowledge.Embedder
@@ -52,6 +53,7 @@ func New(d Deps) *Service {
 		docIndex:     repository.NewIndexes(d.DB),
 		scans:        repository.NewScans(d.DB),
 		sources:      repository.NewSources(d.DB),
+		sourceRepos:  repository.NewSourceRepos(d.DB),
 		searchEngine: d.Engine,
 		external:     d.External,
 		embedder:     d.Embedder,

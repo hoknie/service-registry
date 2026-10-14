@@ -113,7 +113,7 @@ func giteaRepo(r *gitea.Repository) domain.RemoteRepo {
 	if len(r.Licenses) > 0 {
 		out.License = r.Licenses[0]
 	}
-	return out
+	return out.Bounded()
 }
 
 var readmeName = regexp.MustCompile(`(?i)^readme(\.(md|markdown|txt|rst))?$`)

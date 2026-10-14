@@ -2,7 +2,9 @@ package deploy
 
 import (
 	"errors"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 )
@@ -83,5 +85,25 @@ func TestVersionOf(t *testing.T) {
 	}
 	if VersionOf(Workload{Containers: []Container{{Image: "registry:5000/acme/api"}}}) != nil {
 		t.Error("no tag, no digest")
+	}
+}
+
+func TestLongWorkloadValuesAreBounded(t *testing.T) {
+	long := strings.Repeat("v", 256)
+	w := deployment("api", map[string]string{AnnotationProject: "missing/" + strings.Repeat("ж", 2000)})
+	w.Labels[LabelVersion] = long
+	m, err := MatchWorkload(w, "production", nil, resolve)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Version != nil {
+		t.Errorf("version %q", *m.Version)
+	}
+	if m.Annotation == nil || utf8.RuneCountInString(*m.Annotation) != MaxAnnotationLen {
+		t.Errorf("annotation %v", m.Annotation)
+	}
+	w.Labels[LabelVersion] = long[:255]
+	if m, _ = MatchWorkload(w, "production", nil, resolve); m.Version == nil {
+		t.Error("a 255-character version is kept")
 	}
 }

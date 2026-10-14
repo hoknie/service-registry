@@ -522,6 +522,7 @@ func TestSearchSettings(t *testing.T) {
 		{[]string{"KNOWLEDGE_SEARCH_ENGINE", "meilisearch", "MEILISEARCH_URL", "meili:7700"}, []string{"MEILISEARCH_URL"}},
 		{[]string{"EMBEDDINGS_URL", "ftp://x"}, []string{"EMBEDDINGS_DIMENSIONS", "EMBEDDINGS_MODEL", "EMBEDDINGS_URL"}},
 		{[]string{"KNOWLEDGE_CHUNK_CHARS", "100", "EMBEDDINGS_BATCH", "0"}, []string{"EMBEDDINGS_BATCH", "KNOWLEDGE_CHUNK_CHARS"}},
+		{[]string{"EMBEDDINGS_MODEL", strings.Repeat("m", 256)}, []string{"EMBEDDINGS_MODEL"}},
 	} {
 		_, err := config.Load[config.Config](lookup(append([]string{"DATABASE_URL", dbURL}, c.env...)...))
 		if got := vars(t, err); !reflect.DeepEqual(got, c.want) {

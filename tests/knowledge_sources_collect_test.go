@@ -103,7 +103,10 @@ func TestASourceWinsOverTheForgeAndFailuresAreRecorded(t *testing.T) {
 	roots := d.app.services.Config.Knowledge.LocalRoots
 	dir := filepath.Join(roots[0], "local")
 	writeFile(t, filepath.Join(dir, "README.md"), "from the disk")
-	eq(t, d.app.send("PUT", sourcePath(d.id), d.admin, obj{"kind": "local_dir", "path": dir}).status, 200)
+	eq(t, code(t, d.app.send("PUT", sourcePath(d.id), d.admin, obj{"kind": "local_dir", "path": dir})), any("conflict.managed_by_forge"))
+	execSQL(t, d.app.db, "INSERT INTO knowledge_sources (project_id, kind, path) VALUES ($1, 'local_dir', $2)", d.id, dir)
+	execSQL(t, d.app.db, "UPDATE knowledge_settings SET next_run_at = now() WHERE project_id = $1", d.id)
+	eq(t, d.app.get(sourcePath(d.id), d.admin).json(t)["origin"], any("own"))
 	d.app.collect()
 	eq(t, d.snapshots("local"), int64(1))
 	eq(t, d.app.get(knowledgePath(d.id)+"/file?path=README.md", d.admin).json(t)["content"], any("from the disk"))

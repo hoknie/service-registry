@@ -2,8 +2,11 @@ package forge
 
 import (
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
+
+	"svc-registry/internal/feature/catalog"
 )
 
 type Visibility string
@@ -30,6 +33,42 @@ type RemoteRepo struct {
 	ReadmeHint    string
 	PushedAt      *time.Time
 	UpdatedAt     *time.Time
+}
+
+const (
+	MaxPathLen    = 1024
+	MaxURLLen     = 2048
+	MaxLicenseLen = 255
+)
+
+func (r RemoteRepo) TooLong() bool {
+	return utf8.RuneCountInString(r.FullPath) > MaxPathLen || utf8.RuneCountInString(r.WebURL) > MaxURLLen
+}
+
+func (r RemoteRepo) Bounded() RemoteRepo {
+	if !catalog.BranchFits(r.DefaultBranch) {
+		r.DefaultBranch = ""
+	}
+	if utf8.RuneCountInString(r.License) > MaxLicenseLen {
+		r.License = ""
+	}
+	return r
+}
+
+const CodeValueTooLong = "forge.value_too_long"
+
+func ProblemPath(path string) string {
+	if utf8.RuneCountInString(path) <= MaxPathLen {
+		return path
+	}
+	return string([]rune(path)[:MaxPathLen])
+}
+
+func BoundedLicense(l *string) *string {
+	if l == nil || *l == "" || utf8.RuneCountInString(*l) > MaxLicenseLen {
+		return nil
+	}
+	return l
 }
 
 func (r RemoteRepo) ChangedAt() *time.Time {
@@ -77,7 +116,13 @@ type Repository struct {
 	OrphanedAt    *string
 	HasReadme     bool
 	Kind          Kind
+	Origin        string
 }
+
+const (
+	OriginForge  = "forge"
+	OriginSource = "source"
+)
 
 type Readme struct {
 	Markdown      string

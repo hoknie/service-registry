@@ -107,7 +107,7 @@ function ObservedRow({ o, locale, t }: { o: Observation; locale: Locale; t: Depl
   );
 }
 
-export function DeploymentsTab({ projectId, branch, locale, labels, onConnect }: Props) {
+export function ReleasesTab({ projectId, branch, locale, labels, onConnect }: Props) {
   const { errors, common } = useUiText();
   const t = labels.deployments;
   const [current, setCurrent] = useState<ServiceEnvironment[] | null>(null);

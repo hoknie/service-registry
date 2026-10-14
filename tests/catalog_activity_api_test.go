@@ -115,6 +115,7 @@ func TestCatalogActivitySummaryOfAFolder(t *testing.T) {
 	r := a.get(activityPath(backend), a.admin)
 	eq(t, r.status, 200, r.text())
 	eq(t, jsonText(r.json(t)["summary"]), `{"failed":1,"queued":0,"running":1}`)
+	eq(t, jsonText(r.json(t)["processes"]), `[]`, "no connections on the folder")
 	eq(t, at(a.get(activityPath(a.org), a.admin).json(t), "summary", "failed"), any(float64(1)))
 
 	a.user("viewer@example.com", false)
@@ -129,4 +130,25 @@ func TestCatalogActivitySummaryOfAFolder(t *testing.T) {
 	token := a.pat(viewer, "read")
 	eq(t, a.bearer("GET", activityPath(billing), token, nil).status, 200)
 	eq(t, a.bearer("GET", activityPath(billing), a.pat(viewer, "write"), nil).status, 403)
+}
+
+func TestCatalogActivityShowsTheContainersOwnForgeSync(t *testing.T) {
+	t.Parallel()
+	a := startSources(t)
+	org := a.nodeID(a.admin, "organization", "", "fresh")
+	r := a.get(activityPath(org), a.admin).json(t)
+	eq(t, jsonText(r["processes"]), `[]`)
+	conn := uuid.NewString()
+	execSQL(t, a.db, `INSERT INTO forge_connections (id, node_id, kind, api_url, owner_path, interval_secs, credentials_ref, next_run_at, lease_until)
+		VALUES ($1, $2, 'github', 'https://api.github.example', 'fresh', 600, 'env:T', now() + interval '1 hour', now() + interval '1 minute')`, conn, org)
+	r = a.get(activityPath(org), a.admin).json(t)
+	eq(t, jsonText(r["summary"]), `{"failed":0,"queued":0,"running":0}`)
+	eq(t, at(r, "processes", 0, "kind"), any("forge"))
+	eq(t, at(r, "processes", 0, "state"), any("running"))
+	execSQL(t, a.db, "UPDATE forge_connections SET lease_until = NULL WHERE id = $1", conn)
+	execSQL(t, a.db, `INSERT INTO forge_sync_runs (id, connection_id, trigger, status, finished_at, error_code)
+		VALUES ($1, $2, 'schedule', 'failed', now(), 'forge.unauthorized')`, uuid.NewString(), conn)
+	r = a.get(activityPath(org), a.admin).json(t)
+	eq(t, at(r, "processes", 0, "state"), any("failed"))
+	eq(t, at(r, "processes", 0, "code"), any("forge.unauthorized"))
 }

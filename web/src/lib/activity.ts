@@ -15,19 +15,21 @@ export function busy(a: NodeActivity | Process[] | ActivitySummary | null | unde
   if (!a) return false;
   if (Array.isArray(a)) return a.some((p) => p.state === "running" || p.state === "queued");
   if ("running" in a) return a.running > 0 || a.queued > 0;
-  if (a.processes) return busy(a.processes);
-  return a.summary ? busy(a.summary) : false;
+  return (a.processes ? busy(a.processes) : false) || (a.summary ? busy(a.summary) : false);
 }
 
 export function pollDelay(a: NodeActivity | null): number {
   return busy(a) ? BUSY_MS : IDLE_MS;
 }
 
-export function settled(prev: NodeActivity | null, next: NodeActivity | null): ProcessKind[] {
+export type Settled = ProcessKind | "subtree";
+
+export function settled(prev: NodeActivity | null, next: NodeActivity | null): Settled[] {
   const was = new Set((prev?.processes ?? []).filter((p) => p.state === "running").map((p) => p.kind));
-  return (next?.processes ?? []).filter((p) => was.has(p.kind) && p.state !== "running").map((p) => p.kind).concat(
-    [...was].filter((kind) => !(next?.processes ?? []).some((p) => p.kind === kind)),
-  );
+  const done: Settled[] = (next?.processes ?? []).filter((p) => was.has(p.kind) && p.state !== "running").map((p) => p.kind);
+  done.push(...[...was].filter((kind) => !(next?.processes ?? []).some((p) => p.kind === kind)));
+  if ((prev?.summary?.running ?? 0) > 0 && next?.summary && next.summary.running === 0) done.push("subtree");
+  return done;
 }
 
 export function visible(processes: Process[]): Process[] {
@@ -37,7 +39,7 @@ export function visible(processes: Process[]): Process[] {
 export function useActivity(
   nodeId: string | null,
   load: (id: string) => Promise<NodeActivity>,
-  onSettled?: (kinds: ProcessKind[]) => void,
+  onSettled?: (kinds: Settled[]) => void,
 ): { activity: NodeActivity | null; refresh: () => void } {
   const [activity, setActivity] = useState<NodeActivity | null>(null);
   const [tick, setTick] = useState(0);

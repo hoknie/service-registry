@@ -268,7 +268,8 @@
       "uploads_disabled": "服务器已关闭文件上传。",
       "secret_in_use": "密钥正在使用中——请先在连接、来源和集群中替换它。",
       "secret_name_taken": "此处已有同名密钥。",
-      "link_kind_order_stale": "链接类型列表已变化并已重新加载，请重试。"
+      "link_kind_order_stale": "链接类型列表已变化并已重新加载，请重试。",
+      "forge_not_linked": "此项目未关联 forge 仓库。"
     },
     "ingest": {
       "unknown_event_type": "未知的事件类型。",
@@ -284,7 +285,8 @@
       "rate_limited": "forge 的请求限额已用完，请稍后重试。",
       "upstream_error": "forge 未正确响应。",
       "interrupted": "同步被中断。",
-      "not_found": "forge 上已不存在该仓库或提交。"
+      "not_found": "forge 上已不存在该仓库或提交。",
+      "value_too_long": "forge 上的仓库路径或地址过长，已跳过该仓库。"
     },
     "branches": {
       "truncated": "仓库的分支数超过上限，部分分支未被获取。"
@@ -739,8 +741,6 @@
     "tabs": {
       "overview": "概览",
       "access": "访问权限",
-      "deployments": "部署",
-      "events": "事件",
       "label": "分区",
       "keys": "密钥",
       "connect": "发送事件",
@@ -749,9 +749,9 @@
       "links": "链接",
       "docs": "文档",
       "docsSettings": "文档设置",
-      "about": "描述",
       "settings": "设置",
-      "details": "详情"
+      "details": "详情",
+      "releases": "发布"
     },
     "create": {
       "title": "添加",
@@ -764,7 +764,14 @@
       "submit": "创建",
       "done": "已创建。",
       "titleIn": "添加到“{name}”",
-      "slugHint": "用于地址：小写字母、数字和连字符。"
+      "slugHint": "用于地址：小写字母、数字和连字符。",
+      "newTitle": {
+        "organization": "新建组织",
+        "folder": "新建文件夹",
+        "project": "新建项目"
+      },
+      "notAllowed": "无法在此处创建此类节点",
+      "back": "返回"
     },
     "edit": {
       "title": "编辑",
@@ -801,7 +808,8 @@
       "mode": "类型",
       "link": "仅链接（不收集文档）",
       "checkSource": "检查来源",
-      "managedSource": "链接来自 forge；仍可设置文档来源。"
+      "managedSource": "链接和文档来源来自 forge；如需修改，请先解除项目关联。",
+      "branchHint": "选择已知分支或输入名称。"
     },
     "keys": {
       "title": "接入密钥",
@@ -860,7 +868,7 @@
     "deployments": {
       "current": "当前版本",
       "history": "历史",
-      "empty": "暂无部署。",
+      "empty": "暂无发布。",
       "service": "服务",
       "environment": "环境",
       "version": "版本",
@@ -873,9 +881,9 @@
       "filter": "筛选",
       "reset": "重置",
       "any": "任意",
-      "emptyText": "CI 上报部署后会立即显示在这里。",
+      "emptyText": "CI 报告部署后，发布会显示在这里。",
       "connect": "设置事件发送",
-      "noMatch": "没有符合筛选条件的部署。",
+      "noMatch": "没有符合筛选条件的发布。",
       "fromCluster": "来自集群",
       "drift": "不一致",
       "driftHint": "集群中运行的版本与最近一次部署不同。",
@@ -1031,10 +1039,19 @@
       "disabled": "Webhook 已停用。",
       "close": "完成",
       "branchInclude": "分支模式",
-      "branchIncludeHint": "以逗号分隔的完整分支名 glob 模式，例如 main, release/*；留空表示所有分支。默认分支始终包含。"
+      "branchIncludeHint": "以逗号分隔的完整分支名 glob 模式，例如 main, release/*；留空表示所有分支。默认分支始终包含。",
+      "ownerUrl": "所有者地址",
+      "ownerUrlHint": "群组、组织或用户的网页地址，例如 https://gitlab.example.com/platform/team，据此自动填写类型、所有者和 API 地址。",
+      "recompute": "重新计算",
+      "exclusions": {
+        "title": "已排除的仓库",
+        "empty": "没有排除项。在项目页面使用“与 forge 解除关联”即可排除项目。",
+        "restore": "恢复同步",
+        "confirm": "删除排除项？项目将在下次运行时重新同步。",
+        "restored": "排除项已删除；下次同步将恢复该项目。"
+      }
     },
     "repoMeta": {
-      "title": "来自 forge",
       "open": "在 forge 上打开",
       "topics": "主题",
       "languages": "语言",
@@ -1055,7 +1072,12 @@
       "readme": "README",
       "readmeTruncated": "README 在此处被截断。",
       "readmeFull": "在 forge 上查看完整 README",
-      "none": "—"
+      "none": "—",
+      "origin": "来源",
+      "originForge": "从 forge 同步：{owner}",
+      "originSource": "文档来源：{kind}",
+      "originLink": "仅链接",
+      "collected": "上次收集"
     },
     "branches": {
       "picker": "分支",
@@ -1102,7 +1124,9 @@
       "confirmDelete": "删除 {name} 的记录？该分支的部署记录会保留；如果 forge 或 CI 再次出现该分支，它会重新出现。",
       "deleted": "分支记录已删除。",
       "never": "无活动",
-      "searchSubmit": "搜索"
+      "searchSubmit": "搜索",
+      "makeDefault": "设为默认",
+      "defaultSet": "默认分支已更改。"
     },
     "links": {
       "title": "链接",
@@ -1264,7 +1288,7 @@
         "url": "仓库地址",
         "urlHint": "例如 https://gitlab.example.com/platform/api",
         "apiUrl": "API 地址",
-        "apiUrlHint": "可选：根据仓库地址推断。",
+        "apiUrlHint": "根据仓库地址自动填写，可修改。",
         "token": "访问令牌",
         "tokenHint": "留空则保留已保存的令牌。",
         "noToken": "不使用令牌（公开仓库）",
@@ -1290,7 +1314,10 @@
         "workingTreeOff": "仅提交",
         "includeIgnored": "收集被 .gitignore 隐藏的文件",
         "includeIgnoredHint": "匹配包含模式的文件即使被 git 忽略也会被收集；其他被忽略的文件不会。建议使用较窄的模式，例如 openspec/**/*.md。",
-        "includeIgnoredOn": "提交、未提交的文件以及按模式匹配的被 git 忽略的文件"
+        "includeIgnoredOn": "提交、未提交的文件以及按模式匹配的被 git 忽略的文件",
+        "recompute": "重新计算",
+        "fromForge": "来自 forge：{owner}",
+        "unlinkLink": "与 forge 解除关联…"
       },
       "onlyReadme": "只收集根目录的 README——请在文档设置中选择目录。",
       "toSettings": "打开文档设置",
@@ -1376,13 +1403,9 @@
     "about": {
       "title": "描述",
       "empty": "暂无描述。",
-      "add": "添加描述",
       "text": "文本",
       "preview": "预览",
-      "markdownHint": "Markdown：标题、列表、链接、表格、代码。HTML 按文本显示。",
-      "fromReadme": "描述取自 README：",
-      "onBranch": "分支 {branch}",
-      "fromForge": "描述取自 forge 仓库的 README。"
+      "markdownHint": "Markdown：标题、列表、链接、表格、代码。HTML 按文本显示。"
     },
     "settings": {
       "menu": "设置分区",
@@ -1419,6 +1442,15 @@
       "copy": "复制地址",
       "copyTemplate": "复制模板",
       "template": "模板"
+    },
+    "unlink": {
+      "button": "与 forge 解除关联",
+      "title": "与 forge 解除关联",
+      "text": "停止与 forge 同步此项目，改为手动编辑。",
+      "confirm": "仓库将加入连接的排除列表，项目变为手动项目。其文档来源保留为按地址的仓库，并使用连接的密钥。如需恢复，请在连接对话框中删除该排除项。",
+      "noSecret": "该连接没有命名密钥：新来源将没有令牌。",
+      "submit": "解除关联",
+      "done": "项目已与 forge 解除关联。"
     }
   },
   "notFound": {

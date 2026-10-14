@@ -1,14 +1,14 @@
 "use client";
 
-import { Activity, BookOpen, ExternalLink, FileText, FolderTree, GitBranch, Info, LayoutGrid, Plus, Rocket, Settings } from "lucide-react";
+import { BookOpen, ChevronDown, FolderTree, GitBranch, Info, LayoutGrid, Plus, Rocket, Settings } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Locale } from "@/i18n/config";
 import { errorText } from "@/i18n/errors";
-import { busy, isSummary, useActivity } from "@/lib/activity";
-import { apiGet, errorCode, type CatalogNode, type CatalogTable, type Items, type NodeActivity, type ProcessKind, type ProjectLink } from "@/lib/api";
+import { isSummary, useActivity, type Settled } from "@/lib/activity";
+import { apiGet, errorCode, type CatalogNode, type CatalogTable, type Items, type NodeActivity, type ProjectLink } from "@/lib/api";
 import { useCatalogVersion } from "@/lib/catalogEvents";
 import { useChildrenView } from "@/lib/childrenView";
 import { resolveTab, sectionsOf, tabsOf, type NodeTab, type Section } from "@/lib/nodeSettings";
@@ -17,7 +17,6 @@ import { ForgeTab } from "../forge/ForgeTab";
 import { DocsTab } from "../knowledge/DocsTab";
 import { DocsSettingsTab } from "../knowledge/DocsSettingsTab";
 import { LinksTab } from "../links/LinksTab";
-import { RepositoryPanel } from "../forge/RepositoryPanel";
 import { LinkIconRow } from "../links/LinkIcons";
 import { useSession } from "../SessionProvider";
 import { Crumbs } from "../shell/crumbs";
@@ -26,6 +25,7 @@ import { Badge, LabelChip } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Input } from "../ui/Field";
+import { Menu, MenuContent, MenuItem, MenuTrigger } from "../ui/Menu";
 import { NodeHero } from "../ui/NodeHero";
 import { Segmented } from "../ui/Segmented";
 import { EmptyState } from "../ui/EmptyState";
@@ -39,30 +39,27 @@ import { AccessTab } from "./AccessTab";
 import { ProcessBadges, SummaryBadges } from "./ActivityBadges";
 import { BranchesTab } from "./BranchesTab";
 import { BranchPicker } from "./BranchPicker";
-import { DeploymentsTab } from "./DeploymentsTab";
-import { EventsTab } from "./EventsTab";
 import { IngestHowTo } from "./IngestHowTo";
 import { KindIcon } from "./KindIcon";
-import { DescriptionTab } from "./DescriptionTab";
 import { Markdown } from "./Markdown";
-import { CreateDialog } from "./NodeForms";
 import { ProjectScans } from "../knowledge/ProjectScans";
 import { SecretsTable } from "../secrets/SecretsTable";
 import { NodeDetails } from "./NodeDetails";
 import { NodeSettings } from "./NodeSettings";
 import { ProjectKeys } from "./ProjectKeys";
+import { ProjectEvents } from "./ProjectEvents";
 import { ProjectSummary } from "./ProjectSummary";
+import { ReleasesTab } from "./ReleasesTab";
+import { RepositoryBlock } from "./RepositoryBlock";
 import { SettingsGeneral } from "./SettingsGeneral";
 import { TreeTable } from "./TreeTable";
-import { catalogHref, childKinds, FORGE_NAMES, type CatalogLabels } from "./shared";
+import { catalogHref, childKinds, newNodeHref, type CatalogLabels } from "./shared";
 
 const PAGE = 50;
 
 const tabIcons = {
   overview: LayoutGrid,
-  about: FileText,
-  deployments: Rocket,
-  events: Activity,
+  releases: Rocket,
   docs: BookOpen,
   details: Info,
   settings: Settings,
@@ -79,8 +76,6 @@ type Props = {
   onChanged: () => void;
 };
 
-type Dialogs = "create" | null;
-
 export function NodeView({ id, tab: tabParam, section: sectionParam, branch: branchParam, doc, locale, labels, onChanged }: Props) {
   const { errors, common } = useUiText();
   const { session } = useSession();
@@ -90,7 +85,6 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
   const [docsReload, setDocsReload] = useState(0);
   const [offset, setOffset] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<Dialogs>(null);
   const [childFilter, setChildFilter] = useState("");
   const [view, setView] = useChildrenView();
 
@@ -118,14 +112,13 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
 
   const loadActivity = useCallback((nodeId: string) => apiGet<NodeActivity>(`/v1/catalog/nodes/${nodeId}/activity`), []);
   const onSettled = useCallback(
-    (kinds: ProcessKind[]) => {
+    (kinds: Settled[]) => {
       if (kinds.includes("collect")) setDocsReload((n) => n + 1);
-      if (kinds.includes("forge")) onChanged();
+      if (kinds.includes("forge") || kinds.includes("collect") || kinds.includes("subtree")) onChanged();
     },
     [onChanged],
   );
   const { activity, refresh: refreshActivity } = useActivity(id, loadActivity, onSettled);
-  const childrenBusy = useRef(false);
   const [heroLinks, setHeroLinks] = useState<ProjectLink[]>([]);
   const projectId = node?.kind === "project" && node.access === "read" ? node.id : null;
 
@@ -148,13 +141,6 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
       live = false;
     };
   }, [projectId, branchParam]);
-
-  useEffect(() => {
-    if (!activity || node?.kind === "project" || view === "tree") return;
-    const now = busy(activity);
-    if (now || childrenBusy.current) void loadChildren().catch(() => undefined);
-    childrenBusy.current = now;
-  }, [activity, node?.kind, view, loadChildren]);
 
   const resolved = resolveTab(node, tabParam, sectionParam);
   const redirect = resolved.redirect;
@@ -220,12 +206,37 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
     if (node) router.replace(catalogHref(locale, node.id, tab, name === node.default_branch ? null : name), { scroll: false });
   };
 
-  const addButton = canCreate && (
-    <Button variant="primary" onClick={() => setDialog("create")}>
-      <Plus aria-hidden="true" />
-      {t.create.title}
-    </Button>
-  );
+  const parentId = node?.id ?? null;
+  const addButton =
+    canCreate &&
+    (kinds.length === 1 ? (
+      <Button variant="primary" asChild>
+        <Link href={newNodeHref(locale, parentId, kinds[0]!)}>
+          <Plus aria-hidden="true" />
+          {t.create.title}
+        </Link>
+      </Button>
+    ) : (
+      <Menu>
+        <MenuTrigger asChild>
+          <Button variant="primary">
+            <Plus aria-hidden="true" />
+            {t.create.title}
+            <ChevronDown aria-hidden="true" />
+          </Button>
+        </MenuTrigger>
+        <MenuContent>
+          {kinds.map((k) => (
+            <MenuItem key={k} asChild>
+              <Link href={newNodeHref(locale, parentId, k)}>
+                <KindIcon kind={k} />
+                {t.kinds[k]}
+              </Link>
+            </MenuItem>
+          ))}
+        </MenuContent>
+      </Menu>
+    ));
 
   const actions = node && addButton;
 
@@ -390,41 +401,13 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
 
   const overview = node && (
     <div className="grid gap-6">
-      {!project && readable && node.description?.trim() && (
+      {readable && node.description?.trim() && (
         <Panel title={t.about.title}>
           <Markdown source={node.description} />
         </Panel>
       )}
       {project && readable && <ProjectSummary projectId={node.id} locale={locale} labels={t} />}
-      {project && readable && (
-        <div className="grid items-start gap-4 md:grid-cols-2">
-          <Panel title={t.repo.title}>
-            <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-2.5 text-sm">
-              <dt className="text-muted">{t.repo.forge}</dt>
-              <dd className="text-ink">{node.forge ? FORGE_NAMES[node.forge] : t.repo.noForge}</dd>
-              <dt className="text-muted">{t.repo.url}</dt>
-              <dd className="min-w-0">
-                {node.repo_url ? (
-                  <a
-                    href={node.repo_url}
-                    rel="noreferrer noopener"
-                    target="_blank"
-                    className="inline-flex max-w-full items-center gap-1.5 text-signal hover:underline"
-                  >
-                    <span className="truncate">{node.repo_url}</span>
-                    <ExternalLink aria-hidden="true" className="size-3.5 shrink-0" />
-                  </a>
-                ) : (
-                  t.node.none
-                )}
-              </dd>
-              <dt className="text-muted">{t.repo.branch}</dt>
-              <dd>{node.default_branch ? <code className="text-ink">{node.default_branch}</code> : t.node.none}</dd>
-            </dl>
-          </Panel>
-        </div>
-      )}
-      {project && node.repository && <RepositoryPanel node={node} repository={node.repository} locale={locale} labels={t} />}
+      {project && readable && <ProjectEvents projectId={node.id} locale={locale} labels={t} onConnect={() => selectTab("connect")} />}
       {!project && childrenList}
     </div>
   );
@@ -503,16 +486,15 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
           <TabsContent value="overview">{overview}</TabsContent>
           {tabs.includes("details") && (
             <TabsContent value="details">
-              <NodeDetails node={node} locale={locale} labels={t} branch={branchParam} canWrite={canWrite} />
+              <NodeDetails node={node} locale={locale} labels={t} branch={branchParam} canWrite={canWrite}>
+                {project && <RepositoryBlock node={node} locale={locale} labels={t} canWrite={canWrite} fail={fail} onChanged={changed} />}
+              </NodeDetails>
             </TabsContent>
           )}
           {project && (
             <>
-              <TabsContent value="about">
-                <DescriptionTab node={node} locale={locale} labels={t} canWrite={canWrite} />
-              </TabsContent>
-              <TabsContent value="deployments">
-                <DeploymentsTab
+              <TabsContent value="releases">
+                <ReleasesTab
                   key={branch ?? ""}
                   projectId={node.id}
                   branch={branch}
@@ -520,9 +502,6 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
                   labels={t}
                   onConnect={() => selectTab("connect")}
                 />
-              </TabsContent>
-              <TabsContent value="events">
-                <EventsTab projectId={node.id} locale={locale} labels={t} onConnect={() => selectTab("connect")} />
               </TabsContent>
               <TabsContent value="docs">
                 <DocsTab
@@ -560,7 +539,7 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
                     }}
                   />
                 )}
-                {section === "branches" && <BranchesTab projectId={node.id} locale={locale} labels={t} canWrite={canWrite} />}
+                {section === "branches" && <BranchesTab projectId={node.id} locale={locale} labels={t} canWrite={canWrite} managed={managed} onDefault={changed} />}
                 {section === "links" && <LinksTab node={node} branch={branch} locale={locale} labels={t} canWrite={canWrite} />}
                 {section === "docs" && <DocsSettingsTab node={node} locale={locale} labels={t} canWrite={canWrite} onChanged={refreshActivity} />}
                 {section === "scans" && <ProjectScans projectId={node.id} branch={branchParam} locale={locale} labels={t} />}
@@ -585,17 +564,6 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
         overview
       )}
 
-      {canCreate && (
-        <CreateDialog
-          open={dialog === "create"}
-          onOpenChange={(open) => setDialog(open ? "create" : null)}
-          parent={node}
-          kinds={kinds}
-          labels={t}
-          fail={fail}
-          onCreated={changed}
-        />
-      )}
     </>
   );
 }

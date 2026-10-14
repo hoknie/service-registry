@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+
+	svcapp "svc-registry/internal/app"
 )
 
 func run(t *testing.T, args []string, stdin string, env ...string) (code int, stdout, stderr string) {
@@ -51,7 +53,7 @@ func TestNoCommandPrintsHelp(t *testing.T) {
 func TestVersionPrintsThePackageVersion(t *testing.T) {
 	code, out, _ := run(t, []string{"--version"}, "")
 	eq(t, code, 0)
-	eq(t, strings.TrimSpace(out), "svc-registry 0.1.0")
+	eq(t, strings.TrimSpace(out), "svc-registry "+svcapp.Version)
 }
 
 func TestUnknownCommandIsAUsageError(t *testing.T) {

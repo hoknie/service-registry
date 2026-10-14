@@ -80,8 +80,8 @@ func (s *Repos) Upsert(ctx context.Context, rec forge.RepoRecord) error {
 	var changed *time.Time
 	if withDetails {
 		readme, truncated, languages = rec.Details.Readme, &rec.Details.Truncated, rec.Details.Languages
-		if rec.Details.License != nil {
-			license = rec.Details.License
+		if l := forge.BoundedLicense(rec.Details.License); l != nil {
+			license = l
 		}
 		changed = r.ChangedAt()
 	}
@@ -142,6 +142,7 @@ func (s *Repos) Find(ctx context.Context, projectID uuid.UUID) (*forge.Repositor
 	}
 	r.Visibility = forge.Visibility(vis)
 	r.Kind = forge.Kind(kind)
+	r.Origin = forge.OriginForge
 	if r.Topics == nil {
 		r.Topics = []string{}
 	}
@@ -193,4 +194,48 @@ func (s *Repos) Readme(ctx context.Context, projectID uuid.UUID) (*forge.Readme,
 	}
 	r.Kind = forge.Kind(kind)
 	return &r, nil
+}
+
+func (s *Repos) Unlink(ctx context.Context, projectID uuid.UUID) (*forge.Unlinked, error) {
+	u := forge.Unlinked{ProjectID: projectID}
+	err := s.db.From(ctx).QueryRow(ctx, `
+		DELETE FROM forge_repositories
+		WHERE project_id = $1
+			AND orphaned_at IS NULL
+		RETURNING connection_id, external_id, full_path`, projectID).Scan(&u.ConnectionID, &u.ExternalID, &u.FullPath)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, dbErr(err)
+	}
+	return &u, nil
+}
+
+func (s *Repos) Link(ctx context.Context, projectID uuid.UUID) (*forge.ProjectLink, error) {
+	var l forge.ProjectLink
+	var kind string
+	var secret *uuid.UUID
+	var hasEnc bool
+	var ref, fingerprint *string
+	err := s.db.From(ctx).QueryRow(ctx, `
+		SELECT f.connection_id, c.node_id, c.owner_path, c.kind, f.web_url, c.api_url, c.credentials_secret_id,
+			c.credentials_enc IS NOT NULL, c.credentials_ref, c.credentials_fingerprint, rfc3339(f.synced_at)
+		FROM forge_repositories f
+		JOIN forge_connections c ON c.id = f.connection_id
+		WHERE f.project_id = $1
+			AND f.orphaned_at IS NULL`, projectID).Scan(&l.ConnectionID, &l.NodeID, &l.Owner, &kind, &l.WebURL, &l.APIURL,
+		&secret, &hasEnc, &ref, &fingerprint, &l.SyncedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, dbErr(err)
+	}
+	var ok bool
+	if l.Kind, ok = forge.ParseKind(kind); !ok {
+		return nil, internal("forge kind", kind)
+	}
+	l.Credentials = credentialsOf(secret, hasEnc, ref, fingerprint)
+	return &l, nil
 }
