@@ -32,8 +32,6 @@ jobs:
   gates:
     needs: check
     uses: ./.github/workflows/ci.yml
-    with:
-      skip-packages: true
 
   web:
     needs: check
