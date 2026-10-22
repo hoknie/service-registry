@@ -6,7 +6,7 @@ import (
 	"time"
 
 	svcapp "svc-registry/internal/app"
-	"svc-registry/internal/feature/deploy"
+	deploytypes "svc-registry/internal/feature/deploy/types"
 	"svc-registry/internal/presentation/jobs"
 )
 
@@ -16,21 +16,21 @@ func (a *testApp) pollNow() {
 	a.t.Helper()
 	execSQL(a.t, a.db, "UPDATE clusters SET next_run_at = now()")
 	ctx := context.Background()
-	ids, err := a.services.Deploy.ClaimClusterPolls(ctx, 100, 120)
+	ids, err := a.services.Deploy.Poll.ClaimClusterPolls(ctx, 100, 120)
 	if err != nil {
 		a.t.Fatal(err)
 	}
 	for _, id := range ids {
-		if err := a.services.Deploy.RunClusterPoll(ctx, id); err != nil {
+		if err := a.services.Deploy.Poll.RunClusterPoll(ctx, id); err != nil {
 			a.t.Fatal(err)
 		}
 	}
 }
 
-func workload(uid, name, image string, ann map[string]string) deploy.Workload {
-	return deploy.Workload{UID: uid, Kind: deploy.KindDeployment, Namespace: "backend", Name: name, Annotations: ann,
+func workload(uid, name, image string, ann map[string]string) deploytypes.Workload {
+	return deploytypes.Workload{UID: uid, Kind: deploytypes.KindDeployment, Namespace: "backend", Name: name, Annotations: ann,
 		Labels: map[string]string{"app.kubernetes.io/name": name}, Selector: "app=" + name,
-		Containers: []deploy.Container{{Name: "app", Image: "registry.example/acme/" + name + ":" + image}},
+		Containers: []deploytypes.Container{{Name: "app", Image: "registry.example/acme/" + name + ":" + image}},
 		Generation: 1, ObservedGeneration: 1, Desired: 2, Ready: 2, Updated: 2}
 }
 
@@ -45,21 +45,21 @@ func TestPollMatchesAndObservesWorkloads(t *testing.T) {
 	eq(t, app.send("PATCH", nodePath(idOf(off)), root, obj{"cluster_observation": false}).status, 200)
 	c := app.cluster(root, "prod", obj{"rules": []obj{{"label": "app.kubernetes.io/name", "project": "acme/{namespace}/{label:app.kubernetes.io/name}"}}})
 
-	byPath := workload("u1", "billing", "1.4.2", map[string]string{deploy.AnnotationProject: "acme/backend/api",
-		deploy.AnnotationBranch: "release/1.4"})
+	byPath := workload("u1", "billing", "1.4.2", map[string]string{deploytypes.AnnotationProject: "acme/backend/api",
+		deploytypes.AnnotationBranch: "release/1.4"})
 	byTemplate := workload("u2", "worker", "2.0.0", nil)
-	byTemplate.TemplateAnnotations = map[string]string{deploy.AnnotationProject: api, deploy.AnnotationEnvironment: "staging"}
+	byTemplate.TemplateAnnotations = map[string]string{deploytypes.AnnotationProject: api, deploytypes.AnnotationEnvironment: "staging"}
 	byRule := workload("u3", "api", "1.0.0", nil)
 	noAnnotation := workload("u4", "redis", "7", nil)
 	noAnnotation.Labels = nil
-	unknown := workload("u5", "ghost", "1", map[string]string{deploy.AnnotationProject: "acme/nope"})
-	legacy := workload("u6", "legacy", "1", map[string]string{deploy.AnnotationProject: "acme/backend/legacy"})
-	cron := deploy.Workload{UID: "u7", Kind: deploy.KindCronJob, Namespace: "backend", Name: "report", Schedule: "0 * * * *",
-		Annotations: map[string]string{deploy.AnnotationProject: "acme/backend/api"}, Containers: []deploy.Container{{Name: "job", Image: "report:3"}}}
+	unknown := workload("u5", "ghost", "1", map[string]string{deploytypes.AnnotationProject: "acme/nope"})
+	legacy := workload("u6", "legacy", "1", map[string]string{deploytypes.AnnotationProject: "acme/backend/legacy"})
+	cron := deploytypes.Workload{UID: "u7", Kind: deploytypes.KindCronJob, Namespace: "backend", Name: "report", Schedule: "0 * * * *",
+		Annotations: map[string]string{deploytypes.AnnotationProject: "acme/backend/api"}, Containers: []deploytypes.Container{{Name: "job", Image: "report:3"}}}
 	k8s.Cluster().Put(byPath, byTemplate, byRule, noAnnotation, unknown, legacy, cron)
-	k8s.Cluster().PutPods("backend", "app=billing", deploy.Pod{Containers: []deploy.PodContainer{{Name: "app", ImageID: "x@sha256:aa", Restarts: 3}}})
+	k8s.Cluster().PutPods("backend", "app=billing", deploytypes.Pod{Containers: []deploytypes.PodContainer{{Name: "app", ImageID: "x@sha256:aa", Restarts: 3}}})
 	failed := time.Now().Add(-time.Hour)
-	k8s.Cluster().PutJobs("u7", deploy.Job{StartedAt: &failed, Failed: 1})
+	k8s.Cluster().PutJobs("u7", deploytypes.Job{StartedAt: &failed, Failed: 1})
 	app.pollNow()
 
 	got := app.get(clusterPath(idOf(c)), root).json(t)
@@ -88,7 +88,7 @@ func TestPollMatchesAndObservesWorkloads(t *testing.T) {
 	k8s.Cluster().Put(byPath, byTemplate, byRule, noAnnotation, unknown, legacy)
 	app.pollNow()
 	eq(t, scalar[bool](t, app.db, "SELECT gone_at IS NOT NULL FROM cluster_workloads WHERE uid = 'u7'"), true)
-	k8s.Cluster().Fail(&deploy.Failure{Code: deploy.FailUnreachable, Message: "dial tcp: refused"})
+	k8s.Cluster().Fail(&deploytypes.Failure{Code: deploytypes.FailUnreachable, Message: "dial tcp: refused"})
 	app.pollNow()
 	got = app.get(clusterPath(idOf(c)), root).json(t)
 	eq(t, got["status"], any("error"))
@@ -108,7 +108,7 @@ func TestDeploymentsFromClusters(t *testing.T) {
 	root := app.admin()
 	project, key := app.projectWithKey(root, "api")
 	c := app.cluster(root, "prod", nil)
-	ann := map[string]string{deploy.AnnotationProject: "api-org/api", deploy.AnnotationService: "api"}
+	ann := map[string]string{deploytypes.AnnotationProject: "api-org/api", deploytypes.AnnotationService: "api"}
 	eq(t, app.ingest(project, key, deployed("k1", "api", "production", "1.4.2", "2026-10-01T10:00:00Z")).status, 201)
 
 	k8s.Cluster().Put(workload("u1", "api", "1.4.3", ann))

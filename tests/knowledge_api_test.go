@@ -95,7 +95,7 @@ func TestFilesAndOpenSpecThroughTheAPI(t *testing.T) {
 		"openspec/changes/archive/2026-x/proposal.md":  "old",
 		"openspec/decisions/0036-branches-by-name.md":  "# ADR-0036: Branches\n\n- **Status:** Accepted\n- **Supersedes:** none\n",
 		"openspec/decisions/0001-behavior-in-specs.md": "# ADR-0001: Specs\nStatus: Superseded\n",
-		"docs/pic.png": "\x89PNG\x00",
+		"docs/pic.png":                                 "\x89PNG\x00",
 	})
 	d.app.send("PUT", knowledgePath(d.id)+"/settings", d.admin, obj{"include": []string{"README.md", "openspec/**", "docs/**"}})
 	d.app.collect()

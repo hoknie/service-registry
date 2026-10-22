@@ -18,7 +18,7 @@ func (a *Handlers) Login(c fiber.Ctx) error {
 	if token := c.Cookies(SessionCookie); token != "" {
 		previous = &token
 	}
-	signedIn, err := a.Access.Login(c.Context(), c.IP(), in.Credentials(), previous)
+	signedIn, err := a.Access.Auth.Login(c.Context(), c.IP(), in.Credentials(), previous)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -37,7 +37,7 @@ func (a *Handlers) Logout(c fiber.Ctx) error {
 	if t := c.Cookies(SessionCookie); t != "" {
 		token = &t
 	}
-	if err := a.Access.Logout(c.Context(), token); err != nil {
+	if err := a.Access.Auth.Logout(c.Context(), token); err != nil {
 		return responses.Fail(c, err)
 	}
 	setSessionCookie(c, "", 0, a.Config.Session.CookieSecure)
@@ -61,7 +61,7 @@ func (a *Handlers) ChangePassword(c fiber.Ctx) error {
 	if err := bindJSON(c, &in); err != nil {
 		return responses.Fail(c, err)
 	}
-	if err := a.Access.ChangePassword(c.Context(), p, in.Change()); err != nil {
+	if err := a.Access.Auth.ChangePassword(c.Context(), p, in.Change()); err != nil {
 		return responses.Fail(c, err)
 	}
 	return c.SendStatus(http.StatusNoContent)

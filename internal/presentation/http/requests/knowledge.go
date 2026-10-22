@@ -1,6 +1,6 @@
 package requests
 
-import "svc-registry/internal/feature/knowledge"
+import knowledgetypes "svc-registry/internal/feature/knowledge/types"
 
 type KnowledgeSettings struct {
 	Include  Optional[[]string] `json:"include"`
@@ -8,8 +8,8 @@ type KnowledgeSettings struct {
 	Branches Optional[[]string] `json:"branches"`
 }
 
-func (r KnowledgeSettings) Settings() (knowledge.NodeSettings, error) {
-	out := knowledge.NodeSettings{IncludeSet: r.Include.Present}
+func (r KnowledgeSettings) Settings() (knowledgetypes.NodeSettings, error) {
+	out := knowledgetypes.NodeSettings{IncludeSet: r.Include.Present}
 	if r.Include.Value != nil {
 		out.Include = *r.Include.Value
 	}
@@ -21,7 +21,7 @@ func (r KnowledgeSettings) Settings() (knowledge.NodeSettings, error) {
 			continue
 		}
 		if f.in.Value == nil {
-			return knowledge.NodeSettings{}, knowledge.InvalidSettings
+			return knowledgetypes.NodeSettings{}, knowledgetypes.InvalidSettings
 		}
 		*f.out = f.in.Value
 	}
@@ -45,8 +45,8 @@ type KnowledgeSource struct {
 	IncludeIgnored *bool                       `json:"include_ignored"`
 }
 
-func (r KnowledgeSource) Input() knowledge.SourceInput {
-	in := knowledge.SourceInput{Kind: *r.Kind, Forge: r.Forge, URL: r.URL, APIURL: r.APIURL, Path: r.Path,
+func (r KnowledgeSource) Input() knowledgetypes.SourceInput {
+	in := knowledgetypes.SourceInput{Kind: *r.Kind, Forge: r.Forge, URL: r.URL, APIURL: r.APIURL, Path: r.Path,
 		HasCredential: r.Credentials.Present, WorkingTree: r.WorkingTree, IncludeIgnored: r.IncludeIgnored}
 	if r.Credentials.Present && r.Credentials.Value == nil {
 		in.NoCredentials = true

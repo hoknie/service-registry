@@ -2,26 +2,24 @@ package mcp
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"svc-registry/internal/feature/access"
-	"svc-registry/internal/feature/catalog"
-	deployservice "svc-registry/internal/feature/deploy/service"
-	"svc-registry/internal/feature/knowledge"
-	knowledgeservice "svc-registry/internal/feature/knowledge/service"
-	"svc-registry/internal/feature/links"
+	accesstypes "svc-registry/internal/feature/access/types"
+	catalogtypes "svc-registry/internal/feature/catalog/types"
+	deployservices "svc-registry/internal/feature/deploy/services"
+	knowledgetypes "svc-registry/internal/feature/knowledge/types"
+	linkstypes "svc-registry/internal/feature/links/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/presentation/http/responses"
 )
 
 type tools struct {
 	deps Deps
-	p    access.Principal
+	p    accesstypes.Principal
 	max  int
 }
 
@@ -91,13 +89,6 @@ type (
 	}
 )
 
-func opt(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
-}
-
 func (t *tools) register(s *sdk.Server) {
 	tool := func(name, description string) *sdk.Tool {
 		return &sdk.Tool{Name: name, Description: description + dataNote, Annotations: &sdk.ToolAnnotations{ReadOnlyHint: true}}
@@ -137,19 +128,19 @@ func (t *tools) listProjects(ctx context.Context, _ *sdk.CallToolRequest, in lis
 		offset, err = 0, nil
 	}
 	if limit < 1 || limit > 200 || err != nil || offset < 0 {
-		return failed(apperr.Wrap(knowledge.InvalidSearch))
+		return failed(apperr.Wrap(knowledgetypes.InvalidSearch))
 	}
 	var root *uuid.UUID
 	prefix := ""
 	if in.Under != "" {
-		s, err := resolveNode(ctx, t.deps, t.p, in.Under)
+		s, err := t.deps.Catalog.Access.ResolveNode(ctx, t.p, in.Under)
 		if err != nil {
 			return failed(err)
 		}
 		root, prefix = &s.Node.ID, pathOf(s)
 	}
-	depth := int64(catalog.TreeMaxDepth)
-	nodes, more, err := t.deps.Catalog.Tree(ctx, t.p, root, &depth)
+	depth := int64(catalogtypes.TreeMaxDepth)
+	nodes, more, err := t.deps.Catalog.Nodes.Tree(ctx, t.p, root, &depth)
 	if err != nil {
 		return failed(err)
 	}
@@ -169,7 +160,7 @@ func (t *tools) listProjects(ctx context.Context, _ *sdk.CallToolRequest, in lis
 			path = base + "/" + n.Slug
 		}
 		paths[n.ID] = path
-		if !w.Readable || n.Kind != catalog.KindProject {
+		if !w.Readable || n.Kind != catalogtypes.KindProject {
 			continue
 		}
 		hay := strings.ToLower(n.Name + "\n" + path + "\n" + n.Description)
@@ -207,16 +198,14 @@ func (t *tools) getProject(ctx context.Context, _ *sdk.CallToolRequest, in proje
 	if err != nil {
 		return failed(err)
 	}
-	repo, err := t.deps.Forge.ProjectRepository(ctx, s.Node.ID)
+	overview, err := t.deps.Compose.MCP.ProjectOverview(ctx, t.p, s.Node.ID)
 	if err != nil {
 		return failed(err)
 	}
-	docs, err := t.deps.Knowledge.GetKnowledge(ctx, t.p, s.Node.ID)
-	if err != nil {
-		return failed(err)
-	}
-	return jsonResult(map[string]any{"project": responses.ScopedNode(s), "path": pathOf(s),
-		"repository": responses.RepositoryOf(repo), "documentation": responses.KnowledgeOf(docs)}, t.max)
+	project := responses.ScopedNode(s)
+	project.Managed = nil
+	return jsonResult(map[string]any{"project": project, "path": pathOf(s),
+		"repository": responses.RepositoryOf(overview.Repository), "documentation": responses.KnowledgeOf(overview.Documentation)}, t.max)
 }
 
 func (t *tools) listBranches(ctx context.Context, _ *sdk.CallToolRequest, in branchesIn) (*sdk.CallToolResult, any, error) {
@@ -228,7 +217,7 @@ func (t *tools) listBranches(ctx context.Context, _ *sdk.CallToolRequest, in bra
 	if in.IncludeGone {
 		state = "all"
 	}
-	items, f, total, err := t.deps.Catalog.ListBranches(ctx, t.p, s.Node.ID, catalog.BranchQuery{State: &state, Limit: &limit})
+	items, f, total, err := t.deps.Catalog.Branches.ListBranches(ctx, t.p, s.Node.ID, catalogtypes.BranchQuery{State: &state, Limit: &limit})
 	if err != nil {
 		return failed(err)
 	}
@@ -240,11 +229,11 @@ func (t *tools) getDeployments(ctx context.Context, _ *sdk.CallToolRequest, in d
 	if err != nil {
 		return failed(err)
 	}
-	items, err := t.deps.Deploy.ListEnvironments(ctx, t.p, s.Node.ID)
+	items, err := t.deps.Deploy.EnvironmentStates.ListEnvironments(ctx, t.p, s.Node.ID)
 	if err != nil {
 		return failed(err)
 	}
-	var kept []deployservice.EnvironmentState
+	var kept []deployservices.EnvironmentState
 	for _, e := range items {
 		if in.Branch == "" || (e.Current != nil && e.Current.Branch != nil && *e.Current.Branch == in.Branch) {
 			kept = append(kept, e)
@@ -258,138 +247,9 @@ func (t *tools) getLinks(ctx context.Context, _ *sdk.CallToolRequest, in linksIn
 	if err != nil {
 		return failed(err)
 	}
-	items, err := t.deps.Links.ProjectLinks(ctx, t.p, s.Node.ID, links.LinkQuery{Branch: in.Branch, Environment: in.Environment})
+	items, err := t.deps.Links.Projects.ProjectLinks(ctx, t.p, s.Node.ID, linkstypes.LinkQuery{Branch: in.Branch, Environment: in.Environment})
 	if err != nil {
 		return failed(err)
 	}
 	return jsonResult(responses.ItemsOf(items, responses.LinkOf), t.max)
-}
-
-func (t *tools) listDocs(ctx context.Context, _ *sdk.CallToolRequest, in docsIn) (*sdk.CallToolResult, any, error) {
-	s, err := resolveProject(ctx, t.deps, t.p, in.Project)
-	if err != nil {
-		return failed(err)
-	}
-	snap, files, err := t.deps.Knowledge.KnowledgeFiles(ctx, t.p, s.Node.ID, knowledgeservice.KnowledgeRef{Branch: opt(in.Branch), Commit: opt(in.Commit)})
-	if err != nil {
-		return failed(err)
-	}
-	var kept []knowledge.FileInfo
-	for _, f := range files {
-		if strings.HasPrefix(f.Path, in.Path) {
-			kept = append(kept, f)
-		}
-	}
-	return jsonResult(responses.KnowledgeFilesOf(snap, kept), t.max)
-}
-
-func (t *tools) docText(ctx context.Context, project uuid.UUID, ref knowledgeservice.KnowledgeRef, path string) (*sdk.CallToolResult, any, error) {
-	snap, f, err := t.deps.Knowledge.KnowledgeFile(ctx, t.p, project, ref, path)
-	if err != nil {
-		return failed(err)
-	}
-	head := fmt.Sprintf("path: %s\nbranch: %s\ncommit: %s\ncollected_at: %s\n\n", f.Path, snap.Branch, snap.Commit, snap.CollectedAt)
-	if f.Content == nil {
-		reason := ""
-		if f.Skip != nil {
-			reason = string(*f.Skip)
-		}
-		return text(head+"[not stored: "+reason+"]", t.max), nil, nil
-	}
-	return text(head+*f.Content, t.max), nil, nil
-}
-
-func (t *tools) getDoc(ctx context.Context, _ *sdk.CallToolRequest, in docIn) (*sdk.CallToolResult, any, error) {
-	s, err := resolveProject(ctx, t.deps, t.p, in.Project)
-	if err != nil {
-		return failed(err)
-	}
-	return t.docText(ctx, s.Node.ID, knowledgeservice.KnowledgeRef{Branch: opt(in.Branch), Commit: opt(in.Commit)}, in.Path)
-}
-
-func (t *tools) searchDocs(ctx context.Context, _ *sdk.CallToolRequest, in searchIn) (*sdk.CallToolResult, any, error) {
-	q := knowledge.SearchInput{Q: in.Query, Branch: opt(in.Branch), Path: in.Path, Mode: in.Mode}
-	if in.Limit != 0 {
-		q.Limit = &in.Limit
-	}
-	if in.Project != "" {
-		s, err := resolveProject(ctx, t.deps, t.p, in.Project)
-		if err != nil {
-			return failed(err)
-		}
-		q.Project = &s.Node.ID
-	}
-	res, err := t.deps.Knowledge.SearchKnowledge(ctx, t.p, q)
-	if err != nil {
-		return failed(err)
-	}
-	return jsonResult(responses.SearchOf(res), t.max)
-}
-
-func (t *tools) openSpec(ctx context.Context, project, branch string) (uuid.UUID, knowledgeservice.OpenSpec, error) {
-	s, err := resolveProject(ctx, t.deps, t.p, project)
-	if err != nil {
-		return uuid.UUID{}, knowledgeservice.OpenSpec{}, err
-	}
-	o, err := t.deps.Knowledge.KnowledgeOpenSpec(ctx, t.p, s.Node.ID, opt(branch))
-	return s.Node.ID, o, err
-}
-
-func (t *tools) listSpecs(ctx context.Context, _ *sdk.CallToolRequest, in openSpecIn) (*sdk.CallToolResult, any, error) {
-	_, o, err := t.openSpec(ctx, in.Project, in.Branch)
-	if err != nil {
-		return failed(err)
-	}
-	return jsonResult(responses.SpecsOf(o), t.max)
-}
-
-func (t *tools) getSpec(ctx context.Context, _ *sdk.CallToolRequest, in specIn) (*sdk.CallToolResult, any, error) {
-	id, o, err := t.openSpec(ctx, in.Project, in.Branch)
-	if err != nil {
-		return failed(err)
-	}
-	for _, s := range o.Specs {
-		if s.Capability == strings.Trim(in.Capability, "/") {
-			return t.docText(ctx, id, knowledgeservice.KnowledgeRef{Branch: opt(in.Branch)}, s.Path)
-		}
-	}
-	return failed(apperr.New(apperr.NotFound))
-}
-
-func (t *tools) listChanges(ctx context.Context, _ *sdk.CallToolRequest, in changesIn) (*sdk.CallToolResult, any, error) {
-	_, o, err := t.openSpec(ctx, in.Project, in.Branch)
-	if err != nil {
-		return failed(err)
-	}
-	if in.Archived != nil {
-		var kept []knowledgeservice.ChangeItem
-		for _, c := range o.Changes {
-			if c.Archived == *in.Archived {
-				kept = append(kept, c)
-			}
-		}
-		o.Changes = kept
-	}
-	return jsonResult(responses.ChangesOf(o), t.max)
-}
-
-func (t *tools) listADRs(ctx context.Context, _ *sdk.CallToolRequest, in openSpecIn) (*sdk.CallToolResult, any, error) {
-	_, o, err := t.openSpec(ctx, in.Project, in.Branch)
-	if err != nil {
-		return failed(err)
-	}
-	return jsonResult(responses.ADRsOf(o), t.max)
-}
-
-func (t *tools) getADR(ctx context.Context, _ *sdk.CallToolRequest, in adrIn) (*sdk.CallToolResult, any, error) {
-	id, o, err := t.openSpec(ctx, in.Project, in.Branch)
-	if err != nil {
-		return failed(err)
-	}
-	for _, a := range o.ADRs {
-		if a.Number == in.Number {
-			return t.docText(ctx, id, knowledgeservice.KnowledgeRef{Branch: opt(in.Branch)}, a.Path)
-		}
-	}
-	return failed(apperr.New(apperr.NotFound))
 }

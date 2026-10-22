@@ -90,6 +90,83 @@ func TestOldLayoutPackagesAreGone(t *testing.T) {
 	}
 }
 
+func TestFeatureKindImportsUseAliases(t *testing.T) {
+	t.Parallel()
+	fset := token.NewFileSet()
+	for _, root := range []string{"internal", "tests", "cmd"} {
+		err := filepath.WalkDir(filepath.Join("..", root), func(path string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") {
+				return err
+			}
+			f, err := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
+			if err != nil {
+				return err
+			}
+			dir := filepath.ToSlash(filepath.Dir(path))
+			for _, imp := range f.Imports {
+				target := strings.Trim(imp.Path.Value, `"`)
+				feature, kind, ok := featureKind(target)
+				if !ok || strings.HasSuffix(dir, strings.TrimPrefix(target, "svc-registry")) {
+					continue
+				}
+				if want := feature + kind; imp.Name == nil || imp.Name.Name != want {
+					t.Errorf("%s imports %s without the alias %s (ADR-0073)", path, target, want)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func featureKind(path string) (feature, kind string, ok bool) {
+	rest, found := strings.CutPrefix(path, "svc-registry/internal/feature/")
+	if !found {
+		return "", "", false
+	}
+	feature, kind, found = strings.Cut(rest, "/")
+	if !found || (kind != "types" && kind != "ports" && kind != "services") {
+		return "", "", false
+	}
+	return feature, kind, true
+}
+
+var featureKinds = map[string]bool{"types": true, "ports": true, "services": true, "repositories": true, "clients": true}
+
+func TestFeaturesAreKindFolders(t *testing.T) {
+	t.Parallel()
+	features, err := os.ReadDir(filepath.Join("..", "internal", "feature"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range features {
+		entries, err := os.ReadDir(filepath.Join("..", "internal", "feature", f.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, e := range entries {
+			if !e.IsDir() || !featureKinds[e.Name()] {
+				t.Errorf("internal/feature/%s/%s: a feature holds only types/, ports/, services/, repositories/ and clients/ (ADR-0073)", f.Name(), e.Name())
+			}
+		}
+	}
+}
+
+func TestComposeHoldsNoStorage(t *testing.T) {
+	t.Parallel()
+	entries, err := os.ReadDir(filepath.Join("..", "internal", "feature", "compose"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.Name() != "services" {
+			t.Errorf("internal/feature/compose/%s: compose holds only services/ — no repositories, types or clients (ADR-0072, ADR-0073)", e.Name())
+		}
+	}
+}
+
 var httpParts = []string{"handlers", "requests", "responses", "middleware", "mcp"}
 
 func TestLayerPackagesStayWithTheirOwners(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"svc-registry/internal/feature/links"
+	linkstypes "svc-registry/internal/feature/links/types"
 )
 
 type PutLinkTemplate struct {
@@ -18,12 +18,12 @@ type PutLinkTemplate struct {
 	Icon     json.RawMessage `json:"icon"`
 }
 
-func (r PutLinkTemplate) Put() links.PutTemplate {
-	return links.PutTemplate{KindKey: *r.KindKey, Template: r.Template, Disabled: r.Disabled, Position: r.Position,
+func (r PutLinkTemplate) Put() linkstypes.PutTemplate {
+	return linkstypes.PutTemplate{KindKey: *r.KindKey, Template: r.Template, Disabled: r.Disabled, Position: r.Position,
 		Title: r.Title, Icon: iconInput(r.Icon)}
 }
 
-func iconInput(raw json.RawMessage) *links.IconInput {
+func iconInput(raw json.RawMessage) *linkstypes.IconInput {
 	if len(raw) == 0 || string(raw) == "null" {
 		return nil
 	}
@@ -34,9 +34,9 @@ func iconInput(raw json.RawMessage) *links.IconInput {
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&in); err != nil {
-		return &links.IconInput{Err: links.InvalidTemplateIcon}
+		return &linkstypes.IconInput{Err: linkstypes.InvalidTemplateIcon}
 	}
-	return &links.IconInput{URL: in.URL, File: in.File}
+	return &linkstypes.IconInput{URL: in.URL, File: in.File}
 }
 
 type PreviewLinkTemplate struct {
@@ -46,8 +46,8 @@ type PreviewLinkTemplate struct {
 	Environment *string    `json:"environment"`
 }
 
-func (r PreviewLinkTemplate) Preview() links.Preview {
-	return links.Preview{Template: *r.Template, ProjectID: r.ProjectID, Branch: r.Branch, Environment: r.Environment}
+func (r PreviewLinkTemplate) Preview() linkstypes.Preview {
+	return linkstypes.Preview{Template: *r.Template, ProjectID: r.ProjectID, Branch: r.Branch, Environment: r.Environment}
 }
 
 type PutNodeVars struct {
@@ -59,6 +59,6 @@ type Links struct {
 	Environment string `query:"environment"`
 }
 
-func (q Links) Query() links.LinkQuery {
-	return links.LinkQuery{Branch: q.Branch, Environment: q.Environment}
+func (q Links) Query() linkstypes.LinkQuery {
+	return linkstypes.LinkQuery{Branch: q.Branch, Environment: q.Environment}
 }

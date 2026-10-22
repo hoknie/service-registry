@@ -5,8 +5,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"svc-registry/internal/feature/access"
-	"svc-registry/internal/feature/catalog"
+	accesstypes "svc-registry/internal/feature/access/types"
+	catalogtypes "svc-registry/internal/feature/catalog/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/presentation/http/requests"
 	"svc-registry/internal/presentation/http/responses"
@@ -18,22 +18,14 @@ func (a *Handlers) CatalogTable(c fiber.Ctx) error {
 		return responses.Fail(c, err)
 	}
 	var q requests.CatalogTable
-	if err := bindQuery(c, &q, catalog.InvalidFilter, map[string]error{
-		"parent": apperr.New(apperr.NotFound), "limit": access.InvalidPagination, "offset": access.InvalidPagination,
+	if err := bindQuery(c, &q, catalogtypes.InvalidFilter, map[string]error{
+		"parent": apperr.New(apperr.NotFound), "limit": accesstypes.InvalidPagination, "offset": accesstypes.InvalidPagination,
 	}); err != nil {
 		return responses.Fail(c, err)
 	}
-	page, err := a.Catalog.CatalogTable(c.Context(), p, q.Parent, q.Query(), q.Filter())
+	table, err := a.Compose.Catalog.CatalogTable(c.Context(), p, q.Parent, q.Query(), q.Filter())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	nodes, err := a.withManaged(c, responses.TableNodes(page))
-	if err != nil {
-		return responses.Fail(c, err)
-	}
-	badges, err := a.Links.ProjectBadges(c.Context(), page.ReadableProjects())
-	if err != nil {
-		return responses.Fail(c, err)
-	}
-	return c.Status(http.StatusOK).JSON(responses.CatalogTableOf(page, nodes, badges))
+	return c.Status(http.StatusOK).JSON(responses.CatalogTableOf(table))
 }

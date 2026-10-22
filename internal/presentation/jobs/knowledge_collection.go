@@ -15,11 +15,11 @@ var KnowledgeTick = 5 * time.Second
 type knowledgeSource struct{ deps Deps }
 
 func (s knowledgeSource) Claim(ctx context.Context, limit, leaseSecs int) ([]uuid.UUID, error) {
-	return s.deps.Knowledge.ClaimKnowledge(ctx, limit, leaseSecs)
+	return s.deps.Knowledge.Collect.ClaimKnowledge(ctx, limit, leaseSecs)
 }
 
 func (s knowledgeSource) Extend(ctx context.Context, id uuid.UUID, leaseSecs int) error {
-	return s.deps.Knowledge.ExtendKnowledge(ctx, id, leaseSecs)
+	return s.deps.Knowledge.Collect.ExtendKnowledge(ctx, id, leaseSecs)
 }
 
 func SpawnKnowledgeCollection(ctx context.Context, deps Deps) <-chan struct{} {
@@ -32,7 +32,7 @@ func SpawnKnowledgeCollection(ctx context.Context, deps Deps) <-chan struct{} {
 		Name:   "knowledge-collect",
 		Source: knowledgeSource{deps: deps},
 		Run: func(ctx context.Context, id uuid.UUID) {
-			if err := deps.Knowledge.RunKnowledgeCollect(ctx, id); err != nil {
+			if err := deps.Knowledge.Collect.RunKnowledgeCollect(ctx, id); err != nil {
 				slog.Warn("documentation collection failed", "project", id, "error", err)
 			}
 		},

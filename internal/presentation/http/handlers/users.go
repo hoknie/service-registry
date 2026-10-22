@@ -5,7 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"svc-registry/internal/feature/access"
+	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/presentation/http/requests"
 	"svc-registry/internal/presentation/http/responses"
 )
@@ -16,10 +16,10 @@ func (a *Handlers) ListUsers(c fiber.Ctx) error {
 		return responses.Fail(c, err)
 	}
 	var q requests.Page
-	if err := bindQuery(c, &q, access.InvalidPagination, nil); err != nil {
+	if err := bindQuery(c, &q, accesstypes.InvalidPagination, nil); err != nil {
 		return responses.Fail(c, err)
 	}
-	page, err := a.Access.ListUsers(c.Context(), p, q.Query())
+	page, err := a.Access.Users.ListUsers(c.Context(), p, q.Query())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -35,7 +35,7 @@ func (a *Handlers) CreateUser(c fiber.Ctx) error {
 	if err := bindJSON(c, &in); err != nil {
 		return responses.Fail(c, err)
 	}
-	user, err := a.Access.CreateUser(c.Context(), p, in.User())
+	user, err := a.Access.Users.CreateUser(c.Context(), p, in.User())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -51,7 +51,7 @@ func (a *Handlers) GetUser(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	user, err := a.Access.GetUser(c.Context(), p, id)
+	user, err := a.Access.Users.GetUser(c.Context(), p, id)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -71,7 +71,7 @@ func (a *Handlers) UpdateUser(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	user, err := a.Access.UpdateUser(c.Context(), p, id, in.Changes())
+	user, err := a.Access.Users.UpdateUser(c.Context(), p, id, in.Changes())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -91,7 +91,7 @@ func (a *Handlers) ResetPassword(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	if err := a.Access.ResetPassword(c.Context(), p, id, *in.Password); err != nil {
+	if err := a.Access.Users.ResetPassword(c.Context(), p, id, *in.Password); err != nil {
 		return responses.Fail(c, err)
 	}
 	return c.SendStatus(http.StatusNoContent)

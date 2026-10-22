@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"svc-registry/internal/app"
-	"svc-registry/internal/feature/forge"
-	forgeservice "svc-registry/internal/feature/forge/service"
+	forgeservices "svc-registry/internal/feature/forge/services"
+	forgetypes "svc-registry/internal/feature/forge/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
 )
@@ -41,9 +41,9 @@ func forgeSync(cmd *cobra.Command, id uuid.UUID) error {
 		return err
 	}
 	defer registry.Close()
-	run, err := registry.Forge.RunSyncNow(context.Background(), id)
+	run, err := registry.Forge.Sync.RunSyncNow(context.Background(), id)
 	switch {
-	case errors.Is(err, forgeservice.ErrSyncBusy):
+	case errors.Is(err, forgeservices.ErrSyncBusy):
 		return err
 	case err != nil:
 		code, message := apperr.From(err).Public()
@@ -55,7 +55,7 @@ func forgeSync(cmd *cobra.Command, id uuid.UUID) error {
 	c := run.Counts
 	fmt.Fprintf(cmd.OutOrStdout(), "%s created=%d updated=%d orphaned=%d skipped=%d\n",
 		run.Status, c.Created, c.Updated, c.Orphaned, c.Skipped)
-	if run.Status == forge.RunFailed {
+	if run.Status == forgetypes.RunFailed {
 		code := ""
 		if run.ErrorCode != nil {
 			code = *run.ErrorCode

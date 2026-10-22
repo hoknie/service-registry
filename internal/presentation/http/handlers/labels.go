@@ -5,7 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"svc-registry/internal/feature/catalog"
+	catalogtypes "svc-registry/internal/feature/catalog/types"
 	"svc-registry/internal/presentation/http/requests"
 	"svc-registry/internal/presentation/http/responses"
 )
@@ -16,10 +16,10 @@ func (a *Handlers) CatalogLabels(c fiber.Ctx) error {
 		return responses.Fail(c, err)
 	}
 	var q requests.Labels
-	if err := bindQuery(c, &q, catalog.InvalidFilter, nil); err != nil {
+	if err := bindQuery(c, &q, catalogtypes.InvalidFilter, nil); err != nil {
 		return responses.Fail(c, err)
 	}
-	items, err := a.Catalog.SuggestLabels(c.Context(), p, q.Query())
+	items, err := a.Catalog.Labels.SuggestLabels(c.Context(), p, q.Query())
 	if err != nil {
 		return responses.Fail(c, err)
 	}

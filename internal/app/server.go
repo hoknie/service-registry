@@ -53,6 +53,7 @@ func ServeUntil(ctx context.Context, cfg config.Config) error {
 	defer cancelTasks()
 	jobs.SpawnEventRetention(tasks, deps)
 	jobs.SpawnBranchRetention(tasks, deps)
+	jobs.SpawnKnowledgeBlobRetention(tasks, deps)
 	jobs.SpawnLoginStateRetention(tasks, deps)
 	forgeDone := jobs.SpawnForgeSync(tasks, deps)
 	linksDone := jobs.SpawnLinkChecks(tasks, deps)

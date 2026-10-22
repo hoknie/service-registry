@@ -9,7 +9,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/adaptor"
 
-	"svc-registry/internal/feature/access"
+	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/presentation/http/mcp"
 	"svc-registry/internal/presentation/http/responses"
@@ -30,14 +30,14 @@ func (a *Handlers) MCP(c fiber.Ctx) error {
 	if !isBearer {
 		return invalidMCPToken(c)
 	}
-	p, _, err := a.Access.AuthenticateToken(c.Context(), secret)
+	p, _, err := a.Access.Auth.AuthenticateToken(c.Context(), secret)
 	if err != nil {
 		if e := apperr.From(err); e != nil && e.Kind == apperr.InvalidToken {
 			return invalidMCPToken(c)
 		}
 		return responses.Fail(c, err)
 	}
-	if !p.Scopes.Has(access.ScopeMCP) {
+	if !p.Scopes.Has(accesstypes.ScopeMCP) {
 		return responses.Fail(c, apperr.New(apperr.InsufficientScope))
 	}
 	if len(c.Body()) > MCPBodyLimit {
@@ -111,6 +111,6 @@ func mcpPrecheck(body []byte) *mcpError {
 }
 
 func (a *Handlers) mcpDeps() mcp.Deps {
-	return mcp.Deps{Catalog: a.Catalog, Deploy: a.Deploy, Forge: a.Forge, Knowledge: a.Knowledge, Links: a.Links,
+	return mcp.Deps{Catalog: a.Catalog, Deploy: a.Deploy, Knowledge: a.Knowledge, Links: a.Links, Compose: a.Compose,
 		MaxResultBytes: a.Config.Knowledge.MCPMaxResultBytes}
 }

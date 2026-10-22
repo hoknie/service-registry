@@ -7,7 +7,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 
-	"svc-registry/internal/feature/knowledge"
+	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/presentation/http/responses"
 )
@@ -17,23 +17,23 @@ func (a *Handlers) SearchKnowledge(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	in := knowledge.SearchInput{Q: c.Query("q"), Branch: optionalQuery(c, "branch"), Path: c.Query("path"), Cursor: c.Query("cursor"),
+	in := knowledgetypes.SearchInput{Q: c.Query("q"), Branch: optionalQuery(c, "branch"), Path: c.Query("path"), Cursor: c.Query("cursor"),
 		Mode: c.Query("mode")}
 	if v := c.Query("project"); v != "" {
 		id, err := uuid.Parse(v)
 		if err != nil {
-			return responses.Fail(c, apperr.Wrap(knowledge.InvalidSearch))
+			return responses.Fail(c, apperr.Wrap(knowledgetypes.InvalidSearch))
 		}
 		in.Project = &id
 	}
 	if v := optionalQuery(c, "limit"); v != nil {
 		n, err := strconv.Atoi(*v)
 		if err != nil {
-			return responses.Fail(c, apperr.Wrap(knowledge.InvalidSearch))
+			return responses.Fail(c, apperr.Wrap(knowledgetypes.InvalidSearch))
 		}
 		in.Limit = &n
 	}
-	res, err := a.Knowledge.SearchKnowledge(c.Context(), p, in)
+	res, err := a.Knowledge.Search.SearchKnowledge(c.Context(), p, in)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -44,7 +44,7 @@ func (a *Handlers) KnowledgeSearchModes(c fiber.Ctx) error {
 	if _, _, err := a.currentUser(c); err != nil {
 		return responses.Fail(c, err)
 	}
-	m, err := a.Knowledge.KnowledgeSearchModes(c.Context())
+	m, err := a.Knowledge.Search.KnowledgeSearchModes(c.Context())
 	if err != nil {
 		return responses.Fail(c, err)
 	}

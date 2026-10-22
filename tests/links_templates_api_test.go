@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"svc-registry/internal/feature/links/uploads"
+	"svc-registry/internal/feature/links/clients/uploads"
 )
 
 var tinyPNG, _ = base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")

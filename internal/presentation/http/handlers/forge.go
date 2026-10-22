@@ -7,9 +7,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 
-	"svc-registry/internal/feature/access"
-	"svc-registry/internal/feature/catalog"
-	"svc-registry/internal/platform/apperr"
+	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/presentation/http/requests"
 	"svc-registry/internal/presentation/http/responses"
 )
@@ -32,7 +30,7 @@ func (a *Handlers) ListConnections(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	list, err := a.Forge.ListConnections(c.Context(), p, id)
+	list, err := a.Forge.Connections.ListConnections(c.Context(), p, id)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -52,7 +50,7 @@ func (a *Handlers) CreateConnection(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	v, err := a.Forge.CreateConnection(c.Context(), p, id, in.Connection())
+	v, err := a.Forge.Connections.CreateConnection(c.Context(), p, id, in.Connection())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -68,7 +66,7 @@ func (a *Handlers) GetConnection(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	v, err := a.Forge.GetConnection(c.Context(), p, node, conn)
+	v, err := a.Forge.Connections.GetConnection(c.Context(), p, node, conn)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -88,14 +86,14 @@ func (a *Handlers) UpdateConnection(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	v, err := a.Forge.UpdateConnection(c.Context(), p, node, conn, in.Changes())
+	v, err := a.Forge.Connections.UpdateConnection(c.Context(), p, node, conn, in.Changes())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
 	return c.Status(http.StatusOK).JSON(responses.ConnectionOf(v))
 }
 
-type connectionAction func(context.Context, access.Principal, uuid.UUID, uuid.UUID) error
+type connectionAction func(context.Context, accesstypes.Principal, uuid.UUID, uuid.UUID) error
 
 func (a *Handlers) connectionCall(c fiber.Ctx, action connectionAction, status int) error {
 	p, _, err := a.currentUser(c)
@@ -113,15 +111,15 @@ func (a *Handlers) connectionCall(c fiber.Ctx, action connectionAction, status i
 }
 
 func (a *Handlers) DeleteConnection(c fiber.Ctx) error {
-	return a.connectionCall(c, a.Forge.DeleteConnection, http.StatusNoContent)
+	return a.connectionCall(c, a.Forge.Connections.DeleteConnection, http.StatusNoContent)
 }
 
 func (a *Handlers) StartSync(c fiber.Ctx) error {
-	return a.connectionCall(c, a.Forge.StartSync, http.StatusAccepted)
+	return a.connectionCall(c, a.Forge.Sync.StartSync, http.StatusAccepted)
 }
 
 func (a *Handlers) DeleteWebhook(c fiber.Ctx) error {
-	return a.connectionCall(c, a.Forge.DeleteWebhook, http.StatusNoContent)
+	return a.connectionCall(c, a.Forge.Hooks.DeleteWebhook, http.StatusNoContent)
 }
 
 func (a *Handlers) CheckConnection(c fiber.Ctx) error {
@@ -133,7 +131,7 @@ func (a *Handlers) CheckConnection(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	if err := a.Forge.CheckConnection(c.Context(), p, node, conn); err != nil {
+	if err := a.Forge.Connections.CheckConnection(c.Context(), p, node, conn); err != nil {
 		return responses.Fail(c, err)
 	}
 	return c.Status(http.StatusOK).JSON(responses.OK{OK: true})
@@ -148,7 +146,7 @@ func (a *Handlers) PreviewConnection(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	items, err := a.Forge.PreviewConnection(c.Context(), p, node, conn)
+	items, err := a.Forge.Previews.PreviewConnection(c.Context(), p, node, conn)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -164,7 +162,7 @@ func (a *Handlers) ListRuns(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	runs, err := a.Forge.ListRuns(c.Context(), p, node, conn)
+	runs, err := a.Forge.Sync.ListRuns(c.Context(), p, node, conn)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -184,7 +182,7 @@ func (a *Handlers) SetupWebhook(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	setup, err := a.Forge.SetupWebhook(c.Context(), p, node, conn, *in.Mode)
+	setup, err := a.Forge.Hooks.SetupWebhook(c.Context(), p, node, conn, *in.Mode)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -200,19 +198,7 @@ func (a *Handlers) Readme(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	r, err := a.Forge.ProjectReadme(c.Context(), p, id)
-	if e := apperr.From(err); e != nil && e.Kind == apperr.NotFound {
-		if _, aerr := a.Catalog.Authorize(c.Context(), p, catalog.PermRead, id); aerr != nil {
-			return responses.Fail(c, aerr)
-		}
-		src, serr := a.Knowledge.SourceReadme(c.Context(), id)
-		if serr != nil {
-			return responses.Fail(c, serr)
-		}
-		if src != nil {
-			r, err = *src, nil
-		}
-	}
+	r, err := a.Compose.Projects.ProjectReadme(c.Context(), p, id)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -228,10 +214,11 @@ func (a *Handlers) UnlinkProject(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	if err := a.Forge.UnlinkProject(c.Context(), p, id); err != nil {
+	card, err := a.Compose.Projects.UnlinkProject(c.Context(), p, id)
+	if err != nil {
 		return responses.Fail(c, err)
 	}
-	return a.sendFullNode(c, p, id)
+	return a.sendNode(c, http.StatusOK, responses.ProjectCardOf(card))
 }
 
 func (a *Handlers) ListExclusions(c fiber.Ctx) error {
@@ -243,7 +230,7 @@ func (a *Handlers) ListExclusions(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	list, err := a.Forge.ListExclusions(c.Context(), p, node, conn)
+	list, err := a.Forge.Unlink.ListExclusions(c.Context(), p, node, conn)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -259,7 +246,7 @@ func (a *Handlers) DeleteExclusion(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	if err := a.Forge.DeleteExclusion(c.Context(), p, node, conn, c.Params("external_id")); err != nil {
+	if err := a.Forge.Unlink.DeleteExclusion(c.Context(), p, node, conn, c.Params("external_id")); err != nil {
 		return responses.Fail(c, err)
 	}
 	return c.SendStatus(http.StatusNoContent)

@@ -41,12 +41,12 @@ func (a *testApp) connect(cookie, node string, f *forgefake.Fake, extra obj) obj
 func (a *testApp) runDue() int {
 	a.t.Helper()
 	ctx := context.Background()
-	claimed, err := a.services.Forge.ClaimForgeRuns(ctx, 100, 120)
+	claimed, err := a.services.Forge.Sync.ClaimForgeRuns(ctx, 100, 120)
 	if err != nil {
 		a.t.Fatal(err)
 	}
 	for _, c := range claimed {
-		a.services.Forge.RunClaimedSync(ctx, c)
+		a.services.Forge.Sync.RunClaimedSync(ctx, c)
 	}
 	return len(claimed)
 }

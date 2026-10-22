@@ -3,8 +3,8 @@ package responses
 import (
 	"github.com/google/uuid"
 
-	"svc-registry/internal/feature/access"
-	accessservice "svc-registry/internal/feature/access/service"
+	accessservices "svc-registry/internal/feature/access/services"
+	accesstypes "svc-registry/internal/feature/access/types"
 )
 
 type Status struct {
@@ -18,7 +18,7 @@ type Page[T any] struct {
 	Offset uint64 `json:"offset"`
 }
 
-func PageOf[D, T any](p access.Page[D], conv func(D) T) Page[T] {
+func PageOf[D, T any](p accesstypes.Page[D], conv func(D) T) Page[T] {
 	items := make([]T, 0, len(p.Items))
 	for _, d := range p.Items {
 		items = append(items, conv(d))
@@ -43,7 +43,7 @@ type Me struct {
 	LoginMethod string `json:"login_method"`
 }
 
-func UserOf(u access.User) User {
+func UserOf(u accesstypes.User) User {
 	return User{
 		ID: u.ID, Email: u.Email, DisplayName: u.DisplayName, Status: string(u.Status),
 		IsSuperadmin: u.IsSuperadmin, IsService: u.IsService, HasPassword: u.HasPassword, CreatedAt: u.CreatedAt, UpdatedAt: u.UpdatedAt,
@@ -58,7 +58,7 @@ type Group struct {
 	UpdatedAt   string    `json:"updated_at"`
 }
 
-func GroupOf(g access.Group) Group {
+func GroupOf(g accesstypes.Group) Group {
 	return Group{ID: g.ID, Name: g.Name, MemberCount: g.MemberCount, CreatedAt: g.CreatedAt, UpdatedAt: g.UpdatedAt}
 }
 
@@ -79,7 +79,7 @@ type GroupDetails struct {
 	Members     []Member  `json:"members"`
 }
 
-func GroupDetailsOf(d access.GroupDetails) GroupDetails {
+func GroupDetailsOf(d accesstypes.GroupDetails) GroupDetails {
 	members := make([]Member, 0, len(d.Members))
 	for _, m := range d.Members {
 		members = append(members, Member{ID: m.User.ID, Email: m.User.Email, DisplayName: m.User.DisplayName,
@@ -99,7 +99,7 @@ type Providers struct {
 	PasswordLogin string     `json:"password_login"`
 }
 
-func ProvidersOf(providers []accessservice.Provider, mode string) Providers {
+func ProvidersOf(providers []accessservices.Provider, mode string) Providers {
 	out := make([]Provider, 0, len(providers))
 	for _, p := range providers {
 		out = append(out, Provider{Key: p.Key, DisplayName: p.DisplayName})

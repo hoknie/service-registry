@@ -3,7 +3,7 @@ package responses
 import (
 	"github.com/google/uuid"
 
-	"svc-registry/internal/feature/knowledge"
+	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 )
 
 type ScanProject struct {
@@ -54,7 +54,7 @@ type Scan struct {
 	Warnings      []string     `json:"warnings"`
 }
 
-func ScanOf(s knowledge.ScanItem) Scan {
+func ScanOf(s knowledgetypes.ScanItem) Scan {
 	branches := make([]ScanBranch, 0, len(s.Branches))
 	for _, b := range s.Branches {
 		out := ScanBranch{Name: b.Name, Commit: b.Commit, Result: string(b.Result), Files: b.Files, Skipped: b.Skipped, Truncated: b.Truncated,

@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 	qd "github.com/qdrant/go-client/qdrant"
 
-	"svc-registry/internal/feature/knowledge/search/qdrant"
+	"svc-registry/internal/feature/knowledge/clients/search/qdrant"
 )
 
 func projectsIn(t *testing.T, a *testApp, cookie, q string, extra ...string) string {
@@ -58,7 +58,7 @@ func externalEngine(t *testing.T, engine string) {
 	eq(t, strings.Contains(projectsIn(t, s.testApp, s.admin, "как откатить релиз", "mode", "semantic"), "acme/secret"), false, "branch gone")
 
 	execSQL(t, s.db, "DELETE FROM nodes WHERE id = '"+old+"'")
-	if err := s.services.Knowledge.RetainExternalIndex(context.Background()); err != nil {
+	if err := s.services.Knowledge.Index.RetainExternalIndex(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	execSQL(t, s.db, "INSERT INTO nodes (id, kind, parent_id, name, slug) SELECT '"+old+"', 'project', '"+s.org+"', 'old', 'old'")

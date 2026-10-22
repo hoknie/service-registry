@@ -3,7 +3,7 @@ package responses
 import (
 	"github.com/google/uuid"
 
-	"svc-registry/internal/feature/catalog"
+	catalogtypes "svc-registry/internal/feature/catalog/types"
 )
 
 type NodeRef struct {
@@ -25,26 +25,26 @@ type Credentials struct {
 	Ref         *string    `json:"ref,omitempty"`
 }
 
-func nodeRefOf(n *catalog.NodeRef) *NodeRef {
+func nodeRefOf(n *catalogtypes.NodeRef) *NodeRef {
 	if n == nil {
 		return nil
 	}
 	return &NodeRef{ID: n.ID, Name: n.Name}
 }
 
-func SecretRefOf(r *catalog.SecretRef) *SecretRef {
+func SecretRefOf(r *catalogtypes.SecretRef) *SecretRef {
 	if r == nil {
 		return nil
 	}
 	return &SecretRef{ID: r.ID, Name: r.Name, From: nodeRefOf(r.From)}
 }
 
-func CredentialsOf(c catalog.Credentials) Credentials {
+func CredentialsOf(c catalogtypes.Credentials) Credentials {
 	out := Credentials{Kind: string(c.Kind), Secret: SecretRefOf(c.Secret)}
-	if c.Kind == catalog.CredentialsSecret && out.Secret == nil && c.SecretID != nil {
+	if c.Kind == catalogtypes.CredentialsSecret && out.Secret == nil && c.SecretID != nil {
 		out.Secret = &SecretRef{ID: *c.SecretID}
 	}
-	if c.Kind == catalog.CredentialsLegacy {
+	if c.Kind == catalogtypes.CredentialsLegacy {
 		st := string(c.Storage)
 		out.Storage, out.Fingerprint, out.Ref = &st, c.Fingerprint, c.Ref
 	}
@@ -66,7 +66,7 @@ type Secret struct {
 	UpdatedAt   string     `json:"updated_at"`
 }
 
-func SecretOf(s catalog.Secret, here *uuid.UUID) Secret {
+func SecretOf(s catalogtypes.Secret, here *uuid.UUID) Secret {
 	own := s.NodeID == nil && here == nil || s.NodeID != nil && here != nil && *s.NodeID == *here
 	return Secret{ID: s.ID, Name: s.Name, Description: s.Description, NodeID: s.NodeID, Storage: string(s.Storage),
 		Fingerprint: s.Fingerprint, Ref: s.Ref, UsedBy: s.UsedBy, From: nodeRefOf(s.From), Own: own,
@@ -77,7 +77,7 @@ type Secrets struct {
 	Items []Secret `json:"items"`
 }
 
-func SecretsOf(items []catalog.Secret, here *uuid.UUID) Secrets {
+func SecretsOf(items []catalogtypes.Secret, here *uuid.UUID) Secrets {
 	out := Secrets{Items: make([]Secret, 0, len(items))}
 	for _, s := range items {
 		out.Items = append(out.Items, SecretOf(s, here))
@@ -95,7 +95,7 @@ type LabelValue struct {
 	Count int64  `json:"count"`
 }
 
-func LabelSuggestionsOf(items []catalog.LabelSuggestion, values bool) any {
+func LabelSuggestionsOf(items []catalogtypes.LabelSuggestion, values bool) any {
 	if values {
 		out := make([]LabelValue, 0, len(items))
 		for _, it := range items {

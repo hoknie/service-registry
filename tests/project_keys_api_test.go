@@ -19,7 +19,7 @@ func keyProject(app *testApp, admin string) (string, obj) {
 
 func (a *testApp) verifies(project, key string) bool {
 	a.t.Helper()
-	id, err := a.services.Catalog.VerifyProjectKey(context.Background(), uuid.MustParse(project), key)
+	id, err := a.services.Catalog.ProjectKeys.VerifyProjectKey(context.Background(), uuid.MustParse(project), key)
 	if err != nil {
 		a.t.Fatal(err)
 	}

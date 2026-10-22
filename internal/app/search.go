@@ -8,18 +8,19 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"svc-registry/internal/feature/knowledge"
-	"svc-registry/internal/feature/knowledge/embeddings"
-	"svc-registry/internal/feature/knowledge/search/pgvector"
-	"svc-registry/internal/feature/knowledge/search/qdrant"
+	"svc-registry/internal/feature/knowledge/clients/embeddings"
+	"svc-registry/internal/feature/knowledge/clients/search/pgvector"
+	"svc-registry/internal/feature/knowledge/clients/search/qdrant"
+	knowledgeports "svc-registry/internal/feature/knowledge/ports"
+	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/config"
 	"svc-registry/internal/platform/outbound"
 )
 
 type search struct {
-	engine   knowledge.Engine
-	external knowledge.ExternalIndex
-	embedder knowledge.Embedder
+	engine   knowledgeports.EnginePort
+	external knowledgeports.ExternalIndexPort
+	embedder knowledgeports.EmbedderPort
 }
 
 func secretValue(raw string) (string, error) {
@@ -32,7 +33,7 @@ func secretValue(raw string) (string, error) {
 func buildSearch(all config.Config, pool *pgxpool.Pool) (search, error) {
 	cfg := all.Search
 	if cfg.Engine == "postgres" {
-		return search{engine: knowledge.TextOnly{}}, nil
+		return search{engine: knowledgetypes.TextOnly{}}, nil
 	}
 	var out search
 	if cfg.Embeddings() {
@@ -55,14 +56,14 @@ func buildSearch(all config.Config, pool *pgxpool.Pool) (search, error) {
 }
 
 func (s search) check(ctx context.Context) error {
-	if q, ok := s.engine.(*qdrant.Engine); ok {
+	if q, ok := s.engine.(*qdrant.EngineClient); ok {
 		if err := q.Check(ctx); err != nil {
-			slog.Warn("search engine check failed", "engine", q.Name(), "code", knowledge.IndexFailureCode(err),
-				"detail", knowledge.RedactDetail(err.Error()))
+			slog.Warn("search engine check failed", "engine", q.Name(), "code", knowledgetypes.IndexFailureCode(err),
+				"detail", knowledgetypes.RedactDetail(err.Error()))
 		}
 		return nil
 	}
-	e, ok := s.engine.(*pgvector.Engine)
+	e, ok := s.engine.(*pgvector.EngineClient)
 	if !ok {
 		return nil
 	}

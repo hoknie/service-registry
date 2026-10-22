@@ -5,8 +5,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"svc-registry/internal/feature/catalog"
-	"svc-registry/internal/feature/knowledge"
+	catalogtypes "svc-registry/internal/feature/catalog/types"
+	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 )
 
 type Repo struct {
@@ -15,30 +15,30 @@ type Repo struct {
 	DefaultBranch *string `json:"default_branch"`
 }
 
-func (r Repo) input() catalog.RepoInput {
-	return catalog.RepoInput{Forge: r.Forge, RepoURL: r.RepoURL, DefaultBranch: r.DefaultBranch}
+func (r Repo) input() catalogtypes.RepoInput {
+	return catalogtypes.RepoInput{Forge: r.Forge, RepoURL: r.RepoURL, DefaultBranch: r.DefaultBranch}
 }
 
-func labels(raw json.RawMessage) *catalog.LabelsInput {
+func labels(raw json.RawMessage) *catalogtypes.LabelsInput {
 	if len(raw) == 0 || string(raw) == "null" {
 		return nil
 	}
-	var l catalog.Labels
+	var l catalogtypes.Labels
 	if err := json.Unmarshal(raw, &l); err != nil || l == nil {
-		return &catalog.LabelsInput{Err: catalog.InvalidLabels}
+		return &catalogtypes.LabelsInput{Err: catalogtypes.InvalidLabels}
 	}
-	return &catalog.LabelsInput{Labels: l}
+	return &catalogtypes.LabelsInput{Labels: l}
 }
 
-func flag(raw json.RawMessage, invalid error) *catalog.FlagInput {
+func flag(raw json.RawMessage, invalid error) *catalogtypes.FlagInput {
 	if len(raw) == 0 || string(raw) == "null" {
 		return nil
 	}
 	var v bool
 	if err := json.Unmarshal(raw, &v); err != nil {
-		return &catalog.FlagInput{Err: invalid}
+		return &catalogtypes.FlagInput{Err: invalid}
 	}
-	return &catalog.FlagInput{Value: v}
+	return &catalogtypes.FlagInput{Value: v}
 }
 
 type CreateNode struct {
@@ -53,7 +53,7 @@ type CreateNode struct {
 	Source             *KnowledgeSource `json:"source"`
 }
 
-func (r CreateNode) SourceInput() *knowledge.SourceInput {
+func (r CreateNode) SourceInput() *knowledgetypes.SourceInput {
 	if r.Source == nil {
 		return nil
 	}
@@ -61,11 +61,11 @@ func (r CreateNode) SourceInput() *knowledge.SourceInput {
 	return &in
 }
 
-func (r CreateNode) Node() catalog.CreateNode {
-	return catalog.CreateNode{
+func (r CreateNode) Node() catalogtypes.CreateNode {
+	return catalogtypes.CreateNode{
 		Kind: *r.Kind, ParentID: r.ParentID, Slug: *r.Slug, Name: *r.Name,
 		Description: r.Description, Labels: labels(r.Labels), Repo: r.input(),
-		ClusterObservation: flag(r.ClusterObservation, catalog.InvalidClusterObservation),
+		ClusterObservation: flag(r.ClusterObservation, catalogtypes.InvalidClusterObservation),
 	}
 }
 
@@ -78,9 +78,9 @@ type UpdateNode struct {
 	ClusterObservation json.RawMessage `json:"cluster_observation"`
 }
 
-func (r UpdateNode) Changes() catalog.UpdateNode {
-	return catalog.UpdateNode{Slug: r.Slug, Name: r.Name, Description: r.Description, Labels: labels(r.Labels), Repo: r.input(),
-		ClusterObservation: flag(r.ClusterObservation, catalog.InvalidClusterObservation)}
+func (r UpdateNode) Changes() catalogtypes.UpdateNode {
+	return catalogtypes.UpdateNode{Slug: r.Slug, Name: r.Name, Description: r.Description, Labels: labels(r.Labels), Repo: r.input(),
+		ClusterObservation: flag(r.ClusterObservation, catalogtypes.InvalidClusterObservation)}
 }
 
 type MoveNode struct {
@@ -93,8 +93,8 @@ type GrantRole struct {
 	Role        *string `json:"role" validate:"required"`
 }
 
-func (r GrantRole) Grant() catalog.GrantRole {
-	return catalog.GrantRole{SubjectKind: *r.SubjectKind, Subject: *r.Subject, Role: *r.Role}
+func (r GrantRole) Grant() catalogtypes.GrantRole {
+	return catalogtypes.GrantRole{SubjectKind: *r.SubjectKind, Subject: *r.Subject, Role: *r.Role}
 }
 
 type RotateKey struct {

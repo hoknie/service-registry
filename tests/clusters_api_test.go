@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"svc-registry/internal/feature/deploy"
+	deploytypes "svc-registry/internal/feature/deploy/types"
 )
 
 func TestClusterLifecycle(t *testing.T) {
@@ -78,7 +78,7 @@ func TestClusterLifecycle(t *testing.T) {
 	r = app.call("POST", clusterPath(id)+"/test", root)
 	eq(t, r.json(t)["ok"], any(false))
 	eq(t, at(r.json(t), "error", "code"), any("k8s.unauthorized"))
-	k8s.Cluster().Fail(&deploy.Failure{Code: deploy.FailUnreachable, Message: "dial"})
+	k8s.Cluster().Fail(&deploytypes.Failure{Code: deploytypes.FailUnreachable, Message: "dial"})
 	r = app.call("POST", idPath(self.json(t))+"/test", root)
 	eq(t, at(r.json(t), "error", "code"), any("k8s.unreachable"))
 

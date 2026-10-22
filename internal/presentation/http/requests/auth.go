@@ -1,14 +1,14 @@
 package requests
 
-import "svc-registry/internal/feature/access"
+import accesstypes "svc-registry/internal/feature/access/types"
 
 type Login struct {
 	Email    *string `json:"email" validate:"required"`
 	Password *string `json:"password" validate:"required"`
 }
 
-func (r Login) Credentials() access.Credentials {
-	return access.Credentials{Email: *r.Email, Password: *r.Password}
+func (r Login) Credentials() accesstypes.Credentials {
+	return accesstypes.Credentials{Email: *r.Email, Password: *r.Password}
 }
 
 type ChangePassword struct {
@@ -16,6 +16,6 @@ type ChangePassword struct {
 	NewPassword     *string `json:"new_password" validate:"required"`
 }
 
-func (r ChangePassword) Change() access.PasswordChange {
-	return access.PasswordChange{CurrentPassword: r.CurrentPassword, NewPassword: *r.NewPassword}
+func (r ChangePassword) Change() accesstypes.PasswordChange {
+	return accesstypes.PasswordChange{CurrentPassword: r.CurrentPassword, NewPassword: *r.NewPassword}
 }

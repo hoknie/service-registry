@@ -15,7 +15,7 @@ func SpawnEventRetention(ctx context.Context, deps Deps) <-chan struct{} {
 		tick := time.NewTicker(RetentionEvery)
 		defer tick.Stop()
 		for {
-			switch n, err := deps.Ingest.PruneEvents(ctx); {
+			switch n, err := deps.Ingest.Accept.PruneEvents(ctx); {
 			case ctx.Err() != nil:
 				return
 			case err != nil:

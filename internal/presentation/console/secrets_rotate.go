@@ -8,8 +8,6 @@ import (
 
 	"svc-registry/internal/app"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/platform/postgres"
-	"svc-registry/pkg/secretbox"
 )
 
 func secretsRotateCmd() *cobra.Command {
@@ -37,12 +35,12 @@ func secretsRotate(cmd *cobra.Command) error {
 		return invalidConfig(err)
 	}
 	app.InitLogging(cfg.Log)
-	pool, err := postgres.ConnectLazy(cfg.DB)
+	rotate, closeDB, err := app.OpenSecretRotation(cfg.DB, keys)
 	if err != nil {
 		return err
 	}
-	defer pool.Close()
-	n, err := app.RotateSecretsOver(context.Background(), postgres.New(pool), secretbox.New(keys.Keys))
+	defer closeDB()
+	n, err := rotate(context.Background())
 	if err != nil {
 		return fmt.Errorf("cannot rotate secrets: %w", err)
 	}

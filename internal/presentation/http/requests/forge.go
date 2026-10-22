@@ -1,8 +1,8 @@
 package requests
 
 import (
-	"svc-registry/internal/feature/catalog"
-	"svc-registry/internal/feature/forge"
+	catalogtypes "svc-registry/internal/feature/catalog/types"
+	forgetypes "svc-registry/internal/feature/forge/types"
 )
 
 type Credentials struct {
@@ -11,11 +11,11 @@ type Credentials struct {
 	TokenRef *string `json:"token_ref"`
 }
 
-func (c *Credentials) input() *catalog.CredentialsInput {
+func (c *Credentials) input() *catalogtypes.CredentialsInput {
 	if c == nil {
 		return nil
 	}
-	return &catalog.CredentialsInput{SecretID: c.SecretID, Inline: c.Token != nil || c.TokenRef != nil}
+	return &catalogtypes.CredentialsInput{SecretID: c.SecretID, Inline: c.Token != nil || c.TokenRef != nil}
 }
 
 type CreateConnection struct {
@@ -32,8 +32,8 @@ type CreateConnection struct {
 	Credentials     *Credentials `json:"credentials" validate:"required"`
 }
 
-func (r CreateConnection) Connection() forge.CreateConnection {
-	return forge.CreateConnection{
+func (r CreateConnection) Connection() forgetypes.CreateConnection {
+	return forgetypes.CreateConnection{
 		Kind: *r.Kind, APIURL: r.APIURL, OwnerPath: *r.OwnerPath, MirrorSubgroups: r.MirrorSubgroups,
 		IncludeArchived: r.IncludeArchived, IncludeForks: r.IncludeForks, NameInclude: r.NameInclude,
 		NameExclude: r.NameExclude, BranchInclude: r.BranchInclude, IntervalSecs: r.IntervalSecs, Credentials: r.Credentials.input(),
@@ -53,8 +53,8 @@ type UpdateConnection struct {
 	Credentials     *Credentials `json:"credentials"`
 }
 
-func (r UpdateConnection) Changes() forge.UpdateConnection {
-	return forge.UpdateConnection{
+func (r UpdateConnection) Changes() forgetypes.UpdateConnection {
+	return forgetypes.UpdateConnection{
 		APIURL: r.APIURL, OwnerPath: r.OwnerPath, MirrorSubgroups: r.MirrorSubgroups,
 		IncludeArchived: r.IncludeArchived, IncludeForks: r.IncludeForks, NameInclude: r.NameInclude,
 		NameExclude: r.NameExclude, BranchInclude: r.BranchInclude, IntervalSecs: r.IntervalSecs, Credentials: r.Credentials.input(),

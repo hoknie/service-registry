@@ -7,7 +7,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 
-	"svc-registry/internal/feature/access"
+	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/presentation/http/requests"
 	"svc-registry/internal/presentation/http/responses"
 )
@@ -18,10 +18,10 @@ func (a *Handlers) ListGroups(c fiber.Ctx) error {
 		return responses.Fail(c, err)
 	}
 	var q requests.Page
-	if err := bindQuery(c, &q, access.InvalidPagination, nil); err != nil {
+	if err := bindQuery(c, &q, accesstypes.InvalidPagination, nil); err != nil {
 		return responses.Fail(c, err)
 	}
-	page, err := a.Access.ListGroups(c.Context(), p, q.Query())
+	page, err := a.Access.Groups.ListGroups(c.Context(), p, q.Query())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -37,7 +37,7 @@ func (a *Handlers) CreateGroup(c fiber.Ctx) error {
 	if err := bindJSON(c, &in); err != nil {
 		return responses.Fail(c, err)
 	}
-	g, err := a.Access.CreateGroup(c.Context(), p, in.Group())
+	g, err := a.Access.Groups.CreateGroup(c.Context(), p, in.Group())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -53,7 +53,7 @@ func (a *Handlers) UserGroups(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	groups, err := a.Access.UserGroups(c.Context(), p, id)
+	groups, err := a.Access.Groups.UserGroups(c.Context(), p, id)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -69,7 +69,7 @@ func (a *Handlers) GetGroup(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	g, err := a.Access.GetGroup(c.Context(), p, id)
+	g, err := a.Access.Groups.GetGroup(c.Context(), p, id)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -89,7 +89,7 @@ func (a *Handlers) RenameGroup(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	g, err := a.Access.RenameGroup(c.Context(), p, id, in.Group())
+	g, err := a.Access.Groups.RenameGroup(c.Context(), p, id, in.Group())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -105,21 +105,21 @@ func (a *Handlers) DeleteGroup(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	if err := a.Access.DeleteGroup(c.Context(), p, id); err != nil {
+	if err := a.Access.Groups.DeleteGroup(c.Context(), p, id); err != nil {
 		return responses.Fail(c, err)
 	}
 	return c.SendStatus(http.StatusNoContent)
 }
 
 func (a *Handlers) AddMember(c fiber.Ctx) error {
-	return a.member(c, a.Access.AddMember)
+	return a.member(c, a.Access.Groups.AddMember)
 }
 
 func (a *Handlers) RemoveMember(c fiber.Ctx) error {
-	return a.member(c, a.Access.RemoveMember)
+	return a.member(c, a.Access.Groups.RemoveMember)
 }
 
-func (a *Handlers) member(c fiber.Ctx, op func(ctx context.Context, p access.Principal, groupID, userID uuid.UUID) error) error {
+func (a *Handlers) member(c fiber.Ctx, op func(ctx context.Context, p accesstypes.Principal, groupID, userID uuid.UUID) error) error {
 	p, _, err := a.currentUser(c)
 	if err != nil {
 		return responses.Fail(c, err)

@@ -60,12 +60,12 @@ func (a *testApp) collect() int {
 	a.t.Helper()
 	ctx := context.Background()
 	execSQL(a.t, a.db, "UPDATE knowledge_settings SET next_run_at = now()")
-	claimed, err := a.services.Knowledge.ClaimKnowledge(ctx, 100, 120)
+	claimed, err := a.services.Knowledge.Collect.ClaimKnowledge(ctx, 100, 120)
 	if err != nil {
 		a.t.Fatal(err)
 	}
 	for _, id := range claimed {
-		if err := a.services.Knowledge.RunKnowledgeCollect(ctx, id); err != nil {
+		if err := a.services.Knowledge.Collect.RunKnowledgeCollect(ctx, id); err != nil {
 			a.t.Fatal(err)
 		}
 	}
@@ -89,7 +89,7 @@ func (d *docsProject) last(branch, column string) string {
 
 func pruneBranches(t *testing.T, a *testApp) {
 	t.Helper()
-	if _, err := a.services.Catalog.PruneBranches(context.Background()); err != nil {
+	if _, err := a.services.Catalog.Branches.PruneBranches(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 }

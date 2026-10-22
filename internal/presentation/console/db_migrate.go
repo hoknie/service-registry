@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"svc-registry/internal/platform/postgres"
+	"svc-registry/internal/app"
 )
 
 func dbMigrateCmd() *cobra.Command {
@@ -19,7 +19,7 @@ func dbMigrateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			applied, err := postgres.Migrate(context.Background(), cfg)
+			applied, err := app.Migrate(context.Background(), cfg)
 			if err != nil {
 				return failed(fmt.Errorf("migration failed: %w", err))
 			}

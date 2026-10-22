@@ -139,7 +139,7 @@ func TestScanOfAProjectWithoutSourceWarns(t *testing.T) {
 	t.Parallel()
 	a := startSources(t)
 	execSQL(t, a.db, "INSERT INTO knowledge_settings (project_id) VALUES ($1)", a.project)
-	if err := a.services.Knowledge.RunKnowledgeCollect(context.Background(), uuid.MustParse(a.project)); err != nil {
+	if err := a.services.Knowledge.Collect.RunKnowledgeCollect(context.Background(), uuid.MustParse(a.project)); err != nil {
 		t.Fatal(err)
 	}
 	s := a.scans(a.project, "collect")

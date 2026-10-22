@@ -1,11 +1,9 @@
 package responses
 
 import (
-	"github.com/google/uuid"
-
-	"svc-registry/internal/feature/catalog"
-	catalogservice "svc-registry/internal/feature/catalog/service"
-	linkdomain "svc-registry/internal/feature/links"
+	catalogservices "svc-registry/internal/feature/catalog/services"
+	catalogtypes "svc-registry/internal/feature/catalog/types"
+	composeservices "svc-registry/internal/feature/compose/services"
 )
 
 type CatalogTableRow struct {
@@ -32,7 +30,7 @@ type CatalogTable struct {
 	Truncated bool              `json:"truncated"`
 }
 
-func TableNodes(page catalogservice.CatalogTablePage) []Node {
+func TableNodes(page catalogservices.CatalogTablePage) []Node {
 	out := make([]Node, 0, len(page.Items))
 	for _, n := range page.Items {
 		out = append(out, WalkedNode(n.WalkNode))
@@ -40,12 +38,13 @@ func TableNodes(page catalogservice.CatalogTablePage) []Node {
 	return out
 }
 
-func CatalogTableOf(page catalogservice.CatalogTablePage, nodes []Node, links map[uuid.UUID][]linkdomain.Badge) CatalogTable {
+func CatalogTableOf(table composeservices.CatalogTable) CatalogTable {
+	page, nodes, links := table.Page, TableNodes(table.Page), table.Badges
 	rows := make([]CatalogTableRow, 0, len(page.Items))
 	for i, n := range page.Items {
 		var activity any
 		switch {
-		case n.Node.Kind == catalog.KindProject:
+		case n.Node.Kind == catalogtypes.KindProject:
 			activity = ProcessesOf(page.Processes[n.Node.ID])
 		default:
 			activity = SummaryOf(page.Summaries[n.Node.ID])

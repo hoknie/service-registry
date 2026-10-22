@@ -1,15 +1,13 @@
 package handlers
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 
-	"svc-registry/internal/feature/access"
-	"svc-registry/internal/feature/catalog"
-	"svc-registry/internal/feature/forge"
+	accesstypes "svc-registry/internal/feature/access/types"
+	catalogtypes "svc-registry/internal/feature/catalog/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/presentation/http/requests"
 	"svc-registry/internal/presentation/http/responses"
@@ -21,18 +19,14 @@ func (a *Handlers) ListNodes(c fiber.Ctx) error {
 		return responses.Fail(c, err)
 	}
 	var q requests.Children
-	if err := bindQuery(c, &q, access.InvalidPagination, map[string]error{"parent": apperr.New(apperr.NotFound)}); err != nil {
+	if err := bindQuery(c, &q, accesstypes.InvalidPagination, map[string]error{"parent": apperr.New(apperr.NotFound)}); err != nil {
 		return responses.Fail(c, err)
 	}
-	page, err := a.Catalog.Children(c.Context(), p, q.Parent, q.Query())
+	page, err := a.Catalog.Nodes.Children(c.Context(), p, q.Parent, q.Query())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	body := responses.PageOf(page, responses.WalkedNode)
-	if body.Items, err = a.withManaged(c, body.Items); err != nil {
-		return responses.Fail(c, err)
-	}
-	return c.Status(http.StatusOK).JSON(body)
+	return c.Status(http.StatusOK).JSON(responses.PageOf(page, responses.WalkedNode))
 }
 
 func (a *Handlers) Tree(c fiber.Ctx) error {
@@ -41,18 +35,14 @@ func (a *Handlers) Tree(c fiber.Ctx) error {
 		return responses.Fail(c, err)
 	}
 	var q requests.Tree
-	if err := bindQuery(c, &q, catalog.InvalidDepth, map[string]error{"root": apperr.New(apperr.NotFound)}); err != nil {
+	if err := bindQuery(c, &q, catalogtypes.InvalidDepth, map[string]error{"root": apperr.New(apperr.NotFound)}); err != nil {
 		return responses.Fail(c, err)
 	}
-	nodes, truncated, err := a.Catalog.Tree(c.Context(), p, q.Root, q.Depth)
+	nodes, truncated, err := a.Catalog.Nodes.Tree(c.Context(), p, q.Root, q.Depth)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	items, err := a.withManaged(c, responses.ItemsOf(nodes, responses.WalkedNode).Items)
-	if err != nil {
-		return responses.Fail(c, err)
-	}
-	return c.Status(http.StatusOK).JSON(responses.Tree{Nodes: items, Truncated: truncated})
+	return c.Status(http.StatusOK).JSON(responses.Tree{Nodes: responses.ItemsOf(nodes, responses.WalkedNode).Items, Truncated: truncated})
 }
 
 func (a *Handlers) CreateNode(c fiber.Ctx) error {
@@ -64,11 +54,7 @@ func (a *Handlers) CreateNode(c fiber.Ctx) error {
 	if err := bindJSON(c, &in); err != nil {
 		return responses.Fail(c, err)
 	}
-	var source catalog.SourceFactory
-	if input := in.SourceInput(); input != nil {
-		source = a.Knowledge.SourceFor(*input)
-	}
-	node, key, err := a.Catalog.CreateNode(c.Context(), p, in.Node(), source)
+	node, key, err := a.Compose.Projects.CreateNode(c.Context(), p, in.Node(), in.SourceInput())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -84,32 +70,11 @@ func (a *Handlers) GetNode(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	return a.sendFullNode(c, p, id)
-}
-
-func (a *Handlers) sendFullNode(c fiber.Ctx, p access.Principal, id uuid.UUID) error {
-	scoped, err := a.Catalog.GetNode(c.Context(), p, id)
+	card, err := a.Compose.Projects.ProjectCard(c.Context(), p, id)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	body := responses.ScopedNode(scoped)
-	if body.Access == "read" && scoped.Node.Kind == catalog.KindProject {
-		repo, err := a.projectRepository(c.Context(), id)
-		if err != nil {
-			return responses.Fail(c, err)
-		}
-		r := responses.RepositoryOf(repo)
-		body.Repository = &r
-	}
-	return a.sendNode(c, http.StatusOK, body)
-}
-
-func (a *Handlers) projectRepository(ctx context.Context, id uuid.UUID) (*forge.Repository, error) {
-	repo, err := a.Forge.ProjectRepository(ctx, id)
-	if err != nil || repo != nil {
-		return repo, err
-	}
-	return a.Knowledge.SourceRepository(ctx, id)
+	return a.sendNode(c, http.StatusOK, responses.ProjectCardOf(card))
 }
 
 func (a *Handlers) UpdateNode(c fiber.Ctx) error {
@@ -125,7 +90,7 @@ func (a *Handlers) UpdateNode(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	node, err := a.Catalog.UpdateNode(c.Context(), p, id, in.Changes())
+	node, err := a.Catalog.Nodes.UpdateNode(c.Context(), p, id, in.Changes())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -156,7 +121,7 @@ func (a *Handlers) MoveNode(c fiber.Ctx) error {
 		}
 		parent = &pid
 	}
-	node, err := a.Catalog.MoveNode(c.Context(), p, id, parent)
+	node, err := a.Catalog.Nodes.MoveNode(c.Context(), p, id, parent)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -172,33 +137,12 @@ func (a *Handlers) DeleteNode(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	if err := a.Catalog.DeleteNode(c.Context(), p, id); err != nil {
+	if err := a.Catalog.Nodes.DeleteNode(c.Context(), p, id); err != nil {
 		return responses.Fail(c, err)
 	}
 	return c.SendStatus(http.StatusNoContent)
 }
 
-func (a *Handlers) withManaged(c fiber.Ctx, nodes []responses.Node) ([]responses.Node, error) {
-	ids := make([]uuid.UUID, 0, len(nodes))
-	for _, n := range nodes {
-		if n.Access == "read" {
-			ids = append(ids, n.ID)
-		}
-	}
-	managed, err := a.Forge.Managed(c.Context(), ids)
-	if err != nil {
-		return nil, err
-	}
-	for i := range nodes {
-		nodes[i] = nodes[i].WithManaged(managed)
-	}
-	return nodes, nil
-}
-
 func (a *Handlers) sendNode(c fiber.Ctx, status int, node responses.Node) error {
-	nodes, err := a.withManaged(c, []responses.Node{node})
-	if err != nil {
-		return responses.Fail(c, err)
-	}
-	return c.Status(status).JSON(nodes[0])
+	return c.Status(status).JSON(node)
 }

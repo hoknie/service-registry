@@ -20,7 +20,7 @@ set dotenv-load := true
 
 GO := env('GO', 'go')
 PNPM := env('PNPM', 'pnpm')
-STATICCHECK := 'honnef.co/go/tools/cmd/staticcheck@v0.8.1'
+STATICCHECK := 'honnef.co/go/tools/cmd/staticcheck@v0.8.2'
 
 export COMPOSE_FILE := justfile_directory() / "env/compose.yml"
 

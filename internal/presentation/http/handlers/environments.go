@@ -14,7 +14,7 @@ func (a *Handlers) ListEnvironmentsDirectory(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	items, err := a.Deploy.ListEnvironmentDirectory(c.Context(), p)
+	items, err := a.Deploy.Environments.ListEnvironmentDirectory(c.Context(), p)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -30,7 +30,7 @@ func (a *Handlers) CreateEnvironment(c fiber.Ctx) error {
 	if err := bindJSON(c, &in); err != nil {
 		return responses.Fail(c, err)
 	}
-	e, err := a.Deploy.CreateEnvironment(c.Context(), p, in.Environment())
+	e, err := a.Deploy.Environments.CreateEnvironment(c.Context(), p, in.Environment())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -46,7 +46,7 @@ func (a *Handlers) UpdateEnvironment(c fiber.Ctx) error {
 	if err := bindJSON(c, &in); err != nil {
 		return responses.Fail(c, err)
 	}
-	e, err := a.Deploy.UpdateEnvironment(c.Context(), p, c.Params("key"), in.Environment())
+	e, err := a.Deploy.Environments.UpdateEnvironment(c.Context(), p, c.Params("key"), in.Environment())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -58,7 +58,7 @@ func (a *Handlers) DeleteEnvironment(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	if err := a.Deploy.DeleteEnvironment(c.Context(), p, c.Params("key")); err != nil {
+	if err := a.Deploy.Environments.DeleteEnvironment(c.Context(), p, c.Params("key")); err != nil {
 		return responses.Fail(c, err)
 	}
 	return c.SendStatus(http.StatusNoContent)

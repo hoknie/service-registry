@@ -11,12 +11,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"svc-registry/internal/app"
-	"svc-registry/internal/feature/access"
-	accessservice "svc-registry/internal/feature/access/service"
+	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/platform/apperr"
-	"svc-registry/internal/platform/auth"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/platform/postgres"
 )
 
 func userCreateCmd() *cobra.Command {
@@ -33,7 +30,7 @@ func userCreateCmd() *cobra.Command {
 			if cmd.Flags().Changed("password") {
 				return errors.New("passwords are never accepted as arguments; set USER_PASSWORD or pipe it to stdin")
 			}
-			return failed(userCreate(cmd, access.CreateUser{Email: email, DisplayName: name, IsSuperadmin: superadmin}))
+			return failed(userCreate(cmd, accesstypes.CreateUser{Email: email, DisplayName: name, IsSuperadmin: superadmin}))
 		},
 	}
 	cmd.Flags().StringVar(&email, "email", "", "email of the user")
@@ -46,7 +43,7 @@ func userCreateCmd() *cobra.Command {
 	return cmd
 }
 
-func userCreate(cmd *cobra.Command, in access.CreateUser) error {
+func userCreate(cmd *cobra.Command, in accesstypes.CreateUser) error {
 	logCfg, err := config.Load[config.LogConfig](config.ProcessEnv())
 	if err != nil {
 		return invalidConfig(err)
@@ -67,13 +64,12 @@ func userCreate(cmd *cobra.Command, in access.CreateUser) error {
 			return err
 		}
 	}
-	pool, err := postgres.ConnectLazy(cfg.DB)
+	accounts, closeDB, err := app.OpenAccounts(cfg.DB, cfg.Hash)
 	if err != nil {
 		return err
 	}
-	defer pool.Close()
-	accounts := accessservice.New(accessservice.Deps{DB: postgres.New(pool), Hasher: auth.NewPasswordHasher(cfg.Hash)})
-	user, err := accounts.InsertUser(context.Background(), in)
+	defer closeDB()
+	user, err := accounts.Users.InsertUser(context.Background(), in)
 	if err != nil {
 		code, message := apperr.From(err).Public()
 		return fmt.Errorf("cannot create user: %s (%s)", code, message)

@@ -5,7 +5,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"svc-registry/internal/feature/access"
+	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/presentation/http/requests"
 	"svc-registry/internal/presentation/http/responses"
 )
@@ -16,10 +16,10 @@ func (a *Handlers) ListKnowledgeScans(c fiber.Ctx) error {
 		return responses.Fail(c, err)
 	}
 	var q requests.Scans
-	if err := bindQuery(c, &q, access.InvalidPagination, nil); err != nil {
+	if err := bindQuery(c, &q, accesstypes.InvalidPagination, nil); err != nil {
 		return responses.Fail(c, err)
 	}
-	page, err := a.Knowledge.ListScans(c.Context(), p, q.Filter(), q.Page.Query())
+	page, err := a.Knowledge.Scans.ListScans(c.Context(), p, q.Filter(), q.Page.Query())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -36,10 +36,10 @@ func (a *Handlers) ListProjectScans(c fiber.Ctx) error {
 		return responses.Fail(c, err)
 	}
 	var q requests.Scans
-	if err := bindQuery(c, &q, access.InvalidPagination, nil); err != nil {
+	if err := bindQuery(c, &q, accesstypes.InvalidPagination, nil); err != nil {
 		return responses.Fail(c, err)
 	}
-	page, err := a.Knowledge.ListProjectScans(c.Context(), p, id, q.Filter(), q.Page.Query())
+	page, err := a.Knowledge.Scans.ListProjectScans(c.Context(), p, id, q.Filter(), q.Page.Query())
 	if err != nil {
 		return responses.Fail(c, err)
 	}

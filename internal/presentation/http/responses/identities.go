@@ -3,7 +3,7 @@ package responses
 import (
 	"github.com/google/uuid"
 
-	accessservice "svc-registry/internal/feature/access/service"
+	accessservices "svc-registry/internal/feature/access/services"
 )
 
 type Identity struct {
@@ -19,7 +19,7 @@ type Identities struct {
 	Items []Identity `json:"items"`
 }
 
-func IdentitiesOf(items []accessservice.IdentityView) Identities {
+func IdentitiesOf(items []accessservices.IdentityView) Identities {
 	out := make([]Identity, 0, len(items))
 	for _, i := range items {
 		out = append(out, Identity{ID: i.ID, Provider: i.Provider, DisplayName: i.DisplayName, Email: i.Email,

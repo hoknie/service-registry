@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"svc-registry/internal/platform/postgres"
+	"svc-registry/internal/app"
 )
 
 func dbRollbackCmd() *cobra.Command {
@@ -23,7 +23,7 @@ func dbRollbackCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			reverted, err := postgres.Rollback(context.Background(), cfg, count)
+			reverted, err := app.Rollback(context.Background(), cfg, count)
 			if err != nil {
 				return failed(fmt.Errorf("rollback failed: %w", err))
 			}

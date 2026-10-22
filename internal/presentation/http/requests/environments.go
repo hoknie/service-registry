@@ -1,6 +1,6 @@
 package requests
 
-import "svc-registry/internal/feature/deploy"
+import deploytypes "svc-registry/internal/feature/deploy/types"
 
 type CreateEnvironment struct {
 	Key      *string            `json:"key" validate:"required"`
@@ -8,8 +8,8 @@ type CreateEnvironment struct {
 	Position *int64             `json:"position"`
 }
 
-func (r CreateEnvironment) Environment() deploy.CreateEnvironment {
-	return deploy.CreateEnvironment{Key: *r.Key, Names: *r.Names, Position: r.Position}
+func (r CreateEnvironment) Environment() deploytypes.CreateEnvironment {
+	return deploytypes.CreateEnvironment{Key: *r.Key, Names: *r.Names, Position: r.Position}
 }
 
 type UpdateEnvironment struct {
@@ -17,8 +17,8 @@ type UpdateEnvironment struct {
 	Position *int64             `json:"position"`
 }
 
-func (r UpdateEnvironment) Environment() deploy.UpdateEnvironment {
-	out := deploy.UpdateEnvironment{Position: r.Position}
+func (r UpdateEnvironment) Environment() deploytypes.UpdateEnvironment {
+	out := deploytypes.UpdateEnvironment{Position: r.Position}
 	if r.Names != nil {
 		out.Names = *r.Names
 		if out.Names == nil {

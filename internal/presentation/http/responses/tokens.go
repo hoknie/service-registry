@@ -3,8 +3,8 @@ package responses
 import (
 	"github.com/google/uuid"
 
-	"svc-registry/internal/feature/access"
-	accessservice "svc-registry/internal/feature/access/service"
+	accessservices "svc-registry/internal/feature/access/services"
+	accesstypes "svc-registry/internal/feature/access/types"
 )
 
 type Token struct {
@@ -22,21 +22,21 @@ type Token struct {
 	Secret     *string    `json:"secret,omitempty"`
 }
 
-func TokenOf(t access.Token) Token {
+func TokenOf(t accesstypes.Token) Token {
 	return Token{
 		ID: t.ID, Name: t.Name, Prefix: t.Prefix, Scopes: t.Scopes.Strings(), Status: string(t.Status),
 		CreatedAt: t.CreatedAt, ExpiresAt: t.ExpiresAt, LastUsedAt: t.LastUsedAt, RevokedAt: t.RevokedAt,
 	}
 }
 
-func OwnedTokenOf(t access.Token) Token {
+func OwnedTokenOf(t accesstypes.Token) Token {
 	out := TokenOf(t)
 	id, email := t.UserID, t.UserEmail
 	out.UserID, out.UserEmail = &id, &email
 	return out
 }
 
-func IssuedTokenOf(i accessservice.IssuedToken) Token {
+func IssuedTokenOf(i accessservices.IssuedToken) Token {
 	out := TokenOf(i.Token)
 	secret := i.Secret
 	out.Secret = &secret

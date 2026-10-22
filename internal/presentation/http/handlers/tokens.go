@@ -7,7 +7,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 
-	"svc-registry/internal/feature/access"
+	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/presentation/http/requests"
 	"svc-registry/internal/presentation/http/responses"
 )
@@ -17,7 +17,7 @@ func (a *Handlers) ListOwnTokens(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	tokens, err := a.Access.ListOwnTokens(c.Context(), p)
+	tokens, err := a.Access.Tokens.ListOwnTokens(c.Context(), p)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -33,7 +33,7 @@ func (a *Handlers) IssueToken(c fiber.Ctx) error {
 	if err := bindJSON(c, &in); err != nil {
 		return responses.Fail(c, err)
 	}
-	issued, err := a.Access.IssueToken(c.Context(), p, in.Token())
+	issued, err := a.Access.Tokens.IssueToken(c.Context(), p, in.Token())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -41,7 +41,7 @@ func (a *Handlers) IssueToken(c fiber.Ctx) error {
 }
 
 func (a *Handlers) RevokeOwnToken(c fiber.Ctx) error {
-	return a.revokeToken(c, a.Access.RevokeOwnToken)
+	return a.revokeToken(c, a.Access.Tokens.RevokeOwnToken)
 }
 
 func (a *Handlers) IssueUserToken(c fiber.Ctx) error {
@@ -57,7 +57,7 @@ func (a *Handlers) IssueUserToken(c fiber.Ctx) error {
 	if err := bindJSON(c, &in); err != nil {
 		return responses.Fail(c, err)
 	}
-	issued, err := a.Access.IssueUserToken(c.Context(), p, id, in.Token())
+	issued, err := a.Access.Tokens.IssueUserToken(c.Context(), p, id, in.Token())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -73,7 +73,7 @@ func (a *Handlers) ListUserTokens(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	tokens, err := a.Access.ListUserTokens(c.Context(), p, id)
+	tokens, err := a.Access.Tokens.ListUserTokens(c.Context(), p, id)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -86,10 +86,10 @@ func (a *Handlers) ListTokens(c fiber.Ctx) error {
 		return responses.Fail(c, err)
 	}
 	var q requests.Tokens
-	if err := bindQuery(c, &q, access.InvalidPagination, nil); err != nil {
+	if err := bindQuery(c, &q, accesstypes.InvalidPagination, nil); err != nil {
 		return responses.Fail(c, err)
 	}
-	page, err := a.Access.ListTokens(c.Context(), p, q.Query())
+	page, err := a.Access.Tokens.ListTokens(c.Context(), p, q.Query())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -97,10 +97,10 @@ func (a *Handlers) ListTokens(c fiber.Ctx) error {
 }
 
 func (a *Handlers) RevokeToken(c fiber.Ctx) error {
-	return a.revokeToken(c, a.Access.RevokeToken)
+	return a.revokeToken(c, a.Access.Tokens.RevokeToken)
 }
 
-func (a *Handlers) revokeToken(c fiber.Ctx, revoke func(context.Context, access.Principal, uuid.UUID) error) error {
+func (a *Handlers) revokeToken(c fiber.Ctx, revoke func(context.Context, accesstypes.Principal, uuid.UUID) error) error {
 	p, _, err := a.currentUser(c)
 	if err != nil {
 		return responses.Fail(c, err)

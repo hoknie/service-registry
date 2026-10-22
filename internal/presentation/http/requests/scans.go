@@ -1,6 +1,6 @@
 package requests
 
-import "svc-registry/internal/feature/knowledge"
+import knowledgetypes "svc-registry/internal/feature/knowledge/types"
 
 type Scans struct {
 	Page
@@ -10,6 +10,6 @@ type Scans struct {
 	Trigger string `query:"trigger"`
 }
 
-func (q Scans) Filter() knowledge.ScanQuery {
-	return knowledge.ScanQuery{Project: q.Project, Kind: q.Kind, Status: q.Status, Trigger: q.Trigger}
+func (q Scans) Filter() knowledgetypes.ScanQuery {
+	return knowledgetypes.ScanQuery{Project: q.Project, Kind: q.Kind, Status: q.Status, Trigger: q.Trigger}
 }

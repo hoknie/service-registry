@@ -410,7 +410,7 @@ func TestRetentionDeletesOldEventsButKeepsTheHistory(t *testing.T) {
 	}
 	execSQL(t, app.db, "UPDATE project_events SET received_at = now() - interval '31 days' WHERE idempotency_key = 'old'")
 	for _, want := range []uint64{1, 0} {
-		n, err := app.services.Ingest.PruneEvents(context.Background())
+		n, err := app.services.Ingest.Accept.PruneEvents(context.Background())
 		if err != nil || n != want {
 			t.Fatalf("prune: %d %v, want %d", n, err, want)
 		}

@@ -1,6 +1,6 @@
 # Development
 
-Requirements: Go (the toolchain `go1.26.9` pinned in `go.mod` is fetched automatically by
+Requirements: Go (the toolchain `go1.27.3` pinned in `go.mod` is fetched automatically by
 `GOTOOLCHAIN=auto`), Node 24, pnpm 12, Docker and [`just`](https://github.com/casey/just).
 `just` alone lists every recipe; it loads `.env` (`cp .env.example .env`), the binary itself reads
 only the process environment.

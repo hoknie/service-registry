@@ -1,0 +1,177 @@
+package services
+
+import (
+	"context"
+	"log/slog"
+	"time"
+
+	"github.com/google/uuid"
+
+	catalogtypes "svc-registry/internal/feature/catalog/types"
+	knowledgeports "svc-registry/internal/feature/knowledge/ports"
+	knowledgetypes "svc-registry/internal/feature/knowledge/types"
+	"svc-registry/internal/platform/apperr"
+)
+
+type collectRun struct {
+	s           *CollectService
+	id          uuid.UUID
+	project     knowledgetypes.Project
+	scan        *knowledgetypes.Scan
+	next, retry uint32
+}
+
+func (r *collectRun) release(ctx context.Context) error {
+	if ctx.Err() != nil {
+		return nil
+	}
+	return apperr.Wrap(r.s.collectionRepository.Release(context.WithoutCancel(ctx), r.id, r.next, true))
+}
+
+func (r *collectRun) delay(reset *time.Time) {
+	if reset != nil {
+		if secs := time.Until(*reset).Seconds(); secs > 0 {
+			r.next = uint32(secs) + 1
+		}
+		return
+	}
+	r.next = max(r.next, r.retry)
+}
+
+func (r *collectRun) fail(ctx context.Context, branches []string, err error) error {
+	if ctx.Err() != nil {
+		return nil
+	}
+	code, reset := failureOf(err)
+	r.scan.Fail(code, err)
+	r.delay(reset)
+	for _, b := range branches {
+		r.scan.Branches = append(r.scan.Branches, knowledgetypes.ScanBranch{Name: b, Result: knowledgetypes.BranchFailed, Error: code})
+		if err := r.s.recordFailure(ctx, r.id, b, code); err != nil {
+			return err
+		}
+	}
+	return r.release(ctx)
+}
+
+func (r *collectRun) sourceHeads(ctx context.Context, src *knowledgetypes.StoredSource) (knowledgeports.ReaderPort, []head, error) {
+	s, p, id := r.s, r.project, r.id
+	r.scan.Source = string(src.Kind)
+	def := p.DefaultBranch
+	known := knownBranches(src, def)
+	token, err := s.sourceToken(ctx, id, src)
+	if err != nil {
+		return nil, nil, r.fail(ctx, known, err)
+	}
+	reader, err := s.readers.Open(ctx, src.Source, p.Settings, token)
+	if err != nil {
+		return nil, nil, r.fail(ctx, known, err)
+	}
+	shown, srcDef, err := reader.Heads(ctx)
+	if err != nil {
+		return nil, nil, r.fail(ctx, known, err)
+	}
+	for name := range shown {
+		if !catalogtypes.BranchFits(name) {
+			delete(shown, name)
+		}
+	}
+	if !catalogtypes.BranchFits(srcDef) {
+		srcDef = ""
+	}
+	if src.Kind == knowledgetypes.SourceLocalDir {
+		def = knowledgetypes.LocalBranch
+	} else if def == "" {
+		def = srcDef
+	}
+	var heads []head
+	kept := map[string]string{}
+	for name, sha := range shown {
+		if p.Settings.CollectsBranch(name, def) {
+			kept[name] = sha
+			heads = append(heads, head{name, sha})
+		}
+	}
+	var branches map[string]string
+	if src.Kind != knowledgetypes.SourceLocalDir {
+		branches = make(map[string]string, len(shown))
+		for name, sha := range shown {
+			branches[name] = knowledgetypes.CommitOf(sha)
+		}
+	}
+	if err := s.setHeads(ctx, id, kept, srcDef, branches); err != nil {
+		return nil, nil, apperr.Wrap(err)
+	}
+	if src.Kind != knowledgetypes.SourceLocalDir {
+		if err := s.fillDefaultBranch(ctx, id, srcDef); err != nil {
+			return nil, nil, apperr.Wrap(err)
+		}
+	}
+	if err := s.recordRepository(ctx, id, reader); err != nil {
+		return nil, nil, apperr.Wrap(err)
+	}
+	if len(heads) == 0 {
+		r.scan.Warn(knowledgetypes.WarnNoBranches)
+	}
+	return reader, heads, nil
+}
+
+func (r *collectRun) forgeHeads(ctx context.Context) (knowledgeports.ReaderPort, []head, error) {
+	s, p, id := r.s, r.project, r.id
+	r.scan.Source = "forge"
+	repo, client, code := s.forge.Projects.ProjectClient(ctx, id)
+	branches, err := s.snapshotRepository.Branches(ctx, id)
+	if err != nil {
+		return nil, nil, apperr.Wrap(err)
+	}
+	var heads []head
+	for _, b := range branches {
+		if !b.Gone && b.HeadSHA != "" && p.Settings.CollectsBranch(b.Name, p.DefaultBranch) {
+			heads = append(heads, head{b.Name, b.HeadSHA})
+		}
+	}
+	if code != "" {
+		names := make([]string, 0, len(heads))
+		for _, h := range heads {
+			names = append(names, h.name)
+		}
+		return nil, nil, r.fail(ctx, names, knowledgetypes.Failure(code))
+	}
+	if len(heads) == 0 {
+		r.scan.Warn(knowledgetypes.WarnNoBranches)
+	}
+	return &syncedReader{client: client, repo: repo}, heads, nil
+}
+
+func (r *collectRun) collect(ctx context.Context, reader knowledgeports.ReaderPort, heads []head) error {
+	s, p, id := r.s, r.project, r.id
+	for _, h := range heads {
+		if ctx.Err() != nil {
+			return nil
+		}
+		if !p.Force {
+			last, err := s.snapshotRepository.LastAttempt(ctx, id, h.name)
+			if err != nil {
+				return apperr.Wrap(err)
+			}
+			if last != nil && last.Commit == h.sha && last.Status != knowledgetypes.StatusFailed {
+				r.scan.Branches = append(r.scan.Branches, knowledgetypes.ScanBranch{Name: h.name, Commit: h.sha, Result: knowledgetypes.BranchUnchanged})
+				continue
+			}
+		}
+		if err := s.collectBranch(ctx, p, reader, h, r.scan); err != nil {
+			if ctx.Err() != nil {
+				return nil
+			}
+			code, reset := failureOf(err)
+			r.scan.Fail(code, err)
+			r.scan.Branches = append(r.scan.Branches, knowledgetypes.ScanBranch{Name: h.name, Commit: h.sha, Result: knowledgetypes.BranchFailed, Error: code})
+			slog.Info("documentation collection failed", "project", id, "branch", h.name, "code", code)
+			if err := s.recordFailure(ctx, id, h.name, code, h.sha); err != nil {
+				return err
+			}
+			r.delay(reset)
+		}
+	}
+	return r.release(ctx)
+}

@@ -6,32 +6,32 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 
-	"svc-registry/internal/feature/access"
+	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/platform/apperr"
 )
 
-func (a *Handlers) currentUser(c fiber.Ctx) (access.Principal, access.User, error) {
-	var p access.Principal
-	var user access.User
+func (a *Handlers) currentUser(c fiber.Ctx) (accesstypes.Principal, accesstypes.User, error) {
+	var p accesstypes.Principal
+	var user accesstypes.User
 	var err error
 	if header, ok := authorization(c); ok {
 		secret, isBearer := bearer(header)
 		if !isBearer {
-			return access.Principal{}, access.User{}, apperr.New(apperr.InvalidToken)
+			return accesstypes.Principal{}, accesstypes.User{}, apperr.New(apperr.InvalidToken)
 		}
-		p, user, err = a.Access.AuthenticateToken(c.Context(), secret)
+		p, user, err = a.Access.Auth.AuthenticateToken(c.Context(), secret)
 	} else {
 		token := c.Cookies(SessionCookie)
 		if token == "" {
-			return access.Principal{}, access.User{}, apperr.New(apperr.Unauthenticated)
+			return accesstypes.Principal{}, accesstypes.User{}, apperr.New(apperr.Unauthenticated)
 		}
-		p, user, err = a.Access.Authenticate(c.Context(), token)
+		p, user, err = a.Access.Auth.Authenticate(c.Context(), token)
 	}
 	if err != nil {
-		return access.Principal{}, access.User{}, err
+		return accesstypes.Principal{}, accesstypes.User{}, err
 	}
-	if err := access.RequireScope(p, routeNeed(c.Method(), c.Route().Path)); err != nil {
-		return access.Principal{}, access.User{}, err
+	if err := accesstypes.RequireScope(p, routeNeed(c.Method(), c.Route().Path)); err != nil {
+		return accesstypes.Principal{}, accesstypes.User{}, err
 	}
 	return p, user, nil
 }
@@ -52,39 +52,39 @@ func bearer(header string) (string, bool) {
 	return strings.TrimSpace(credentials), true
 }
 
-func routeNeed(method, route string) access.Need {
+func routeNeed(method, route string) accesstypes.Need {
 	switch {
 	case route == "/api/v1/auth/me":
-		return access.NeedAny
+		return accesstypes.NeedAny
 	case method == fiber.MethodPost && (route == "/api/v1/catalog/nodes/:id/links/:link_key/check" ||
 		route == "/api/v1/catalog/nodes/:id/link-templates/preview"):
-		return access.NeedRead
+		return accesstypes.NeedRead
 	case route == "/api/mcp":
-		return access.NeedAny
+		return accesstypes.NeedAny
 	case route == "/api/v1/knowledge/search", route == "/api/v1/knowledge/search/modes", route == "/api/v1/link-icons/:id",
 		route == "/api/v1/docs/space":
-		return access.NeedRead
+		return accesstypes.NeedRead
 	case strings.HasPrefix(route, "/api/v1/catalog/"):
 		if method == fiber.MethodGet || method == fiber.MethodHead {
-			return access.NeedRead
+			return accesstypes.NeedRead
 		}
-		return access.NeedWrite
+		return accesstypes.NeedWrite
 	case route == "/api/v1/users/:id/tokens":
-		return access.NeedSession
+		return accesstypes.NeedSession
 	case route == "/api/v1/users", strings.HasPrefix(route, "/api/v1/users/"),
 		route == "/api/v1/groups", strings.HasPrefix(route, "/api/v1/groups/"),
 		route == "/api/v1/clusters", strings.HasPrefix(route, "/api/v1/clusters/"),
 		route == "/api/v1/secrets", strings.HasPrefix(route, "/api/v1/secrets/"),
 		route == "/api/v1/knowledge/scans":
-		return access.NeedAdmin
+		return accesstypes.NeedAdmin
 	case route == "/api/v1/link-kinds", strings.HasPrefix(route, "/api/v1/link-kinds/"),
 		route == "/api/v1/environments", strings.HasPrefix(route, "/api/v1/environments/"):
 		if method == fiber.MethodGet || method == fiber.MethodHead {
-			return access.NeedRead
+			return accesstypes.NeedRead
 		}
-		return access.NeedAdmin
+		return accesstypes.NeedAdmin
 	}
-	return access.NeedSession
+	return accesstypes.NeedSession
 }
 
 func parseID(c fiber.Ctx, name string) (uuid.UUID, error) {

@@ -3,8 +3,8 @@ package app
 import (
 	"fmt"
 
-	"svc-registry/internal/feature/knowledge/search/meili"
-	"svc-registry/internal/feature/knowledge/search/qdrant"
+	"svc-registry/internal/feature/knowledge/clients/search/meili"
+	"svc-registry/internal/feature/knowledge/clients/search/qdrant"
 	"svc-registry/internal/platform/config"
 	"svc-registry/internal/platform/outbound"
 )

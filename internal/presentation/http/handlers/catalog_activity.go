@@ -17,7 +17,7 @@ func (a *Handlers) NodeActivity(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	activity, err := a.Catalog.NodeActivity(c.Context(), p, id)
+	activity, err := a.Catalog.Activity.NodeActivity(c.Context(), p, id)
 	if err != nil {
 		return responses.Fail(c, err)
 	}

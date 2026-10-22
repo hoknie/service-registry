@@ -1,6 +1,6 @@
 package requests
 
-import "svc-registry/internal/feature/access"
+import accesstypes "svc-registry/internal/feature/access/types"
 
 type CreateToken struct {
 	Name          *string   `json:"name" validate:"required"`
@@ -8,8 +8,8 @@ type CreateToken struct {
 	ExpiresInDays *int64    `json:"expires_in_days"`
 }
 
-func (r CreateToken) Token() access.CreateToken {
-	return access.CreateToken{Name: *r.Name, Scopes: *r.Scopes, ExpiresInDays: r.ExpiresInDays}
+func (r CreateToken) Token() accesstypes.CreateToken {
+	return accesstypes.CreateToken{Name: *r.Name, Scopes: *r.Scopes, ExpiresInDays: r.ExpiresInDays}
 }
 
 type Tokens struct {
@@ -17,6 +17,6 @@ type Tokens struct {
 	Prefix *string `query:"prefix"`
 }
 
-func (q Tokens) Query() access.TokenQuery {
-	return access.TokenQuery{Prefix: q.Prefix, Page: q.Page.Query()}
+func (q Tokens) Query() accesstypes.TokenQuery {
+	return accesstypes.TokenQuery{Prefix: q.Prefix, Page: q.Page.Query()}
 }

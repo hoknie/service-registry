@@ -18,11 +18,11 @@ var (
 type clusterSource struct{ deps Deps }
 
 func (s clusterSource) Claim(ctx context.Context, limit, leaseSecs int) ([]uuid.UUID, error) {
-	return s.deps.Deploy.ClaimClusterPolls(ctx, limit, leaseSecs)
+	return s.deps.Deploy.Poll.ClaimClusterPolls(ctx, limit, leaseSecs)
 }
 
 func (s clusterSource) Extend(ctx context.Context, id uuid.UUID, leaseSecs int) error {
-	return s.deps.Deploy.ExtendClusterPoll(ctx, id, leaseSecs)
+	return s.deps.Deploy.Poll.ExtendClusterPoll(ctx, id, leaseSecs)
 }
 
 func SpawnClusterPolls(ctx context.Context, deps Deps) <-chan struct{} {
@@ -35,7 +35,7 @@ func SpawnClusterPolls(ctx context.Context, deps Deps) <-chan struct{} {
 		Name:   "cluster-poll",
 		Source: clusterSource{deps: deps},
 		Run: func(ctx context.Context, id uuid.UUID) {
-			if err := deps.Deploy.RunClusterPoll(ctx, id); err != nil {
+			if err := deps.Deploy.Poll.RunClusterPoll(ctx, id); err != nil {
 				slog.Warn("cluster poll failed", "cluster", id, "error", err)
 			}
 		},
@@ -59,7 +59,7 @@ func pruneWorkloads(ctx context.Context, deps Deps) {
 	tick := time.NewTicker(WorkloadRetentionEvery)
 	defer tick.Stop()
 	for {
-		switch n, err := deps.Deploy.PruneWorkloads(ctx); {
+		switch n, err := deps.Deploy.Poll.PruneWorkloads(ctx); {
 		case ctx.Err() != nil:
 			return
 		case err != nil:

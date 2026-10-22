@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"svc-registry/internal/feature/knowledge"
+	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/pkg/leasejobs"
 )
 
@@ -17,16 +17,16 @@ var IndexTick = 5 * time.Second
 type indexSource struct{ deps Deps }
 
 func (s indexSource) Claim(ctx context.Context, limit, leaseSecs int) ([]uuid.UUID, error) {
-	return s.deps.Knowledge.ClaimIndex(ctx, limit, leaseSecs)
+	return s.deps.Knowledge.Index.ClaimIndex(ctx, limit, leaseSecs)
 }
 
 func (s indexSource) Extend(ctx context.Context, id uuid.UUID, leaseSecs int) error {
-	return s.deps.Knowledge.ExtendIndex(ctx, id, leaseSecs)
+	return s.deps.Knowledge.Index.ExtendIndex(ctx, id, leaseSecs)
 }
 
 func SpawnKnowledgeIndex(ctx context.Context, deps Deps) <-chan struct{} {
 	done := make(chan struct{})
-	info := deps.Knowledge.Indexing()
+	info := deps.Knowledge.Ports.Indexing()
 	e := info.Engine
 	indexing := deps.Config.Jobs.Enabled && info.Enabled
 	slog.Info("documentation search", "engine", e.Name(), "modes", e.Modes(), "default", e.DefaultMode(),
@@ -39,8 +39,8 @@ func SpawnKnowledgeIndex(ctx context.Context, deps Deps) <-chan struct{} {
 		Name:   "knowledge-index",
 		Source: indexSource{deps: deps},
 		Run: func(ctx context.Context, id uuid.UUID) {
-			err := deps.Knowledge.RunKnowledgeIndex(ctx, id)
-			var failure *knowledge.IndexFailure
+			err := deps.Knowledge.Index.RunKnowledgeIndex(ctx, id)
+			var failure *knowledgetypes.IndexFailure
 			switch {
 			case errors.As(err, &failure):
 				slog.Warn("documentation indexing failed", "project", id, "code", failure.Code, "detail", failure.Detail)
@@ -62,7 +62,7 @@ func SpawnKnowledgeIndex(ctx context.Context, deps Deps) <-chan struct{} {
 var RetainEvery = time.Hour
 
 func retainLoop(ctx context.Context, deps Deps) {
-	if !deps.Knowledge.Indexing().External {
+	if !deps.Knowledge.Ports.Indexing().External {
 		return
 	}
 	t := time.NewTicker(RetainEvery)
@@ -72,7 +72,7 @@ func retainLoop(ctx context.Context, deps Deps) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			if err := deps.Knowledge.RetainExternalIndex(ctx); err != nil {
+			if err := deps.Knowledge.Index.RetainExternalIndex(ctx); err != nil {
 				slog.Warn("search index cleanup failed", "error", err)
 			}
 		}

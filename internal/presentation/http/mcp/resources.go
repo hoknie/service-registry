@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"svc-registry/internal/feature/catalog"
-	knowledgeservice "svc-registry/internal/feature/knowledge/service"
+	knowledgeservices "svc-registry/internal/feature/knowledge/services"
+	"svc-registry/pkg/ptr"
 )
 
 const (
@@ -62,8 +62,8 @@ func (t *tools) readResource(ctx context.Context, req *sdk.ReadResourceRequest) 
 	if err != nil {
 		return nil, sdk.ResourceNotFoundError(uri)
 	}
-	ref := knowledgeservice.KnowledgeRef{Branch: opt(u.Query().Get("ref"))}
-	_, f, err := t.deps.Knowledge.KnowledgeFile(ctx, t.p, s.Node.ID, ref, path)
+	ref := knowledgeservices.KnowledgeRef{Branch: ptr.NonEmpty(u.Query().Get("ref"))}
+	_, f, err := t.deps.Knowledge.Documents.KnowledgeFile(ctx, t.p, s.Node.ID, ref, path)
 	if err != nil || f.Content == nil {
 		return nil, sdk.ResourceNotFoundError(uri)
 	}
@@ -72,27 +72,14 @@ func (t *tools) readResource(ctx context.Context, req *sdk.ReadResourceRequest) 
 
 func (t *tools) listResources(ctx context.Context, cursor string) (*sdk.ListResourcesResult, error) {
 	offset, _ := strconv.Atoi(cursor)
-	depth := int64(catalog.TreeMaxDepth)
-	nodes, _, err := t.deps.Catalog.Tree(ctx, t.p, nil, &depth)
+	docs, err := t.deps.Compose.MCP.DocResources(ctx, t.p)
 	if err != nil {
 		return &sdk.ListResourcesResult{Resources: []*sdk.Resource{}}, nil
 	}
 	var all []*sdk.Resource
-	for _, w := range nodes {
-		if !w.Readable || w.Node.Kind != catalog.KindProject {
-			continue
-		}
-		_, files, err := t.deps.Knowledge.KnowledgeFiles(ctx, t.p, w.Node.ID, knowledgeservice.KnowledgeRef{})
-		if err != nil {
-			continue
-		}
-		for _, f := range files {
-			if f.Skip != nil {
-				continue
-			}
-			all = append(all, &sdk.Resource{URI: docURI(w.Node.ID, f.Path), Name: w.Node.Slug + "/" + f.Path,
-				Title: w.Node.Name + ": " + f.Path, MIMEType: mimeOf(f.Path), Size: f.Bytes})
-		}
+	for _, d := range docs {
+		all = append(all, &sdk.Resource{URI: docURI(d.Project.ID, d.File.Path), Name: d.Project.Slug + "/" + d.File.Path,
+			Title: d.Project.Name + ": " + d.File.Path, MIMEType: mimeOf(d.File.Path), Size: d.File.Bytes})
 	}
 	out := &sdk.ListResourcesResult{Resources: []*sdk.Resource{}}
 	if offset < len(all) {

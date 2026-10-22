@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"svc-registry/internal/feature/deploy"
+	deploytypes "svc-registry/internal/feature/deploy/types"
 )
 
 func recordsPath(project, what string) string { return nodePath(project) + "/" + what }
@@ -124,7 +124,7 @@ func TestEnvironmentsWithClusterObservations(t *testing.T) {
 		eq(t, app.ingest(project, key, deployed("k"+env, "api", env, "1.4.2", "2026-10-01T1"+string(rune('0'+i))+":00:00Z")).status, 201)
 	}
 	ann := func(env string) map[string]string {
-		return map[string]string{deploy.AnnotationProject: "api-org/api", deploy.AnnotationService: "api", deploy.AnnotationEnvironment: env}
+		return map[string]string{deploytypes.AnnotationProject: "api-org/api", deploytypes.AnnotationService: "api", deploytypes.AnnotationEnvironment: env}
 	}
 	k8s.Cluster().Put(workload("u1", "api", "1.4.1", ann("production")), workload("u2", "api-stg", "2.0.0", ann("staging")))
 	app.pollNow()

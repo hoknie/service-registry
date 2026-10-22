@@ -1,6 +1,6 @@
 package responses
 
-import "svc-registry/internal/feature/catalog"
+import catalogtypes "svc-registry/internal/feature/catalog/types"
 
 type Branch struct {
 	Name           string   `json:"name"`
@@ -15,7 +15,7 @@ type Branch struct {
 	GoneAt         *string  `json:"gone_at"`
 }
 
-func BranchOf(b catalog.Branch) Branch {
+func BranchOf(b catalogtypes.Branch) Branch {
 	sources := make([]string, 0, len(b.Sources))
 	for _, s := range b.Sources {
 		sources = append(sources, string(s))
@@ -24,7 +24,7 @@ func BranchOf(b catalog.Branch) Branch {
 		Pinned: b.Pinned, Stale: b.Stale, FirstSeenAt: b.FirstSeenAt, LastActivityAt: b.LastActivityAt, GoneAt: b.GoneAt}
 }
 
-func BranchPage(items []catalog.Branch, f catalog.BranchFilter, total uint64) Page[Branch] {
+func BranchPage(items []catalogtypes.Branch, f catalogtypes.BranchFilter, total uint64) Page[Branch] {
 	out := make([]Branch, 0, len(items))
 	for _, b := range items {
 		out = append(out, BranchOf(b))

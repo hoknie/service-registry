@@ -5,8 +5,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"svc-registry/internal/feature/access"
-	"svc-registry/internal/feature/ingest"
+	accesstypes "svc-registry/internal/feature/access/types"
+	ingesttypes "svc-registry/internal/feature/ingest/types"
 	"svc-registry/internal/presentation/http/requests"
 	"svc-registry/internal/presentation/http/responses"
 )
@@ -17,10 +17,10 @@ func (a *Handlers) ListEvents(c fiber.Ctx) error {
 		return responses.Fail(c, err)
 	}
 	var q requests.Events
-	if err := bindQuery(c, &q, access.InvalidPagination, nil); err != nil {
+	if err := bindQuery(c, &q, accesstypes.InvalidPagination, nil); err != nil {
 		return responses.Fail(c, err)
 	}
-	var filter ingest.EventFilter
+	var filter ingesttypes.EventFilter
 	if q.Type != "" {
 		filter.Type = &q.Type
 	}
@@ -28,7 +28,7 @@ func (a *Handlers) ListEvents(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	page, err := a.Ingest.ListEvents(c.Context(), p, id, filter, q.Query())
+	page, err := a.Ingest.Records.ListEvents(c.Context(), p, id, filter, q.Query())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -41,15 +41,15 @@ func (a *Handlers) ListDeployments(c fiber.Ctx) error {
 		return responses.Fail(c, err)
 	}
 	var q requests.Deployments
-	if err := bindQuery(c, &q, access.InvalidPagination, nil); err != nil {
+	if err := bindQuery(c, &q, accesstypes.InvalidPagination, nil); err != nil {
 		return responses.Fail(c, err)
 	}
-	filter := ingest.NewDeploymentFilter(q.Service, q.Environment, q.Branch)
+	filter := ingesttypes.NewDeploymentFilter(q.Service, q.Environment, q.Branch)
 	id, err := parseID(c, "id")
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	page, err := a.Ingest.ListDeployments(c.Context(), p, id, filter, q.Query())
+	page, err := a.Ingest.Records.ListDeployments(c.Context(), p, id, filter, q.Query())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -65,7 +65,7 @@ func (a *Handlers) ListEnvironments(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	items, err := a.Deploy.ListEnvironments(c.Context(), p, id)
+	items, err := a.Deploy.EnvironmentStates.ListEnvironments(c.Context(), p, id)
 	if err != nil {
 		return responses.Fail(c, err)
 	}

@@ -4,17 +4,18 @@ import (
 	"context"
 	"sync"
 
-	"svc-registry/internal/feature/deploy"
+	deployports "svc-registry/internal/feature/deploy/ports"
+	deploytypes "svc-registry/internal/feature/deploy/types"
 )
 
 type Cluster struct {
 	mu        sync.Mutex
-	workloads []deploy.Workload
-	pods      map[string][]deploy.Pod
-	jobs      map[string][]deploy.Job
+	workloads []deploytypes.Workload
+	pods      map[string][]deploytypes.Pod
+	jobs      map[string][]deploytypes.Job
 	version   string
 	missing   []string
-	fail      *deploy.Failure
+	fail      *deploytypes.Failure
 	token     string
 	calls     int
 }
@@ -22,23 +23,23 @@ type Cluster struct {
 type Factory struct {
 	mu       sync.Mutex
 	cluster  *Cluster
-	accesses []deploy.Access
+	accesses []deploytypes.Access
 }
 
 func New(token string) *Factory {
-	return &Factory{cluster: &Cluster{pods: map[string][]deploy.Pod{}, jobs: map[string][]deploy.Job{}, version: "v1.31.2",
+	return &Factory{cluster: &Cluster{pods: map[string][]deploytypes.Pod{}, jobs: map[string][]deploytypes.Job{}, version: "v1.31.2",
 		missing: []string{}, token: token}}
 }
 
 func (f *Factory) Cluster() *Cluster { return f.cluster }
 
-func (f *Factory) Accesses() []deploy.Access {
+func (f *Factory) Accesses() []deploytypes.Access {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return append([]deploy.Access(nil), f.accesses...)
+	return append([]deploytypes.Access(nil), f.accesses...)
 }
 
-func (f *Factory) Client(a deploy.Access) (deploy.ClusterClient, error) {
+func (f *Factory) Client(a deploytypes.Access) (deployports.ClusterClientPort, error) {
 	f.mu.Lock()
 	f.accesses = append(f.accesses, a)
 	f.mu.Unlock()
@@ -48,19 +49,19 @@ func (f *Factory) Client(a deploy.Access) (deploy.ClusterClient, error) {
 	return client{c: f.cluster}, nil
 }
 
-func (c *Cluster) Put(ws ...deploy.Workload) {
+func (c *Cluster) Put(ws ...deploytypes.Workload) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.workloads = ws
 }
 
-func (c *Cluster) PutPods(namespace, selector string, pods ...deploy.Pod) {
+func (c *Cluster) PutPods(namespace, selector string, pods ...deploytypes.Pod) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.pods[namespace+"/"+selector] = pods
 }
 
-func (c *Cluster) PutJobs(cronJobUID string, jobs ...deploy.Job) {
+func (c *Cluster) PutJobs(cronJobUID string, jobs ...deploytypes.Job) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.jobs[cronJobUID] = jobs
@@ -72,7 +73,7 @@ func (c *Cluster) Missing(m ...string) {
 	c.missing = m
 }
 
-func (c *Cluster) Fail(f *deploy.Failure) {
+func (c *Cluster) Fail(f *deploytypes.Failure) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.fail = f
@@ -91,7 +92,7 @@ type client struct {
 
 func (cl client) err() error {
 	if cl.unauthorized {
-		return &deploy.Failure{Code: deploy.FailUnauthorized, Message: "Unauthorized"}
+		return &deploytypes.Failure{Code: deploytypes.FailUnauthorized, Message: "Unauthorized"}
 	}
 	if cl.c.fail != nil {
 		return cl.c.fail
@@ -117,14 +118,14 @@ func (cl client) Missing(context.Context, []string) ([]string, error) {
 	return append([]string{}, cl.c.missing...), nil
 }
 
-func (cl client) Workloads(_ context.Context, namespaces []string) ([]deploy.Workload, error) {
+func (cl client) Workloads(_ context.Context, namespaces []string) ([]deploytypes.Workload, error) {
 	cl.c.mu.Lock()
 	defer cl.c.mu.Unlock()
 	cl.c.calls++
 	if err := cl.err(); err != nil {
 		return nil, err
 	}
-	var out []deploy.Workload
+	var out []deploytypes.Workload
 	for _, w := range cl.c.workloads {
 		if len(namespaces) == 0 || contains(namespaces, w.Namespace) {
 			out = append(out, w)
@@ -133,7 +134,7 @@ func (cl client) Workloads(_ context.Context, namespaces []string) ([]deploy.Wor
 	return out, nil
 }
 
-func (cl client) Pods(_ context.Context, namespace, selector string) ([]deploy.Pod, error) {
+func (cl client) Pods(_ context.Context, namespace, selector string) ([]deploytypes.Pod, error) {
 	cl.c.mu.Lock()
 	defer cl.c.mu.Unlock()
 	if err := cl.err(); err != nil {
@@ -142,7 +143,7 @@ func (cl client) Pods(_ context.Context, namespace, selector string) ([]deploy.P
 	return cl.c.pods[namespace+"/"+selector], nil
 }
 
-func (cl client) Jobs(_ context.Context, _, cronJobUID string) ([]deploy.Job, error) {
+func (cl client) Jobs(_ context.Context, _, cronJobUID string) ([]deploytypes.Job, error) {
 	cl.c.mu.Lock()
 	defer cl.c.mu.Unlock()
 	if err := cl.err(); err != nil {

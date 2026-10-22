@@ -3,9 +3,9 @@ package responses
 import (
 	"github.com/google/uuid"
 
-	"svc-registry/internal/feature/catalog"
-	"svc-registry/internal/feature/knowledge"
-	knowledgeservice "svc-registry/internal/feature/knowledge/service"
+	knowledgeservices "svc-registry/internal/feature/knowledge/services"
+	knowledgetypes "svc-registry/internal/feature/knowledge/types"
+	"svc-registry/pkg/ptr"
 )
 
 type KnowledgeSettings struct {
@@ -26,7 +26,7 @@ type SettingsOrigin struct {
 	Name string    `json:"name"`
 }
 
-func NodeSettingsOf(s knowledgeservice.KnowledgeSettings) NodeSettings {
+func NodeSettingsOf(s knowledgeservices.KnowledgeSettings) NodeSettings {
 	own := map[string]any{}
 	if s.Own.IncludeSet {
 		own["include"] = s.Own.Include
@@ -37,7 +37,7 @@ func NodeSettingsOf(s knowledgeservice.KnowledgeSettings) NodeSettings {
 	if s.Own.Branches != nil {
 		own["branches"] = *s.Own.Branches
 	}
-	origin := func(n *knowledge.ChainNode) *SettingsOrigin {
+	origin := func(n *knowledgetypes.ChainNode) *SettingsOrigin {
 		if n == nil {
 			return nil
 		}
@@ -47,7 +47,7 @@ func NodeSettingsOf(s knowledgeservice.KnowledgeSettings) NodeSettings {
 		From: map[string]*SettingsOrigin{"include": origin(s.IncludeFrom), "exclude": origin(s.ExcludeFrom), "branches": origin(s.BranchesFrom)}}
 }
 
-func KnowledgeSettingsOf(s knowledge.Settings) KnowledgeSettings {
+func KnowledgeSettingsOf(s knowledgetypes.Settings) KnowledgeSettings {
 	out := KnowledgeSettings{Include: s.Include, Exclude: s.Exclude, Branches: s.Branches}
 	if out.Exclude == nil {
 		out.Exclude = []string{}
@@ -71,7 +71,7 @@ type Snapshot struct {
 	CollectedAt string    `json:"collected_at"`
 }
 
-func SnapshotOf(s *knowledge.Snapshot) *Snapshot {
+func SnapshotOf(s *knowledgetypes.Snapshot) *Snapshot {
 	if s == nil {
 		return nil
 	}
@@ -94,7 +94,7 @@ type Knowledge struct {
 	Branches []KnowledgeBranch `json:"branches"`
 }
 
-func KnowledgeOf(o knowledgeservice.KnowledgeOverview) Knowledge {
+func KnowledgeOf(o knowledgeservices.KnowledgeOverview) Knowledge {
 	out := Knowledge{Synced: o.Synced, Settings: KnowledgeSettingsOf(o.Settings), Branches: make([]KnowledgeBranch, 0, len(o.Branches))}
 	if o.Source != "" {
 		src := string(o.Source)
@@ -115,7 +115,7 @@ type KnowledgeFile struct {
 	GitStatus  *string `json:"git_status"`
 }
 
-func fileOf(f knowledge.FileInfo) KnowledgeFile {
+func fileOf(f knowledgetypes.FileInfo) KnowledgeFile {
 	out := KnowledgeFile{Path: f.Path, Kind: string(f.Kind), Bytes: f.Bytes}
 	if f.Meta.Git != "" {
 		g := string(f.Meta.Git)
@@ -133,7 +133,7 @@ type KnowledgeFiles struct {
 	Items    []KnowledgeFile `json:"items"`
 }
 
-func KnowledgeFilesOf(s knowledge.Snapshot, files []knowledge.FileInfo) KnowledgeFiles {
+func KnowledgeFilesOf(s knowledgetypes.Snapshot, files []knowledgetypes.FileInfo) KnowledgeFiles {
 	out := KnowledgeFiles{Snapshot: SnapshotOf(&s), Items: make([]KnowledgeFile, 0, len(files))}
 	for _, f := range files {
 		out.Items = append(out.Items, fileOf(f))
@@ -154,7 +154,7 @@ type KnowledgeTree struct {
 	Files    []KnowledgeFile    `json:"files"`
 }
 
-func KnowledgeTreeOf(s knowledge.Snapshot, l knowledge.TreeLevel) KnowledgeTree {
+func KnowledgeTreeOf(s knowledgetypes.Snapshot, l knowledgetypes.TreeLevel) KnowledgeTree {
 	out := KnowledgeTree{Snapshot: SnapshotOf(&s), Dirs: make([]KnowledgeTreeDir, 0, len(l.Dirs)), Files: make([]KnowledgeFile, 0, len(l.Files))}
 	for _, d := range l.Dirs {
 		dir := KnowledgeTreeDir{Name: d.Name, Path: d.Path, Files: d.Files}
@@ -176,7 +176,7 @@ type KnowledgeFileContent struct {
 	Content *string `json:"content"`
 }
 
-func KnowledgeFileContentOf(s knowledge.Snapshot, f knowledge.FileContent) KnowledgeFileContent {
+func KnowledgeFileContentOf(s knowledgetypes.Snapshot, f knowledgetypes.FileContent) KnowledgeFileContent {
 	return KnowledgeFileContent{Snapshot: SnapshotOf(&s), KnowledgeFile: fileOf(f.FileInfo), Content: f.Content}
 }
 
@@ -202,14 +202,7 @@ type ADR struct {
 	Path       string  `json:"path"`
 }
 
-func nonEmpty(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
-}
-
-func SpecsOf(o knowledgeservice.OpenSpec) Items[Spec] {
+func SpecsOf(o knowledgeservices.OpenSpec) Items[Spec] {
 	out := make([]Spec, 0, len(o.Specs))
 	for _, s := range o.Specs {
 		out = append(out, Spec{Capability: s.Capability, Path: s.Path, Purpose: s.Purpose, Requirements: s.Requirements})
@@ -217,7 +210,7 @@ func SpecsOf(o knowledgeservice.OpenSpec) Items[Spec] {
 	return Items[Spec]{Items: out}
 }
 
-func ChangesOf(o knowledgeservice.OpenSpec) Items[Change] {
+func ChangesOf(o knowledgeservices.OpenSpec) Items[Change] {
 	out := make([]Change, 0, len(o.Changes))
 	for _, c := range o.Changes {
 		out = append(out, Change{ID: c.ID, Archived: c.Archived, Path: c.Path, Artifacts: c.Artifacts})
@@ -225,10 +218,10 @@ func ChangesOf(o knowledgeservice.OpenSpec) Items[Change] {
 	return Items[Change]{Items: out}
 }
 
-func ADRsOf(o knowledgeservice.OpenSpec) Items[ADR] {
+func ADRsOf(o knowledgeservices.OpenSpec) Items[ADR] {
 	out := make([]ADR, 0, len(o.ADRs))
 	for _, a := range o.ADRs {
-		out = append(out, ADR{Number: a.Number, Title: a.Title, Status: nonEmpty(a.Status), Supersedes: nonEmpty(a.Supersedes), Path: a.Path})
+		out = append(out, ADR{Number: a.Number, Title: a.Title, Status: ptr.NonEmpty(a.Status), Supersedes: ptr.NonEmpty(a.Supersedes), Path: a.Path})
 	}
 	return Items[ADR]{Items: out}
 }
@@ -240,12 +233,12 @@ type SearchProject struct {
 }
 
 type SearchHit struct {
-	Project SearchProject       `json:"project"`
-	Branch  string              `json:"branch"`
-	Commit  string              `json:"commit"`
-	Path    string              `json:"path"`
-	Kind    string              `json:"kind"`
-	Snippet []knowledge.Segment `json:"snippet"`
+	Project SearchProject            `json:"project"`
+	Branch  string                   `json:"branch"`
+	Commit  string                   `json:"commit"`
+	Path    string                   `json:"path"`
+	Kind    string                   `json:"kind"`
+	Snippet []knowledgetypes.Segment `json:"snippet"`
 }
 
 type Search struct {
@@ -253,12 +246,12 @@ type Search struct {
 	NextCursor *string     `json:"next_cursor"`
 }
 
-func SearchOf(r knowledgeservice.SearchResult) Search {
+func SearchOf(r knowledgeservices.SearchResult) Search {
 	out := Search{Items: make([]SearchHit, 0, len(r.Hits))}
 	for _, h := range r.Hits {
 		snippet := h.Snippet
 		if snippet == nil {
-			snippet = []knowledge.Segment{}
+			snippet = []knowledgetypes.Segment{}
 		}
 		out.Items = append(out.Items, SearchHit{Project: SearchProject{ID: h.ProjectID, Path: h.ProjectPath, Name: h.ProjectName},
 			Branch: h.Branch, Commit: h.Commit, Path: h.Path, Kind: string(h.Kind), Snippet: snippet})
@@ -281,87 +274,13 @@ type IndexStatus struct {
 	Indexed int `json:"indexed"`
 }
 
-func SearchModesOf(m knowledgeservice.SearchModes) SearchModes {
+func SearchModesOf(m knowledgeservices.SearchModes) SearchModes {
 	out := SearchModes{Engine: m.Engine, Default: string(m.Default), Modes: make([]string, len(m.Modes))}
 	for i, x := range m.Modes {
 		out.Modes[i] = string(x)
 	}
 	if m.Pending != nil && m.Indexed != nil {
 		out.Index = &IndexStatus{Pending: *m.Pending, Indexed: *m.Indexed}
-	}
-	return out
-}
-
-type SourceCredentials struct {
-	Mode        string     `json:"mode"`
-	Secret      *SecretRef `json:"secret"`
-	Fingerprint *string    `json:"fingerprint"`
-}
-
-func sourceCredentialsOf(c catalog.Credentials) SourceCredentials {
-	out := SourceCredentials{Mode: string(c.Kind), Secret: SecretRefOf(c.Secret)}
-	if c.Kind == catalog.CredentialsSecret && out.Secret == nil && c.SecretID != nil {
-		out.Secret = &SecretRef{ID: *c.SecretID}
-	}
-	if c.Kind == catalog.CredentialsLegacy {
-		out.Fingerprint = c.Fingerprint
-	}
-	return out
-}
-
-type KnowledgeSource struct {
-	Kind           string            `json:"kind"`
-	Origin         string            `json:"origin"`
-	Forge          *string           `json:"forge"`
-	URL            *string           `json:"url"`
-	APIURL         *string           `json:"api_url"`
-	Path           *string           `json:"path"`
-	Credentials    SourceCredentials `json:"credentials"`
-	WorkingTree    bool              `json:"working_tree"`
-	IncludeIgnored bool              `json:"include_ignored"`
-	UpdatedAt      string            `json:"updated_at"`
-}
-
-func KnowledgeSourceOf(s *knowledge.Source) *KnowledgeSource {
-	if s == nil {
-		return nil
-	}
-	origin := s.Origin
-	if origin == "" {
-		origin = knowledge.OriginOwn
-	}
-	return &KnowledgeSource{Kind: string(s.Kind), Origin: origin, Forge: nonEmpty(s.Forge), URL: nonEmpty(s.URL), APIURL: nonEmpty(s.APIURL),
-		Path: nonEmpty(s.Path), Credentials: sourceCredentialsOf(s.Credentials),
-		WorkingTree: s.WorkingTree, IncludeIgnored: s.IncludeIgnored, UpdatedAt: s.UpdatedAt}
-}
-
-type SourceCheck struct {
-	OK            bool     `json:"ok"`
-	Branches      int      `json:"branches"`
-	BranchNames   []string `json:"branch_names"`
-	DefaultBranch *string  `json:"default_branch"`
-	APIURL        *string  `json:"api_url"`
-}
-
-type SourceCheckFailed struct {
-	OK        bool   `json:"ok"`
-	ErrorCode string `json:"error_code"`
-}
-
-func SourceCheckOf(c knowledgeservice.SourceCheck) any {
-	if !c.OK {
-		return SourceCheckFailed{ErrorCode: c.ErrorCode}
-	}
-	names := c.BranchNames
-	if names == nil {
-		names = []string{}
-	}
-	out := SourceCheck{OK: true, Branches: c.Branches, BranchNames: names}
-	if c.DefaultBranch != "" && c.DefaultBranch != knowledge.LocalBranch {
-		out.DefaultBranch = &c.DefaultBranch
-	}
-	if c.APIURL != "" {
-		out.APIURL = &c.APIURL
 	}
 	return out
 }

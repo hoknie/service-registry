@@ -1,6 +1,6 @@
 package responses
 
-import "svc-registry/internal/feature/catalog"
+import catalogtypes "svc-registry/internal/feature/catalog/types"
 
 type Process struct {
 	Kind    string  `json:"kind"`
@@ -21,7 +21,7 @@ type Activity struct {
 	Summary   *Summary   `json:"summary,omitempty"`
 }
 
-func ProcessesOf(processes []catalog.Process) []Process {
+func ProcessesOf(processes []catalogtypes.Process) []Process {
 	out := make([]Process, 0, len(processes))
 	for _, p := range processes {
 		out = append(out, Process{Kind: string(p.Kind), State: string(p.State), Code: p.Code, LastAt: p.LastAt, Pending: p.Pending})
@@ -29,11 +29,11 @@ func ProcessesOf(processes []catalog.Process) []Process {
 	return out
 }
 
-func SummaryOf(s catalog.Summary) Summary {
+func SummaryOf(s catalogtypes.Summary) Summary {
 	return Summary{Running: s.Running, Queued: s.Queued, Failed: s.Failed}
 }
 
-func ActivityOf(a catalog.Activity) Activity {
+func ActivityOf(a catalogtypes.Activity) Activity {
 	if a.Project {
 		p := ProcessesOf(a.Processes)
 		return Activity{Processes: &p}

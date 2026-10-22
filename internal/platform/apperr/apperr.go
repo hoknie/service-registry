@@ -87,6 +87,22 @@ func (e *Error) Error() string {
 	return e.Message
 }
 
+var (
+	ErrNotFound    = &Error{Kind: NotFound}
+	ErrUnavailable = &Error{Kind: Unavailable, What: "database"}
+)
+
+func (e *Error) Is(target error) bool {
+	t, ok := target.(*Error)
+	if !ok {
+		return false
+	}
+	if t == ErrNotFound || t == ErrUnavailable {
+		return e.Kind == t.Kind
+	}
+	return e == t
+}
+
 func New(kind Kind) *Error { return &Error{Kind: kind} }
 
 func Internalf(format string, args ...any) *Error {
@@ -129,6 +145,8 @@ func Conflicting(code, message string) *Error {
 }
 
 func InternalDetail(detail string) *Error { return &Error{Kind: Internal, Detail: detail} }
+
+func UnknownValue(what, value string) *Error { return InternalDetail("unknown " + what + " " + value) }
 
 type sentinel struct {
 	kind    Kind

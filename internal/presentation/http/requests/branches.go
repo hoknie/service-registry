@@ -1,6 +1,6 @@
 package requests
 
-import "svc-registry/internal/feature/catalog"
+import catalogtypes "svc-registry/internal/feature/catalog/types"
 
 type Branches struct {
 	Page
@@ -8,6 +8,6 @@ type Branches struct {
 	State *string `query:"state"`
 }
 
-func (q Branches) Query() catalog.BranchQuery {
-	return catalog.BranchQuery{Prefix: q.Q, State: q.State, Limit: q.Limit, Offset: q.Offset}
+func (q Branches) Query() catalogtypes.BranchQuery {
+	return catalogtypes.BranchQuery{Prefix: q.Q, State: q.State, Limit: q.Limit, Offset: q.Offset}
 }

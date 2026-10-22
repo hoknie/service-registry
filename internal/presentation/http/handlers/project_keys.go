@@ -19,7 +19,7 @@ func (a *Handlers) ListKeys(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	keys, err := a.Catalog.ListKeys(c.Context(), p, id)
+	keys, err := a.Catalog.ProjectKeys.ListKeys(c.Context(), p, id)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -41,7 +41,7 @@ func (a *Handlers) RotateKey(c fiber.Ctx) error {
 			return responses.Fail(c, InvalidBody(describe(err)))
 		}
 	}
-	issued, err := a.Catalog.RotateKey(c.Context(), p, id, in.GraceSecs)
+	issued, err := a.Catalog.ProjectKeys.RotateKey(c.Context(), p, id, in.GraceSecs)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -49,5 +49,5 @@ func (a *Handlers) RotateKey(c fiber.Ctx) error {
 }
 
 func (a *Handlers) RevokeKey(c fiber.Ctx) error {
-	return a.nodeChild(c, "key_id", a.Catalog.RevokeKey)
+	return a.nodeChild(c, "key_id", a.Catalog.ProjectKeys.RevokeKey)
 }

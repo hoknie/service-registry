@@ -2,7 +2,7 @@ module svc-registry
 
 go 1.26.0
 
-toolchain go1.26.9
+toolchain go1.27.3
 
 require (
 	code.gitea.io/sdk/gitea v0.25.1

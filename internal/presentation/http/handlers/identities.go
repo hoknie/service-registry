@@ -13,7 +13,7 @@ func (a *Handlers) OwnIdentities(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	items, err := a.Access.OwnIdentities(c.Context(), p)
+	items, err := a.Access.Identities.OwnIdentities(c.Context(), p)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -29,7 +29,7 @@ func (a *Handlers) UnlinkIdentity(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	if err := a.Access.UnlinkIdentity(c.Context(), p, id); err != nil {
+	if err := a.Access.Identities.UnlinkIdentity(c.Context(), p, id); err != nil {
 		return responses.Fail(c, err)
 	}
 	return c.SendStatus(http.StatusNoContent)
@@ -44,7 +44,7 @@ func (a *Handlers) UserIdentities(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	items, err := a.Access.UserIdentities(c.Context(), p, id)
+	items, err := a.Access.Identities.UserIdentities(c.Context(), p, id)
 	if err != nil {
 		return responses.Fail(c, err)
 	}

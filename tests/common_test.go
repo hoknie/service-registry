@@ -17,8 +17,8 @@ import (
 	"github.com/gofiber/fiber/v3"
 
 	svcapp "svc-registry/internal/app"
-	"svc-registry/internal/feature/access"
-	"svc-registry/internal/feature/links/linkcheck"
+	accesstypes "svc-registry/internal/feature/access/types"
+	"svc-registry/internal/feature/links/clients/linkcheck"
 	"svc-registry/internal/platform/config"
 	"svc-registry/internal/platform/postgres"
 	"svc-registry/internal/presentation/http/webui"
@@ -219,11 +219,11 @@ func appOverWith(t testing.TB, tdb *testsupport.TestDB, opts []svcapp.Option, ex
 		dist: dist, env: extra, opts: opts}
 }
 
-func (a *testApp) user(email string, superadmin bool) access.User {
+func (a *testApp) user(email string, superadmin bool) accesstypes.User {
 	a.t.Helper()
 	name, _, _ := strings.Cut(email, "@")
-	u, err := a.services.Access.InsertUser(context.Background(),
-		access.CreateUser{Email: email, DisplayName: name, Password: password, IsSuperadmin: superadmin})
+	u, err := a.services.Access.Users.InsertUser(context.Background(),
+		accesstypes.CreateUser{Email: email, DisplayName: name, Password: password, IsSuperadmin: superadmin})
 	if err != nil {
 		a.t.Fatalf("create user: %v", err)
 	}

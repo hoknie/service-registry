@@ -1,18 +1,18 @@
 package mcp
 
 import (
-	catalogservice "svc-registry/internal/feature/catalog/service"
-	deployservice "svc-registry/internal/feature/deploy/service"
-	forgeservice "svc-registry/internal/feature/forge/service"
-	knowledgeservice "svc-registry/internal/feature/knowledge/service"
-	linksservice "svc-registry/internal/feature/links/service"
+	catalogservices "svc-registry/internal/feature/catalog/services"
+	composeservices "svc-registry/internal/feature/compose/services"
+	deployservices "svc-registry/internal/feature/deploy/services"
+	knowledgeservices "svc-registry/internal/feature/knowledge/services"
+	linksservices "svc-registry/internal/feature/links/services"
 )
 
 type Deps struct {
-	Catalog        *catalogservice.Service
-	Deploy         *deployservice.Service
-	Forge          *forgeservice.Service
-	Knowledge      *knowledgeservice.Service
-	Links          *linksservice.Service
+	Catalog        *catalogservices.CatalogServices
+	Deploy         *deployservices.DeployServices
+	Knowledge      *knowledgeservices.KnowledgeServices
+	Links          *linksservices.LinksServices
+	Compose        *composeservices.ComposeServices
 	MaxResultBytes int
 }

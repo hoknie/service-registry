@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"svc-registry/internal/app"
-	accessservice "svc-registry/internal/feature/access/service"
+	accessservices "svc-registry/internal/feature/access/services"
 	"svc-registry/internal/platform/config"
 )
 
@@ -19,7 +19,7 @@ func serveCmd() *cobra.Command {
 				return invalidConfig(err)
 			}
 			if admin := cfg.Bootstrap.Admin; admin != nil {
-				if err := accessservice.CheckBootstrapAdmin(*admin); err != nil {
+				if err := accessservices.CheckBootstrapAdmin(*admin); err != nil {
 					return invalidConfig(err)
 				}
 			}

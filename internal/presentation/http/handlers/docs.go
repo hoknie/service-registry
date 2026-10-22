@@ -13,7 +13,7 @@ func (a *Handlers) DocSpace(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	space, err := a.Knowledge.DocSpace(c.Context(), p, c.Query("path"))
+	space, err := a.Knowledge.Space.DocSpace(c.Context(), p, c.Query("path"))
 	if err != nil {
 		return responses.Fail(c, err)
 	}

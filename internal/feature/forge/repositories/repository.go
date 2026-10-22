@@ -1,0 +1,242 @@
+package repositories
+
+import (
+	"context"
+	"errors"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
+	forgetypes "svc-registry/internal/feature/forge/types"
+	"svc-registry/internal/platform/apperr"
+	"svc-registry/internal/platform/postgres"
+)
+
+type RepoRepository struct{ db *postgres.DB }
+
+func NewRepoRepository(db *postgres.DB) *RepoRepository { return &RepoRepository{db: db} }
+
+func (s *RepoRepository) Links(ctx context.Context, connID uuid.UUID) ([]forgetypes.Link, error) {
+	rows, err := s.db.From(ctx).Query(ctx, `
+		SELECT project_id, external_id, full_path, orphaned_at IS NOT NULL, source_updated_at
+		FROM forge_repositories
+		WHERE connection_id = $1`, connID)
+	if err != nil {
+		return nil, postgres.Translate(err, constraints)
+	}
+	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (forgetypes.Link, error) {
+		var l forgetypes.Link
+		err := r.Scan(&l.ProjectID, &l.ExternalID, &l.FullPath, &l.Orphaned, &l.SourceUpdatedAt)
+		return l, err
+	})
+	return out, postgres.Translate(err, constraints)
+}
+
+func (s *RepoRepository) Groups(ctx context.Context, connID uuid.UUID) (map[string]uuid.UUID, error) {
+	rows, err := s.db.From(ctx).Query(ctx, `
+		SELECT lower(full_path), node_id
+		FROM forge_groups
+		WHERE connection_id = $1`, connID)
+	if err != nil {
+		return nil, postgres.Translate(err, constraints)
+	}
+	out := map[string]uuid.UUID{}
+	var path string
+	var id uuid.UUID
+	_, err = pgx.ForEachRow(rows, []any{&path, &id}, func() error {
+		out[path] = id
+		return nil
+	})
+	return out, postgres.Translate(err, constraints)
+}
+
+func (s *RepoRepository) LinkGroup(ctx context.Context, connID, nodeID uuid.UUID, fullPath string) error {
+	_, err := s.db.From(ctx).Exec(ctx, `
+		INSERT INTO forge_groups (node_id, connection_id, full_path)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (node_id)
+		DO UPDATE SET full_path = EXCLUDED.full_path`, nodeID, connID, fullPath)
+	return postgres.Translate(err, constraints)
+}
+
+func (s *RepoRepository) Upsert(ctx context.Context, rec forgetypes.RepoRecord) error {
+	r := rec.Remote
+	var branch *string
+	if r.DefaultBranch != "" {
+		branch = &r.DefaultBranch
+	}
+	var license *string
+	if r.License != "" {
+		license = &r.License
+	}
+	topics := r.Topics
+	if topics == nil {
+		topics = []string{}
+	}
+	withDetails := rec.Details != nil
+	var readme *string
+	var truncated *bool
+	var languages map[string]float64
+	var changed *time.Time
+	if withDetails {
+		readme, truncated, languages = rec.Details.Readme, &rec.Details.Truncated, rec.Details.Languages
+		if l := forgetypes.BoundedLicense(rec.Details.License); l != nil {
+			license = l
+		}
+		changed = r.ChangedAt()
+	}
+	if languages == nil {
+		languages = map[string]float64{}
+	}
+	_, err := s.db.From(ctx).Exec(ctx, `
+		INSERT INTO forge_repositories AS f (project_id, connection_id, external_id, full_path, web_url,
+			description, topics, default_branch, archived, visibility, stars, license, pushed_at,
+			source_updated_at, readme_md, readme_truncated, languages)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $16, COALESCE($17, false),
+			COALESCE($18, '{}'::jsonb))
+		ON CONFLICT (project_id)
+		DO UPDATE SET connection_id = EXCLUDED.connection_id, external_id = EXCLUDED.external_id,
+			full_path = EXCLUDED.full_path, web_url = EXCLUDED.web_url, description = EXCLUDED.description,
+			topics = EXCLUDED.topics, default_branch = EXCLUDED.default_branch, archived = EXCLUDED.archived,
+			visibility = EXCLUDED.visibility, stars = EXCLUDED.stars, pushed_at = EXCLUDED.pushed_at,
+			license = CASE WHEN $15 THEN EXCLUDED.license ELSE COALESCE(EXCLUDED.license, f.license) END,
+			source_updated_at = CASE WHEN $15 THEN EXCLUDED.source_updated_at ELSE f.source_updated_at END,
+			readme_md = CASE WHEN $15 THEN EXCLUDED.readme_md ELSE f.readme_md END,
+			readme_truncated = CASE WHEN $15 THEN EXCLUDED.readme_truncated ELSE f.readme_truncated END,
+			languages = CASE WHEN $15 THEN EXCLUDED.languages ELSE f.languages END, orphaned_at = NULL,
+			synced_at = now(), updated_at = now()`, rec.ProjectID, rec.ConnectionID, r.ExternalID, r.FullPath, r.WebURL,
+		r.Description, topics, branch, r.Archived, string(r.Visibility), r.Stars, license, r.PushedAt, changed,
+		withDetails, readme, truncated, languages)
+	return postgres.Translate(err, constraints)
+}
+
+func (s *RepoRepository) Orphan(ctx context.Context, ids []uuid.UUID) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	_, err := s.db.From(ctx).Exec(ctx, `
+		UPDATE forge_repositories
+		SET orphaned_at = now(), updated_at = now()
+		WHERE project_id = ANY($1)
+			AND orphaned_at IS NULL`, ids)
+	return postgres.Translate(err, constraints)
+}
+
+func (s *RepoRepository) Find(ctx context.Context, projectID uuid.UUID) (*forgetypes.Repository, error) {
+	var r forgetypes.Repository
+	var vis, kind string
+	err := s.db.From(ctx).QueryRow(ctx, `
+		SELECT f.connection_id, f.external_id, f.full_path, f.web_url, f.description, f.topics, f.languages,
+			f.default_branch, f.archived, f.visibility, f.stars, f.license, rfc3339(f.pushed_at),
+			rfc3339(f.synced_at), rfc3339(f.orphaned_at), f.readme_md IS NOT NULL, c.kind
+		FROM forge_repositories f
+		JOIN forge_connections c ON c.id = f.connection_id
+		WHERE f.project_id = $1`, projectID).Scan(&r.ConnectionID, &r.ExternalID, &r.FullPath, &r.WebURL, &r.Description,
+		&r.Topics, &r.Languages, &r.DefaultBranch, &r.Archived, &vis, &r.Stars, &r.License, &r.PushedAt, &r.SyncedAt,
+		&r.OrphanedAt, &r.HasReadme, &kind)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, postgres.Translate(err, constraints)
+	}
+	r.Visibility = forgetypes.Visibility(vis)
+	r.Kind = forgetypes.Kind(kind)
+	r.Origin = forgetypes.OriginForge
+	if r.Topics == nil {
+		r.Topics = []string{}
+	}
+	if r.Languages == nil {
+		r.Languages = map[string]float64{}
+	}
+	return &r, nil
+}
+
+func (s *RepoRepository) Managed(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
+	out := map[uuid.UUID]bool{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := s.db.From(ctx).Query(ctx, `
+		SELECT project_id
+		FROM forge_repositories
+		WHERE project_id = ANY($1)
+			AND orphaned_at IS NULL
+		UNION
+		SELECT node_id
+		FROM forge_groups
+		WHERE node_id = ANY($1)`, ids)
+	if err != nil {
+		return nil, postgres.Translate(err, constraints)
+	}
+	var id uuid.UUID
+	_, err = pgx.ForEachRow(rows, []any{&id}, func() error {
+		out[id] = true
+		return nil
+	})
+	return out, postgres.Translate(err, constraints)
+}
+
+func (s *RepoRepository) Readme(ctx context.Context, projectID uuid.UUID) (*forgetypes.Readme, error) {
+	var r forgetypes.Readme
+	var kind string
+	err := s.db.From(ctx).QueryRow(ctx, `
+		SELECT f.readme_md, f.readme_truncated, f.web_url, f.default_branch, c.kind
+		FROM forge_repositories f
+		JOIN forge_connections c ON c.id = f.connection_id
+		WHERE f.project_id = $1
+			AND f.readme_md IS NOT NULL`, projectID).Scan(&r.Markdown, &r.Truncated, &r.WebURL, &r.DefaultBranch, &kind)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, postgres.Translate(err, constraints)
+	}
+	r.Kind = forgetypes.Kind(kind)
+	return &r, nil
+}
+
+func (s *RepoRepository) Unlink(ctx context.Context, projectID uuid.UUID) (*forgetypes.Unlinked, error) {
+	u := forgetypes.Unlinked{ProjectID: projectID}
+	err := s.db.From(ctx).QueryRow(ctx, `
+		DELETE FROM forge_repositories
+		WHERE project_id = $1
+			AND orphaned_at IS NULL
+		RETURNING connection_id, external_id, full_path`, projectID).Scan(&u.ConnectionID, &u.ExternalID, &u.FullPath)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, postgres.Translate(err, constraints)
+	}
+	return &u, nil
+}
+
+func (s *RepoRepository) Link(ctx context.Context, projectID uuid.UUID) (*forgetypes.ProjectLink, error) {
+	var l forgetypes.ProjectLink
+	var kind string
+	var secret *uuid.UUID
+	var hasEnc bool
+	var ref, fingerprint *string
+	err := s.db.From(ctx).QueryRow(ctx, `
+		SELECT f.connection_id, c.node_id, c.owner_path, c.kind, f.web_url, c.api_url, c.credentials_secret_id,
+			c.credentials_enc IS NOT NULL, c.credentials_ref, c.credentials_fingerprint, rfc3339(f.synced_at)
+		FROM forge_repositories f
+		JOIN forge_connections c ON c.id = f.connection_id
+		WHERE f.project_id = $1
+			AND f.orphaned_at IS NULL`, projectID).Scan(&l.ConnectionID, &l.NodeID, &l.Owner, &kind, &l.WebURL, &l.APIURL,
+		&secret, &hasEnc, &ref, &fingerprint, &l.SyncedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, postgres.Translate(err, constraints)
+	}
+	var ok bool
+	if l.Kind, ok = forgetypes.ParseKind(kind); !ok {
+		return nil, apperr.UnknownValue("forge kind", kind)
+	}
+	l.Credentials = credentialsOf(secret, hasEnc, ref, fingerprint)
+	return &l, nil
+}

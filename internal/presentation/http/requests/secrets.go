@@ -1,6 +1,6 @@
 package requests
 
-import "svc-registry/internal/feature/catalog"
+import catalogtypes "svc-registry/internal/feature/catalog/types"
 
 type Secret struct {
 	Name        *string `json:"name"`
@@ -9,8 +9,8 @@ type Secret struct {
 	Ref         *string `json:"ref"`
 }
 
-func (r Secret) Input() catalog.SecretInput {
-	return catalog.SecretInput{Name: r.Name, Description: r.Description, Value: r.Value, Ref: r.Ref}
+func (r Secret) Input() catalogtypes.SecretInput {
+	return catalogtypes.SecretInput{Name: r.Name, Description: r.Description, Value: r.Value, Ref: r.Ref}
 }
 
 type Labels struct {
@@ -18,4 +18,4 @@ type Labels struct {
 	Key *string `query:"key"`
 }
 
-func (r Labels) Query() catalog.LabelQuery { return catalog.LabelQuery{Q: r.Q, Key: r.Key} }
+func (r Labels) Query() catalogtypes.LabelQuery { return catalogtypes.LabelQuery{Q: r.Q, Key: r.Key} }

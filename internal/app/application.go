@@ -4,19 +4,20 @@ import (
 	"context"
 	"errors"
 
-	"svc-registry/internal/feature/access/oidc"
-	accessservice "svc-registry/internal/feature/access/service"
-	catalogservice "svc-registry/internal/feature/catalog/service"
-	deployservice "svc-registry/internal/feature/deploy/service"
-	"svc-registry/internal/feature/forge/forgeclient"
-	forgeservice "svc-registry/internal/feature/forge/service"
-	ingestservice "svc-registry/internal/feature/ingest/service"
-	knowledgeservice "svc-registry/internal/feature/knowledge/service"
-	"svc-registry/internal/feature/knowledge/source"
-	"svc-registry/internal/feature/links"
-	"svc-registry/internal/feature/links/linkcheck"
-	linksservice "svc-registry/internal/feature/links/service"
-	"svc-registry/internal/feature/links/uploads"
+	"svc-registry/internal/feature/access/clients/oidc"
+	accessservices "svc-registry/internal/feature/access/services"
+	catalogservices "svc-registry/internal/feature/catalog/services"
+	composeservices "svc-registry/internal/feature/compose/services"
+	deployservices "svc-registry/internal/feature/deploy/services"
+	"svc-registry/internal/feature/forge/clients/forgeclient"
+	forgeservices "svc-registry/internal/feature/forge/services"
+	ingestservices "svc-registry/internal/feature/ingest/services"
+	"svc-registry/internal/feature/knowledge/clients/source"
+	knowledgeservices "svc-registry/internal/feature/knowledge/services"
+	"svc-registry/internal/feature/links/clients/linkcheck"
+	"svc-registry/internal/feature/links/clients/uploads"
+	linksports "svc-registry/internal/feature/links/ports"
+	linksservices "svc-registry/internal/feature/links/services"
 	"svc-registry/internal/platform/auth"
 	"svc-registry/internal/platform/config"
 	"svc-registry/internal/platform/outbound"
@@ -31,13 +32,14 @@ type App struct {
 	DB        *postgres.DB
 	Hasher    *auth.PasswordHasher
 	Secrets   *secretbox.Box
-	Access    *accessservice.Service
-	Catalog   *catalogservice.Service
-	Links     *linksservice.Service
-	Ingest    *ingestservice.Service
-	Forge     *forgeservice.Service
-	Deploy    *deployservice.Service
-	Knowledge *knowledgeservice.Service
+	Access    *accessservices.AccessServices
+	Catalog   *catalogservices.CatalogServices
+	Links     *linksservices.LinksServices
+	Ingest    *ingestservices.IngestServices
+	Forge     *forgeservices.ForgeServices
+	Deploy    *deployservices.DeployServices
+	Knowledge *knowledgeservices.KnowledgeServices
+	Compose   *composeservices.ComposeServices
 	search    search
 }
 
@@ -60,24 +62,25 @@ func New(cfg config.Config, opts ...Option) (*App, error) {
 		Secrets: secretbox.New(cfg.Secrets.Keys),
 		search:  srch,
 	}
-	forges := forgeclient.NewFactory(outbound.New(cfg.Outbound))
-	a.Access = accessservice.New(accessservice.Deps{DB: db, Config: &cfg, Hasher: a.Hasher,
-		OAuth:        oidc.NewOIDC(cfg.OAuth, cfg.Web.PublicURL, outbound.New(cfg.Outbound)),
+	forges := forgeclient.NewFactoryClient(outbound.New(cfg.Outbound))
+	a.Access = accessservices.New(accessservices.Deps{DB: db, Config: &cfg, Hasher: a.Hasher,
+		OAuth:        oidc.NewOIDCClient(cfg.OAuth, cfg.Web.PublicURL, outbound.New(cfg.Outbound)),
 		LoginLimiter: auth.NewLoginLimiter(cfg.LoginLimit)})
-	a.Catalog = catalogservice.New(catalogservice.Deps{DB: db, Config: &cfg, Secrets: a.Secrets})
-	a.Links = linksservice.New(linksservice.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Checker: linkChecker(o, cfg),
+	a.Catalog = catalogservices.New(catalogservices.Deps{DB: db, Config: &cfg, Secrets: a.Secrets})
+	a.Links = linksservices.New(linksservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Checker: linkChecker(o, cfg),
 		Icons: uploads.New(cfg.Uploads.Dir)})
-	a.Ingest = ingestservice.New(ingestservice.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Limiter: auth.NewIngestLimiter(cfg.Ingest)})
-	a.Forge = forgeservice.New(forgeservice.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Clients: forges, Secrets: a.Secrets})
-	a.Deploy = deployservice.New(deployservice.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Ingest: a.Ingest,
+	a.Ingest = ingestservices.New(ingestservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Limiter: auth.NewIngestLimiter(cfg.Ingest)})
+	a.Forge = forgeservices.New(forgeservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Clients: forges, Secrets: a.Secrets})
+	a.Deploy = deployservices.New(deployservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Ingest: a.Ingest,
 		K8s: k8sFactory(o, cfg), Secrets: a.Secrets})
-	a.Knowledge = knowledgeservice.New(knowledgeservice.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Forge: a.Forge,
+	a.Knowledge = knowledgeservices.New(knowledgeservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Forge: a.Forge,
 		Engine: srch.engine, External: srch.external, Embedder: srch.embedder, Secrets: a.Secrets,
-		Readers: &source.Factory{Roots: cfg.Knowledge.LocalRoots, Forges: forges,
+		Readers: &source.FactoryClient{Roots: cfg.Knowledge.LocalRoots, Forges: forges,
 			MaxFileBytes: cfg.Knowledge.MaxFileBytes, MaxBranches: int(cfg.Branches.SyncMaxPerRepo)}})
-	a.Catalog.Use(a.Forge, a.Knowledge, a.Forge, a.Deploy)
-	a.Catalog.UseSecretUsers(a.Forge, a.Knowledge, a.Deploy)
-	a.Forge.Use(a.Knowledge)
+	a.Compose = composeservices.New(composeservices.Deps{Catalog: a.Catalog, Forge: a.Forge, Knowledge: a.Knowledge, Links: a.Links})
+	a.Catalog.Use(a.Forge.Ports, a.Knowledge.Ports, a.Forge.Ports, a.Deploy.Ports)
+	a.Catalog.UseSecretUsers(a.Forge.Ports, a.Knowledge.Ports, a.Deploy.Ports)
+	a.Forge.Use(a.Knowledge.Sources)
 	if !a.Catalog.Wired() {
 		pool.Close()
 		return nil, ErrNotWired
@@ -89,7 +92,7 @@ func (a *App) Close() { a.DB.Pool().Close() }
 
 func (a *App) CheckSearch(ctx context.Context) error { return a.search.check(ctx) }
 
-func linkChecker(o overrides, cfg config.Config) links.Checker {
+func linkChecker(o overrides, cfg config.Config) linksports.CheckerPort {
 	if o.linkChecker != nil {
 		return o.linkChecker
 	}

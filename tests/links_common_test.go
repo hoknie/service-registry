@@ -9,8 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"svc-registry/internal/feature/links"
-	"svc-registry/internal/feature/links/linkcheck"
+	"svc-registry/internal/feature/links/clients/linkcheck"
+	linksports "svc-registry/internal/feature/links/ports"
+	linkstypes "svc-registry/internal/feature/links/types"
 )
 
 const linkKindsPath = "/api/v1/link-kinds"
@@ -45,11 +46,13 @@ type anyIP struct{}
 
 func (anyIP) Allows(string, netip.Addr) bool { return true }
 
-type switchChecker struct{ current atomic.Pointer[links.Checker] }
+type switchChecker struct {
+	current atomic.Pointer[linksports.CheckerPort]
+}
 
-func (s *switchChecker) set(c links.Checker) { s.current.Store(&c) }
+func (s *switchChecker) set(c linksports.CheckerPort) { s.current.Store(&c) }
 
-func (s *switchChecker) Check(ctx context.Context, url string) links.Result {
+func (s *switchChecker) Check(ctx context.Context, url string) linkstypes.Result {
 	return (*s.current.Load()).Check(ctx, url)
 }
 

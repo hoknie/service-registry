@@ -5,9 +5,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"svc-registry/internal/feature/deploy"
-	deployservice "svc-registry/internal/feature/deploy/service"
-	"svc-registry/internal/feature/ingest"
+	deployservices "svc-registry/internal/feature/deploy/services"
+	deploytypes "svc-registry/internal/feature/deploy/types"
+	ingesttypes "svc-registry/internal/feature/ingest/types"
 )
 
 type Accepted struct {
@@ -33,7 +33,7 @@ type DeploymentResult struct {
 	BecameCurrent bool      `json:"became_current"`
 }
 
-func AcceptedOf(a ingest.Accepted) Accepted {
+func AcceptedOf(a ingesttypes.Accepted) Accepted {
 	e := a.Event
 	out := Accepted{
 		ID: e.ID, Type: e.Type, Version: e.Version, OccurredAt: e.OccurredAt, ReceivedAt: e.ReceivedAt,
@@ -58,7 +58,7 @@ type Event struct {
 	Payload        json.RawMessage `json:"payload"`
 }
 
-func EventOf(e ingest.Event) Event {
+func EventOf(e ingesttypes.Event) Event {
 	return Event{
 		ID: e.ID, Type: e.Type, Version: e.Version, OccurredAt: e.OccurredAt, ReceivedAt: e.ReceivedAt,
 		IdempotencyKey: e.IdempotencyKey, KeyPrefix: e.KeyPrefix, Payload: e.Payload,
@@ -92,7 +92,7 @@ type DeploymentLink struct {
 	Title *string `json:"title"`
 }
 
-func DeploymentLinksOf(in []ingest.DeploymentLink) []DeploymentLink {
+func DeploymentLinksOf(in []ingesttypes.DeploymentLink) []DeploymentLink {
 	out := make([]DeploymentLink, 0, len(in))
 	for _, l := range in {
 		out = append(out, DeploymentLink(l))
@@ -100,7 +100,7 @@ func DeploymentLinksOf(in []ingest.DeploymentLink) []DeploymentLink {
 	return out
 }
 
-func DeploymentOf(d ingest.Deployment) Deployment {
+func DeploymentOf(d ingesttypes.Deployment) Deployment {
 	metadata := d.Metadata
 	if metadata == nil {
 		metadata = map[string]string{}
@@ -114,32 +114,32 @@ func DeploymentOf(d ingest.Deployment) Deployment {
 }
 
 type Observed struct {
-	Cluster    string           `json:"cluster"`
-	Namespace  string           `json:"namespace"`
-	Kind       string           `json:"kind"`
-	Workload   string           `json:"workload"`
-	Branch     *string          `json:"branch"`
-	Version    *string          `json:"version"`
-	Images     []deploy.Image   `json:"images"`
-	Replicas   *deploy.Replicas `json:"replicas,omitempty"`
-	Restarts   *int32           `json:"restarts,omitempty"`
-	Rollout    *deploy.Rollout  `json:"rollout,omitempty"`
-	Schedule   *string          `json:"schedule,omitempty"`
-	Suspended  *bool            `json:"suspended,omitempty"`
-	LastRun    **deploy.LastRun `json:"last_run,omitempty"`
-	ObservedAt string           `json:"observed_at"`
-	Gone       bool             `json:"gone"`
+	Cluster    string                `json:"cluster"`
+	Namespace  string                `json:"namespace"`
+	Kind       string                `json:"kind"`
+	Workload   string                `json:"workload"`
+	Branch     *string               `json:"branch"`
+	Version    *string               `json:"version"`
+	Images     []deploytypes.Image   `json:"images"`
+	Replicas   *deploytypes.Replicas `json:"replicas,omitempty"`
+	Restarts   *int32                `json:"restarts,omitempty"`
+	Rollout    *deploytypes.Rollout  `json:"rollout,omitempty"`
+	Schedule   *string               `json:"schedule,omitempty"`
+	Suspended  *bool                 `json:"suspended,omitempty"`
+	LastRun    **deploytypes.LastRun `json:"last_run,omitempty"`
+	ObservedAt string                `json:"observed_at"`
+	Gone       bool                  `json:"gone"`
 }
 
-func ObservedOf(o deploy.Observed) Observed {
+func ObservedOf(o deploytypes.Observed) Observed {
 	images := o.Images
 	if images == nil {
-		images = []deploy.Image{}
+		images = []deploytypes.Image{}
 	}
 	out := Observed{Cluster: o.Cluster, Namespace: o.Namespace, Kind: string(o.Kind), Workload: o.Name, Branch: o.Branch,
 		Version: o.Version, Images: images, Replicas: o.State.Replicas, Restarts: o.State.Restarts, Rollout: o.State.Rollout,
 		Schedule: o.State.Schedule, Suspended: o.State.Suspended, ObservedAt: o.ObservedAt, Gone: o.Gone}
-	if o.Kind == deploy.KindCronJob {
+	if o.Kind == deploytypes.KindCronJob {
 		last := o.State.LastRun
 		out.LastRun = &last
 	}
@@ -163,7 +163,7 @@ type Environment struct {
 	Drift        bool             `json:"drift"`
 }
 
-func EnvironmentOf(e deployservice.EnvironmentState) Environment {
+func EnvironmentOf(e deployservices.EnvironmentState) Environment {
 	out := Environment{Service: e.Service, Environment: e.Environment, Drift: e.Drift, Observed: make([]Observed, 0, len(e.Observed)),
 		Links: []DeploymentLink{}}
 	for _, o := range e.Observed {

@@ -19,7 +19,7 @@ func (a *Handlers) ListNodeSecrets(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	items, err := a.Catalog.ListNodeSecrets(c.Context(), p, id)
+	items, err := a.Catalog.Secrets.ListNodeSecrets(c.Context(), p, id)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -39,7 +39,7 @@ func (a *Handlers) CreateNodeSecret(c fiber.Ctx) error {
 	if err := bindJSON(c, &in); err != nil {
 		return responses.Fail(c, err)
 	}
-	created, err := a.Catalog.CreateNodeSecret(c.Context(), p, id, in.Input())
+	created, err := a.Catalog.Secrets.CreateNodeSecret(c.Context(), p, id, in.Input())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -59,7 +59,7 @@ func (a *Handlers) UpdateNodeSecret(c fiber.Ctx) error {
 	if err := bindJSON(c, &in); err != nil {
 		return responses.Fail(c, err)
 	}
-	updated, err := a.Catalog.UpdateNodeSecret(c.Context(), p, id, sid, in.Input())
+	updated, err := a.Catalog.Secrets.UpdateNodeSecret(c.Context(), p, id, sid, in.Input())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -75,7 +75,7 @@ func (a *Handlers) DeleteNodeSecret(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	if err := a.Catalog.DeleteNodeSecret(c.Context(), p, id, sid); err != nil {
+	if err := a.Catalog.Secrets.DeleteNodeSecret(c.Context(), p, id, sid); err != nil {
 		return responses.Fail(c, err)
 	}
 	return c.SendStatus(http.StatusNoContent)
@@ -95,7 +95,7 @@ func (a *Handlers) ListSecrets(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	items, err := a.Catalog.ListGlobalSecrets(c.Context(), p)
+	items, err := a.Catalog.Secrets.ListGlobalSecrets(c.Context(), p)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -111,7 +111,7 @@ func (a *Handlers) CreateSecret(c fiber.Ctx) error {
 	if err := bindJSON(c, &in); err != nil {
 		return responses.Fail(c, err)
 	}
-	created, err := a.Catalog.CreateGlobalSecret(c.Context(), p, in.Input())
+	created, err := a.Catalog.Secrets.CreateGlobalSecret(c.Context(), p, in.Input())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -127,7 +127,7 @@ func (a *Handlers) GetSecret(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	found, err := a.Catalog.GetGlobalSecret(c.Context(), p, sid)
+	found, err := a.Catalog.Secrets.GetGlobalSecret(c.Context(), p, sid)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -147,7 +147,7 @@ func (a *Handlers) UpdateSecret(c fiber.Ctx) error {
 	if err := bindJSON(c, &in); err != nil {
 		return responses.Fail(c, err)
 	}
-	updated, err := a.Catalog.UpdateGlobalSecret(c.Context(), p, sid, in.Input())
+	updated, err := a.Catalog.Secrets.UpdateGlobalSecret(c.Context(), p, sid, in.Input())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -163,7 +163,7 @@ func (a *Handlers) DeleteSecret(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	if err := a.Catalog.DeleteGlobalSecret(c.Context(), p, sid); err != nil {
+	if err := a.Catalog.Secrets.DeleteGlobalSecret(c.Context(), p, sid); err != nil {
 		return responses.Fail(c, err)
 	}
 	return c.SendStatus(http.StatusNoContent)

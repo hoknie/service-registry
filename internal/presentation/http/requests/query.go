@@ -3,8 +3,8 @@ package requests
 import (
 	"github.com/google/uuid"
 
-	"svc-registry/internal/feature/access"
-	"svc-registry/internal/feature/catalog"
+	accesstypes "svc-registry/internal/feature/access/types"
+	catalogtypes "svc-registry/internal/feature/catalog/types"
 )
 
 type Page struct {
@@ -12,7 +12,9 @@ type Page struct {
 	Offset *int64 `query:"offset"`
 }
 
-func (p Page) Query() access.PageQuery { return access.PageQuery{Limit: p.Limit, Offset: p.Offset} }
+func (p Page) Query() accesstypes.PageQuery {
+	return accesstypes.PageQuery{Limit: p.Limit, Offset: p.Offset}
+}
 
 type Children struct {
 	Page
@@ -45,6 +47,6 @@ type CatalogTable struct {
 	Activity *string    `query:"activity"`
 }
 
-func (q CatalogTable) Filter() catalog.TableQuery {
-	return catalog.TableQuery{Q: q.Q, Kind: q.Kind, Labels: q.Label, Activity: q.Activity}
+func (q CatalogTable) Filter() catalogtypes.TableQuery {
+	return catalogtypes.TableQuery{Q: q.Q, Kind: q.Kind, Labels: q.Label, Activity: q.Activity}
 }

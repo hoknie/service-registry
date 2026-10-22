@@ -1,6 +1,6 @@
 package requests
 
-import "svc-registry/internal/feature/access"
+import accesstypes "svc-registry/internal/feature/access/types"
 
 type CreateUser struct {
 	Email        *string `json:"email" validate:"required"`
@@ -10,12 +10,12 @@ type CreateUser struct {
 	IsService    bool    `json:"is_service"`
 }
 
-func (r CreateUser) User() access.CreateUser {
+func (r CreateUser) User() accesstypes.CreateUser {
 	password := ""
 	if r.Password != nil {
 		password = *r.Password
 	}
-	return access.CreateUser{Email: *r.Email, DisplayName: *r.DisplayName, Password: password, IsSuperadmin: r.IsSuperadmin,
+	return accesstypes.CreateUser{Email: *r.Email, DisplayName: *r.DisplayName, Password: password, IsSuperadmin: r.IsSuperadmin,
 		IsService: r.IsService}
 }
 
@@ -26,8 +26,8 @@ type UpdateUser struct {
 	IsService    *bool   `json:"is_service"`
 }
 
-func (r UpdateUser) Changes() access.UpdateUser {
-	return access.UpdateUser{DisplayName: r.DisplayName, Status: r.Status, IsSuperadmin: r.IsSuperadmin, IsService: r.IsService}
+func (r UpdateUser) Changes() accesstypes.UpdateUser {
+	return accesstypes.UpdateUser{DisplayName: r.DisplayName, Status: r.Status, IsSuperadmin: r.IsSuperadmin, IsService: r.IsService}
 }
 
 type ResetPassword struct {

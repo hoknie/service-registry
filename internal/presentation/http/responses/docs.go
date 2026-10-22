@@ -3,7 +3,7 @@ package responses
 import (
 	"github.com/google/uuid"
 
-	knowledgeservice "svc-registry/internal/feature/knowledge/service"
+	knowledgeservices "svc-registry/internal/feature/knowledge/services"
 )
 
 type DocSpaceNode struct {
@@ -35,7 +35,7 @@ type DocSpace struct {
 	DocPath   *string        `json:"doc_path"`
 }
 
-func docSpaceNode(n knowledgeservice.DocSpaceNode, withDocs bool) DocSpaceNode {
+func docSpaceNode(n knowledgeservices.DocSpaceNode, withDocs bool) DocSpaceNode {
 	out := DocSpaceNode{ID: n.ID, Kind: string(n.Kind), Slug: n.Slug, Name: n.Name, Description: n.Description, Access: "navigate"}
 	if n.Readable {
 		out.Access = "read"
@@ -47,7 +47,7 @@ func docSpaceNode(n knowledgeservice.DocSpaceNode, withDocs bool) DocSpaceNode {
 	return out
 }
 
-func DocSpaceOf(s knowledgeservice.DocSpace) DocSpace {
+func DocSpaceOf(s knowledgeservices.DocSpace) DocSpace {
 	out := DocSpace{Ancestors: make([]DocSpaceNode, 0, len(s.Ancestors)), Children: make([]DocSpaceNode, 0, len(s.Children)), DocPath: s.DocPath}
 	if s.Node != nil {
 		n := docSpaceNode(*s.Node, false)

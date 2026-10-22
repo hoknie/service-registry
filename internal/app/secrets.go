@@ -3,11 +3,11 @@ package app
 import (
 	"context"
 
-	catalogservice "svc-registry/internal/feature/catalog/service"
-	deployservice "svc-registry/internal/feature/deploy/service"
-	"svc-registry/internal/feature/forge"
-	forgeservice "svc-registry/internal/feature/forge/service"
-	knowledgeservice "svc-registry/internal/feature/knowledge/service"
+	catalogservices "svc-registry/internal/feature/catalog/services"
+	deployservices "svc-registry/internal/feature/deploy/services"
+	forgeservices "svc-registry/internal/feature/forge/services"
+	forgetypes "svc-registry/internal/feature/forge/types"
+	knowledgeservices "svc-registry/internal/feature/knowledge/services"
 	"svc-registry/internal/platform/config"
 	"svc-registry/internal/platform/postgres"
 	"svc-registry/pkg/secretbox"
@@ -19,7 +19,7 @@ type secretRotation interface {
 
 func rotateSecrets(ctx context.Context, box *secretbox.Box, parts ...secretRotation) (int, error) {
 	if !box.CanEncrypt() {
-		return 0, forge.ConflictSecretsKeyMissing
+		return 0, forgetypes.ConflictSecretsKeyMissing
 	}
 	applies := make([]func(context.Context) error, 0, len(parts))
 	n := 0
@@ -40,11 +40,11 @@ func rotateSecrets(ctx context.Context, box *secretbox.Box, parts ...secretRotat
 }
 
 func (a *App) RotateSecrets(ctx context.Context) (int, error) {
-	return rotateSecrets(ctx, a.Secrets, a.Catalog, a.Forge, a.Deploy, a.Knowledge)
+	return rotateSecrets(ctx, a.Secrets, a.Catalog.SecretResolver, a.Forge.Ports, a.Deploy.Ports, a.Knowledge.Ports)
 }
 
-func RotateSecretsOver(ctx context.Context, db *postgres.DB, box *secretbox.Box) (int, error) {
-	cat := catalogservice.New(catalogservice.Deps{DB: db, Config: &config.Config{}, Secrets: box})
-	return rotateSecrets(ctx, box, cat, forgeservice.New(forgeservice.Deps{DB: db, Secrets: box}), deployservice.New(deployservice.Deps{DB: db, Secrets: box}),
-		knowledgeservice.New(knowledgeservice.Deps{DB: db, Secrets: box}))
+func rotateSecretsOver(ctx context.Context, db *postgres.DB, box *secretbox.Box) (int, error) {
+	cat := catalogservices.New(catalogservices.Deps{DB: db, Config: &config.Config{}, Secrets: box})
+	return rotateSecrets(ctx, box, cat.SecretResolver, forgeservices.New(forgeservices.Deps{DB: db, Secrets: box}).Ports, deployservices.New(deployservices.Deps{DB: db, Secrets: box}).Ports,
+		knowledgeservices.New(knowledgeservices.Deps{DB: db, Secrets: box}).Ports)
 }

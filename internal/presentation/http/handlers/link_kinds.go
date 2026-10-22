@@ -14,7 +14,7 @@ func (a *Handlers) ListLinkKinds(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	items, err := a.Links.ListLinkKinds(c.Context(), p)
+	items, err := a.Links.Kinds.ListLinkKinds(c.Context(), p)
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -30,7 +30,7 @@ func (a *Handlers) CreateLinkKind(c fiber.Ctx) error {
 	if err := bindJSON(c, &in); err != nil {
 		return responses.Fail(c, err)
 	}
-	k, err := a.Links.CreateLinkKind(c.Context(), p, in.Kind())
+	k, err := a.Links.Kinds.CreateLinkKind(c.Context(), p, in.Kind())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -46,7 +46,7 @@ func (a *Handlers) UpdateLinkKind(c fiber.Ctx) error {
 	if err := bindJSON(c, &in); err != nil {
 		return responses.Fail(c, err)
 	}
-	k, err := a.Links.UpdateLinkKind(c.Context(), p, c.Params("key"), in.Kind())
+	k, err := a.Links.Kinds.UpdateLinkKind(c.Context(), p, c.Params("key"), in.Kind())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
@@ -58,7 +58,7 @@ func (a *Handlers) DeleteLinkKind(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	if err := a.Links.DeleteLinkKind(c.Context(), p, c.Params("key")); err != nil {
+	if err := a.Links.Kinds.DeleteLinkKind(c.Context(), p, c.Params("key")); err != nil {
 		return responses.Fail(c, err)
 	}
 	return c.SendStatus(http.StatusNoContent)
@@ -73,7 +73,7 @@ func (a *Handlers) ReorderLinkKinds(c fiber.Ctx) error {
 	if err := bindJSON(c, &in); err != nil {
 		return responses.Fail(c, err)
 	}
-	items, err := a.Links.ReorderLinkKinds(c.Context(), p, *in.Keys)
+	items, err := a.Links.Kinds.ReorderLinkKinds(c.Context(), p, *in.Keys)
 	if err != nil {
 		return responses.Fail(c, err)
 	}

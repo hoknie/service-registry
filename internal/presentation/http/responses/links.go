@@ -3,7 +3,7 @@ package responses
 import (
 	"github.com/google/uuid"
 
-	"svc-registry/internal/feature/links"
+	linkstypes "svc-registry/internal/feature/links/types"
 )
 
 type LinkKind struct {
@@ -16,7 +16,7 @@ type LinkKind struct {
 	UpdatedAt string            `json:"updated_at"`
 }
 
-func LinkKindOf(k links.Kind) LinkKind {
+func LinkKindOf(k linkstypes.Kind) LinkKind {
 	return LinkKind{Key: k.Key, Names: k.Names, Icon: k.Icon, IconURL: k.IconURL, Position: k.Position, CreatedAt: k.CreatedAt, UpdatedAt: k.UpdatedAt}
 }
 
@@ -26,7 +26,7 @@ type LinkIcon struct {
 	URL  *string `json:"url,omitempty"`
 }
 
-func LinkIconOf(i links.LinkIcon) LinkIcon {
+func LinkIconOf(i linkstypes.LinkIcon) LinkIcon {
 	out := LinkIcon{Kind: i.Kind, Name: i.Name}
 	if i.Kind != "builtin" {
 		out.URL = &i.URL
@@ -48,7 +48,7 @@ type LinkTemplate struct {
 	UpdatedAt string    `json:"updated_at"`
 }
 
-func LinkTemplateOf(t links.Template) LinkTemplate {
+func LinkTemplateOf(t linkstypes.Template) LinkTemplate {
 	return LinkTemplate{LinkKey: t.LinkKey, KindKey: t.KindKey, Title: t.Title, Icon: LinkIconOf(t.LinkIcon()), Template: t.Template, Disabled: t.Disabled,
 		Position: t.Position, NodeID: t.NodeID, Inherited: t.Inherited, CreatedAt: t.CreatedAt, UpdatedAt: t.UpdatedAt}
 }
@@ -60,7 +60,7 @@ type NodeVar struct {
 	Inherited bool      `json:"inherited"`
 }
 
-func NodeVarOf(v links.Var) NodeVar {
+func NodeVarOf(v linkstypes.Var) NodeVar {
 	return NodeVar{Key: v.Key, Value: v.Value, NodeID: v.NodeID, Inherited: v.Inherited}
 }
 
@@ -86,7 +86,7 @@ type Link struct {
 	Source      string     `json:"source"`
 }
 
-func LinkOf(l links.Link) Link {
+func LinkOf(l linkstypes.Link) Link {
 	out := Link{LinkKey: l.LinkKey, KindKey: l.KindKey, Title: l.Title, Icon: LinkIconOf(l.Icon), NodeID: l.NodeID, Inherited: l.Inherited, Service: l.Service,
 		Environment: l.Environment, URL: l.URL, Missing: l.Missing, Source: l.Source}
 	if out.Missing == nil {
@@ -107,6 +107,6 @@ type LinkCheckEntry struct {
 	CheckedAt  string `json:"checked_at"`
 }
 
-func LinkCheckEntryOf(c links.Check) LinkCheckEntry {
+func LinkCheckEntryOf(c linkstypes.Check) LinkCheckEntry {
 	return LinkCheckEntry{URL: c.URL, Status: string(c.Status), HTTPStatus: c.HTTPStatus, DurationMS: c.DurationMS, CheckedAt: c.CheckedAt}
 }

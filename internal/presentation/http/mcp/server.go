@@ -7,21 +7,21 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/adaptor"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"svc-registry/internal/feature/access"
+	accesstypes "svc-registry/internal/feature/access/types"
 )
 
 type principalKey struct{}
 
-func WithPrincipal(ctx context.Context, p access.Principal) context.Context {
+func WithPrincipal(ctx context.Context, p accesstypes.Principal) context.Context {
 	return context.WithValue(ctx, principalKey{}, p)
 }
 
-func principalOf(r *http.Request) (access.Principal, bool) {
+func principalOf(r *http.Request) (accesstypes.Principal, bool) {
 	ctx, ok := adaptor.LocalContextFromHTTPRequest(r)
 	if !ok {
 		ctx = r.Context()
 	}
-	p, ok := ctx.Value(principalKey{}).(access.Principal)
+	p, ok := ctx.Value(principalKey{}).(accesstypes.Principal)
 	return p, ok
 }
 
@@ -44,7 +44,7 @@ func Handler(deps Deps, version string) http.Handler {
 	})
 }
 
-func newServer(deps Deps, version string, p access.Principal) *sdk.Server {
+func newServer(deps Deps, version string, p accesstypes.Principal) *sdk.Server {
 	s := sdk.NewServer(&sdk.Implementation{Name: "svc-registry", Version: version}, &sdk.ServerOptions{Instructions: instructions})
 	t := &tools{deps: deps, p: p, max: deps.MaxResultBytes}
 	t.register(s)

@@ -3,42 +3,35 @@ package responses
 import (
 	"github.com/google/uuid"
 
-	"svc-registry/internal/feature/catalog"
-	catalogservice "svc-registry/internal/feature/catalog/service"
+	catalogservices "svc-registry/internal/feature/catalog/services"
+	catalogtypes "svc-registry/internal/feature/catalog/types"
+	composeservices "svc-registry/internal/feature/compose/services"
 )
 
 type Node struct {
-	ID                 uuid.UUID       `json:"id"`
-	Kind               string          `json:"kind"`
-	ParentID           *uuid.UUID      `json:"parent_id"`
-	Slug               string          `json:"slug"`
-	Name               string          `json:"name"`
-	Access             string          `json:"access"`
-	Description        *string         `json:"description,omitempty"`
-	Labels             *catalog.Labels `json:"labels,omitempty"`
-	Forge              **string        `json:"forge,omitempty"`
-	RepoURL            **string        `json:"repo_url,omitempty"`
-	DefaultBranch      **string        `json:"default_branch,omitempty"`
-	ClusterObservation *bool           `json:"cluster_observation,omitempty"`
-	CreatedAt          *string         `json:"created_at,omitempty"`
-	UpdatedAt          *string         `json:"updated_at,omitempty"`
-	Depth              *int32          `json:"depth,omitempty"`
-	Permissions        *[]string       `json:"permissions,omitempty"`
-	Path               *[]Node         `json:"path,omitempty"`
-	Key                *Key            `json:"key,omitempty"`
-	Managed            *bool           `json:"managed,omitempty"`
-	Repository         **Repository    `json:"repository,omitempty"`
+	ID                 uuid.UUID            `json:"id"`
+	Kind               string               `json:"kind"`
+	ParentID           *uuid.UUID           `json:"parent_id"`
+	Slug               string               `json:"slug"`
+	Name               string               `json:"name"`
+	Access             string               `json:"access"`
+	Description        *string              `json:"description,omitempty"`
+	Labels             *catalogtypes.Labels `json:"labels,omitempty"`
+	Forge              **string             `json:"forge,omitempty"`
+	RepoURL            **string             `json:"repo_url,omitempty"`
+	DefaultBranch      **string             `json:"default_branch,omitempty"`
+	ClusterObservation *bool                `json:"cluster_observation,omitempty"`
+	CreatedAt          *string              `json:"created_at,omitempty"`
+	UpdatedAt          *string              `json:"updated_at,omitempty"`
+	Depth              *int32               `json:"depth,omitempty"`
+	Permissions        *[]string            `json:"permissions,omitempty"`
+	Path               *[]Node              `json:"path,omitempty"`
+	Key                *Key                 `json:"key,omitempty"`
+	Managed            *bool                `json:"managed,omitempty"`
+	Repository         **Repository         `json:"repository,omitempty"`
 }
 
-func (n Node) WithManaged(managed map[uuid.UUID]bool) Node {
-	if n.Access == "read" {
-		m := managed[n.ID]
-		n.Managed = &m
-	}
-	return n
-}
-
-func NodeOf(n catalog.Node, readable bool) Node {
+func NodeOf(n catalogtypes.Node, readable bool) Node {
 	body := Node{ID: n.ID, Kind: string(n.Kind), ParentID: n.ParentID, Slug: n.Slug, Name: n.Name, Access: "navigate"}
 	if !readable {
 		return body
@@ -46,10 +39,12 @@ func NodeOf(n catalog.Node, readable bool) Node {
 	body.Access = "read"
 	description, labels, created, updated := n.Description, n.Labels, n.CreatedAt, n.UpdatedAt
 	if labels == nil {
-		labels = catalog.Labels{}
+		labels = catalogtypes.Labels{}
 	}
 	body.Description, body.Labels, body.CreatedAt, body.UpdatedAt = &description, &labels, &created, &updated
-	if n.Kind == catalog.KindProject {
+	managed := n.Managed
+	body.Managed = &managed
+	if n.Kind == catalogtypes.KindProject {
 		var forge *string
 		if n.Repo.Forge != nil {
 			f := string(*n.Repo.Forge)
@@ -63,16 +58,16 @@ func NodeOf(n catalog.Node, readable bool) Node {
 	return body
 }
 
-func ReadNode(n catalog.Node) Node { return NodeOf(n, true) }
+func ReadNode(n catalogtypes.Node) Node { return NodeOf(n, true) }
 
-func WalkedNode(w catalog.WalkNode) Node {
+func WalkedNode(w catalogtypes.WalkNode) Node {
 	body := NodeOf(w.Node, w.Readable)
 	depth := w.Depth
 	body.Depth = &depth
 	return body
 }
 
-func ScopedNode(s catalogservice.Scoped) Node {
+func ScopedNode(s catalogservices.Scoped) Node {
 	body := NodeOf(s.Node, s.Role != nil)
 	permissions := s.Permissions()
 	path := make([]Node, 0, len(s.Path))
@@ -87,7 +82,16 @@ func ScopedNode(s catalogservice.Scoped) Node {
 	return body
 }
 
-func CreatedNode(n catalog.Node, key *catalogservice.IssuedKey) Node {
+func ProjectCardOf(card composeservices.ProjectCard) Node {
+	body := ScopedNode(card.Scoped)
+	if card.HasRepository {
+		r := RepositoryOf(card.Repository)
+		body.Repository = &r
+	}
+	return body
+}
+
+func CreatedNode(n catalogtypes.Node, key *catalogservices.IssuedKey) Node {
 	body := ReadNode(n)
 	if key != nil {
 		k := IssuedKeyOf(*key)
@@ -125,7 +129,7 @@ type Binding struct {
 	CreatedAt   string    `json:"created_at"`
 }
 
-func BindingOf(b catalog.Binding, scope uuid.UUID) Binding {
+func BindingOf(b catalogtypes.Binding, scope uuid.UUID) Binding {
 	return Binding{
 		ID: b.ID, NodeID: b.NodeID, NodeName: b.NodeName, SubjectKind: string(b.SubjectKind),
 		SubjectID: b.SubjectID, SubjectName: b.SubjectName, Role: b.Role.String(),
@@ -144,14 +148,14 @@ type Key struct {
 	Secret     *string   `json:"secret,omitempty"`
 }
 
-func KeyOf(k catalog.ProjectKey) Key {
+func KeyOf(k catalogtypes.ProjectKey) Key {
 	return Key{
 		ID: k.ID, Prefix: k.Prefix, Status: string(k.Status), CreatedAt: k.CreatedAt,
 		LastUsedAt: k.LastUsedAt, ExpiresAt: k.ExpiresAt, RevokedAt: k.RevokedAt,
 	}
 }
 
-func IssuedKeyOf(i catalogservice.IssuedKey) Key {
+func IssuedKeyOf(i catalogservices.IssuedKey) Key {
 	k := KeyOf(i.Key)
 	secret := i.Secret
 	k.Secret = &secret

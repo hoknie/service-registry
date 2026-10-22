@@ -40,4 +40,4 @@ lint: fmt-check vet layout
 # Package dependency directions: pkg/ and platform/ import no features, features follow their graph
 [group('quality')]
 layout:
-    GO={{ GO }} scripts/check-layout.sh
+    GO={{ GO }} {{ GO }} run ./scripts/layout

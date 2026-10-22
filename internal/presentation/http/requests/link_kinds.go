@@ -1,6 +1,6 @@
 package requests
 
-import "svc-registry/internal/feature/links"
+import linkstypes "svc-registry/internal/feature/links/types"
 
 type CreateLinkKind struct {
 	Key      *string             `json:"key" validate:"required"`
@@ -10,8 +10,8 @@ type CreateLinkKind struct {
 	Position *int64              `json:"position"`
 }
 
-func (r CreateLinkKind) Kind() links.CreateKind {
-	return links.CreateKind{Key: *r.Key, Names: *r.Names, Icon: r.Icon, IconURL: r.IconURL, Position: r.Position}
+func (r CreateLinkKind) Kind() linkstypes.CreateKind {
+	return linkstypes.CreateKind{Key: *r.Key, Names: *r.Names, Icon: r.Icon, IconURL: r.IconURL, Position: r.Position}
 }
 
 type UpdateLinkKind struct {
@@ -21,8 +21,8 @@ type UpdateLinkKind struct {
 	Position *int64              `json:"position"`
 }
 
-func (r UpdateLinkKind) Kind() links.UpdateKind {
-	out := links.UpdateKind{Icon: r.Icon, Position: r.Position, IconURLSet: r.IconURL.Present, IconURL: r.IconURL.Value}
+func (r UpdateLinkKind) Kind() linkstypes.UpdateKind {
+	out := linkstypes.UpdateKind{Icon: r.Icon, Position: r.Position, IconURLSet: r.IconURL.Present, IconURL: r.IconURL.Value}
 	if r.Names != nil {
 		out.Names = *r.Names
 		if out.Names == nil {

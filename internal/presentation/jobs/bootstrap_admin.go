@@ -14,14 +14,14 @@ func SpawnBootstrapAdmin(ctx context.Context, deps Deps, admin config.BootstrapA
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		row, err := deps.Access.PrepareBootstrapAdmin(admin)
+		row, err := deps.Access.Bootstrap.PrepareBootstrapAdmin(admin)
 		if err != nil {
 			slog.Error("bootstrap admin: cannot prepare the account", "error", err)
 			return
 		}
 		warned := false
 		for {
-			created, err := deps.Access.EnsureBootstrapAdmin(ctx, row)
+			created, err := deps.Access.Bootstrap.EnsureBootstrapAdmin(ctx, row)
 			switch {
 			case err == nil && created:
 				slog.Info("bootstrap admin created", "email", row.Email)

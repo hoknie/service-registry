@@ -5,27 +5,28 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	accessservice "svc-registry/internal/feature/access/service"
-	catalogservice "svc-registry/internal/feature/catalog/service"
-	deployservice "svc-registry/internal/feature/deploy/service"
-	forgeservice "svc-registry/internal/feature/forge/service"
-	ingestservice "svc-registry/internal/feature/ingest/service"
-	knowledgeservice "svc-registry/internal/feature/knowledge/service"
-	linksservice "svc-registry/internal/feature/links/service"
+	accessservices "svc-registry/internal/feature/access/services"
+	catalogservices "svc-registry/internal/feature/catalog/services"
+	composeservices "svc-registry/internal/feature/compose/services"
+	deployservices "svc-registry/internal/feature/deploy/services"
+	forgeservices "svc-registry/internal/feature/forge/services"
+	ingestservices "svc-registry/internal/feature/ingest/services"
+	knowledgeservices "svc-registry/internal/feature/knowledge/services"
+	linksservices "svc-registry/internal/feature/links/services"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/platform/postgres"
 )
 
 type Handlers struct {
 	Config    *config.Config
-	DB        *postgres.DB
-	Access    *accessservice.Service
-	Catalog   *catalogservice.Service
-	Links     *linksservice.Service
-	Ingest    *ingestservice.Service
-	Forge     *forgeservice.Service
-	Deploy    *deployservice.Service
-	Knowledge *knowledgeservice.Service
+	Readiness Readiness
+	Access    *accessservices.AccessServices
+	Catalog   *catalogservices.CatalogServices
+	Links     *linksservices.LinksServices
+	Ingest    *ingestservices.IngestServices
+	Forge     *forgeservices.ForgeServices
+	Deploy    *deployservices.DeployServices
+	Knowledge *knowledgeservices.KnowledgeServices
+	Compose   *composeservices.ComposeServices
 	Version   string
 
 	mcpOnce    sync.Once

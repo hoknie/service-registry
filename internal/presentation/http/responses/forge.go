@@ -3,8 +3,8 @@ package responses
 import (
 	"github.com/google/uuid"
 
-	"svc-registry/internal/feature/forge"
-	forgeservice "svc-registry/internal/feature/forge/service"
+	forgeservices "svc-registry/internal/feature/forge/services"
+	forgetypes "svc-registry/internal/feature/forge/types"
 )
 
 type Repository struct {
@@ -26,7 +26,7 @@ type Repository struct {
 	HasReadme     bool               `json:"has_readme"`
 }
 
-func RepositoryOf(r *forge.Repository) *Repository {
+func RepositoryOf(r *forgetypes.Repository) *Repository {
 	if r == nil {
 		return nil
 	}
@@ -48,24 +48,24 @@ type Webhook struct {
 }
 
 type Run struct {
-	ID           uuid.UUID       `json:"id"`
-	Trigger      string          `json:"trigger"`
-	Status       string          `json:"status"`
-	StartedAt    string          `json:"started_at"`
-	FinishedAt   *string         `json:"finished_at"`
-	Created      int             `json:"created"`
-	Updated      int             `json:"updated"`
-	Orphaned     int             `json:"orphaned"`
-	Skipped      int             `json:"skipped"`
-	ErrorCode    *string         `json:"error_code"`
-	ErrorMessage *string         `json:"error_message"`
-	Problems     []forge.Problem `json:"problems"`
+	ID           uuid.UUID            `json:"id"`
+	Trigger      string               `json:"trigger"`
+	Status       string               `json:"status"`
+	StartedAt    string               `json:"started_at"`
+	FinishedAt   *string              `json:"finished_at"`
+	Created      int                  `json:"created"`
+	Updated      int                  `json:"updated"`
+	Orphaned     int                  `json:"orphaned"`
+	Skipped      int                  `json:"skipped"`
+	ErrorCode    *string              `json:"error_code"`
+	ErrorMessage *string              `json:"error_message"`
+	Problems     []forgetypes.Problem `json:"problems"`
 }
 
-func RunOf(r forge.Run) Run {
+func RunOf(r forgetypes.Run) Run {
 	problems := r.Problems
 	if problems == nil {
-		problems = []forge.Problem{}
+		problems = []forgetypes.Problem{}
 	}
 	return Run{ID: r.ID, Trigger: string(r.Trigger), Status: string(r.Status), StartedAt: r.StartedAt,
 		FinishedAt: r.FinishedAt, Created: r.Counts.Created, Updated: r.Counts.Updated, Orphaned: r.Counts.Orphaned,
@@ -93,7 +93,7 @@ type Connection struct {
 	UpdatedAt       string      `json:"updated_at"`
 }
 
-func ConnectionOf(v forgeservice.ConnectionView) Connection {
+func ConnectionOf(v forgeservices.ConnectionView) Connection {
 	c := v.Connection
 	out := Connection{
 		ID: c.ID, NodeID: c.NodeID, Kind: string(c.Kind), APIURL: c.APIURL, OwnerPath: c.OwnerPath,
@@ -129,7 +129,7 @@ type PreviewItem struct {
 	Code     *string `json:"code,omitempty"`
 }
 
-func PreviewItemOf(i forgeservice.PreviewItem) PreviewItem {
+func PreviewItemOf(i forgeservices.PreviewItem) PreviewItem {
 	return PreviewItem{FullPath: i.FullPath, Action: i.Action, Code: i.Code}
 }
 
@@ -139,7 +139,7 @@ type WebhookSetup struct {
 	Secret *string `json:"secret,omitempty"`
 }
 
-func WebhookSetupOf(w forgeservice.WebhookSetup) WebhookSetup {
+func WebhookSetupOf(w forgeservices.WebhookSetup) WebhookSetup {
 	return WebhookSetup{Mode: string(w.Mode), URL: w.URL, Secret: w.Secret}
 }
 
@@ -151,7 +151,7 @@ type Readme struct {
 	Kind          string  `json:"kind"`
 }
 
-func ReadmeOf(r forge.Readme) Readme {
+func ReadmeOf(r forgetypes.Readme) Readme {
 	return Readme{Markdown: r.Markdown, Truncated: r.Truncated, WebURL: r.WebURL, DefaultBranch: r.DefaultBranch, Kind: string(r.Kind)}
 }
 
@@ -169,7 +169,7 @@ type Exclusion struct {
 	CreatedAt  string           `json:"created_at"`
 }
 
-func ExclusionOf(v forgeservice.ExclusionView) Exclusion {
+func ExclusionOf(v forgeservices.ExclusionView) Exclusion {
 	out := Exclusion{ExternalID: v.Exclusion.ExternalID, FullPath: v.Exclusion.FullPath, ProjectID: v.Exclusion.ProjectID,
 		CreatedAt: v.Exclusion.CreatedAt}
 	if v.Project != nil {

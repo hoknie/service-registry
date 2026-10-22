@@ -1,6 +1,6 @@
 package responses
 
-import "svc-registry/internal/feature/deploy"
+import deploytypes "svc-registry/internal/feature/deploy/types"
 
 type DirectoryEnvironment struct {
 	Key       string            `json:"key"`
@@ -10,6 +10,6 @@ type DirectoryEnvironment struct {
 	UpdatedAt string            `json:"updated_at"`
 }
 
-func DirectoryEnvironmentOf(e deploy.Environment) DirectoryEnvironment {
+func DirectoryEnvironmentOf(e deploytypes.Environment) DirectoryEnvironment {
 	return DirectoryEnvironment{Key: e.Key, Names: e.Names, Position: e.Position, CreatedAt: e.CreatedAt, UpdatedAt: e.UpdatedAt}
 }
