@@ -8,6 +8,30 @@ The versions follow [Semantic Versioning](https://semver.org/).
 
 ### Features
 
+- Updated org struct ([1e69f77](https://github.com/hoknie/service-registry/commit/1e69f77dcbb2bec503a5ba077572c83cf5938ace))
+
+### Dependencies
+
+- Bump the go-minor-and-patch group with 3 updates (#11) ([8759b0b](https://github.com/hoknie/service-registry/commit/8759b0b4ea751207a53ce813c2c8ff5efa9da578))
+- Bump golang from 1.27.0-alpine to 1.27.2-alpine in /env (#10) ([86e0732](https://github.com/hoknie/service-registry/commit/86e0732729dfd491f5b000c7d41ec849d124cfa7))
+- Bump the actions group with 2 updates (#13) ([113817a](https://github.com/hoknie/service-registry/commit/113817ad79b686a0c9699adb97c7e8296b9b502b))
+
+[Full diff](https://github.com/hoknie/service-registry/compare/v0.1.1...HEAD)
+
+## [0.1.1] - 2026-10-14
+
+### Other
+
+- Renew prj view (#9) ([90f3c68](https://github.com/hoknie/service-registry/commit/90f3c6830956154a3ebd90fed0dd385cb4f4969a))
+
+[Full diff](https://github.com/hoknie/service-registry/compare/v0.1.0...v0.1.1)
+
+## [0.1.0] - 2026-10-12
+
+### Features
+
+- Docker updated ([bf6cc34](https://github.com/hoknie/service-registry/commit/bf6cc3488986bcc369ec03a92fde0660d84fb944))
+- Added release packaging ([d730afd](https://github.com/hoknie/service-registry/commit/d730afd36e1dc158c0ce6c7e3dc6d1a59e584115))
 - Added documents view ([0846a3c](https://github.com/hoknie/service-registry/commit/0846a3c58835b1f0ec938daec0f15a1c0de48e5e))
 - Added links from deploy ([3c36922](https://github.com/hoknie/service-registry/commit/3c3692274500bbeea91eab7b9c424cbf4844bb41))
 - Update scan history view ([e42a626](https://github.com/hoknie/service-registry/commit/e42a6269cb713419912d28bf567ef1a1c1ce5ac4))
@@ -25,7 +49,17 @@ The versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixes
 
+- Updated ci and ca ([f2347e6](https://github.com/hoknie/service-registry/commit/f2347e6882d204ea6c1e781500fc7dc07f44744f))
+- Updated deps ([33a7206](https://github.com/hoknie/service-registry/commit/33a72068c448d8616cc9209e419f75bb268a15dc))
 - Scan history now without mess ([470a1cc](https://github.com/hoknie/service-registry/commit/470a1cc1f73c566c078f9bd46daa73466fb66d2f))
+
+### Dependencies
+
+- Bump the actions group with 6 updates ([3134051](https://github.com/hoknie/service-registry/commit/3134051960418221fc528dcb01876f928d82f55c))
+- Bump the npm-minor-and-patch group in /web with 3 updates ([66f0463](https://github.com/hoknie/service-registry/commit/66f04635dfa5b3660035bd8578615f2dc947ec74))
+- Bump the go-minor-and-patch group with 6 updates ([0fafaa7](https://github.com/hoknie/service-registry/commit/0fafaa7abaaa003b91f18cf6ad5c48bdbd18ce71))
+- Bump golang from 1.26.8-alpine to 1.27.0-alpine in /env ([1e9480c](https://github.com/hoknie/service-registry/commit/1e9480c896b60d6330d07f6080c68a0840542ca2))
+- Bump node from 24-alpine to 26-alpine in /env ([6300090](https://github.com/hoknie/service-registry/commit/6300090eb0ab4d3bdfa4fb04f1187a575e72f59e))
 
 ### Other
 
