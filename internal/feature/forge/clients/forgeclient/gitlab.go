@@ -30,8 +30,7 @@ func gitlabErr(err error, resp *gitlab.Response, ownerCall bool) error {
 	if err == nil {
 		return nil
 	}
-	var er *gitlab.ErrorResponse
-	if errors.As(err, &er) && er.Response != nil {
+	if er, ok := errors.AsType[*gitlab.ErrorResponse](err); ok && er.Response != nil {
 		return fromStatus(er.Response, ownerCall, err)
 	}
 	if resp != nil && resp.Response != nil && resp.StatusCode >= 400 {
@@ -48,7 +47,7 @@ func (g *gitlabClient) Check(ctx context.Context) error {
 func (g *gitlabClient) ListRepos(ctx context.Context) ([]forgetypes.RemoteRepo, error) {
 	var out []forgetypes.RemoteRepo
 	opt := &gitlab.ListGroupProjectsOptions{
-		IncludeSubGroups: gitlab.Ptr(true),
+		IncludeSubGroups: new(true),
 		ListOptions:      gitlab.ListOptions{PerPage: pageSize, Page: 1},
 	}
 	for {
@@ -116,7 +115,7 @@ func (g *gitlabClient) Details(ctx context.Context, repo forgetypes.RemoteRepo) 
 	if p := readmePath(repo.ReadmeHint, repo.DefaultBranch); p != "" {
 		opt := &gitlab.GetRawFileOptions{}
 		if repo.DefaultBranch != "" {
-			opt.Ref = gitlab.Ptr(repo.DefaultBranch)
+			opt.Ref = new(repo.DefaultBranch)
 		}
 		raw, resp, err := g.c.RepositoryFiles.GetRawFile(id, p, opt, gitlab.WithContext(ctx))
 		switch {
@@ -138,7 +137,7 @@ func (g *gitlabClient) Details(ctx context.Context, repo forgetypes.RemoteRepo) 
 		}
 	}
 	d.Languages = forgetypes.Percentages(shares)
-	project, resp, err := g.c.Projects.GetProject(id, &gitlab.GetProjectOptions{License: gitlab.Ptr(true)}, gitlab.WithContext(ctx))
+	project, resp, err := g.c.Projects.GetProject(id, &gitlab.GetProjectOptions{License: new(true)}, gitlab.WithContext(ctx))
 	if err != nil {
 		return forgetypes.Details{}, gitlabErr(err, resp, false)
 	}
@@ -156,12 +155,12 @@ func (g *gitlabClient) Details(ctx context.Context, repo forgetypes.RemoteRepo) 
 
 func (g *gitlabClient) RegisterHook(ctx context.Context, url, secret string) (string, error) {
 	hook, resp, err := g.c.Groups.AddGroupHook(g.group, &gitlab.AddGroupHookOptions{
-		URL:                   gitlab.Ptr(url),
-		Token:                 gitlab.Ptr(secret),
-		PushEvents:            gitlab.Ptr(true),
-		ProjectEvents:         gitlab.Ptr(true),
-		SubGroupEvents:        gitlab.Ptr(true),
-		EnableSSLVerification: gitlab.Ptr(true),
+		URL:                   new(url),
+		Token:                 new(secret),
+		PushEvents:            new(true),
+		ProjectEvents:         new(true),
+		SubGroupEvents:        new(true),
+		EnableSSLVerification: new(true),
 	}, gitlab.WithContext(ctx))
 	if err != nil {
 		return "", gitlabErr(err, resp, false)

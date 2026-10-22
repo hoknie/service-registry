@@ -90,8 +90,7 @@ func (e *EngineClient) prepare(ctx context.Context) (meilisearch.IndexManager, e
 			return nil, err
 		}
 	}
-	distinct := "file"
-	settings := &meilisearch.Settings{SearchableAttributes: []string{"text", "path"}, DistinctAttribute: &distinct,
+	settings := &meilisearch.Settings{SearchableAttributes: []string{"text", "path"}, DistinctAttribute: new("file"),
 		FilterableAttributes: []string{"project_id", "pb", "file"}}
 	if e.dims > 0 {
 		settings.Embedders = map[string]meilisearch.Embedder{embedder: {Source: meilisearch.UserProvidedEmbedderSource, Dimensions: e.dims}}
@@ -144,8 +143,7 @@ func (e *EngineClient) Sync(ctx context.Context, project uuid.UUID, docs []knowl
 				out[i].Vectors = map[string][]float32{embedder: d.Vector}
 			}
 		}
-		pk := "id"
-		info, err := idx.AddDocumentsWithContext(ctx, out, &meilisearch.DocumentOptions{PrimaryKey: &pk})
+		info, err := idx.AddDocumentsWithContext(ctx, out, &meilisearch.DocumentOptions{PrimaryKey: new("id")})
 		if err := e.wait(ctx, "add documents", info, err); err != nil {
 			return err
 		}

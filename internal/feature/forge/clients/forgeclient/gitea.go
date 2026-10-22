@@ -45,8 +45,7 @@ func (g *giteaClient) resolve(ctx context.Context) error {
 	}
 	_, resp, err := g.c.GetOrg(g.owner)
 	if err == nil {
-		yes := true
-		g.isOrg = &yes
+		g.isOrg = new(true)
 		return nil
 	}
 	if resp == nil || resp.StatusCode != http.StatusNotFound {
@@ -55,8 +54,7 @@ func (g *giteaClient) resolve(ctx context.Context) error {
 	if _, resp, err := g.c.GetUserInfo(g.owner); err != nil {
 		return giteaErr(err, resp, true)
 	}
-	no := false
-	g.isOrg = &no
+	g.isOrg = new(false)
 	return nil
 }
 
@@ -150,8 +148,7 @@ func (g *giteaClient) Details(ctx context.Context, repo forgetypes.RemoteRepo) (
 	}
 	d.Languages = forgetypes.Percentages(sizes)
 	if repo.License != "" {
-		l := repo.License
-		d.License = &l
+		d.License = new(repo.License)
 	}
 	return d, nil
 }

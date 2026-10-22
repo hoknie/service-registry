@@ -61,8 +61,7 @@ func Run(args []string, stdio IO) int {
 		return 0
 	}
 	fmt.Fprintf(stdio.Stderr, "error: %v\n", err)
-	var run *runError
-	if errors.As(err, &run) {
+	if _, ok := errors.AsType[*runError](err); ok {
 		slog.Error(err.Error())
 		return 1
 	}

@@ -28,9 +28,9 @@ func newApp(api *handlers.Handlers) *fiber.App {
 func errorHandler(api *handlers.Handlers, c fiber.Ctx, err error) error {
 	path := string(c.Request().URI().PathOriginal())
 	isAPI := path == "/api" || strings.HasPrefix(path, "/api/")
-	var fe *fiber.Error
 	status := nethttp.StatusInternalServerError
-	if errors.As(err, &fe) {
+	fe, isFiber := errors.AsType[*fiber.Error](err)
+	if isFiber {
 		status = fe.Code
 	}
 	if !isAPI {
@@ -48,7 +48,7 @@ func errorHandler(api *handlers.Handlers, c fiber.Ctx, err error) error {
 	case nethttp.StatusMethodNotAllowed:
 		return handlers.APIMethodNotAllowed(c)
 	}
-	if fe != nil && status < 500 {
+	if isFiber && status < 500 {
 		return responses.NewAPIError(status, "validation.invalid_body", fe.Message).Send(c)
 	}
 	return responses.Fail(c, err)

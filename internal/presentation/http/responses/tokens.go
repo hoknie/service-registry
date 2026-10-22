@@ -38,7 +38,6 @@ func OwnedTokenOf(t accesstypes.Token) Token {
 
 func IssuedTokenOf(i accessservices.IssuedToken) Token {
 	out := TokenOf(i.Token)
-	secret := i.Secret
-	out.Secret = &secret
+	out.Secret = new(i.Secret)
 	return out
 }

@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -20,16 +19,16 @@ func NewCollectionRepository(db *pgtx.DB) *CollectionRepository {
 }
 
 func (s *CollectionRepository) RequestCollect(ctx context.Context, projectID uuid.UUID) error {
-	_, err := s.db.From(ctx).Exec(ctx, `
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO knowledge_settings (project_id, force)
 		VALUES ($1, true)
 		ON CONFLICT (project_id)
 		DO UPDATE SET force = true, next_run_at = now()`, projectID)
-	return postgres.Translate(err, constraints)
+	return err
 }
 
 func (s *CollectionRepository) Claim(ctx context.Context, limit, leaseSecs int) ([]uuid.UUID, error) {
-	if _, err := s.db.From(ctx).Exec(ctx, `
+	if _, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO knowledge_settings (project_id)
 		SELECT r.project_id
 		FROM forge_repositories r
@@ -39,9 +38,9 @@ func (s *CollectionRepository) Claim(ctx context.Context, limit, leaseSecs int) 
 		FROM knowledge_sources
 		ON CONFLICT
 		DO NOTHING`); err != nil {
-		return nil, postgres.Translate(err, constraints)
+		return nil, err
 	}
-	rows, err := s.db.From(ctx).Query(ctx, `
+	return postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowTo[uuid.UUID], `
 		UPDATE knowledge_settings s
 		SET lease_until = now() + make_interval(secs => $2)
 		WHERE s.project_id IN (
@@ -64,43 +63,44 @@ func (s *CollectionRepository) Claim(ctx context.Context, limit, leaseSecs int) 
 			FOR UPDATE OF k SKIP LOCKED
 		)
 		RETURNING s.project_id`, limit, float64(leaseSecs))
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	ids, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
-	return ids, postgres.Translate(err, constraints)
 }
 
 func (s *CollectionRepository) Extend(ctx context.Context, projectID uuid.UUID, leaseSecs int) error {
-	_, err := s.db.From(ctx).Exec(ctx, `
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		UPDATE knowledge_settings
 		SET lease_until = now() + make_interval(secs => $2)
 		WHERE project_id = $1`, projectID, float64(leaseSecs))
-	return postgres.Translate(err, constraints)
+	return err
 }
 
 func (s *CollectionRepository) Release(ctx context.Context, projectID uuid.UUID, afterSecs uint32, clearForce bool) error {
-	_, err := s.db.From(ctx).Exec(ctx, `
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		UPDATE knowledge_settings
 		SET lease_until = NULL, next_run_at = now() + make_interval(secs => $2),
 			force = CASE WHEN $3 THEN false ELSE force END
 		WHERE project_id = $1`, projectID, float64(afterSecs), clearForce)
-	return postgres.Translate(err, constraints)
+	return err
 }
 
 func (s *CollectionRepository) Project(ctx context.Context, projectID uuid.UUID) (knowledgetypes.Project, error) {
-	var p knowledgetypes.Project
-	err := s.db.From(ctx).QueryRow(ctx, `
+	p, err := postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (knowledgetypes.Project, error) {
+		var p knowledgetypes.Project
+		err := r.Scan(&p.ID, &p.DefaultBranch, &p.ConnectionID, &p.Force)
+		p.Synced = p.ConnectionID != nil
+		return p, err
+	}, `
 		SELECT n.id, COALESCE(n.default_branch, r.default_branch, '') AS default_branch, r.connection_id,
 			COALESCE(s.force, false) AS force
 		FROM nodes n
 		LEFT JOIN forge_repositories r ON r.project_id = n.id AND r.orphaned_at IS NULL
 		LEFT JOIN knowledge_settings s ON s.project_id = n.id
 		WHERE n.id = $1
-			AND n.kind = 'project'`, projectID).Scan(&p.ID, &p.DefaultBranch, &p.ConnectionID, &p.Force)
-	if errors.Is(err, pgx.ErrNoRows) {
+			AND n.kind = 'project'`, projectID)
+	if err != nil {
+		return knowledgetypes.Project{}, err
+	}
+	if p == nil {
 		return knowledgetypes.Project{}, apperr.ErrNotFound
 	}
-	p.Synced = p.ConnectionID != nil
-	return p, postgres.Translate(err, constraints)
+	return *p, nil
 }

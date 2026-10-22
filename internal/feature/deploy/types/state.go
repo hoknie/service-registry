@@ -94,8 +94,7 @@ func lastRun(jobs []Job) *LastRun {
 		r.Status = "succeeded"
 	}
 	if j.StartedAt != nil {
-		t := j.StartedAt.UTC().Format(time.RFC3339)
-		r.StartedAt = &t
+		r.StartedAt = new(j.StartedAt.UTC().Format(time.RFC3339))
 	}
 	return r
 }

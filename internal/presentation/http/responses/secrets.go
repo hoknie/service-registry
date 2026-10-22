@@ -45,8 +45,7 @@ func CredentialsOf(c catalogtypes.Credentials) Credentials {
 		out.Secret = &SecretRef{ID: *c.SecretID}
 	}
 	if c.Kind == catalogtypes.CredentialsLegacy {
-		st := string(c.Storage)
-		out.Storage, out.Fingerprint, out.Ref = &st, c.Fingerprint, c.Ref
+		out.Storage, out.Fingerprint, out.Ref = new(string(c.Storage)), c.Fingerprint, c.Ref
 	}
 	return out
 }

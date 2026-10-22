@@ -127,8 +127,7 @@ func (r *pollRun) observe(ctx context.Context, w deploytypes.Workload) error {
 	prev := r.previous[w.UID]
 	o := deploytypes.Observation{UID: w.UID, Kind: w.Kind, Namespace: w.Namespace, Name: w.Name, Annotation: m.Annotation, Version: m.Version}
 	if m.Project == nil {
-		reason := m.Reason
-		o.Reason = &reason
+		o.Reason = new(m.Reason)
 		o.State, o.Images = deploytypes.ObserveState(w, nil, nil, prev.State, now, r.interval)
 		r.obs = append(r.obs, o)
 		return nil
@@ -156,8 +155,7 @@ func (r *pollRun) observe(ctx context.Context, w deploytypes.Workload) error {
 			Version: pending.Version, Branch: m.Branch, CommitSHA: m.Commit, Cluster: c.Name, Namespace: w.Namespace,
 			OccurredAt: pending.Since,
 		})
-		v := pending.Version
-		r.currents[t] = &v
+		r.currents[t] = new(pending.Version)
 		pending = nil
 	}
 	if pending != nil {

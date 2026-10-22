@@ -89,8 +89,7 @@ func (s *TokensService) RevokeOwnToken(ctx context.Context, p accesstypes.Princi
 	if err := requireSession(p); err != nil {
 		return err
 	}
-	owner := p.UserID
-	return apperr.Wrap(s.tokenRepository.Revoke(ctx, id, &owner))
+	return apperr.Wrap(s.tokenRepository.Revoke(ctx, id, new(p.UserID)))
 }
 
 func (s *TokensService) ListUserTokens(ctx context.Context, p accesstypes.Principal, userID uuid.UUID) ([]accesstypes.Token, error) {

@@ -225,9 +225,8 @@ func TestDeploymentLinksAreNormalized(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	title := "Пайплайн"
 	want := []DeploymentLink{
-		{Key: "runbook", Kind: "runbook", URL: "https://ci.example/runs/42", Title: &title},
+		{Key: "runbook", Kind: "runbook", URL: "https://ci.example/runs/42", Title: new("Пайплайн")},
 		{Key: "logs-raw", Kind: "logs", URL: "https://logs.example/?q=api"},
 	}
 	if !reflect.DeepEqual(e.ServiceDeployed.Links, want) {

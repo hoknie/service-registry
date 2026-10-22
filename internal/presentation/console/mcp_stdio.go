@@ -96,8 +96,7 @@ func forward(client *http.Client, endpoint, token string, msg []byte) []byte {
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := client.Do(req)
 	if err != nil {
-		var u *url.Error
-		if errors.As(err, &u) {
+		if u, ok := errors.AsType[*url.Error](err); ok {
 			err = u.Err
 		}
 		return rpcError(head.ID, isRequest, "registry unreachable: "+err.Error())

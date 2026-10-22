@@ -6,10 +6,8 @@ import (
 	"testing"
 )
 
-func days(n int64) *int64 { return &n }
-
 func TestValidTokensAreNormalized(t *testing.T) {
-	got, err := ValidateCreateToken(CreateToken{Name: "  ci  ", Scopes: []string{"mcp", "read"}, ExpiresInDays: days(90)}, false, 365)
+	got, err := ValidateCreateToken(CreateToken{Name: "  ci  ", Scopes: []string{"mcp", "read"}, ExpiresInDays: new(int64(90))}, false, 365)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,17 +23,17 @@ func TestTokenRules(t *testing.T) {
 		superadmin bool
 		want       error
 	}{
-		{"blank name", CreateToken{Name: "  ", Scopes: []string{"read"}, ExpiresInDays: days(1)}, false, InvalidTokenName},
-		{"long name", CreateToken{Name: strings.Repeat("я", 101), Scopes: []string{"read"}, ExpiresInDays: days(1)}, false, InvalidTokenName},
-		{"no scopes", CreateToken{Name: "t", ExpiresInDays: days(1)}, false, InvalidScopes},
-		{"unknown scope", CreateToken{Name: "t", Scopes: []string{"read", "deploy"}, ExpiresInDays: days(1)}, false, InvalidScopes},
-		{"repeated scope", CreateToken{Name: "t", Scopes: []string{"read", "read"}, ExpiresInDays: days(1)}, false, InvalidScopes},
-		{"admin of a user", CreateToken{Name: "t", Scopes: []string{"admin"}, ExpiresInDays: days(1)}, false, InvalidScopes},
-		{"admin of a superadmin", CreateToken{Name: "t", Scopes: []string{"admin"}, ExpiresInDays: days(1)}, true, nil},
-		{"zero days", CreateToken{Name: "t", Scopes: []string{"read"}, ExpiresInDays: days(0)}, true, InvalidTokenLifetime},
-		{"one day", CreateToken{Name: "t", Scopes: []string{"read"}, ExpiresInDays: days(1)}, false, nil},
-		{"max days", CreateToken{Name: "t", Scopes: []string{"read"}, ExpiresInDays: days(365)}, false, nil},
-		{"over max", CreateToken{Name: "t", Scopes: []string{"read"}, ExpiresInDays: days(366)}, true, InvalidTokenLifetime},
+		{"blank name", CreateToken{Name: "  ", Scopes: []string{"read"}, ExpiresInDays: new(int64(1))}, false, InvalidTokenName},
+		{"long name", CreateToken{Name: strings.Repeat("я", 101), Scopes: []string{"read"}, ExpiresInDays: new(int64(1))}, false, InvalidTokenName},
+		{"no scopes", CreateToken{Name: "t", ExpiresInDays: new(int64(1))}, false, InvalidScopes},
+		{"unknown scope", CreateToken{Name: "t", Scopes: []string{"read", "deploy"}, ExpiresInDays: new(int64(1))}, false, InvalidScopes},
+		{"repeated scope", CreateToken{Name: "t", Scopes: []string{"read", "read"}, ExpiresInDays: new(int64(1))}, false, InvalidScopes},
+		{"admin of a user", CreateToken{Name: "t", Scopes: []string{"admin"}, ExpiresInDays: new(int64(1))}, false, InvalidScopes},
+		{"admin of a superadmin", CreateToken{Name: "t", Scopes: []string{"admin"}, ExpiresInDays: new(int64(1))}, true, nil},
+		{"zero days", CreateToken{Name: "t", Scopes: []string{"read"}, ExpiresInDays: new(int64(0))}, true, InvalidTokenLifetime},
+		{"one day", CreateToken{Name: "t", Scopes: []string{"read"}, ExpiresInDays: new(int64(1))}, false, nil},
+		{"max days", CreateToken{Name: "t", Scopes: []string{"read"}, ExpiresInDays: new(int64(365))}, false, nil},
+		{"over max", CreateToken{Name: "t", Scopes: []string{"read"}, ExpiresInDays: new(int64(366))}, true, InvalidTokenLifetime},
 		{"no expiry of a user", CreateToken{Name: "t", Scopes: []string{"read"}}, false, InvalidTokenLifetime},
 		{"no expiry of a superadmin", CreateToken{Name: "t", Scopes: []string{"read"}}, true, nil},
 	}
@@ -60,8 +58,7 @@ func TestTokenQueryPrefixIsBounded(t *testing.T) {
 	if _, err := ValidateTokenQuery(TokenQuery{Prefix: &long}); err != InvalidTokenPrefix {
 		t.Fatal(err)
 	}
-	zero := int64(0)
-	if _, err := ValidateTokenQuery(TokenQuery{Page: PageQuery{Limit: &zero}}); err != InvalidPagination {
+	if _, err := ValidateTokenQuery(TokenQuery{Page: PageQuery{Limit: new(int64(0))}}); err != InvalidPagination {
 		t.Fatal(err)
 	}
 }

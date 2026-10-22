@@ -53,8 +53,8 @@ func Load[T any](vars Env) (T, error) {
 		errs = append(errs, parseErrors(err, envNames(reflect.TypeFor[T](), ""), set)...)
 	}
 	if err := validate.Struct(&out); err != nil {
-		var ve validator.ValidationErrors
-		if !errors.As(err, &ve) {
+		ve, ok := errors.AsType[validator.ValidationErrors](err)
+		if !ok {
 			return out, err
 		}
 		for _, fe := range ve {
@@ -110,27 +110,22 @@ func envNames(t reflect.Type, prefix string) map[string]string {
 }
 
 func parseErrors(err error, names map[string]string, set map[string]string) Errors {
-	var agg env.AggregateError
 	list := []error{err}
-	if errors.As(err, &agg) {
+	if agg, ok := errors.AsType[env.AggregateError](err); ok {
 		list = agg.Errors
 	}
 	var out Errors
 	for _, e := range list {
-		var missing env.VarIsNotSetError
-		var parse env.ParseError
-		switch {
-		case errors.As(e, &missing):
+		if missing, ok := errors.AsType[env.VarIsNotSetError](e); ok {
 			out = append(out, &Error{Var: missing.Key, Reason: "is required"})
-		case errors.As(e, &parse):
+		} else if parse, ok := errors.AsType[env.ParseError](e); ok {
 			name := names[parse.Name]
 			reason := fmt.Sprintf("is invalid (%v), got %q", parse.Err, set[name])
-			var num *strconv.NumError
-			if errors.As(parse.Err, &num) {
+			if num, ok := errors.AsType[*strconv.NumError](parse.Err); ok {
 				reason = fmt.Sprintf("expected %s, got %q", expected(parse.Type), num.Num)
 			}
 			out = append(out, &Error{Var: name, Reason: reason})
-		default:
+		} else {
 			out = append(out, &Error{Var: "environment", Reason: e.Error()})
 		}
 	}

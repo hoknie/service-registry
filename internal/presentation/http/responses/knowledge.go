@@ -97,8 +97,7 @@ type Knowledge struct {
 func KnowledgeOf(o knowledgeservices.KnowledgeOverview) Knowledge {
 	out := Knowledge{Synced: o.Synced, Settings: KnowledgeSettingsOf(o.Settings), Branches: make([]KnowledgeBranch, 0, len(o.Branches))}
 	if o.Source != "" {
-		src := string(o.Source)
-		out.Source = &src
+		out.Source = new(string(o.Source))
 	}
 	for _, b := range o.Branches {
 		out.Branches = append(out.Branches, KnowledgeBranch{Name: b.Name, HeadSHA: b.HeadSHA, Pending: b.Pending,
@@ -118,12 +117,10 @@ type KnowledgeFile struct {
 func fileOf(f knowledgetypes.FileInfo) KnowledgeFile {
 	out := KnowledgeFile{Path: f.Path, Kind: string(f.Kind), Bytes: f.Bytes}
 	if f.Meta.Git != "" {
-		g := string(f.Meta.Git)
-		out.GitStatus = &g
+		out.GitStatus = new(string(f.Meta.Git))
 	}
 	if f.Skip != nil {
-		s := string(*f.Skip)
-		out.SkipReason = &s
+		out.SkipReason = new(string(*f.Skip))
 	}
 	return out
 }
@@ -159,8 +156,7 @@ func KnowledgeTreeOf(s knowledgetypes.Snapshot, l knowledgetypes.TreeLevel) Know
 	for _, d := range l.Dirs {
 		dir := KnowledgeTreeDir{Name: d.Name, Path: d.Path, Files: d.Files}
 		if d.Git != "" {
-			g := string(d.Git)
-			dir.GitStatus = &g
+			dir.GitStatus = new(string(d.Git))
 		}
 		out.Dirs = append(out.Dirs, dir)
 	}

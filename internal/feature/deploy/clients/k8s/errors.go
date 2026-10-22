@@ -17,27 +17,39 @@ func failure(err error) error {
 	if err == nil {
 		return nil
 	}
-	var f *deploytypes.Failure
-	if errors.As(err, &f) {
+	if f, ok := errors.AsType[*deploytypes.Failure](err); ok {
 		return f
 	}
 	code := deploytypes.FailUnreachable
-	var netErr net.Error
-	var unknownAuthority x509.UnknownAuthorityError
-	var hostname x509.HostnameError
-	var invalid x509.CertificateInvalidError
-	var verify *tls.CertificateVerificationError
 	switch {
 	case apierrors.IsUnauthorized(err):
 		code = deploytypes.FailUnauthorized
 	case apierrors.IsForbidden(err):
 		code = deploytypes.FailForbidden
 	case apierrors.IsTimeout(err), apierrors.IsServerTimeout(err), errors.Is(err, context.DeadlineExceeded),
-		errors.As(err, &netErr) && netErr.Timeout():
+		timedOut(err):
 		code = deploytypes.FailTimeout
-	case errors.As(err, &unknownAuthority), errors.As(err, &hostname), errors.As(err, &invalid), errors.As(err, &verify),
-		strings.Contains(err.Error(), "x509:"), strings.Contains(err.Error(), "tls:"):
+	case certificateError(err), strings.Contains(err.Error(), "x509:"), strings.Contains(err.Error(), "tls:"):
 		code = deploytypes.FailTLS
 	}
 	return &deploytypes.Failure{Code: code, Message: err.Error()}
+}
+
+func timedOut(err error) bool {
+	netErr, ok := errors.AsType[net.Error](err)
+	return ok && netErr.Timeout()
+}
+
+func certificateError(err error) bool {
+	if _, ok := errors.AsType[x509.UnknownAuthorityError](err); ok {
+		return true
+	}
+	if _, ok := errors.AsType[x509.HostnameError](err); ok {
+		return true
+	}
+	if _, ok := errors.AsType[x509.CertificateInvalidError](err); ok {
+		return true
+	}
+	_, ok := errors.AsType[*tls.CertificateVerificationError](err)
+	return ok
 }

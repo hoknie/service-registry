@@ -11,8 +11,7 @@ import (
 type Constraints map[string]error
 
 func ConstraintOf(err error) string {
-	var pg *pgconn.PgError
-	if errors.As(err, &pg) {
+	if pg, ok := errors.AsType[*pgconn.PgError](err); ok {
 		return pg.ConstraintName
 	}
 	return ""
@@ -22,9 +21,10 @@ func Translate(err error, constraints Constraints) error {
 	if err == nil {
 		return nil
 	}
-	var app *apperr.Error
-	var coded apperr.Coded
-	if errors.As(err, &app) || errors.As(err, &coded) {
+	if _, ok := errors.AsType[*apperr.Error](err); ok {
+		return err
+	}
+	if _, ok := errors.AsType[apperr.Coded](err); ok {
 		return err
 	}
 	if mapped, ok := constraints[ConstraintOf(err)]; ok {

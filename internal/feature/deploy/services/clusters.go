@@ -194,8 +194,7 @@ func (s *ClustersService) clusterClient(ctx context.Context, c deploytypes.Clust
 }
 
 func asFailure(err error) *deploytypes.Failure {
-	var f *deploytypes.Failure
-	if errors.As(err, &f) {
+	if f, ok := errors.AsType[*deploytypes.Failure](err); ok {
 		return f
 	}
 	return nil

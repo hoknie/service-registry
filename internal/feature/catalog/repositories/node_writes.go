@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -16,12 +15,11 @@ func forgeText(f *catalogtypes.Forge) *string {
 	if f == nil {
 		return nil
 	}
-	s := string(*f)
-	return &s
+	return new(string(*f))
 }
 
 func (s *NodeRepository) Insert(ctx context.Context, n catalogtypes.NewNode) (catalogtypes.Node, error) {
-	rows, _ := s.db.From(ctx).Query(ctx, `
+	return postgres.One(ctx, s.db.From(ctx), constraints, scanNode, `
 		INSERT INTO nodes AS n (id, kind, parent_id, slug, name, description, labels, forge, repo_url,
 			default_branch, cluster_observation)
 		VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, COALESCE($11, true))
@@ -29,8 +27,6 @@ func (s *NodeRepository) Insert(ctx context.Context, n catalogtypes.NewNode) (ca
 			n.default_branch, n.cluster_observation, rfc3339(n.created_at) AS created_at,
 			rfc3339(n.updated_at) AS updated_at`, n.ID, string(n.Kind), n.ParentID, n.Slug, n.Name,
 		n.Description, labelsParam(n.Labels), forgeText(n.Repo.Forge), n.Repo.RepoURL, n.Repo.DefaultBranch, n.ClusterObservation)
-	node, err := oneNode(rows)
-	return node, postgres.Translate(err, constraints)
 }
 
 func (s *NodeRepository) Update(ctx context.Context, id uuid.UUID, c catalogtypes.NodeChanges) (catalogtypes.Node, error) {
@@ -38,7 +34,7 @@ func (s *NodeRepository) Update(ctx context.Context, id uuid.UUID, c catalogtype
 	if c.Labels != nil {
 		labels = &c.Labels
 	}
-	rows, _ := s.db.From(ctx).Query(ctx, `
+	node, err := postgres.Find(ctx, s.db.From(ctx), constraints, scanNode, `
 		UPDATE nodes AS n
 		SET slug = COALESCE($2, n.slug), name = COALESCE($3, n.name),
 			description = COALESCE($4, n.description), labels = COALESCE($5::jsonb, n.labels),
@@ -51,11 +47,17 @@ func (s *NodeRepository) Update(ctx context.Context, id uuid.UUID, c catalogtype
 			rfc3339(n.updated_at) AS updated_at`, id, c.Slug, c.Name, c.Description, labels,
 		c.Forge.Set, forgeText(c.Forge.Value), c.RepoURL.Set, c.RepoURL.Value,
 		c.DefaultBranch.Set, c.DefaultBranch.Value, c.ClusterObservation)
-	node, err := oneNode(rows)
-	if errors.Is(err, pgx.ErrNoRows) {
+	return foundNode(node, err)
+}
+
+func foundNode(node *catalogtypes.Node, err error) (catalogtypes.Node, error) {
+	if err != nil {
+		return catalogtypes.Node{}, err
+	}
+	if node == nil {
 		return catalogtypes.Node{}, apperr.ErrNotFound
 	}
-	return node, postgres.Translate(err, constraints)
+	return *node, nil
 }
 
 func (s *NodeRepository) Move(ctx context.Context, id uuid.UUID, parent *uuid.UUID) (catalogtypes.Node, error) {
@@ -64,13 +66,12 @@ func (s *NodeRepository) Move(ctx context.Context, id uuid.UUID, parent *uuid.UU
 		return catalogtypes.Node{}, postgres.Translate(err, constraints)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := tx.Exec(ctx, `
+	if _, err := postgres.Exec(ctx, tx, constraints, `
 		SELECT pg_advisory_xact_lock(7316001)`); err != nil {
-		return catalogtypes.Node{}, postgres.Translate(err, constraints)
+		return catalogtypes.Node{}, err
 	}
 	if parent != nil {
-		var cycle bool
-		if err := tx.QueryRow(ctx, `
+		cycle, err := postgres.One(ctx, tx, constraints, pgx.RowTo[bool], `
 			WITH RECURSIVE up AS (
 				SELECT id, parent_id
 				FROM nodes
@@ -80,58 +81,42 @@ func (s *NodeRepository) Move(ctx context.Context, id uuid.UUID, parent *uuid.UU
 				FROM nodes p
 				JOIN up ON p.id = up.parent_id
 			)
-			SELECT EXISTS (SELECT 1 FROM up WHERE id = $2)`, *parent, id).Scan(&cycle); err != nil {
-			return catalogtypes.Node{}, postgres.Translate(err, constraints)
+			SELECT EXISTS (SELECT 1 FROM up WHERE id = $2)`, *parent, id)
+		if err != nil {
+			return catalogtypes.Node{}, err
 		}
 		if cycle {
 			return catalogtypes.Node{}, catalogtypes.ConflictCycle
 		}
 	}
-	rows, _ := tx.Query(ctx, `
+	moved, err := foundNode(postgres.Find(ctx, tx, constraints, scanNode, `
 		UPDATE nodes AS n
 		SET parent_id = $2, updated_at = now()
 		WHERE n.id = $1
 		RETURNING n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url,
 			n.default_branch, n.cluster_observation, rfc3339(n.created_at) AS created_at,
-			rfc3339(n.updated_at) AS updated_at`, id, parent)
-	node, err := oneNode(rows)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return catalogtypes.Node{}, apperr.ErrNotFound
-	}
+			rfc3339(n.updated_at) AS updated_at`, id, parent))
 	if err != nil {
-		return catalogtypes.Node{}, postgres.Translate(err, constraints)
+		return catalogtypes.Node{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return catalogtypes.Node{}, postgres.Translate(err, constraints)
 	}
-	return node, nil
+	return moved, nil
 }
 
 func (s *NodeRepository) FillDefaultBranch(ctx context.Context, id uuid.UUID, name string) (bool, error) {
-	tag, err := s.db.From(ctx).Exec(ctx, `
+	n, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		UPDATE nodes
 		SET default_branch = $2, updated_at = now()
 		WHERE id = $1
 			AND kind = 'project'
 			AND default_branch IS NULL`, id, name)
-	if err != nil {
-		return false, postgres.Translate(err, constraints)
-	}
-	return tag.RowsAffected() == 1, nil
+	return n == 1, err
 }
 
 func (s *NodeRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	tag, err := s.db.From(ctx).Exec(ctx, `
+	return postgres.ExecFound(ctx, s.db.From(ctx), nodeDeleteConstraints, `
 		DELETE FROM nodes
 		WHERE id = $1`, id)
-	if err != nil {
-		if postgres.ConstraintOf(err) == "nodes_parent_id_fkey" {
-			return catalogtypes.ConflictNodeNotEmpty
-		}
-		return postgres.Translate(err, constraints)
-	}
-	if tag.RowsAffected() == 0 {
-		return apperr.ErrNotFound
-	}
-	return nil
 }

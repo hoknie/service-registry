@@ -50,6 +50,15 @@ type varRow struct {
 	Inherited bool      `db:"inherited"`
 }
 
+func (r varRow) variable() linkstypes.Var { return linkstypes.Var(r) }
+
+type kindInfoRow struct {
+	Key      string  `db:"key"`
+	Position int32   `db:"position"`
+	Icon     string  `db:"icon"`
+	IconURL  *string `db:"icon_url"`
+}
+
 type deploymentRow struct {
 	Service     string                 `db:"service"`
 	Environment string                 `db:"environment"`

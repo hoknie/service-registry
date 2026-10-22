@@ -76,9 +76,12 @@ func (e *Upstream) Error() string {
 	return fmt.Sprintf("forge error (status %d): %s", e.Status, e.Detail)
 }
 
+func StopsSync(err error) bool {
+	_, limited := errors.AsType[*RateLimited](err)
+	return limited || errors.Is(err, ErrInterrupted) || errors.Is(err, ErrUnauthorized)
+}
+
 func FailureCode(err error) string {
-	var limited *RateLimited
-	var upstream *Upstream
 	switch {
 	case errors.Is(err, ErrUnauthorized):
 		return "forge.unauthorized"
@@ -90,9 +93,11 @@ func FailureCode(err error) string {
 		return "forge.interrupted"
 	case errors.Is(err, ErrRepoNotFound):
 		return "forge.not_found"
-	case errors.As(err, &limited):
+	}
+	if _, ok := errors.AsType[*RateLimited](err); ok {
 		return "forge.rate_limited"
-	case errors.As(err, &upstream):
+	}
+	if _, ok := errors.AsType[*Upstream](err); ok {
 		return "forge.upstream_error"
 	}
 	return ""

@@ -27,7 +27,7 @@ func (s *SearchRepository) Search(ctx context.Context, v knowledgetypes.Viewer, 
 		words = append(words, "%"+like(w)+"%")
 	}
 	pos, neg, _ := knowledgetypes.PrefixQuery(q.Q)
-	rows, err := s.db.From(ctx).Query(ctx, `
+	hits, err := postgres.List(ctx, s.db.From(ctx), constraints, scanHit, `
 		WITH RECURSIVE bound AS (
 			SELECT node_id
 			FROM role_bindings
@@ -121,25 +121,23 @@ func (s *SearchRepository) Search(ctx context.Context, v knowledgetypes.Viewer, 
 		v.UserID, v.Superadmin, q.Project, q.Branch, q.Q, like(q.Path)+"%", words,
 		q.Limit+1, q.Offset, pos, neg, knowledgetypes.ExcludedWords(q.Q))
 	if err != nil {
-		return nil, false, postgres.Translate(err, constraints)
-	}
-	hits, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (knowledgetypes.Hit, error) {
-		var h knowledgetypes.Hit
-		var kind, fragment string
-		var id uuid.UUID
-		err := r.Scan(&id, &h.ProjectName, &h.ProjectPath, &h.Branch, &h.Commit, &h.Path, &kind, &fragment)
-		h.ProjectID, h.Kind = id, knowledgetypes.Kind(kind)
-		h.Snippet = trim(knowledgetypes.Segments(fragment), 300)
-		return h, err
-	})
-	if err != nil {
-		return nil, false, postgres.Translate(err, constraints)
+		return nil, false, err
 	}
 	more := len(hits) > q.Limit
 	if more {
 		hits = hits[:q.Limit]
 	}
 	return hits, more, nil
+}
+
+func scanHit(r pgx.CollectableRow) (knowledgetypes.Hit, error) {
+	var h knowledgetypes.Hit
+	var kind, fragment string
+	var id uuid.UUID
+	err := r.Scan(&id, &h.ProjectName, &h.ProjectPath, &h.Branch, &h.Commit, &h.Path, &kind, &fragment)
+	h.ProjectID, h.Kind = id, knowledgetypes.Kind(kind)
+	h.Snippet = trim(knowledgetypes.Segments(fragment), 300)
+	return h, err
 }
 
 func trim(segments []knowledgetypes.Segment, n int) []knowledgetypes.Segment {
@@ -158,7 +156,7 @@ func trim(segments []knowledgetypes.Segment, n int) []knowledgetypes.Segment {
 }
 
 func (s *SearchRepository) Readable(ctx context.Context, v knowledgetypes.Viewer, project *uuid.UUID) ([]uuid.UUID, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	return postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowTo[uuid.UUID], `
 		WITH RECURSIVE bound AS (
 			SELECT node_id
 			FROM role_bindings
@@ -183,15 +181,10 @@ func (s *SearchRepository) Readable(ctx context.Context, v knowledgetypes.Viewer
 		WHERE n.kind = 'project'
 			AND n.id IN (SELECT id FROM readable)
 			AND ($3::uuid IS NULL OR n.id = $3)`, v.UserID, v.Superadmin, project)
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	ids, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
-	return ids, postgres.Translate(err, constraints)
 }
 
 func (s *SearchRepository) DefaultBranches(ctx context.Context, projects []uuid.UUID) (map[uuid.UUID]string, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	return postgres.Pairs[uuid.UUID, string](ctx, s.db.From(ctx), constraints, `
 		SELECT n.id,
 			CASE
 				WHEN src.kind = 'local_dir' THEN 'local'
@@ -200,24 +193,10 @@ func (s *SearchRepository) DefaultBranches(ctx context.Context, projects []uuid.
 		LEFT JOIN knowledge_sources src ON src.project_id = n.id
 		LEFT JOIN forge_repositories r ON r.project_id = n.id AND r.orphaned_at IS NULL
 		WHERE n.id = ANY($1)`, projects)
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	defer rows.Close()
-	out := map[uuid.UUID]string{}
-	for rows.Next() {
-		var id uuid.UUID
-		var branch string
-		if err := rows.Scan(&id, &branch); err != nil {
-			return nil, postgres.Translate(err, constraints)
-		}
-		out[id] = branch
-	}
-	return out, postgres.Translate(rows.Err(), constraints)
 }
 
 func (s *SearchRepository) Projects(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]knowledgetypes.ProjectName, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	rows, err := postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowToStructByPos[projectNameRow], `
 		SELECT p.id, p.name, (
 			WITH RECURSIVE up AS (
 				SELECT id, parent_id, slug, 0 AS lvl
@@ -234,17 +213,11 @@ func (s *SearchRepository) Projects(ctx context.Context, ids []uuid.UUID) (map[u
 		FROM nodes p
 		WHERE p.id = ANY($1)`, ids)
 	if err != nil {
-		return nil, postgres.Translate(err, constraints)
+		return nil, err
 	}
-	defer rows.Close()
 	out := map[uuid.UUID]knowledgetypes.ProjectName{}
-	for rows.Next() {
-		var id uuid.UUID
-		var p knowledgetypes.ProjectName
-		if err := rows.Scan(&id, &p.Name, &p.Path); err != nil {
-			return nil, postgres.Translate(err, constraints)
-		}
-		out[id] = p
+	for _, r := range rows {
+		out[r.ID] = knowledgetypes.ProjectName{Name: r.Name, Path: r.Path}
 	}
-	return out, postgres.Translate(rows.Err(), constraints)
+	return out, nil
 }

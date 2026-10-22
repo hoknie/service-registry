@@ -139,8 +139,7 @@ func (t *tools) listProjects(ctx context.Context, _ *sdk.CallToolRequest, in lis
 		}
 		root, prefix = &s.Node.ID, pathOf(s)
 	}
-	depth := int64(catalogtypes.TreeMaxDepth)
-	nodes, more, err := t.deps.Catalog.Nodes.Tree(ctx, t.p, root, &depth)
+	nodes, more, err := t.deps.Catalog.Nodes.Tree(ctx, t.p, root, new(int64(catalogtypes.TreeMaxDepth)))
 	if err != nil {
 		return failed(err)
 	}
@@ -172,8 +171,7 @@ func (t *tools) listProjects(ctx context.Context, _ *sdk.CallToolRequest, in lis
 		}
 		var forgeKind *string
 		if n.Repo.Forge != nil {
-			f := string(*n.Repo.Forge)
-			forgeKind = &f
+			forgeKind = new(string(*n.Repo.Forge))
 		}
 		labels := map[string]string(n.Labels)
 		if labels == nil {

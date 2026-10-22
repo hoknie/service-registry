@@ -64,15 +64,14 @@ func (a *Handlers) OAuthCallback(c fiber.Ctx) error {
 	done, err := a.Access.OAuth.CompleteLogin(c.Context(), cb, previous)
 	secure := a.Config.Session.CookieSecure
 	setOAuthCookie(c, "", 0, secure)
-	var refusal accesstypes.Refusal
-	switch {
-	case errors.As(err, &refusal):
+	if refusal, ok := errors.AsType[accesstypes.Refusal](err); ok {
 		target := "/login?error=" + url.QueryEscape(string(refusal))
 		if done.Link {
 			target = "/account?tab=login&error=" + url.QueryEscape(string(refusal))
 		}
 		return c.Redirect().Status(http.StatusFound).To(target)
-	case err != nil:
+	}
+	if err != nil {
 		return responses.Fail(c, err)
 	}
 	if done.Token != "" {

@@ -11,7 +11,7 @@ import (
 )
 
 func (s *ClusterRepository) Signals(ctx context.Context, projects []uuid.UUID, busy bool) (map[uuid.UUID][]catalogtypes.ProcessSignals, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	found, err := postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowToStructByPos[catalogtypes.ProjectSignals], `
 		WITH polled AS (
 			SELECT w.project_id, 'clusters'::text AS kind,
 				bool_or(COALESCE(c.lease_until > now(), false)) AS running,
@@ -39,16 +39,7 @@ func (s *ClusterRepository) Signals(ctx context.Context, projects []uuid.UUID, b
 		ORDER BY a.project_id`,
 		projects, busy)
 	if err != nil {
-		return nil, postgres.Translate(err, constraints)
+		return nil, err
 	}
-	found, err := pgx.CollectRows(rows, pgx.RowToStructByName[signalRow])
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	out := map[uuid.UUID][]catalogtypes.ProcessSignals{}
-	for _, r := range found {
-		out[r.ProjectID] = append(out[r.ProjectID], catalogtypes.ProcessSignals{Kind: catalogtypes.ProcessKind(r.Kind), Running: r.Running,
-			Queued: r.Queued, Failed: r.Failed, Code: r.Code, LastAt: r.LastAt, Pending: r.Pending})
-	}
-	return out, nil
+	return catalogtypes.SignalsByProject(found), nil
 }

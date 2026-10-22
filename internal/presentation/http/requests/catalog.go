@@ -57,8 +57,7 @@ func (r CreateNode) SourceInput() *knowledgetypes.SourceInput {
 	if r.Source == nil {
 		return nil
 	}
-	in := r.Source.Input()
-	return &in
+	return new(r.Source.Input())
 }
 
 func (r CreateNode) Node() catalogtypes.CreateNode {

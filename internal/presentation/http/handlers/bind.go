@@ -54,8 +54,7 @@ func bindQuery(c fiber.Ctx, out any, fallback error, byField map[string]error) e
 	if err == nil {
 		return nil
 	}
-	var be *fiber.BindError
-	if errors.As(err, &be) {
+	if be, ok := errors.AsType[*fiber.BindError](err); ok {
 		for name, mapped := range byField {
 			if strings.EqualFold(be.Field, name) {
 				return mapped
@@ -66,8 +65,7 @@ func bindQuery(c fiber.Ctx, out any, fallback error, byField map[string]error) e
 }
 
 func describe(err error) string {
-	var ve validator.ValidationErrors
-	if errors.As(err, &ve) {
+	if ve, ok := errors.AsType[validator.ValidationErrors](err); ok {
 		parts := make([]string, 0, len(ve))
 		for _, fe := range ve {
 			if fe.Tag() == "required" {
@@ -78,8 +76,7 @@ func describe(err error) string {
 		}
 		return strings.Join(parts, "; ")
 	}
-	var be *fiber.BindError
-	if errors.As(err, &be) && be.Err != nil {
+	if be, ok := errors.AsType[*fiber.BindError](err); ok && be.Err != nil {
 		return be.Err.Error()
 	}
 	return err.Error()

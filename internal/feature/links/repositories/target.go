@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"slices"
 
 	"github.com/google/uuid"
@@ -28,13 +27,13 @@ func (s *TargetRepository) Seen(ctx context.Context, urls []string) error {
 	for i := range ids {
 		ids[i] = uuid.Must(uuid.NewV7())
 	}
-	_, err := s.db.From(ctx).Exec(ctx, `
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO link_targets (id, url)
 		SELECT *
 		FROM unnest($1::uuid[], $2::text[])
 		ON CONFLICT (url)
 		DO UPDATE SET last_seen_at = now()`, ids, urls)
-	return postgres.Translate(err, constraints)
+	return err
 }
 
 func (s *TargetRepository) Latest(ctx context.Context, urls []string) (map[string]linkstypes.Check, error) {
@@ -42,18 +41,14 @@ func (s *TargetRepository) Latest(ctx context.Context, urls []string) (map[strin
 	if len(urls) == 0 {
 		return out, nil
 	}
-	rows, err := s.db.From(ctx).Query(ctx, `
+	items, err := postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowToStructByName[checkRow], `
 		SELECT t.url, t.last_status AS status, t.last_http_status AS http_status,
 			t.last_duration_ms AS duration_ms, rfc3339(t.last_checked_at) AS checked_at
 		FROM link_targets t
 		WHERE t.url = ANY($1)
 			AND t.last_checked_at IS NOT NULL`, urls)
 	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	items, err := pgx.CollectRows(rows, pgx.RowToStructByName[checkRow])
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
+		return nil, err
 	}
 	for _, r := range items {
 		out[r.URL] = r.check()
@@ -62,32 +57,23 @@ func (s *TargetRepository) Latest(ctx context.Context, urls []string) (map[strin
 }
 
 func (s *TargetRepository) Fresh(ctx context.Context, url string, withinSecs int) (*linkstypes.Check, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	return postgres.Find(ctx, s.db.From(ctx), constraints, postgres.Struct(checkRow.check), `
 		SELECT t.url, t.last_status AS status, t.last_http_status AS http_status,
 			t.last_duration_ms AS duration_ms, rfc3339(t.last_checked_at) AS checked_at
 		FROM link_targets t
 		WHERE t.url = $1
 			AND t.last_checked_at > now() - make_interval(secs => $2)`, url, withinSecs)
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	r, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[checkRow])
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	c := r.check()
-	return &c, nil
 }
 
 func (s *TargetRepository) Record(ctx context.Context, url string, r linkstypes.Result, intervalSecs, history uint32) (linkstypes.Check, error) {
 	out := linkstypes.Check{URL: url, Status: r.Status, HTTPStatus: r.HTTPStatus, DurationMS: r.DurationMS}
 	err := s.db.InTx(ctx, func(ctx context.Context) error {
 		tx := s.db.From(ctx)
-		var id uuid.UUID
-		if err := tx.QueryRow(ctx, `
+		id, err := postgres.One(ctx, tx, constraints, func(row pgx.CollectableRow) (uuid.UUID, error) {
+			var id uuid.UUID
+			err := row.Scan(&id, &out.CheckedAt)
+			return id, err
+		}, `
 			INSERT INTO link_targets AS t (id, url, last_status, last_http_status, last_duration_ms,
 				last_checked_at, next_run_at)
 			VALUES ($1, $2, $3, $4, $5, now(), now() + make_interval(secs => $6))
@@ -96,15 +82,16 @@ func (s *TargetRepository) Record(ctx context.Context, url string, r linkstypes.
 				last_duration_ms = EXCLUDED.last_duration_ms, last_checked_at = now(),
 				next_run_at = EXCLUDED.next_run_at, lease_until = NULL
 			RETURNING t.id, rfc3339(t.last_checked_at)`, uuid.Must(uuid.NewV7()), url, string(r.Status), r.HTTPStatus,
-			r.DurationMS, int(intervalSecs)).Scan(&id, &out.CheckedAt); err != nil {
+			r.DurationMS, int(intervalSecs))
+		if err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `
+		if _, err := postgres.Exec(ctx, tx, constraints, `
 			INSERT INTO link_checks (id, target_id, status, http_status, duration_ms, checked_at)
 			VALUES ($1, $2, $3, $4, $5, now())`, uuid.Must(uuid.NewV7()), id, string(r.Status), r.HTTPStatus, r.DurationMS); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `
+		_, err = postgres.Exec(ctx, tx, constraints, `
 			DELETE FROM link_checks
 			WHERE target_id = $1
 				AND id NOT IN (
@@ -126,28 +113,20 @@ func (s *TargetRepository) History(ctx context.Context, urls []string) ([]linkst
 	if len(urls) == 0 {
 		return []linkstypes.Check{}, nil
 	}
-	rows, err := s.db.From(ctx).Query(ctx, `
+	return postgres.List(ctx, s.db.From(ctx), constraints, postgres.Struct(checkRow.check), `
 		SELECT t.url, c.status, c.http_status, c.duration_ms, rfc3339(c.checked_at) AS checked_at
 		FROM link_checks c
 		JOIN link_targets t ON t.id = c.target_id
 		WHERE t.url = ANY($1)
 		ORDER BY c.checked_at DESC, c.id DESC`, urls)
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	items, err := pgx.CollectRows(rows, pgx.RowToStructByName[checkRow])
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	out := make([]linkstypes.Check, 0, len(items))
-	for _, r := range items {
-		out = append(out, r.check())
-	}
-	return out, nil
 }
 
 func (s *TargetRepository) Claim(ctx context.Context, limit, leaseSecs int) ([]linkstypes.Target, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	return postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (linkstypes.Target, error) {
+		var t linkstypes.Target
+		err := r.Scan(&t.ID, &t.URL)
+		return t, err
+	}, `
 		UPDATE link_targets
 		SET lease_until = now() + make_interval(secs => $2)
 		WHERE id IN (
@@ -160,31 +139,18 @@ func (s *TargetRepository) Claim(ctx context.Context, limit, leaseSecs int) ([]l
 			LIMIT $1
 		)
 		RETURNING id, url`, limit, leaseSecs)
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	items, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (linkstypes.Target, error) {
-		var t linkstypes.Target
-		err := r.Scan(&t.ID, &t.URL)
-		return t, err
-	})
-	return items, postgres.Translate(err, constraints)
 }
 
 func (s *TargetRepository) Extend(ctx context.Context, id uuid.UUID, leaseSecs int) error {
-	_, err := s.db.From(ctx).Exec(ctx, `
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		UPDATE link_targets
 		SET lease_until = now() + make_interval(secs => $2)
 		WHERE id = $1`, id, leaseSecs)
-	return postgres.Translate(err, constraints)
+	return err
 }
 
 func (s *TargetRepository) Prune(ctx context.Context, ttlDays uint32) (int64, error) {
-	tag, err := s.db.From(ctx).Exec(ctx, `
+	return postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		DELETE FROM link_targets
 		WHERE last_seen_at < now() - make_interval(days => $1::int)`, int(ttlDays))
-	if err != nil {
-		return 0, postgres.Translate(err, constraints)
-	}
-	return tag.RowsAffected(), nil
 }

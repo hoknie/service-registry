@@ -3,24 +3,22 @@ package types
 import (
 	"errors"
 	"testing"
-
-	"svc-registry/pkg/ptr"
 )
 
 func names(overrides map[string]string) map[string]*string {
-	out := map[string]*string{"en": ptr.To("Logs"), "es": ptr.To("Registros"), "ru": ptr.To("Логи"), "zh": ptr.To("日志")}
+	out := map[string]*string{"en": new("Logs"), "es": new("Registros"), "ru": new("Логи"), "zh": new("日志")}
 	for k, v := range overrides {
 		if v == "" {
 			delete(out, k)
 		} else {
-			out[k] = ptr.To(v)
+			out[k] = new(v)
 		}
 	}
 	return out
 }
 
 func TestNewKindNormalizesTheKeyAndAppliesDefaults(t *testing.T) {
-	k, err := ValidateNewKind(CreateKind{Key: " Grafana-Business ", Names: map[string]*string{"en": ptr.To("  Business  ")}})
+	k, err := ValidateNewKind(CreateKind{Key: " Grafana-Business ", Names: map[string]*string{"en": new("  Business  ")}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,9 +36,9 @@ func TestNamesAreCopiedFromTheFirstGiven(t *testing.T) {
 		in   map[string]*string
 		want Names
 	}{
-		{"one", map[string]*string{"ru": ptr.To("Пайплайн"), "en": ptr.To("")}, Names{"en": "Пайплайн", "es": "Пайплайн", "ru": "Пайплайн", "zh": "Пайплайн"}},
-		{"first in order", map[string]*string{"es": ptr.To("Registros"), "ru": ptr.To("Логи")}, Names{"en": "Registros", "es": "Registros", "ru": "Логи", "zh": "Registros"}},
-		{"null skipped", map[string]*string{"en": nil, "zh": ptr.To(" 日志 ")}, Names{"en": "日志", "es": "日志", "ru": "日志", "zh": "日志"}},
+		{"one", map[string]*string{"ru": new("Пайплайн"), "en": new("")}, Names{"en": "Пайплайн", "es": "Пайплайн", "ru": "Пайплайн", "zh": "Пайплайн"}},
+		{"first in order", map[string]*string{"es": new("Registros"), "ru": new("Логи")}, Names{"en": "Registros", "es": "Registros", "ru": "Логи", "zh": "Registros"}},
+		{"null skipped", map[string]*string{"en": nil, "zh": new(" 日志 ")}, Names{"en": "日志", "es": "日志", "ru": "日志", "zh": "日志"}},
 		{"all", names(nil), Names{"en": "Logs", "es": "Registros", "ru": "Логи", "zh": "日志"}},
 	}
 	for _, tt := range tests {
@@ -65,20 +63,20 @@ func TestKindRules(t *testing.T) {
 		in   CreateKind
 		want error
 	}{
-		{"ok", CreateKind{Key: "grafana", Names: names(nil), Icon: ptr.To("git-pull-request"), IconURL: ptr.To("https://ci.example/favicon.png"), Position: &pos}, nil},
+		{"ok", CreateKind{Key: "grafana", Names: names(nil), Icon: new("git-pull-request"), IconURL: new("https://ci.example/favicon.png"), Position: &pos}, nil},
 		{"empty key", CreateKind{Key: " ", Names: names(nil)}, InvalidKindKey},
 		{"leading dash", CreateKind{Key: "-x", Names: names(nil)}, InvalidKindKey},
 		{"underscore", CreateKind{Key: "a_b", Names: names(nil)}, InvalidKindKey},
-		{"no locale", CreateKind{Key: "x", Names: map[string]*string{"en": ptr.To("  "), "ru": nil}}, InvalidKindNames},
-		{"unknown locale", CreateKind{Key: "x", Names: map[string]*string{"de": ptr.To("Protokolle")}}, InvalidKindNames},
-		{"extra locale", CreateKind{Key: "x", Names: map[string]*string{"en": ptr.To("a"), "de": ptr.To("a")}}, InvalidKindNames},
+		{"no locale", CreateKind{Key: "x", Names: map[string]*string{"en": new("  "), "ru": nil}}, InvalidKindNames},
+		{"unknown locale", CreateKind{Key: "x", Names: map[string]*string{"de": new("Protokolle")}}, InvalidKindNames},
+		{"extra locale", CreateKind{Key: "x", Names: map[string]*string{"en": new("a"), "de": new("a")}}, InvalidKindNames},
 		{"control", CreateKind{Key: "x", Names: names(map[string]string{"ru": "a\nb"})}, InvalidKindNames},
 		{"too long", CreateKind{Key: "x", Names: names(map[string]string{"ru": string(make([]rune, 101))})}, InvalidKindNames},
 		{"no names", CreateKind{Key: "x"}, InvalidKindNames},
-		{"icon spaces", CreateKind{Key: "x", Names: names(nil), Icon: ptr.To("Chart Line")}, InvalidIcon},
-		{"icon double dash", CreateKind{Key: "x", Names: names(nil), Icon: ptr.To("chart--line")}, InvalidIcon},
-		{"icon http", CreateKind{Key: "x", Names: names(nil), IconURL: ptr.To("http://ci.example/i.png")}, InvalidIcon},
-		{"icon relative", CreateKind{Key: "x", Names: names(nil), IconURL: ptr.To("/i.png")}, InvalidIcon},
+		{"icon spaces", CreateKind{Key: "x", Names: names(nil), Icon: new("Chart Line")}, InvalidIcon},
+		{"icon double dash", CreateKind{Key: "x", Names: names(nil), Icon: new("chart--line")}, InvalidIcon},
+		{"icon http", CreateKind{Key: "x", Names: names(nil), IconURL: new("http://ci.example/i.png")}, InvalidIcon},
+		{"icon relative", CreateKind{Key: "x", Names: names(nil), IconURL: new("/i.png")}, InvalidIcon},
 		{"position", CreateKind{Key: "x", Names: names(nil), Position: &badPos}, InvalidPosition},
 	}
 	for _, tt := range tests {
@@ -95,7 +93,7 @@ func TestKindChangesOnlyTouchGivenFields(t *testing.T) {
 	if err != nil || c.Names != nil || c.Icon != nil || c.Position != nil || c.IconURLSet {
 		t.Fatalf("%+v %v", c, err)
 	}
-	if c, err = ValidateKindChanges(UpdateKind{Icon: ptr.To("book-text"), Names: names(nil)}); err != nil || *c.Icon != "book-text" || c.Names["ru"] != "Логи" {
+	if c, err = ValidateKindChanges(UpdateKind{Icon: new("book-text"), Names: names(nil)}); err != nil || *c.Icon != "book-text" || c.Names["ru"] != "Логи" {
 		t.Fatalf("%+v %v", c, err)
 	}
 	if c, err = ValidateKindChanges(UpdateKind{IconURLSet: true}); err != nil || !c.IconURLSet || c.IconURL != nil {

@@ -140,8 +140,7 @@ func ObservedOf(o deploytypes.Observed) Observed {
 		Version: o.Version, Images: images, Replicas: o.State.Replicas, Restarts: o.State.Restarts, Rollout: o.State.Rollout,
 		Schedule: o.State.Schedule, Suspended: o.State.Suspended, ObservedAt: o.ObservedAt, Gone: o.Gone}
 	if o.Kind == deploytypes.KindCronJob {
-		last := o.State.LastRun
-		out.LastRun = &last
+		out.LastRun = new(o.State.LastRun)
 	}
 	return out
 }

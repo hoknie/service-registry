@@ -141,8 +141,7 @@ func (s *SourcesService) AdoptRemote(ctx context.Context, projectID uuid.UUID, s
 	in := knowledgetypes.SourceInput{Kind: string(knowledgetypes.SourceRemote), Forge: string(src.Kind), URL: src.WebURL, APIURL: src.APIURL,
 		HasCredential: true, NoCredentials: src.SecretID == nil}
 	if src.SecretID != nil {
-		id := src.SecretID.String()
-		in.SecretID = &id
+		in.SecretID = new(src.SecretID.String())
 	}
 	v, err := knowledgetypes.ValidateSource(in)
 	if err != nil {

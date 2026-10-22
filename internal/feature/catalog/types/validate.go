@@ -228,6 +228,5 @@ func ValidateClusterObservation(kind NodeKind, in *FlagInput) (*bool, error) {
 	if in.Err != nil {
 		return nil, in.Err
 	}
-	v := in.Value
-	return &v, nil
+	return new(in.Value), nil
 }

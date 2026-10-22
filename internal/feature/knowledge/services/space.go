@@ -75,8 +75,7 @@ func (s *SpaceService) DocSpace(ctx context.Context, p accesstypes.Principal, ra
 	var docPath *string
 	for i, seg := range segments {
 		if cur != nil && cur.Kind == catalogtypes.KindProject {
-			rest := strings.Join(segments[i:], "/")
-			docPath = &rest
+			docPath = new(strings.Join(segments[i:], "/"))
 			break
 		}
 		n, err := s.catalog.System.FindChild(ctx, parent, strings.ToLower(seg))
@@ -97,8 +96,7 @@ func (s *SpaceService) DocSpace(ctx context.Context, p accesstypes.Principal, ra
 		readable := sc.Visibility == catalogtypes.VisibilityRead
 		node := spaceNode(sc.Node, readable)
 		if readable {
-			desc := sc.Node.Description
-			node.Description = &desc
+			node.Description = new(sc.Node.Description)
 		}
 		out.Node = &node
 		for _, a := range sc.Path {
@@ -148,8 +146,7 @@ func (s *SpaceService) spaceChildren(ctx context.Context, p accesstypes.Principa
 	if len(out) == 0 {
 		return out, nil
 	}
-	depth := int64(docSpaceTreeDepth)
-	tree, _, err := s.catalog.Nodes.Tree(ctx, p, parent, &depth)
+	tree, _, err := s.catalog.Nodes.Tree(ctx, p, parent, new(int64(docSpaceTreeDepth)))
 	if err != nil {
 		return nil, err
 	}

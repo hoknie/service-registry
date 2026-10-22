@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -21,45 +20,31 @@ func NewEventRepository(db *pgtx.DB) *EventRepository { return &EventRepository{
 const pruneBatch = 5000
 
 func loadEvent(ctx context.Context, tx pgtx.Querier, id uuid.UUID) (ingesttypes.Event, error) {
-	rows, _ := tx.Query(ctx, `
+	return postgres.One(ctx, tx, constraints, postgres.Struct(eventRow.event), `
 		SELECT e.id, e.project_id, e.type, e.version, e.idempotency_key,
 			rfc3339(e.occurred_at) AS occurred_at, rfc3339(e.received_at) AS received_at,
 			k.prefix AS key_prefix, e.payload
 		FROM project_events e
 		LEFT JOIN project_keys k ON k.id = e.key_id
 		WHERE e.id = $1`, id)
-	r, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[eventRow])
-	if err != nil {
-		return ingesttypes.Event{}, postgres.Translate(err, constraints)
-	}
-	return r.event(), nil
 }
 
 func loadResult(ctx context.Context, tx pgtx.Querier, eventID uuid.UUID) (*ingesttypes.DeploymentResult, error) {
-	rows, _ := tx.Query(ctx, `
+	return postgres.Find(ctx, tx, constraints, pgx.RowToStructByPos[ingesttypes.DeploymentResult], `
 		SELECT id, service, environment, version, became_current
 		FROM service_deployments
 		WHERE event_id = $1`, eventID)
-	d, err := pgx.CollectOneRow(rows, pgx.RowToStructByPos[ingesttypes.DeploymentResult])
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	return &d, nil
 }
 
 func applyDeployed(ctx context.Context, tx pgtx.Querier, e ingesttypes.NewEvent, p *ingesttypes.ServiceDeployed) (ingesttypes.DeploymentResult, error) {
 	at := e.Envelope.OccurredAt
-	eventID := e.ID
 	became, err := InsertDeployment(ctx, tx, ingesttypes.DeploymentRecord{
-		ID: e.DeploymentID, EnvironmentID: e.EnvironmentID, ProjectID: e.ProjectID, EventID: &eventID, Source: "event",
+		ID: e.DeploymentID, EnvironmentID: e.EnvironmentID, ProjectID: e.ProjectID, EventID: new(e.ID), Source: "event",
 		Service: p.Service, Environment: p.Environment, Version: p.Version, CommitSHA: p.CommitSHA, Branch: p.Branch,
 		Cluster: p.Cluster, Namespace: p.Namespace, URL: p.URL, DeployedBy: p.DeployedBy, Metadata: p.Metadata, Links: p.Links, OccurredAt: at,
 	})
 	if err != nil {
-		return ingesttypes.DeploymentResult{}, postgres.Translate(err, constraints)
+		return ingesttypes.DeploymentResult{}, err
 	}
 	return ingesttypes.DeploymentResult{
 		ID: e.DeploymentID, Service: p.Service, Environment: p.Environment, Version: p.Version, BecameCurrent: became,
@@ -75,55 +60,52 @@ func (s *EventRepository) Accept(ctx context.Context, e ingesttypes.NewEvent) (i
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	var future bool
-	if err := tx.QueryRow(ctx, `
-		SELECT $1::timestamptz > now() + interval '5 minutes'`, env.OccurredAt).Scan(&future); err != nil {
-		return ingesttypes.Accepted{}, postgres.Translate(err, constraints)
+	future, err := postgres.One(ctx, tx, constraints, pgx.RowTo[bool], `
+		SELECT $1::timestamptz > now() + interval '5 minutes'`, env.OccurredAt)
+	if err != nil {
+		return ingesttypes.Accepted{}, err
 	}
 	if future {
 		return ingesttypes.Accepted{}, ingesttypes.Invalid(ingesttypes.FieldError{Path: "occurred_at", Code: ingesttypes.FieldInFuture})
 	}
 
-	var inserted uuid.UUID
-	err = tx.QueryRow(ctx, `
+	inserted, err := postgres.Find(ctx, tx, constraints, pgx.RowTo[uuid.UUID], `
 		INSERT INTO project_events (id, project_id, key_id, type, version, idempotency_key, occurred_at,
 			payload)
 		VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::jsonb)
 		ON CONFLICT (project_id, idempotency_key)
 		DO NOTHING
 		RETURNING id`, e.ID, e.ProjectID, e.KeyID, string(env.Type), env.Version,
-		env.IdempotencyKey, env.OccurredAt, payload).Scan(&inserted)
-	if errors.Is(err, pgx.ErrNoRows) {
-		var id uuid.UUID
-		var same bool
-		err := tx.QueryRow(ctx, `
+		env.IdempotencyKey, env.OccurredAt, payload)
+	if err != nil {
+		return ingesttypes.Accepted{}, err
+	}
+	if inserted == nil {
+		replay, err := postgres.Find(ctx, tx, constraints, pgx.RowToStructByName[replayRow], `
 			SELECT id,
 				type = $3 AND version = $4 AND occurred_at = $5::timestamptz AND payload = $6::jsonb AS same
 			FROM project_events
 			WHERE project_id = $1
 				AND idempotency_key = $2`, e.ProjectID, env.IdempotencyKey, string(env.Type), env.Version,
-			env.OccurredAt, payload).Scan(&id, &same)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ingesttypes.Accepted{}, apperr.InternalDetail("idempotent event vanished during replay")
-		}
-		if err != nil {
-			return ingesttypes.Accepted{}, postgres.Translate(err, constraints)
-		}
-		if !same {
-			return ingesttypes.Accepted{}, ingesttypes.ConflictIdempotencyKeyReused
-		}
-		event, err := loadEvent(ctx, tx, id)
+			env.OccurredAt, payload)
 		if err != nil {
 			return ingesttypes.Accepted{}, err
 		}
-		deployment, err := loadResult(ctx, tx, id)
+		if replay == nil {
+			return ingesttypes.Accepted{}, apperr.InternalDetail("idempotent event vanished during replay")
+		}
+		if !replay.Same {
+			return ingesttypes.Accepted{}, ingesttypes.ConflictIdempotencyKeyReused
+		}
+		event, err := loadEvent(ctx, tx, replay.ID)
+		if err != nil {
+			return ingesttypes.Accepted{}, err
+		}
+		deployment, err := loadResult(ctx, tx, replay.ID)
 		if err != nil {
 			return ingesttypes.Accepted{}, err
 		}
 		return ingesttypes.Accepted{Event: event, Replayed: true, Deployment: deployment}, nil
-	}
-	if err != nil {
-		return ingesttypes.Accepted{}, postgres.Translate(err, constraints)
 	}
 
 	var deployment *ingesttypes.DeploymentResult
@@ -145,15 +127,15 @@ func (s *EventRepository) Accept(ctx context.Context, e ingesttypes.NewEvent) (i
 }
 
 func (s *EventRepository) List(ctx context.Context, projectID uuid.UUID, f ingesttypes.EventFilter, page accesstypes.PageRequest) (accesstypes.Page[ingesttypes.Event], error) {
-	var total int64
-	if err := s.db.From(ctx).QueryRow(ctx, `
+	total, err := postgres.One(ctx, s.db.From(ctx), constraints, pgx.RowTo[int64], `
 		SELECT count(*)
 		FROM project_events e
 		WHERE e.project_id = $1
-			AND ($2::text IS NULL OR e.type = $2)`, projectID, f.Type).Scan(&total); err != nil {
-		return accesstypes.Page[ingesttypes.Event]{}, postgres.Translate(err, constraints)
+			AND ($2::text IS NULL OR e.type = $2)`, projectID, f.Type)
+	if err != nil {
+		return accesstypes.Page[ingesttypes.Event]{}, err
 	}
-	rows, _ := s.db.From(ctx).Query(ctx, `
+	items, err := postgres.List(ctx, s.db.From(ctx), constraints, postgres.Struct(eventRow.event), `
 		SELECT e.id, e.project_id, e.type, e.version, e.idempotency_key,
 			rfc3339(e.occurred_at) AS occurred_at, rfc3339(e.received_at) AS received_at,
 			k.prefix AS key_prefix, e.payload
@@ -164,12 +146,8 @@ func (s *EventRepository) List(ctx context.Context, projectID uuid.UUID, f inges
 		ORDER BY e.received_at DESC, e.id DESC
 		LIMIT $3
 		OFFSET $4`, projectID, f.Type, int64(page.Limit), bigint(page.Offset))
-	items, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (ingesttypes.Event, error) {
-		row, err := pgx.RowToStructByName[eventRow](r)
-		return row.event(), err
-	})
 	if err != nil {
-		return accesstypes.Page[ingesttypes.Event]{}, postgres.Translate(err, constraints)
+		return accesstypes.Page[ingesttypes.Event]{}, err
 	}
 	return accesstypes.Page[ingesttypes.Event]{Items: items, Total: uint64(max(total, 0)), Limit: page.Limit, Offset: page.Offset}, nil
 }
@@ -178,7 +156,7 @@ func (s *EventRepository) Prune(ctx context.Context, retentionDays uint32) (uint
 	days := int32(min(retentionDays, uint32(1<<31-1)))
 	var deleted uint64
 	for {
-		tag, err := s.db.From(ctx).Exec(ctx, `
+		n, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 			DELETE FROM project_events
 			WHERE id IN (
 				SELECT id
@@ -187,9 +165,8 @@ func (s *EventRepository) Prune(ctx context.Context, retentionDays uint32) (uint
 				LIMIT $2
 			)`, days, int64(pruneBatch))
 		if err != nil {
-			return deleted, postgres.Translate(err, constraints)
+			return deleted, err
 		}
-		n := tag.RowsAffected()
 		deleted += uint64(n)
 		if n < pruneBatch {
 			return deleted, nil

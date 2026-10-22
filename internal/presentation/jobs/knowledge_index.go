@@ -40,11 +40,9 @@ func SpawnKnowledgeIndex(ctx context.Context, deps Deps) <-chan struct{} {
 		Source: indexSource{deps: deps},
 		Run: func(ctx context.Context, id uuid.UUID) {
 			err := deps.Knowledge.Index.RunKnowledgeIndex(ctx, id)
-			var failure *knowledgetypes.IndexFailure
-			switch {
-			case errors.As(err, &failure):
+			if failure, ok := errors.AsType[*knowledgetypes.IndexFailure](err); ok {
 				slog.Warn("documentation indexing failed", "project", id, "code", failure.Code, "detail", failure.Detail)
-			case err != nil:
+			} else if err != nil {
 				slog.Warn("documentation indexing failed", "project", id, "error", err)
 			}
 		},

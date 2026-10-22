@@ -97,8 +97,7 @@ func (s *DocumentsService) GetKnowledge(ctx context.Context, p accesstypes.Princ
 		}
 		bs := knowledgetypes.BranchState{Name: b.Name}
 		if b.HeadSHA != "" {
-			head := b.HeadSHA
-			bs.HeadSHA = &head
+			bs.HeadSHA = new(b.HeadSHA)
 		}
 		if bs.Last, err = s.snapshotRepository.LastAttempt(ctx, id, b.Name); err != nil {
 			return KnowledgeOverview{}, apperr.Wrap(err)

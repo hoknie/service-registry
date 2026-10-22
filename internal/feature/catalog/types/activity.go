@@ -118,3 +118,16 @@ func ParseProcessState(v string) (ProcessState, bool) {
 	}
 	return "", false
 }
+
+type ProjectSignals struct {
+	ProjectID uuid.UUID
+	ProcessSignals
+}
+
+func SignalsByProject(found []ProjectSignals) map[uuid.UUID][]ProcessSignals {
+	out := map[uuid.UUID][]ProcessSignals{}
+	for _, s := range found {
+		out[s.ProjectID] = append(out[s.ProjectID], s.ProcessSignals)
+	}
+	return out
+}

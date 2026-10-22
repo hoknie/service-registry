@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	"maps"
+
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
@@ -17,3 +19,9 @@ var constraints = postgres.Constraints{
 	"knowledge_sources_credentials_secret_id_fkey": catalogtypes.ConflictSecretInUse,
 	"clusters_credentials_secret_id_fkey":          catalogtypes.ConflictSecretInUse,
 }
+
+var nodeDeleteConstraints = func() postgres.Constraints {
+	c := maps.Clone(constraints)
+	c["nodes_parent_id_fkey"] = catalogtypes.ConflictNodeNotEmpty
+	return c
+}()

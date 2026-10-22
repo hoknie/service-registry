@@ -11,7 +11,7 @@ import (
 )
 
 func (s *ConnectionRepository) Signals(ctx context.Context, projects []uuid.UUID, busy bool) (map[uuid.UUID][]catalogtypes.ProcessSignals, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	found, err := postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowToStructByPos[catalogtypes.ProjectSignals], `
 		WITH forge AS (
 			SELECT r.project_id, 'forge'::text AS kind,
 				COALESCE(c.lease_until > now(), false) AS running,
@@ -42,22 +42,19 @@ func (s *ConnectionRepository) Signals(ctx context.Context, projects []uuid.UUID
 		ORDER BY a.project_id`,
 		projects, busy)
 	if err != nil {
-		return nil, postgres.Translate(err, constraints)
+		return nil, err
 	}
-	found, err := pgx.CollectRows(rows, pgx.RowToStructByName[signalRow])
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	out := map[uuid.UUID][]catalogtypes.ProcessSignals{}
-	for _, r := range found {
-		out[r.ProjectID] = append(out[r.ProjectID], catalogtypes.ProcessSignals{Kind: catalogtypes.ProcessKind(r.Kind), Running: r.Running,
-			Queued: r.Queued, Failed: r.Failed, Code: r.Code, LastAt: r.LastAt, Pending: r.Pending})
-	}
-	return out, nil
+	return catalogtypes.SignalsByProject(found), nil
 }
 
 func (s *ConnectionRepository) ContainerSignals(ctx context.Context, nodeID uuid.UUID) ([]catalogtypes.ProcessSignals, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	return postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (catalogtypes.ProcessSignals, error) {
+		var p catalogtypes.ProcessSignals
+		var kind string
+		err := r.Scan(&kind, &p.Running, &p.Queued, &p.Failed, &p.Code, &p.LastAt)
+		p.Kind = catalogtypes.ProcessKind(kind)
+		return p, err
+	}, `
 		SELECT 'forge'::text AS kind,
 			bool_or(COALESCE(c.lease_until > now(), false)) AS running,
 			bool_or(c.next_run_at <= now() AND NOT COALESCE(c.lease_until > now(), false)) AS queued,
@@ -75,15 +72,4 @@ func (s *ConnectionRepository) ContainerSignals(ctx context.Context, nodeID uuid
 		) l ON true
 		WHERE c.node_id = $1
 		HAVING count(*) > 0`, nodeID)
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (catalogtypes.ProcessSignals, error) {
-		var p catalogtypes.ProcessSignals
-		var kind string
-		err := r.Scan(&kind, &p.Running, &p.Queued, &p.Failed, &p.Code, &p.LastAt)
-		p.Kind = catalogtypes.ProcessKind(kind)
-		return p, err
-	})
-	return out, postgres.Translate(err, constraints)
 }

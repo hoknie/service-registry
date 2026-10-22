@@ -140,8 +140,8 @@ func TestErrorsBecomeDomainErrors(t *testing.T) {
 			reset := time.Now().Add(10 * time.Minute).Truncate(time.Second)
 			f.RateLimitUntil(reset)
 			_, err := client(t, f, kind, token).ListRepos(ctx)
-			var limited *forgetypes.RateLimited
-			if !errors.As(err, &limited) {
+			limited, ok := errors.AsType[*forgetypes.RateLimited](err)
+			if !ok {
 				t.Fatalf("rate limit: %v", err)
 			}
 			if !limited.Reset.Equal(reset) {
@@ -153,8 +153,8 @@ func TestErrorsBecomeDomainErrors(t *testing.T) {
 
 func TestNetworkFailureIsUpstream(t *testing.T) {
 	c, _ := NewFactoryClient(http.DefaultClient).New(forgetypes.Endpoint{Kind: forgetypes.KindGithub, APIURL: "http://127.0.0.1:1", Owner: "x", Token: "t"})
-	var up *forgetypes.Upstream
-	if err := c.Check(context.Background()); !errors.As(err, &up) || up.Status != 0 {
+	err := c.Check(context.Background())
+	if up, ok := errors.AsType[*forgetypes.Upstream](err); !ok || up.Status != 0 {
 		t.Fatal(err)
 	}
 }
@@ -180,8 +180,8 @@ func TestHooksAreRegisteredAndDeleted(t *testing.T) {
 				t.Fatalf("delete again: %v", err)
 			}
 			f.FailHooks(http.StatusForbidden)
-			var up *forgetypes.Upstream
-			if _, err := c.RegisterHook(ctx, "https://x", "s"); !errors.As(err, &up) || up.Status != http.StatusForbidden {
+			_, err = c.RegisterHook(ctx, "https://x", "s")
+			if up, ok := errors.AsType[*forgetypes.Upstream](err); !ok || up.Status != http.StatusForbidden {
 				t.Fatalf("refused: %v", err)
 			}
 		})

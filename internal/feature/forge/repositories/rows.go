@@ -11,7 +11,7 @@ import (
 	"svc-registry/internal/platform/apperr"
 )
 
-func scanConnection(row pgx.Row) (forgetypes.Connection, error) {
+func scanConnection(row pgx.CollectableRow) (forgetypes.Connection, error) {
 	var c forgetypes.Connection
 	var kind string
 	var ref, fingerprint, webhook *string
@@ -75,7 +75,7 @@ func finishRun(r forgetypes.Run, trigger, status string, problems []byte) (forge
 	return r, nil
 }
 
-func scanRun(row pgx.Row) (forgetypes.Run, error) {
+func scanRun(row pgx.CollectableRow) (forgetypes.Run, error) {
 	var r forgetypes.Run
 	var trigger, status string
 	var problems []byte
@@ -85,17 +85,6 @@ func scanRun(row pgx.Row) (forgetypes.Run, error) {
 		return forgetypes.Run{}, err
 	}
 	return finishRun(r, trigger, status, problems)
-}
-
-type signalRow struct {
-	ProjectID uuid.UUID `db:"project_id"`
-	Kind      string    `db:"kind"`
-	Running   bool      `db:"running"`
-	Queued    bool      `db:"queued"`
-	Failed    bool      `db:"failed"`
-	Code      *string   `db:"code"`
-	LastAt    *string   `db:"last_at"`
-	Pending   *int64    `db:"pending"`
 }
 
 func credentialsOf(secret *uuid.UUID, hasEnc bool, ref, fingerprint *string) catalogtypes.Credentials {

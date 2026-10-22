@@ -3,7 +3,6 @@ package repositories
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -40,35 +39,26 @@ func (s *ScanRepository) Record(ctx context.Context, scan knowledgetypes.Scan, k
 	err = s.db.InTx(ctx, func(ctx context.Context) error {
 		tx := s.db.From(ctx)
 		if scan.Status == knowledgetypes.ScanUnchanged {
-			var last knowledgetypes.ScanTail
-			var status, trigger string
-			var lastBranches []byte
-			err := tx.QueryRow(ctx, `
+			last, err := postgres.Find(ctx, tx, constraints, scanTail, `
 				SELECT id, status, trigger, branches, finished_at
 				FROM knowledge_scans
 				WHERE project_id = $1
 					AND kind = $2
 				ORDER BY last_started_at DESC, id DESC
 				LIMIT 1
-				FOR UPDATE`, scan.ProjectID, string(scan.Kind)).Scan(&last.ID, &status, &trigger, &lastBranches, &last.FinishedAt)
-			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				FOR UPDATE`, scan.ProjectID, string(scan.Kind))
+			if err != nil {
 				return err
 			}
-			if err == nil {
-				last.Status, last.Trigger = knowledgetypes.ScanStatus(status), knowledgetypes.ScanTrigger(trigger)
-				if err := json.Unmarshal(lastBranches, &last.Branches); err != nil {
-					return err
-				}
-				if scan.Extends(last, maxGap) {
-					_, err := tx.Exec(ctx, `
-						UPDATE knowledge_scans
-						SET repeats = repeats + 1, finished_at = $2, last_started_at = $3, duration_ms = $4
-						WHERE id = $1`, last.ID, scan.FinishedAt, scan.StartedAt, scan.DurationMS())
-					return err
-				}
+			if last != nil && scan.Extends(*last, maxGap) {
+				_, err := postgres.Exec(ctx, tx, constraints, `
+					UPDATE knowledge_scans
+					SET repeats = repeats + 1, finished_at = $2, last_started_at = $3, duration_ms = $4
+					WHERE id = $1`, last.ID, scan.FinishedAt, scan.StartedAt, scan.DurationMS())
+				return err
 			}
 		}
-		if _, err := tx.Exec(ctx, `
+		if _, err := postgres.Exec(ctx, tx, constraints, `
 			INSERT INTO knowledge_scans (id, project_id, kind, trigger, source, status, started_at, finished_at,
 				last_started_at, duration_ms, branches, index, error_code, error_detail, warnings)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $7, $9, $10, $11, $12, $13, $14)`,
@@ -76,7 +66,7 @@ func (s *ScanRepository) Record(ctx context.Context, scan knowledgetypes.Scan, k
 			scan.FinishedAt, scan.DurationMS(), branches, index, code, detail, nonNil(scan.Warnings)); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `
+		_, err := postgres.Exec(ctx, tx, constraints, `
 			DELETE FROM knowledge_scans
 			WHERE id IN (
 				SELECT id
@@ -91,6 +81,17 @@ func (s *ScanRepository) Record(ctx context.Context, scan knowledgetypes.Scan, k
 	return postgres.Translate(err, constraints)
 }
 
+func scanTail(r pgx.CollectableRow) (knowledgetypes.ScanTail, error) {
+	var last knowledgetypes.ScanTail
+	var status, trigger string
+	var branches []byte
+	if err := r.Scan(&last.ID, &status, &trigger, &branches, &last.FinishedAt); err != nil {
+		return last, err
+	}
+	last.Status, last.Trigger = knowledgetypes.ScanStatus(status), knowledgetypes.ScanTrigger(trigger)
+	return last, json.Unmarshal(branches, &last.Branches)
+}
+
 func nonNil[T any](list []T) []T {
 	if list == nil {
 		return []T{}
@@ -101,18 +102,19 @@ func nonNil[T any](list []T) []T {
 func (s *ScanRepository) List(ctx context.Context, f knowledgetypes.ScanFilter, page accesstypes.PageRequest) (accesstypes.Page[knowledgetypes.ScanItem], error) {
 	var kind, trigger *string
 	if f.Kind != nil {
-		k := string(*f.Kind)
-		kind = &k
+		kind = new(string(*f.Kind))
 	}
 	if f.Trigger != nil {
-		t := string(*f.Trigger)
-		trigger = &t
+		trigger = new(string(*f.Trigger))
 	}
 	var statuses []string
 	for _, st := range f.Statuses {
 		statuses = append(statuses, string(st))
 	}
-	rows, err := s.db.From(ctx).Query(ctx, `
+	var total int64
+	items, err := postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (knowledgetypes.ScanItem, error) {
+		return scanItem(r, &total)
+	}, `
 		SELECT k.id, k.project_id, n.name, (
 			WITH RECURSIVE up AS (
 				SELECT id, parent_id, slug, 0 AS lvl
@@ -138,54 +140,49 @@ func (s *ScanRepository) List(ctx context.Context, f knowledgetypes.ScanFilter, 
 		LIMIT $5
 		OFFSET $6`, f.Project, kind, statuses, trigger, page.Limit, page.Offset)
 	if err != nil {
-		return accesstypes.Page[knowledgetypes.ScanItem]{}, postgres.Translate(err, constraints)
+		return accesstypes.Page[knowledgetypes.ScanItem]{}, err
 	}
-	out := accesstypes.Page[knowledgetypes.ScanItem]{Items: []knowledgetypes.ScanItem{}, Limit: page.Limit, Offset: page.Offset}
-	defer rows.Close()
-	for rows.Next() {
-		var it knowledgetypes.ScanItem
-		var kindRaw, triggerRaw, statusRaw string
-		var branches, index []byte
-		var code, detail *string
-		var total int64
-		if err := rows.Scan(&it.ID, &it.ProjectID, &it.ProjectName, &it.ProjectPath, &kindRaw, &triggerRaw, &it.Source, &statusRaw,
-			&it.StartedAt, &it.LastStartedAt, &it.FinishedAt, &it.DurationMS, &it.Repeats, &branches, &index, &code, &detail, &it.Warnings, &total); err != nil {
-			return accesstypes.Page[knowledgetypes.ScanItem]{}, postgres.Translate(err, constraints)
-		}
-		it.Kind, it.Trigger, it.Status = knowledgetypes.ScanKind(kindRaw), knowledgetypes.ScanTrigger(triggerRaw), knowledgetypes.ScanStatus(statusRaw)
-		if err := json.Unmarshal(branches, &it.Branches); err != nil {
-			return accesstypes.Page[knowledgetypes.ScanItem]{}, postgres.Translate(err, constraints)
-		}
-		if index != nil {
-			it.Index = &knowledgetypes.ScanIndex{}
-			if err := json.Unmarshal(index, it.Index); err != nil {
-				return accesstypes.Page[knowledgetypes.ScanItem]{}, postgres.Translate(err, constraints)
-			}
-		}
-		if code != nil {
-			it.Error = &knowledgetypes.ScanError{Code: *code}
-			if detail != nil {
-				it.Error.Detail = *detail
-			}
-		}
-		out.Total = uint64(total)
-		out.Items = append(out.Items, it)
-	}
-	if err := rows.Err(); err != nil {
-		return accesstypes.Page[knowledgetypes.ScanItem]{}, postgres.Translate(err, constraints)
-	}
+	out := accesstypes.Page[knowledgetypes.ScanItem]{Items: items, Limit: page.Limit, Offset: page.Offset, Total: uint64(total)}
 	if len(out.Items) == 0 && page.Offset > 0 {
-		var total int64
-		if err := s.db.From(ctx).QueryRow(ctx, `
+		total, err := postgres.One(ctx, s.db.From(ctx), constraints, pgx.RowTo[int64], `
 			SELECT count(*)
 			FROM knowledge_scans k
 			WHERE ($1::uuid IS NULL OR k.project_id = $1)
 				AND ($2::text IS NULL OR k.kind = $2)
 				AND ($3::text[] IS NULL OR k.status = ANY($3))
-				AND ($4::text IS NULL OR k.trigger = $4)`, f.Project, kind, statuses, trigger).Scan(&total); err != nil {
-			return accesstypes.Page[knowledgetypes.ScanItem]{}, postgres.Translate(err, constraints)
+				AND ($4::text IS NULL OR k.trigger = $4)`, f.Project, kind, statuses, trigger)
+		if err != nil {
+			return accesstypes.Page[knowledgetypes.ScanItem]{}, err
 		}
 		out.Total = uint64(total)
 	}
 	return out, nil
+}
+
+func scanItem(r pgx.CollectableRow, total *int64) (knowledgetypes.ScanItem, error) {
+	var it knowledgetypes.ScanItem
+	var kindRaw, triggerRaw, statusRaw string
+	var branches, index []byte
+	var code, detail *string
+	if err := r.Scan(&it.ID, &it.ProjectID, &it.ProjectName, &it.ProjectPath, &kindRaw, &triggerRaw, &it.Source, &statusRaw,
+		&it.StartedAt, &it.LastStartedAt, &it.FinishedAt, &it.DurationMS, &it.Repeats, &branches, &index, &code, &detail, &it.Warnings, total); err != nil {
+		return it, err
+	}
+	it.Kind, it.Trigger, it.Status = knowledgetypes.ScanKind(kindRaw), knowledgetypes.ScanTrigger(triggerRaw), knowledgetypes.ScanStatus(statusRaw)
+	if err := json.Unmarshal(branches, &it.Branches); err != nil {
+		return it, err
+	}
+	if index != nil {
+		it.Index = &knowledgetypes.ScanIndex{}
+		if err := json.Unmarshal(index, it.Index); err != nil {
+			return it, err
+		}
+	}
+	if code != nil {
+		it.Error = &knowledgetypes.ScanError{Code: *code}
+		if detail != nil {
+			it.Error.Detail = *detail
+		}
+	}
+	return it, nil
 }

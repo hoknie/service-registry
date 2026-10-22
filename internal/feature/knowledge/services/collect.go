@@ -133,17 +133,14 @@ func (s *CollectService) recordFailure(ctx context.Context, id uuid.UUID, branch
 }
 
 func failureOf(err error) (string, *time.Time) {
-	var f knowledgetypes.Failure
-	if errors.As(err, &f) {
+	if f, ok := errors.AsType[knowledgetypes.Failure](err); ok {
 		return string(f), nil
 	}
-	var limited *forgetypes.RateLimited
-	if errors.As(err, &limited) {
+	if limited, ok := errors.AsType[*forgetypes.RateLimited](err); ok {
 		if limited.Reset.IsZero() {
 			return "forge.rate_limited", nil
 		}
-		reset := limited.Reset
-		return "forge.rate_limited", &reset
+		return "forge.rate_limited", new(limited.Reset)
 	}
 	if code := forgetypes.FailureCode(err); code != "" && code != "forge.interrupted" {
 		return code, nil

@@ -27,13 +27,11 @@ type Scoped struct {
 func newScoped(p accesstypes.Principal, chain catalogtypes.NodeChain) (Scoped, bool) {
 	var role *catalogtypes.Role
 	if p.IsSuperadmin {
-		admin := catalogtypes.RoleAdmin
-		role = &admin
+		role = new(catalogtypes.RoleAdmin)
 	} else {
 		for _, c := range chain.Nodes {
 			if c.Bound != nil && (role == nil || *c.Bound > *role) {
-				r := *c.Bound
-				role = &r
+				role = new(*c.Bound)
 			}
 		}
 	}

@@ -118,8 +118,7 @@ func (m Migrator) Rollback(_ context.Context, pool *pgxpool.Pool, count int) (in
 }
 
 func short(err error) error {
-	var dbErr database.Error
-	if errors.As(err, &dbErr) && dbErr.OrigErr != nil {
+	if dbErr, ok := errors.AsType[database.Error](err); ok && dbErr.OrigErr != nil {
 		return fmt.Errorf("line %d: %w", dbErr.Line, dbErr.OrigErr)
 	}
 	return err

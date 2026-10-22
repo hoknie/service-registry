@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"github.com/google/uuid"
@@ -18,24 +17,22 @@ type WorkloadRepository struct{ db *pgtx.DB }
 func NewWorkloadRepository(db *pgtx.DB) *WorkloadRepository { return &WorkloadRepository{db: db} }
 
 func (s *WorkloadRepository) Previous(ctx context.Context, clusterID uuid.UUID) (map[string]deploytypes.Previous, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	found, err := postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (previousRow, error) {
+		var v previousRow
+		err := r.Scan(&v.UID, &v.Version, &v.PendingVersion, &v.PendingSince, &v.State)
+		return v, err
+	}, `
 		SELECT uid, version, pending_version, pending_since, state
 		FROM cluster_workloads
 		WHERE cluster_id = $1`, clusterID)
 	if err != nil {
-		return nil, postgres.Translate(err, constraints)
+		return nil, err
 	}
-	defer rows.Close()
-	out := map[string]deploytypes.Previous{}
-	for rows.Next() {
-		var uid string
-		var p deploytypes.Previous
-		if err := rows.Scan(&uid, &p.Version, &p.PendingVersion, &p.PendingSince, &p.State); err != nil {
-			return nil, postgres.Translate(err, constraints)
-		}
-		out[uid] = p
+	out := make(map[string]deploytypes.Previous, len(found))
+	for _, v := range found {
+		out[v.UID] = v.Previous
 	}
-	return out, postgres.Translate(rows.Err(), constraints)
+	return out, nil
 }
 
 func (s *WorkloadRepository) Save(ctx context.Context, clusterID uuid.UUID, obs []deploytypes.Observation) error {
@@ -46,14 +43,13 @@ func (s *WorkloadRepository) Save(ctx context.Context, clusterID uuid.UUID, obs 
 			uids = append(uids, o.UID)
 			var reason *string
 			if o.Reason != nil {
-				r := string(*o.Reason)
-				reason = &r
+				reason = new(string(*o.Reason))
 			}
 			images := o.Images
 			if images == nil {
 				images = []deploytypes.Image{}
 			}
-			if _, err := tx.Exec(ctx, `
+			if _, err := postgres.Exec(ctx, tx, constraints, `
 				INSERT INTO cluster_workloads (id, cluster_id, uid, namespace, kind, name, project_id, reason,
 					annotation, service, environment, branch, version, images, state, pending_version, pending_since)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15::jsonb, $16, $17)
@@ -70,7 +66,7 @@ func (s *WorkloadRepository) Save(ctx context.Context, clusterID uuid.UUID, obs 
 				return err
 			}
 		}
-		if _, err := tx.Exec(ctx, `
+		if _, err := postgres.Exec(ctx, tx, constraints, `
 			UPDATE cluster_workloads
 			SET gone_at = now(), pending_version = NULL, pending_since = NULL, updated_at = now()
 			WHERE cluster_id = $1
@@ -78,7 +74,7 @@ func (s *WorkloadRepository) Save(ctx context.Context, clusterID uuid.UUID, obs 
 				AND NOT (uid = ANY($2::text[]))`, clusterID, uids); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `
+		if _, err := postgres.Exec(ctx, tx, constraints, `
 			DELETE FROM cluster_workloads w USING nodes n
 			WHERE w.cluster_id = $1
 				AND n.id = w.project_id
@@ -91,7 +87,13 @@ func (s *WorkloadRepository) Save(ctx context.Context, clusterID uuid.UUID, obs 
 }
 
 func (s *WorkloadRepository) Unmatched(ctx context.Context, clusterID uuid.UUID, limit uint32, offset uint64) ([]deploytypes.Unmatched, uint64, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	items, err := postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (deploytypes.Unmatched, error) {
+		var u deploytypes.Unmatched
+		var kind, reason string
+		err := r.Scan(&u.Namespace, &kind, &u.Name, &reason, &u.Annotation, &u.ObservedAt)
+		u.Kind, u.Reason = deploytypes.Kind(kind), deploytypes.Reason(reason)
+		return u, err
+	}, `
 		SELECT w.namespace, w.kind, w.name, w.reason, w.annotation, rfc3339(w.observed_at) AS observed_at
 		FROM cluster_workloads w
 		WHERE w.cluster_id = $1
@@ -101,32 +103,29 @@ func (s *WorkloadRepository) Unmatched(ctx context.Context, clusterID uuid.UUID,
 		LIMIT $2
 		OFFSET $3`, clusterID, int64(limit), int64(offset))
 	if err != nil {
-		return nil, 0, postgres.Translate(err, constraints)
+		return nil, 0, err
 	}
-	items, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (deploytypes.Unmatched, error) {
-		var u deploytypes.Unmatched
-		var kind, reason string
-		err := r.Scan(&u.Namespace, &kind, &u.Name, &reason, &u.Annotation, &u.ObservedAt)
-		u.Kind, u.Reason = deploytypes.Kind(kind), deploytypes.Reason(reason)
-		return u, err
-	})
-	if err != nil {
-		return nil, 0, postgres.Translate(err, constraints)
-	}
-	var total int64
-	if err := s.db.From(ctx).QueryRow(ctx, `
+	total, err := postgres.One(ctx, s.db.From(ctx), constraints, pgx.RowTo[int64], `
 		SELECT count(*)
 		FROM cluster_workloads w
 		WHERE w.cluster_id = $1
 			AND w.project_id IS NULL
-			AND w.gone_at IS NULL`, clusterID).Scan(&total); err != nil {
-		return nil, 0, postgres.Translate(err, constraints)
+			AND w.gone_at IS NULL`, clusterID)
+	if err != nil {
+		return nil, 0, err
 	}
 	return items, uint64(max(total, 0)), nil
 }
 
 func (s *WorkloadRepository) ForProject(ctx context.Context, projectID uuid.UUID) ([]deploytypes.Observed, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	return postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (deploytypes.Observed, error) {
+		var o deploytypes.Observed
+		var kind string
+		err := r.Scan(&o.Cluster, &o.Namespace, &kind, &o.Name, &o.Service, &o.Environment, &o.Branch, &o.Version,
+			&o.Images, &o.State, &o.ObservedAt, &o.Gone)
+		o.Kind = deploytypes.Kind(kind)
+		return o, err
+	}, `
 		SELECT c.name AS cluster, w.namespace, w.kind, w.name, w.service, w.environment, w.branch,
 			w.version, w.images, w.state, rfc3339(w.observed_at) AS observed_at, w.gone_at IS NOT NULL AS gone
 		FROM cluster_workloads w
@@ -135,88 +134,59 @@ func (s *WorkloadRepository) ForProject(ctx context.Context, projectID uuid.UUID
 		WHERE w.project_id = $1
 			AND n.cluster_observation
 		ORDER BY w.service, w.environment, c.name, w.namespace, w.name`, projectID)
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	items, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (deploytypes.Observed, error) {
-		var o deploytypes.Observed
-		var kind string
-		err := r.Scan(&o.Cluster, &o.Namespace, &kind, &o.Name, &o.Service, &o.Environment, &o.Branch, &o.Version,
-			&o.Images, &o.State, &o.ObservedAt, &o.Gone)
-		o.Kind = deploytypes.Kind(kind)
-		return o, err
-	})
-	return items, postgres.Translate(err, constraints)
 }
 
 func (s *WorkloadRepository) Prune(ctx context.Context, days uint32) (int64, error) {
-	tag, err := s.db.From(ctx).Exec(ctx, `
+	return postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		DELETE FROM cluster_workloads
 		WHERE gone_at < now() - make_interval(days => $1::int)`, int(days))
-	if err != nil {
-		return 0, postgres.Translate(err, constraints)
-	}
-	return tag.RowsAffected(), nil
 }
 
 func (s *WorkloadRepository) Project(ctx context.Context, ref string) (*deploytypes.ProjectRef, error) {
 	if id, err := uuid.Parse(ref); err == nil {
-		var p deploytypes.ProjectRef
-		err := s.db.From(ctx).QueryRow(ctx, `
+		return postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (deploytypes.ProjectRef, error) {
+			var p deploytypes.ProjectRef
+			err := r.Scan(&p.ID, &p.Observe)
+			return p, err
+		}, `
 			SELECT id, cluster_observation
 			FROM nodes
 			WHERE id = $1
-				AND kind = 'project'`, id).Scan(&p.ID, &p.Observe)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
-		}
-		if err != nil {
-			return nil, postgres.Translate(err, constraints)
-		}
-		return &p, nil
+				AND kind = 'project'`, id)
 	}
 	var parent *uuid.UUID
 	segments := strings.Split(ref, "/")
 	for i, seg := range segments {
-		var id uuid.UUID
 		var kind string
-		var observe bool
-		err := s.db.From(ctx).QueryRow(ctx, `
+		n, err := postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (deploytypes.ProjectRef, error) {
+			var p deploytypes.ProjectRef
+			err := r.Scan(&p.ID, &kind, &p.Observe)
+			return p, err
+		}, `
 			SELECT id, kind, cluster_observation
 			FROM nodes
 			WHERE parent_id IS NOT DISTINCT FROM $1
-				AND slug = $2`, parent, strings.ToLower(seg)).Scan(&id, &kind, &observe)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
-		}
-		if err != nil {
-			return nil, postgres.Translate(err, constraints)
+				AND slug = $2`, parent, strings.ToLower(seg))
+		if n == nil || err != nil {
+			return nil, err
 		}
 		if i == len(segments)-1 {
 			if kind != "project" {
 				return nil, nil
 			}
-			return &deploytypes.ProjectRef{ID: id, Observe: observe}, nil
+			return n, nil
 		}
-		parent = &id
+		parent = &n.ID
 	}
 	return nil, nil
 }
 
 func (s *WorkloadRepository) Current(ctx context.Context, projectID uuid.UUID, service, environment string) (*string, error) {
-	var v string
-	err := s.db.From(ctx).QueryRow(ctx, `
+	return postgres.Find(ctx, s.db.From(ctx), constraints, pgx.RowTo[string], `
 		SELECT d.version
 		FROM service_environments e
 		JOIN service_deployments d ON d.id = e.deployment_id
 		WHERE e.project_id = $1
 			AND e.service = $2
-			AND e.environment = $3`, projectID, service, environment).Scan(&v)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	return &v, nil
+			AND e.environment = $3`, projectID, service, environment)
 }

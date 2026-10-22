@@ -169,8 +169,7 @@ func (s *OAuthService) linkIdentity(ctx context.Context, userID uuid.UUID, exist
 	}
 	_, err := s.identityRepository.Insert(ctx, accesstypes.NewIdentity{ID: uuid.Must(uuid.NewV7()), UserID: userID, Provider: provider,
 		Subject: subject, Email: email})
-	var refusal accesstypes.Refusal
-	if errors.As(err, &refusal) {
+	if refusal, ok := errors.AsType[accesstypes.Refusal](err); ok {
 		return refusal
 	}
 	return apperr.Wrap(err)
@@ -211,8 +210,7 @@ func claimedEmail(claims *accesstypes.Claims) *string {
 	if claims.Email == "" {
 		return nil
 	}
-	e := strings.ToLower(strings.TrimSpace(claims.Email))
-	return &e
+	return new(strings.ToLower(strings.TrimSpace(claims.Email)))
 }
 
 func (s *OAuthService) applyOutcome(ctx context.Context, outcome accesstypes.Outcome, who loginParties, newIdentity accesstypes.NewIdentity, claims accesstypes.Claims) (*accesstypes.User, error) {

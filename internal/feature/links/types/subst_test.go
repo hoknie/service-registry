@@ -92,8 +92,7 @@ func TestTemplateErrors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		_, err := Parse(tt.template)
-		var te *TemplateError
-		if !errors.As(err, &te) || te.Invalid != tt.want || te.Pos != tt.pos {
+		if te, ok := errors.AsType[*TemplateError](err); !ok || te.Invalid != tt.want || te.Pos != tt.pos {
 			t.Errorf("%q: %v (want %s at %d)", tt.template, err, tt.want.Code, tt.pos)
 		}
 	}

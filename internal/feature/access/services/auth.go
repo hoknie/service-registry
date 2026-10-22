@@ -139,8 +139,7 @@ func (s *AuthService) ChangePassword(ctx context.Context, p accesstypes.Principa
 	if err := s.userRepository.SetPassword(ctx, p.UserID, hash); err != nil {
 		return apperr.Wrap(err)
 	}
-	keep := p.SessionID
-	_, err = s.sessionRepository.DeleteForUser(ctx, p.UserID, &keep)
+	_, err = s.sessionRepository.DeleteForUser(ctx, p.UserID, new(p.SessionID))
 	return apperr.Wrap(err)
 }
 

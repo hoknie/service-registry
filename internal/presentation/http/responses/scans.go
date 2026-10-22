@@ -63,8 +63,7 @@ func ScanOf(s knowledgetypes.ScanItem) Scan {
 			out.Skipped = map[string]int{}
 		}
 		if b.Error != "" {
-			code := b.Error
-			out.Error = &code
+			out.Error = new(b.Error)
 		}
 		branches = append(branches, out)
 	}

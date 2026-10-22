@@ -123,8 +123,7 @@ func (f *Fake) Put(r Repo) {
 	if r.Pushed.IsZero() {
 		r.Pushed = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	}
-	cp := r
-	f.repos[r.ID] = &cp
+	f.repos[r.ID] = new(r)
 }
 
 func (f *Fake) SetFiles(id int64, files map[string]string) {

@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -30,19 +29,7 @@ type walkRow struct {
 }
 
 func (s *NodeRepository) one(ctx context.Context, query string, args ...any) (*catalogtypes.Node, error) {
-	rows, _ := s.db.From(ctx).Query(ctx, query, args...)
-	row, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[nodeRow])
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	n, err := row.node()
-	if err != nil {
-		return nil, err
-	}
-	return &n, nil
+	return postgres.Find(ctx, s.db.From(ctx), constraints, scanNode, query, args...)
 }
 
 func (s *NodeRepository) Get(ctx context.Context, id uuid.UUID) (*catalogtypes.Node, error) {
@@ -65,7 +52,7 @@ func (s *NodeRepository) ChildBySlug(ctx context.Context, parent *uuid.UUID, slu
 }
 
 func (s *NodeRepository) Chain(ctx context.Context, userID, id uuid.UUID) (*catalogtypes.NodeChain, error) {
-	rows, _ := s.db.From(ctx).Query(ctx, `
+	found, err := postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowToStructByName[chainRow], `
 		WITH RECURSIVE bound AS (
 			SELECT node_id, role
 			FROM role_bindings
@@ -103,9 +90,8 @@ func (s *NodeRepository) Chain(ctx context.Context, userID, id uuid.UUID) (*cata
 		) AS bound_rank, EXISTS (SELECT 1 FROM lineage WHERE lineage.id = $2) AS navigable
 		FROM up n
 		ORDER BY n.lvl`, userID, id)
-	found, err := pgx.CollectRows(rows, pgx.RowToStructByName[chainRow])
 	if err != nil {
-		return nil, postgres.Translate(err, constraints)
+		return nil, err
 	}
 	if len(found) == 0 {
 		return nil, nil
@@ -123,7 +109,7 @@ func (s *NodeRepository) Chain(ctx context.Context, userID, id uuid.UUID) (*cata
 
 func (s *NodeRepository) Walk(ctx context.Context, w catalogtypes.Walk) ([]catalogtypes.WalkNode, uint64, error) {
 	depth := int32(min(w.Depth, uint32(1<<31-1)))
-	rows, _ := s.db.From(ctx).Query(ctx, `
+	found, err := postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowToStructByName[walkRow], `
 		WITH RECURSIVE bound AS (
 			SELECT node_id, role
 			FROM role_bindings
@@ -172,9 +158,8 @@ func (s *NodeRepository) Walk(ctx context.Context, w catalogtypes.Walk) ([]catal
 			LIMIT $5
 			OFFSET $6
 		) p ON true`, w.UserID, w.RootReadable, w.Root, depth, int64(w.Limit), bigint(w.Offset))
-	found, err := pgx.CollectRows(rows, pgx.RowToStructByName[walkRow])
 	if err != nil {
-		return nil, 0, postgres.Translate(err, constraints)
+		return nil, 0, err
 	}
 	var total int64
 	nodes := []catalogtypes.WalkNode{}

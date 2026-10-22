@@ -32,21 +32,20 @@ func newGithub(hc *http.Client, e forgetypes.Endpoint) (*githubClient, error) {
 }
 
 func githubErr(err error, ownerCall bool) error {
-	var limit *github.RateLimitError
-	var abuse *github.AbuseRateLimitError
-	var resp *github.ErrorResponse
-	switch {
-	case err == nil:
+	if err == nil {
 		return nil
-	case errors.As(err, &limit):
+	}
+	if limit, ok := errors.AsType[*github.RateLimitError](err); ok {
 		return &forgetypes.RateLimited{Reset: limit.Rate.Reset.Time}
-	case errors.As(err, &abuse):
+	}
+	if abuse, ok := errors.AsType[*github.AbuseRateLimitError](err); ok {
 		r := &forgetypes.RateLimited{}
 		if abuse.RetryAfter != nil {
 			r.Reset = timeNow().Add(*abuse.RetryAfter)
 		}
 		return r
-	case errors.As(err, &resp):
+	}
+	if resp, ok := errors.AsType[*github.ErrorResponse](err); ok {
 		return fromStatus(resp.Response, ownerCall, err)
 	}
 	return network(err)
@@ -58,8 +57,7 @@ func (g *githubClient) resolve(ctx context.Context) error {
 	}
 	_, _, err := g.c.Organizations.Get(ctx, g.owner)
 	if err == nil {
-		yes := true
-		g.isOrg = &yes
+		g.isOrg = new(true)
 		return nil
 	}
 	if mapped := githubErr(err, true); !errors.Is(mapped, forgetypes.ErrOwnerNotFound) {
@@ -68,8 +66,7 @@ func (g *githubClient) resolve(ctx context.Context) error {
 	if _, _, err := g.c.Users.Get(ctx, g.owner); err != nil {
 		return githubErr(err, true)
 	}
-	no := false
-	g.isOrg = &no
+	g.isOrg = new(false)
 	return nil
 }
 
@@ -160,15 +157,14 @@ func (g *githubClient) Details(ctx context.Context, repo forgetypes.RemoteRepo) 
 	}
 	d.Languages = forgetypes.Percentages(sizes)
 	if repo.License != "" {
-		l := repo.License
-		d.License = &l
+		d.License = new(repo.License)
 	}
 	return d, nil
 }
 
 func isStatus(err error, status int) bool {
-	var resp *github.ErrorResponse
-	return errors.As(err, &resp) && resp.Response != nil && resp.Response.StatusCode == status
+	resp, ok := errors.AsType[*github.ErrorResponse](err)
+	return ok && resp.Response != nil && resp.Response.StatusCode == status
 }
 
 func (g *githubClient) RegisterHook(ctx context.Context, url, secret string) (string, error) {
@@ -178,12 +174,11 @@ func (g *githubClient) RegisterHook(ctx context.Context, url, secret string) (st
 	if !*g.isOrg {
 		return "", &forgetypes.Upstream{Status: http.StatusUnprocessableEntity, Detail: "GitHub user accounts have no owner-wide webhooks"}
 	}
-	contentType := "json"
 	hook, _, err := g.c.Organizations.CreateHook(ctx, g.owner, &github.Hook{
 		Name:   new("web"),
 		Active: new(true),
 		Events: []string{"push", "repository"},
-		Config: &github.HookConfig{URL: &url, ContentType: &contentType, Secret: &secret},
+		Config: &github.HookConfig{URL: &url, ContentType: new("json"), Secret: &secret},
 	})
 	if err != nil {
 		return "", githubErr(err, false)

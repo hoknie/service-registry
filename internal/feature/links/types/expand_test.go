@@ -3,8 +3,6 @@ package types
 import (
 	"testing"
 
-	"svc-registry/pkg/ptr"
-
 	"github.com/google/uuid"
 )
 
@@ -15,8 +13,8 @@ func logsTemplate(text string) []Template {
 func withDeployments() Context {
 	c := apiContext()
 	c.Deployments = []Deployment{
-		{Service: "api", Environment: "staging", Version: "1.1", Namespace: ptr.To("api-stg")},
-		{Service: "api", Environment: "production", Version: "1.0", Namespace: ptr.To("api-prod")},
+		{Service: "api", Environment: "staging", Version: "1.1", Namespace: new("api-stg")},
+		{Service: "api", Environment: "production", Version: "1.0", Namespace: new("api-prod")},
 	}
 	return c
 }
@@ -60,7 +58,7 @@ func TestMissingVariableGivesALinkWithoutAddress(t *testing.T) {
 
 func TestBranchAndRename(t *testing.T) {
 	c := apiContext()
-	c.Branch = ptr.To("feature/x")
+	c.Branch = new("feature/x")
 	links := Expand(c, logsTemplate("https://ci.example/{project.slug}/tree/{branch|raw}"), "")
 	if *links[0].URL != "https://ci.example/api/tree/feature/x" {
 		t.Fatal(*links[0].URL)
@@ -75,7 +73,7 @@ func TestBranchAndRename(t *testing.T) {
 func TestExpansionThatIsNotAURLHasNoAddress(t *testing.T) {
 	c := withDeployments()
 	c.Deployments = c.Deployments[:1]
-	c.Deployments[0].URL = ptr.To("not a url")
+	c.Deployments[0].URL = new("not a url")
 	links := Expand(c, logsTemplate("{url|raw}"), "")
 	if len(links) != 1 || links[0].URL != nil || len(links[0].Missing) != 0 {
 		t.Fatalf("%+v", links)
@@ -86,10 +84,10 @@ func eventContext() Context {
 	c := withDeployments()
 	c.Kinds = map[string]KindInfo{
 		"logs":    {Position: 10, Icon: "scroll-text"},
-		"runbook": {Position: 60, Icon: "book-open-check", IconURL: ptr.To("https://ci.example/favicon.png")},
+		"runbook": {Position: 60, Icon: "book-open-check", IconURL: new("https://ci.example/favicon.png")},
 	}
 	c.Deployments[1].Links = []EventLink{
-		{Key: "runbook", Kind: "runbook", URL: "https://ci.example/runs/42", Title: ptr.To("Пайплайн")},
+		{Key: "runbook", Kind: "runbook", URL: "https://ci.example/runs/42", Title: new("Пайплайн")},
 		{Key: "logs", Kind: "logs", URL: "https://logs.example/event"},
 		{Key: "pipeline", Kind: "pipeline", URL: "https://ci.example/p"},
 	}
@@ -144,11 +142,11 @@ func TestBadgesPreferTheEventAddress(t *testing.T) {
 }
 
 func TestIconsCarryTheKindIconName(t *testing.T) {
-	tpl := Template{KindIcon: "chart-line", KindIconURL: ptr.To("https://grafana.example/favicon.ico")}
+	tpl := Template{KindIcon: "chart-line", KindIconURL: new("https://grafana.example/favicon.ico")}
 	if i := tpl.LinkIcon(); i.Kind != "url" || i.URL != "https://grafana.example/favicon.ico" || i.Name != "chart-line" {
 		t.Errorf("%+v", i)
 	}
-	tpl.IconFile = ptr.To("a.png")
+	tpl.IconFile = new("a.png")
 	if i := tpl.LinkIcon(); i.Kind != "file" || i.Name != "chart-line" {
 		t.Errorf("%+v", i)
 	}

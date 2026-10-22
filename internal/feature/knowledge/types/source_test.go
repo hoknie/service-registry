@@ -5,8 +5,6 @@ import (
 	"testing"
 )
 
-func ptr(s string) *string { return &s }
-
 func TestValidateRemoteSources(t *testing.T) {
 	for _, c := range []struct {
 		in       SourceInput
@@ -28,7 +26,7 @@ func TestValidateRemoteSources(t *testing.T) {
 		t.Fatal(v.FullPath())
 	}
 	v, err := ValidateSource(SourceInput{Kind: "remote", Forge: "github", URL: "https://github.com/a/b", HasCredential: true,
-		SecretID: ptr("0199c000-0000-7000-8000-000000000001")})
+		SecretID: new("0199c000-0000-7000-8000-000000000001")})
 	if err != nil || v.SecretID == nil || v.Keep {
 		t.Fatal(v, err)
 	}
@@ -43,7 +41,7 @@ func TestValidateRemoteSources(t *testing.T) {
 		{Kind: "remote", Forge: "github", URL: "https://user:pw@github.com/a/b"},
 		{Kind: "remote", Forge: "github", URL: "https://github.com/a/b?x=1"},
 		{Kind: "remote", Forge: "github", URL: "https://github.com/a/b", Path: "/srv"},
-		{Kind: "remote", Forge: "github", URL: "https://github.com/a/b", HasCredential: true, SecretID: ptr("not-a-uuid")},
+		{Kind: "remote", Forge: "github", URL: "https://github.com/a/b", HasCredential: true, SecretID: new("not-a-uuid")},
 		{Kind: "remote", Forge: "github", URL: "https://github.com/a/b", HasCredential: true},
 		{Kind: "svn", Path: "/srv"},
 	} {

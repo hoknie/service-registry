@@ -81,15 +81,9 @@ func (r clusterRow) cluster() deploytypes.Cluster {
 	return c
 }
 
-type signalRow struct {
-	ProjectID uuid.UUID `db:"project_id"`
-	Kind      string    `db:"kind"`
-	Running   bool      `db:"running"`
-	Queued    bool      `db:"queued"`
-	Failed    bool      `db:"failed"`
-	Code      *string   `db:"code"`
-	LastAt    *string   `db:"last_at"`
-	Pending   *int64    `db:"pending"`
-}
-
 func Err(err error) error { return postgres.Translate(err, constraints) }
+
+type previousRow struct {
+	UID string
+	deploytypes.Previous
+}

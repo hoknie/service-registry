@@ -19,7 +19,7 @@ func (s *ActivityRepository) Containers(ctx context.Context, userID uuid.UUID, a
 	if len(projects) == 0 || len(containers) == 0 {
 		return out, nil
 	}
-	rows, err := s.db.From(ctx).Query(ctx, `
+	found, err := postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowToStructByName[containedRow], `
 		WITH RECURSIVE bound AS (
 			SELECT node_id
 			FROM role_bindings
@@ -52,11 +52,7 @@ func (s *ActivityRepository) Containers(ctx context.Context, userID uuid.UUID, a
 		WHERE u.depth > 0
 			AND u.node_id = ANY($4)`, userID, all, projects, containers)
 	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	found, err := pgx.CollectRows(rows, pgx.RowToStructByName[containedRow])
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
+		return nil, err
 	}
 	for _, r := range found {
 		out[r.ContainerID] = append(out[r.ContainerID], r.ProjectID)

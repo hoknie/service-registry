@@ -24,12 +24,10 @@ func TestBranchQuery(t *testing.T) {
 	if f, _ := ValidateBranchQuery(BranchQuery{State: &gone, Prefix: &prefix}); f.State != BranchesGone || f.Prefix != prefix {
 		t.Fatalf("%+v", f)
 	}
-	bad := "old"
-	if _, err := ValidateBranchQuery(BranchQuery{State: &bad}); err != InvalidBranchState {
+	if _, err := ValidateBranchQuery(BranchQuery{State: new("old")}); err != InvalidBranchState {
 		t.Fatal(err)
 	}
-	zero := int64(0)
-	if _, err := ValidateBranchQuery(BranchQuery{Limit: &zero}); err != InvalidBranchPage || InvalidBranchPage.Code != "validation.invalid_pagination" {
+	if _, err := ValidateBranchQuery(BranchQuery{Limit: new(int64(0))}); err != InvalidBranchPage || InvalidBranchPage.Code != "validation.invalid_pagination" {
 		t.Fatal(err)
 	}
 }

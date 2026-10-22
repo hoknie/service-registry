@@ -38,8 +38,7 @@ func TestParseErrors(t *testing.T) {
 		{"", false, 1},
 	} {
 		_, err := Parse(c.template, func(n string) bool { return n == "name" })
-		var e *Error
-		if !errors.As(err, &e) || e.UnknownVariable != c.unknown || e.Pos != c.pos {
+		if e, ok := errors.AsType[*Error](err); !ok || e.UnknownVariable != c.unknown || e.Pos != c.pos {
 			t.Errorf("%q: %v", c.template, err)
 		}
 	}

@@ -20,7 +20,7 @@ type tableRow struct {
 }
 
 func (s *NodeRepository) Table(ctx context.Context, w catalogtypes.Walk) ([]catalogtypes.TableNode, uint64, error) {
-	rows, _ := s.db.From(ctx).Query(ctx, `
+	return tableNodes(postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowToStructByName[tableRow], `
 		WITH RECURSIVE bound AS (
 			SELECT node_id
 			FROM role_bindings
@@ -62,8 +62,7 @@ func (s *NodeRepository) Table(ctx context.Context, w catalogtypes.Walk) ([]cata
 			ORDER BY CASE n.kind WHEN 'organization' THEN 0 WHEN 'folder' THEN 1 ELSE 2 END, lower(n.name), n.id
 			LIMIT $4
 			OFFSET $5
-		) p ON true`, w.UserID, w.RootReadable, w.Root, int64(w.Limit), bigint(w.Offset))
-	return tableNodes(rows)
+		) p ON true`, w.UserID, w.RootReadable, w.Root, int64(w.Limit), bigint(w.Offset)))
 }
 
 func (s *NodeRepository) Search(ctx context.Context, q catalogtypes.Search) ([]catalogtypes.TableNode, uint64, error) {
@@ -83,7 +82,7 @@ func (s *NodeRepository) Search(ctx context.Context, q catalogtypes.Search) ([]c
 	if err != nil {
 		return nil, 0, err
 	}
-	rows, _ := s.db.From(ctx).Query(ctx, `
+	return tableNodes(postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowToStructByName[tableRow], `
 		WITH RECURSIVE bound AS (
 			SELECT node_id
 			FROM role_bindings
@@ -161,14 +160,12 @@ func (s *NodeRepository) Search(ctx context.Context, q catalogtypes.Search) ([]c
 		FROM visible v
 		WHERE v.id IN (SELECT id FROM shown)
 		ORDER BY v.path`, q.UserID, q.RootReadable, q.Root, q.Filter.Q, string(q.Filter.Kind), string(pairs), keys, q.Only,
-		int64(q.Limit))
-	return tableNodes(rows)
+		int64(q.Limit)))
 }
 
-func tableNodes(rows pgx.Rows) ([]catalogtypes.TableNode, uint64, error) {
-	found, err := pgx.CollectRows(rows, pgx.RowToStructByName[tableRow])
+func tableNodes(found []tableRow, err error) ([]catalogtypes.TableNode, uint64, error) {
 	if err != nil {
-		return nil, 0, postgres.Translate(err, constraints)
+		return nil, 0, err
 	}
 	var total int64
 	nodes := []catalogtypes.TableNode{}

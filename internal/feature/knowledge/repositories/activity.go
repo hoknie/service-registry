@@ -11,7 +11,7 @@ import (
 )
 
 func (s *CollectionRepository) Signals(ctx context.Context, projects []uuid.UUID, indexing bool, model string, pending, busy bool) (map[uuid.UUID][]catalogtypes.ProcessSignals, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	found, err := postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowToStructByPos[catalogtypes.ProjectSignals], `
 		WITH collect AS (
 			SELECT n.id AS project_id, 'collect'::text AS kind,
 				COALESCE(s.lease_until > now(), false) AS running,
@@ -85,16 +85,7 @@ func (s *CollectionRepository) Signals(ctx context.Context, projects []uuid.UUID
 		ORDER BY a.project_id, CASE a.kind WHEN 'collect' THEN 0 ELSE 1 END`,
 		projects, indexing, model, pending, busy)
 	if err != nil {
-		return nil, postgres.Translate(err, constraints)
+		return nil, err
 	}
-	found, err := pgx.CollectRows(rows, pgx.RowToStructByName[signalRow])
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	out := map[uuid.UUID][]catalogtypes.ProcessSignals{}
-	for _, r := range found {
-		out[r.ProjectID] = append(out[r.ProjectID], catalogtypes.ProcessSignals{Kind: catalogtypes.ProcessKind(r.Kind), Running: r.Running,
-			Queued: r.Queued, Failed: r.Failed, Code: r.Code, LastAt: r.LastAt, Pending: r.Pending})
-	}
-	return out, nil
+	return catalogtypes.SignalsByProject(found), nil
 }

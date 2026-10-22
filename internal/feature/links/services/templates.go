@@ -107,8 +107,7 @@ func (s *TemplatesService) PreviewLinkTemplate(ctx context.Context, p accesstype
 	if err != nil {
 		return nil, err
 	}
-	template := in.Template
-	preview := []linkstypes.Template{{NodeID: id, LinkKey: "preview", Template: &template}}
+	preview := []linkstypes.Template{{NodeID: id, LinkKey: "preview", Template: new(in.Template)}}
 	out := linkstypes.Expand(c, preview, q.Environment)
 	return out, s.projects.attachChecks(ctx, out)
 }

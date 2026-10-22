@@ -14,17 +14,17 @@ func TestValidateSecret(t *testing.T) {
 		create bool
 		ok     bool
 	}{
-		{"value", SecretInput{Name: ptr(" gitlab "), Value: ptr("glpat-1")}, true, true},
-		{"ref", SecretInput{Name: ptr("gitlab"), Ref: ptr("env:GITLAB_TOKEN")}, true, true},
-		{"file ref", SecretInput{Name: ptr("gitlab"), Ref: ptr("file:/run/secrets/gitlab")}, true, true},
-		{"no name", SecretInput{Value: ptr("x")}, true, false},
-		{"long name", SecretInput{Name: ptr(strings.Repeat("a", 101)), Value: ptr("x")}, true, false},
-		{"long description", SecretInput{Name: ptr("a"), Description: ptr(strings.Repeat("d", 501)), Value: ptr("x")}, true, false},
-		{"both", SecretInput{Name: ptr("a"), Value: ptr("x"), Ref: ptr("env:X")}, true, false},
-		{"neither", SecretInput{Name: ptr("a")}, true, false},
-		{"space in value", SecretInput{Name: ptr("a"), Value: ptr("a b")}, true, false},
-		{"relative file", SecretInput{Name: ptr("a"), Ref: ptr("file:secrets/x")}, true, false},
-		{"patch description only", SecretInput{Description: ptr("CI token")}, false, true},
+		{"value", SecretInput{Name: new(" gitlab "), Value: new("glpat-1")}, true, true},
+		{"ref", SecretInput{Name: new("gitlab"), Ref: new("env:GITLAB_TOKEN")}, true, true},
+		{"file ref", SecretInput{Name: new("gitlab"), Ref: new("file:/run/secrets/gitlab")}, true, true},
+		{"no name", SecretInput{Value: new("x")}, true, false},
+		{"long name", SecretInput{Name: new(strings.Repeat("a", 101)), Value: new("x")}, true, false},
+		{"long description", SecretInput{Name: new("a"), Description: new(strings.Repeat("d", 501)), Value: new("x")}, true, false},
+		{"both", SecretInput{Name: new("a"), Value: new("x"), Ref: new("env:X")}, true, false},
+		{"neither", SecretInput{Name: new("a")}, true, false},
+		{"space in value", SecretInput{Name: new("a"), Value: new("a b")}, true, false},
+		{"relative file", SecretInput{Name: new("a"), Ref: new("file:secrets/x")}, true, false},
+		{"patch description only", SecretInput{Description: new("CI token")}, false, true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -38,7 +38,7 @@ func TestValidateSecret(t *testing.T) {
 			}
 		})
 	}
-	v, _ := ValidateSecret(SecretInput{Name: ptr(" gitlab ")}, false)
+	v, _ := ValidateSecret(SecretInput{Name: new(" gitlab ")}, false)
 	if *v.Name != "gitlab" {
 		t.Fatalf("name = %q, want trimmed", *v.Name)
 	}
@@ -50,13 +50,13 @@ func TestParseCredentials(t *testing.T) {
 	if _, err := ParseCredentials(&CredentialsInput{Inline: true}, invalid); !errors.Is(err, InvalidCredentialsInline) {
 		t.Fatalf("inline: %v", err)
 	}
-	if _, err := ParseCredentials(&CredentialsInput{SecretID: ptr("nope")}, invalid); !errors.Is(err, invalid) {
+	if _, err := ParseCredentials(&CredentialsInput{SecretID: new("nope")}, invalid); !errors.Is(err, invalid) {
 		t.Fatalf("bad id: %v", err)
 	}
 	if _, err := ParseCredentials(nil, invalid); !errors.Is(err, invalid) {
 		t.Fatalf("nil: %v", err)
 	}
-	id, err := ParseCredentials(&CredentialsInput{SecretID: ptr("0199c000-0000-7000-8000-000000000001")}, invalid)
+	id, err := ParseCredentials(&CredentialsInput{SecretID: new("0199c000-0000-7000-8000-000000000001")}, invalid)
 	if err != nil || id.String() != "0199c000-0000-7000-8000-000000000001" {
 		t.Fatalf("id: %v %v", id, err)
 	}

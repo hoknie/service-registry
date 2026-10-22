@@ -101,15 +101,12 @@ func failedWith(res forgetypes.RunResult, err error) (forgetypes.RunResult, *tim
 	res.ErrorCode, res.ErrorMessage = &code, &msg
 	if errors.Is(err, forgetypes.ErrInterrupted) {
 		res.Status = forgetypes.RunFailed
-		now := time.Now()
-		return res, &now
+		return res, new(time.Now())
 	}
-	var limited *forgetypes.RateLimited
-	if errors.As(err, &limited) {
+	if limited, ok := errors.AsType[*forgetypes.RateLimited](err); ok {
 		res.Status = forgetypes.RunRateLimited
 		if !limited.Reset.IsZero() {
-			reset := limited.Reset
-			return res, &reset
+			return res, new(limited.Reset)
 		}
 		return res, nil
 	}

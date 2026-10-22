@@ -58,8 +58,7 @@ func TestPollMatchesAndObservesWorkloads(t *testing.T) {
 		Annotations: map[string]string{deploytypes.AnnotationProject: "acme/backend/api"}, Containers: []deploytypes.Container{{Name: "job", Image: "report:3"}}}
 	k8s.Cluster().Put(byPath, byTemplate, byRule, noAnnotation, unknown, legacy, cron)
 	k8s.Cluster().PutPods("backend", "app=billing", deploytypes.Pod{Containers: []deploytypes.PodContainer{{Name: "app", ImageID: "x@sha256:aa", Restarts: 3}}})
-	failed := time.Now().Add(-time.Hour)
-	k8s.Cluster().PutJobs("u7", deploytypes.Job{StartedAt: &failed, Failed: 1})
+	k8s.Cluster().PutJobs("u7", deploytypes.Job{StartedAt: new(time.Now().Add(-time.Hour)), Failed: 1})
 	app.pollNow()
 
 	got := app.get(clusterPath(idOf(c)), root).json(t)

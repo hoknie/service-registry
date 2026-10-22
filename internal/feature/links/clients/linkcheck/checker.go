@@ -142,26 +142,34 @@ func isLoginPath(path string) bool {
 }
 
 func classify(err error) linkstypes.Status {
-	var dnsErr *net.DNSError
-	var certErr *tls.CertificateVerificationError
-	var unknownAuthority x509.UnknownAuthorityError
-	var hostnameErr x509.HostnameError
-	var invalidCert x509.CertificateInvalidError
-	var recordErr tls.RecordHeaderError
-	var netErr net.Error
-	switch {
-	case errors.Is(err, errBlocked):
+	if errors.Is(err, errBlocked) {
 		return linkstypes.StatusBlocked
-	case errors.Is(err, context.DeadlineExceeded), errors.As(err, &netErr) && netErr.Timeout():
-		return linkstypes.StatusTimeout
-	case errors.As(err, &dnsErr):
-		return linkstypes.StatusDNSError
-	case errors.As(err, &certErr), errors.As(err, &unknownAuthority), errors.As(err, &hostnameErr),
-		errors.As(err, &invalidCert), errors.As(err, &recordErr):
-		return linkstypes.StatusTLSError
 	}
-	if strings.Contains(err.Error(), "tls:") {
+	if netErr, ok := errors.AsType[net.Error](err); errors.Is(err, context.DeadlineExceeded) || ok && netErr.Timeout() {
+		return linkstypes.StatusTimeout
+	}
+	if _, ok := errors.AsType[*net.DNSError](err); ok {
+		return linkstypes.StatusDNSError
+	}
+	if tlsError(err) || strings.Contains(err.Error(), "tls:") {
 		return linkstypes.StatusTLSError
 	}
 	return linkstypes.StatusUnreachable
+}
+
+func tlsError(err error) bool {
+	if _, ok := errors.AsType[*tls.CertificateVerificationError](err); ok {
+		return true
+	}
+	if _, ok := errors.AsType[x509.UnknownAuthorityError](err); ok {
+		return true
+	}
+	if _, ok := errors.AsType[x509.HostnameError](err); ok {
+		return true
+	}
+	if _, ok := errors.AsType[x509.CertificateInvalidError](err); ok {
+		return true
+	}
+	_, ok := errors.AsType[tls.RecordHeaderError](err)
+	return ok
 }

@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"errors"
 
 	"github.com/jackc/pgx/v5"
 
@@ -18,45 +17,40 @@ func NewLoginStateRepository(db *pgtx.DB) *LoginStateRepository {
 }
 
 func (s *LoginStateRepository) Insert(ctx context.Context, n accesstypes.NewLoginState) error {
-	_, err := s.db.From(ctx).Exec(ctx, `
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO oauth_login_states (id, browser_hash, provider, state, nonce, code_verifier, next,
 			link_user_id, expires_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() + make_interval(secs => $9))`,
 		n.ID, n.BrowserHash[:], n.Provider, n.State, n.Nonce, n.Verifier,
 		n.Next, n.LinkUserID, float64(n.TTLSecs))
-	return postgres.Translate(err, constraints)
+	return err
 }
 
 func (s *LoginStateRepository) Take(ctx context.Context, browserHash [32]byte, state, provider string) (*accesstypes.LoginState, error) {
-	var l accesstypes.LoginState
-	err := s.db.From(ctx).QueryRow(ctx, `
+	l, err := postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (accesstypes.LoginState, error) {
+		var l accesstypes.LoginState
+		err := r.Scan(&l.Provider, &l.Nonce, &l.Verifier, &l.Next, &l.LinkUserID)
+		return l, err
+	}, `
 		DELETE FROM oauth_login_states
 		WHERE browser_hash = $1
 			AND state = $2
 			AND provider = $3
 			AND expires_at > now()
-		RETURNING provider, nonce, code_verifier, next, link_user_id`, browserHash[:], state, provider).
-		Scan(&l.Provider, &l.Nonce, &l.Verifier, &l.Next, &l.LinkUserID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		if _, err := s.db.From(ctx).Exec(ctx, `
-			DELETE FROM oauth_login_states
-			WHERE state = $1`, state); err != nil {
-			return nil, postgres.Translate(err, constraints)
-		}
-		return nil, nil
+		RETURNING provider, nonce, code_verifier, next, link_user_id`, browserHash[:], state, provider)
+	if err != nil || l != nil {
+		return l, err
 	}
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
+	if _, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		DELETE FROM oauth_login_states
+		WHERE state = $1`, state); err != nil {
+		return nil, err
 	}
-	return &l, nil
+	return nil, nil
 }
 
 func (s *LoginStateRepository) Prune(ctx context.Context) (int64, error) {
-	tag, err := s.db.From(ctx).Exec(ctx, `
+	return postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		DELETE FROM oauth_login_states
 		WHERE expires_at <= now()`)
-	if err != nil {
-		return 0, postgres.Translate(err, constraints)
-	}
-	return tag.RowsAffected(), nil
 }

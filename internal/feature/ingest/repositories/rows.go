@@ -20,6 +20,11 @@ type eventRow struct {
 	Payload        json.RawMessage `db:"payload"`
 }
 
+type replayRow struct {
+	ID   uuid.UUID `db:"id"`
+	Same bool      `db:"same"`
+}
+
 func (r eventRow) event() ingesttypes.Event { return ingesttypes.Event(r) }
 
 type deploymentRow struct {

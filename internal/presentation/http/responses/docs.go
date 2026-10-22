@@ -41,8 +41,7 @@ func docSpaceNode(n knowledgeservices.DocSpaceNode, withDocs bool) DocSpaceNode 
 		out.Access = "read"
 	}
 	if withDocs {
-		has := n.HasDocs
-		out.HasDocs = &has
+		out.HasDocs = new(n.HasDocs)
 	}
 	return out
 }
@@ -52,8 +51,7 @@ func DocSpaceOf(s knowledgeservices.DocSpace) DocSpace {
 	if s.Node != nil {
 		n := docSpaceNode(*s.Node, false)
 		if n.Description == nil {
-			empty := ""
-			n.Description = &empty
+			n.Description = new("")
 		}
 		out.Node = &n
 	}
@@ -66,8 +64,7 @@ func DocSpaceOf(s knowledgeservices.DocSpace) DocSpace {
 	if d := s.Docs; d != nil {
 		docs := DocSpaceDocs{DefaultBranch: d.DefaultBranch, Branches: make([]DocSpaceBranch, 0, len(d.Branches))}
 		if d.Source != "" {
-			src := string(d.Source)
-			docs.Source = &src
+			docs.Source = new(string(d.Source))
 		}
 		for _, b := range d.Branches {
 			docs.Branches = append(docs.Branches, DocSpaceBranch(b))

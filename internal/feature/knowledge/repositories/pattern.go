@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/apperr"
@@ -16,7 +17,11 @@ type PatternRepository struct{ db *pgtx.DB }
 func NewPatternRepository(db *pgtx.DB) *PatternRepository { return &PatternRepository{db: db} }
 
 func (s *PatternRepository) Chain(ctx context.Context, nodeID uuid.UUID) ([]knowledgetypes.ChainNode, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	chain, err := postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (knowledgetypes.ChainNode, error) {
+		var n knowledgetypes.ChainNode
+		err := r.Scan(&n.ID, &n.Kind, &n.Name, &n.Own.IncludeSet, &n.Own.Include, &n.Own.Exclude, &n.Own.Branches)
+		return n, err
+	}, `
 		WITH RECURSIVE up AS (
 			SELECT id, parent_id, kind, name, 0 AS lvl
 			FROM nodes
@@ -31,19 +36,7 @@ func (s *PatternRepository) Chain(ctx context.Context, nodeID uuid.UUID) ([]know
 		LEFT JOIN knowledge_patterns p ON p.node_id = up.id
 		ORDER BY up.lvl`, nodeID)
 	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	defer rows.Close()
-	var chain []knowledgetypes.ChainNode
-	for rows.Next() {
-		var n knowledgetypes.ChainNode
-		if err := rows.Scan(&n.ID, &n.Kind, &n.Name, &n.Own.IncludeSet, &n.Own.Include, &n.Own.Exclude, &n.Own.Branches); err != nil {
-			return nil, postgres.Translate(err, constraints)
-		}
-		chain = append(chain, n)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, postgres.Translate(err, constraints)
+		return nil, err
 	}
 	if len(chain) == 0 {
 		return nil, apperr.ErrNotFound
@@ -58,7 +51,7 @@ func (s *PatternRepository) Put(ctx context.Context, nodeID uuid.UUID, in knowle
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	if in.IsEmpty() {
-		_, err = tx.Exec(ctx, `
+		_, err = postgres.Exec(ctx, tx, constraints, `
 			DELETE FROM knowledge_patterns
 			WHERE node_id = $1`, nodeID)
 	} else {
@@ -66,7 +59,7 @@ func (s *PatternRepository) Put(ctx context.Context, nodeID uuid.UUID, in knowle
 		if !in.IncludeSet {
 			include = nil
 		}
-		_, err = tx.Exec(ctx, `
+		_, err = postgres.Exec(ctx, tx, constraints, `
 			INSERT INTO knowledge_patterns (node_id, include_set, include, exclude, branches)
 			VALUES ($1, $2, $3, $4, $5)
 			ON CONFLICT (node_id)
@@ -74,9 +67,9 @@ func (s *PatternRepository) Put(ctx context.Context, nodeID uuid.UUID, in knowle
 			nodeID, in.IncludeSet, include, in.Exclude, in.Branches)
 	}
 	if err != nil {
-		return postgres.Translate(err, constraints)
+		return err
 	}
-	if _, err := tx.Exec(ctx, `
+	if _, err := postgres.Exec(ctx, tx, constraints, `
 		WITH RECURSIVE down AS (
 			SELECT id
 			FROM nodes
@@ -89,7 +82,7 @@ func (s *PatternRepository) Put(ctx context.Context, nodeID uuid.UUID, in knowle
 		UPDATE knowledge_settings
 		SET next_run_at = now(), updated_at = now()
 		WHERE project_id IN (SELECT id FROM down)`, nodeID); err != nil {
-		return postgres.Translate(err, constraints)
+		return err
 	}
 	return postgres.Translate(tx.Commit(ctx), constraints)
 }

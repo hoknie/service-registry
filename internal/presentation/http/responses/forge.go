@@ -106,8 +106,7 @@ func ConnectionOf(v forgeservices.ConnectionView) Connection {
 		out.Webhook = &Webhook{Mode: string(*c.WebhookMode), URL: v.WebhookURL}
 	}
 	if c.LastRun != nil {
-		r := RunOf(*c.LastRun)
-		out.LastRun = &r
+		out.LastRun = new(RunOf(*c.LastRun))
 	}
 	return out
 }

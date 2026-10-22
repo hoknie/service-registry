@@ -2,12 +2,10 @@ package repositories
 
 import (
 	"context"
-	"errors"
 
 	"github.com/jackc/pgx/v5"
 
 	linkstypes "svc-registry/internal/feature/links/types"
-	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
 	"svc-registry/pkg/pgtx"
 )
@@ -17,40 +15,20 @@ type KindRepository struct{ db *pgtx.DB }
 func NewKindRepository(db *pgtx.DB) *KindRepository { return &KindRepository{db: db} }
 
 func (s *KindRepository) List(ctx context.Context) ([]linkstypes.Kind, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	return postgres.List(ctx, s.db.From(ctx), constraints, postgres.Struct(kindRow.kind), `
 		SELECT k.id, k.key, k.names, k.icon, k.icon_url, k.position, rfc3339(k.created_at) AS created_at,
 			rfc3339(k.updated_at) AS updated_at
 		FROM link_kinds k
 		ORDER BY k.position, k.key`)
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	items, err := pgx.CollectRows(rows, pgx.RowToStructByName[kindRow])
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	out := make([]linkstypes.Kind, 0, len(items))
-	for _, r := range items {
-		out = append(out, r.kind())
-	}
-	return out, nil
 }
 
 func (s *KindRepository) Insert(ctx context.Context, k linkstypes.NewKind) (linkstypes.Kind, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	return postgres.One(ctx, s.db.From(ctx), constraints, postgres.Struct(kindRow.kind), `
 		INSERT INTO link_kinds AS k (id, key, names, icon, icon_url, position)
 		SELECT $1, $2, $3, $4, $5, COALESCE($6, LEAST(COALESCE(max(position), 0) + 10, 10000))
 		FROM link_kinds
 		RETURNING k.id, k.key, k.names, k.icon, k.icon_url, k.position, rfc3339(k.created_at) AS created_at,
 			rfc3339(k.updated_at) AS updated_at`, k.ID, k.Key, map[string]string(k.Names), k.Icon, k.IconURL, k.Position)
-	if err != nil {
-		return linkstypes.Kind{}, postgres.Translate(err, constraints)
-	}
-	r, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[kindRow])
-	if err != nil {
-		return linkstypes.Kind{}, postgres.Translate(err, constraints)
-	}
-	return r.kind(), nil
 }
 
 func (s *KindRepository) Update(ctx context.Context, key string, c linkstypes.KindChanges) (*linkstypes.Kind, error) {
@@ -58,7 +36,7 @@ func (s *KindRepository) Update(ctx context.Context, key string, c linkstypes.Ki
 	if c.Names != nil {
 		names = map[string]string(c.Names)
 	}
-	rows, err := s.db.From(ctx).Query(ctx, `
+	return postgres.Find(ctx, s.db.From(ctx), constraints, postgres.Struct(kindRow.kind), `
 		UPDATE link_kinds AS k
 		SET names = COALESCE($2, k.names), icon = COALESCE($3, k.icon),
 			icon_url = CASE WHEN $4 THEN $5 ELSE k.icon_url END, position = COALESCE($6, k.position),
@@ -66,32 +44,16 @@ func (s *KindRepository) Update(ctx context.Context, key string, c linkstypes.Ki
 		WHERE k.key = $1
 		RETURNING k.id, k.key, k.names, k.icon, k.icon_url, k.position, rfc3339(k.created_at) AS created_at,
 			rfc3339(k.updated_at) AS updated_at`, key, names, c.Icon, c.IconURLSet, c.IconURL, c.Position)
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	r, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByName[kindRow])
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	k := r.kind()
-	return &k, nil
 }
 
 func (s *KindRepository) Reorder(ctx context.Context, keys []string) error {
 	err := s.db.InTx(ctx, func(ctx context.Context) error {
 		tx := s.db.From(ctx)
-		rows, err := tx.Query(ctx, `
+		current, err := postgres.List(ctx, tx, constraints, pgx.RowTo[string], `
 			SELECT key
 			FROM link_kinds
 			ORDER BY key
 			FOR UPDATE`)
-		if err != nil {
-			return err
-		}
-		current, err := pgx.CollectRows(rows, pgx.RowTo[string])
 		if err != nil {
 			return err
 		}
@@ -107,7 +69,7 @@ func (s *KindRepository) Reorder(ctx context.Context, keys []string) error {
 				return linkstypes.ConflictKindOrderStale
 			}
 		}
-		_, err = tx.Exec(ctx, `
+		_, err = postgres.Exec(ctx, tx, constraints, `
 			UPDATE link_kinds AS k
 			SET position = o.ord * 10, updated_at = now()
 			FROM unnest($1::text[]) WITH ORDINALITY AS o(key, ord)
@@ -119,14 +81,7 @@ func (s *KindRepository) Reorder(ctx context.Context, keys []string) error {
 }
 
 func (s *KindRepository) Delete(ctx context.Context, key string) error {
-	tag, err := s.db.From(ctx).Exec(ctx, `
+	return postgres.ExecFound(ctx, s.db.From(ctx), constraints, `
 		DELETE FROM link_kinds
 		WHERE key = $1`, key)
-	if err != nil {
-		return postgres.Translate(err, constraints)
-	}
-	if tag.RowsAffected() == 0 {
-		return apperr.ErrNotFound
-	}
-	return nil
 }

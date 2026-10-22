@@ -70,8 +70,7 @@ func (g *gitlabClient) ListBranches(ctx context.Context, repo forgetypes.RemoteR
 			return nil, false, gitlabErr(err, resp, false)
 		}
 		for _, b := range branches {
-			protected := b.Protected
-			fb := catalogtypes.ForgeBranch{Name: b.Name, Protected: &protected}
+			fb := catalogtypes.ForgeBranch{Name: b.Name, Protected: new(b.Protected)}
 			if b.Commit != nil {
 				fb.HeadSHA, fb.CommittedAt = lowerSHA(b.Commit.ID), b.Commit.CommittedDate
 			}
@@ -99,8 +98,7 @@ func (g *giteaClient) ListBranches(ctx context.Context, repo forgetypes.RemoteRe
 			return nil, false, giteaErr(err, resp, false)
 		}
 		for _, b := range branches {
-			protected := b.Protected
-			fb := catalogtypes.ForgeBranch{Name: b.Name, Protected: &protected}
+			fb := catalogtypes.ForgeBranch{Name: b.Name, Protected: new(b.Protected)}
 			if b.Commit != nil {
 				fb.HeadSHA, fb.CommittedAt = lowerSHA(b.Commit.ID), timePtr(b.Commit.Timestamp)
 			}

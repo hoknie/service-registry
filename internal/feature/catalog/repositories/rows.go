@@ -50,8 +50,8 @@ func (r nodeRow) node() (catalogtypes.Node, error) {
 	}, nil
 }
 
-func oneNode(rows pgx.Rows) (catalogtypes.Node, error) {
-	r, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[nodeRow])
+func scanNode(row pgx.CollectableRow) (catalogtypes.Node, error) {
+	r, err := pgx.RowToStructByName[nodeRow](row)
 	if err != nil {
 		return catalogtypes.Node{}, err
 	}
@@ -81,6 +81,11 @@ func labelsParam(l catalogtypes.Labels) catalogtypes.Labels {
 		return catalogtypes.Labels{}
 	}
 	return l
+}
+
+type keyUseRow struct {
+	ID    uuid.UUID `db:"id"`
+	Stale bool      `db:"stale"`
 }
 
 type containedRow struct {

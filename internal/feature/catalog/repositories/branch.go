@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -22,7 +21,7 @@ func NewBranchRepository(db *pgtx.DB, staleDays uint32) *BranchRepository {
 	return &BranchRepository{db: db, staleDays: staleDays}
 }
 
-func scanBranch(row pgx.Row) (catalogtypes.Branch, error) {
+func scanBranch(row pgx.CollectableRow) (catalogtypes.Branch, error) {
 	var b catalogtypes.Branch
 	var sources []string
 	if err := row.Scan(&b.ProjectID, &b.Name, &b.HeadSHA, &b.IsDefault, &b.Protected, &sources, &b.Pinned, &b.Stale,
@@ -37,7 +36,7 @@ func scanBranch(row pgx.Row) (catalogtypes.Branch, error) {
 
 func (s *BranchRepository) List(ctx context.Context, projectID uuid.UUID, f catalogtypes.BranchFilter) ([]catalogtypes.Branch, uint64, error) {
 	stale := int(s.staleDays)
-	rows, err := s.db.From(ctx).Query(ctx, `
+	items, err := postgres.List(ctx, s.db.From(ctx), constraints, scanBranch, `
 		SELECT b.project_id, b.name, b.head_sha, b.is_default, b.protected, b.sources, b.pinned,
 			b.last_activity_at < now() - make_interval(days => $2::int) AS stale, rfc3339(b.first_seen_at),
 			rfc3339(b.last_activity_at), rfc3339(b.gone_at)
@@ -54,14 +53,9 @@ func (s *BranchRepository) List(ctx context.Context, projectID uuid.UUID, f cata
 		LIMIT $5
 		OFFSET $6`, projectID, stale, f.Prefix, string(f.State), int64(f.Limit), int64(f.Offset))
 	if err != nil {
-		return nil, 0, postgres.Translate(err, constraints)
+		return nil, 0, err
 	}
-	items, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (catalogtypes.Branch, error) { return scanBranch(r) })
-	if err != nil {
-		return nil, 0, postgres.Translate(err, constraints)
-	}
-	var total int64
-	if err := s.db.From(ctx).QueryRow(ctx, `
+	total, err := postgres.One(ctx, s.db.From(ctx), constraints, pgx.RowTo[int64], `
 		SELECT count(*)
 		FROM branches b
 		WHERE b.project_id = $1
@@ -72,27 +66,21 @@ func (s *BranchRepository) List(ctx context.Context, projectID uuid.UUID, f cata
 				OR ($4 = 'active' AND b.gone_at IS NULL AND b.last_activity_at >= now() - make_interval(days => $2::int))
 				OR ($4 = 'stale' AND b.gone_at IS NULL AND b.last_activity_at < now() - make_interval(days => $2::int))
 			)`,
-		projectID, stale, f.Prefix, string(f.State)).Scan(&total); err != nil {
-		return nil, 0, postgres.Translate(err, constraints)
+		projectID, stale, f.Prefix, string(f.State))
+	if err != nil {
+		return nil, 0, err
 	}
 	return items, uint64(max(total, 0)), nil
 }
 
 func (s *BranchRepository) Get(ctx context.Context, projectID uuid.UUID, name string) (*catalogtypes.Branch, error) {
-	b, err := scanBranch(s.db.From(ctx).QueryRow(ctx, `
+	return postgres.Find(ctx, s.db.From(ctx), constraints, scanBranch, `
 		SELECT b.project_id, b.name, b.head_sha, b.is_default, b.protected, b.sources, b.pinned,
 			b.last_activity_at < now() - make_interval(days => $2::int) AS stale, rfc3339(b.first_seen_at),
 			rfc3339(b.last_activity_at), rfc3339(b.gone_at)
 		FROM branches b
 		WHERE b.project_id = $1
-			AND b.name = $3`, projectID, int(s.staleDays), name))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	return &b, nil
+			AND b.name = $3`, projectID, int(s.staleDays), name)
 }
 
 func (s *BranchRepository) SetDefault(ctx context.Context, projectID uuid.UUID, name *string) error {
@@ -146,39 +134,32 @@ func (s *BranchRepository) SyncForge(ctx context.Context, projectID uuid.UUID, b
 }
 
 func (s *BranchRepository) SetPinned(ctx context.Context, projectID uuid.UUID, name string, pinned bool) (*catalogtypes.Branch, error) {
-	b, err := scanBranch(s.db.From(ctx).QueryRow(ctx, `
+	return postgres.Find(ctx, s.db.From(ctx), constraints, scanBranch, `
 		UPDATE branches AS b
 		SET pinned = $4, updated_at = now()
 		WHERE b.project_id = $1
 			AND b.name = $3
 		RETURNING b.project_id, b.name, b.head_sha, b.is_default, b.protected, b.sources, b.pinned,
 			b.last_activity_at < now() - make_interval(days => $2::int) AS stale, rfc3339(b.first_seen_at),
-			rfc3339(b.last_activity_at), rfc3339(b.gone_at)`, projectID, int(s.staleDays), name, pinned))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	return &b, nil
+			rfc3339(b.last_activity_at), rfc3339(b.gone_at)`, projectID, int(s.staleDays), name, pinned)
 }
 
 func (s *BranchRepository) Delete(ctx context.Context, projectID uuid.UUID, name string) error {
 	err := s.db.InTx(ctx, func(ctx context.Context) error {
 		tx := s.db.From(ctx)
-		var isDefault bool
-		if err := tx.QueryRow(ctx, `
+		isDefault, err := postgres.Find(ctx, tx, constraints, pgx.RowTo[bool], `
 			SELECT is_default
 			FROM branches
 			WHERE project_id = $1
 				AND name = $2
-			FOR UPDATE`, projectID, name).Scan(&isDefault); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return apperr.ErrNotFound
-			}
+			FOR UPDATE`, projectID, name)
+		if err != nil {
 			return err
 		}
-		if isDefault {
+		if isDefault == nil {
+			return apperr.ErrNotFound
+		}
+		if *isDefault {
 			return catalogtypes.ConflictBranchIsDefault
 		}
 		if _, err := tx.Exec(ctx, `
@@ -187,7 +168,7 @@ func (s *BranchRepository) Delete(ctx context.Context, projectID uuid.UUID, name
 				AND name = $2`, projectID, name); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `
+		_, err = tx.Exec(ctx, `
 			DELETE FROM knowledge_snapshots
 			WHERE project_id = $1
 				AND branch = $2`, projectID, name)
@@ -197,8 +178,7 @@ func (s *BranchRepository) Delete(ctx context.Context, projectID uuid.UUID, name
 }
 
 func (s *BranchRepository) Prune(ctx context.Context, retentionDays, staleDays uint32) (int64, error) {
-	var n int64
-	if err := s.db.From(ctx).QueryRow(ctx, `
+	return postgres.One(ctx, s.db.From(ctx), constraints, pgx.RowTo[int64], `
 		WITH gone AS (
 			DELETE FROM branches
 			WHERE NOT pinned
@@ -215,8 +195,5 @@ func (s *BranchRepository) Prune(ctx context.Context, retentionDays, staleDays u
 				AND s.branch = g.name
 		)
 		SELECT count(*)
-		FROM gone`, int(retentionDays), int(staleDays)).Scan(&n); err != nil {
-		return 0, postgres.Translate(err, constraints)
-	}
-	return n, nil
+		FROM gone`, int(retentionDays), int(staleDays))
 }

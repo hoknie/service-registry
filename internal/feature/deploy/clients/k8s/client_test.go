@@ -26,8 +26,6 @@ import (
 	"svc-registry/internal/platform/config"
 )
 
-func ptr[T any](v T) *T { return &v }
-
 var listKinds = map[schema.GroupVersionResource]string{
 	deployments: "DeploymentList", statefulSets: "StatefulSetList", daemonSets: "DaemonSetList",
 	cronJobs: "CronJobList", jobs: "JobList", pods: "PodList",
@@ -54,7 +52,7 @@ func fixtures(t *testing.T) []runtime.Object {
 		object(t, "apps/v1", "Deployment", &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{Name: "api", Namespace: "backend", UID: "d1", Generation: 2,
 				Labels: map[string]string{"team": "core"}, Annotations: map[string]string{deploytypes.AnnotationProject: "acme/backend/api"}},
-			Spec: appsv1.DeploymentSpec{Replicas: ptr(int32(3)), Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "api"},
+			Spec: appsv1.DeploymentSpec{Replicas: new(int32(3)), Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "api"},
 				MatchExpressions: []metav1.LabelSelectorRequirement{{Key: "tier", Operator: metav1.LabelSelectorOpIn, Values: []string{"web"}}}},
 				Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "api"},
 					Annotations: map[string]string{deploytypes.AnnotationService: "api"}},
@@ -68,7 +66,7 @@ func fixtures(t *testing.T) []runtime.Object {
 			Spec:   appsv1.DaemonSetSpec{Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "agent"}}},
 			Status: appsv1.DaemonSetStatus{DesiredNumberScheduled: 5, NumberReady: 4, UpdatedNumberScheduled: 5}}),
 		object(t, "batch/v1", "CronJob", &batchv1.CronJob{ObjectMeta: metav1.ObjectMeta{Name: "report", Namespace: "backend", UID: "c1"},
-			Spec: batchv1.CronJobSpec{Schedule: "0 * * * *", Suspend: ptr(true), JobTemplate: batchv1.JobTemplateSpec{Spec: batchv1.JobSpec{
+			Spec: batchv1.CronJobSpec{Schedule: "0 * * * *", Suspend: new(true), JobTemplate: batchv1.JobTemplateSpec{Spec: batchv1.JobSpec{
 				Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"job": "report"}},
 					Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "run", Image: "acme/report:7"}}}}}}}}),
 		object(t, "batch/v1", "Job", &batchv1.Job{ObjectMeta: metav1.ObjectMeta{Name: "report-1", Namespace: "backend",
@@ -216,8 +214,7 @@ func caOf(srv *httptest.Server) []byte {
 }
 
 func failureCode(err error) deploytypes.FailureCode {
-	var f *deploytypes.Failure
-	if errors.As(err, &f) {
+	if f, ok := errors.AsType[*deploytypes.Failure](err); ok {
 		return f.Code
 	}
 	return ""

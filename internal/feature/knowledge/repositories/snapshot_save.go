@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/postgres"
@@ -66,24 +67,16 @@ func (s *SnapshotRepository) Save(ctx context.Context, n knowledgetypes.NewSnaps
 }
 
 func sameTree(ctx context.Context, tx pgtx.Querier, snapshotID uuid.UUID, files []knowledgetypes.File) (bool, error) {
-	stored := map[string]string{}
-	rows, err := tx.Query(ctx, `
+	rows, err := postgres.List(ctx, tx, constraints, pgx.RowToStructByPos[pathKeyRow], `
 		SELECT path, COALESCE(encode(sha256, 'hex'), 'skip:' || skip_reason) || ':' || COALESCE(meta ->> 'git', '')
 		FROM knowledge_files
 		WHERE snapshot_id = $1`, snapshotID)
 	if err != nil {
 		return false, err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var path, key string
-		if err := rows.Scan(&path, &key); err != nil {
-			return false, err
-		}
-		stored[path] = key
-	}
-	if err := rows.Err(); err != nil {
-		return false, err
+	stored := map[string]string{}
+	for _, r := range rows {
+		stored[r.Path] = r.Key
 	}
 	if len(stored) != len(files) {
 		return false, nil
@@ -123,8 +116,7 @@ func insertSnapshot(ctx context.Context, tx pgtx.Querier, n knowledgetypes.NewSn
 		}
 		metas[i] = string(meta)
 		if f.Skip != "" {
-			reason := string(f.Skip)
-			skips[i] = &reason
+			skips[i] = new(string(f.Skip))
 			skipped++
 			continue
 		}

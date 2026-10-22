@@ -26,15 +26,36 @@ func (r snapshotRow) snapshot() knowledgetypes.Snapshot {
 		ErrorCode: r.ErrorCode, Files: int(r.Files), Bytes: r.Bytes, Skipped: int(r.Skipped), Truncated: r.Truncated, CollectedAt: r.CollectedAt}
 }
 
-type signalRow struct {
-	ProjectID uuid.UUID `db:"project_id"`
-	Kind      string    `db:"kind"`
-	Running   bool      `db:"running"`
-	Queued    bool      `db:"queued"`
-	Failed    bool      `db:"failed"`
-	Code      *string   `db:"code"`
-	LastAt    *string   `db:"last_at"`
-	Pending   *int64    `db:"pending"`
+func Err(err error) error { return postgres.Translate(err, constraints) }
+
+type knownRow struct {
+	Git     string
+	SHA256  []byte
+	Content string
 }
 
-func Err(err error) error { return postgres.Translate(err, constraints) }
+type blobRow struct {
+	SHA256  []byte
+	Content string
+}
+
+type chunkRow struct {
+	SHA256 []byte
+	Chunk  knowledgetypes.StoredChunk
+}
+
+type projectNameRow struct {
+	ID   uuid.UUID
+	Name string
+	Path string
+}
+
+type pathKeyRow struct {
+	Path string
+	Key  string
+}
+
+type countsRow struct {
+	Pending int
+	Indexed int
+}

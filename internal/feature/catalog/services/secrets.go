@@ -110,8 +110,7 @@ func (s *SecretsService) seal(id uuid.UUID, v catalogtypes.SecretValue) (catalog
 	if err != nil {
 		return catalogtypes.StoredSecret{}, apperr.Internalf("encrypt: %v", err)
 	}
-	fp := secretbox.Fingerprint(*v.Value)
-	return catalogtypes.StoredSecret{Enc: &enc, Fingerprint: &fp}, nil
+	return catalogtypes.StoredSecret{Enc: &enc, Fingerprint: new(secretbox.Fingerprint(*v.Value))}, nil
 }
 
 func (s *SecretsService) createSecret(ctx context.Context, nodeID *uuid.UUID, in catalogtypes.SecretInput) (catalogtypes.Secret, error) {

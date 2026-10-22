@@ -10,16 +10,14 @@ import (
 	"svc-registry/internal/platform/postgres"
 )
 
-func collectSuggestions(rows pgx.Rows, err error) ([]catalogtypes.LabelSuggestion, error) {
+func scanSuggestion(r pgx.CollectableRow) (catalogtypes.LabelSuggestion, error) {
+	var s catalogtypes.LabelSuggestion
+	return s, r.Scan(&s.Value, &s.Count)
+}
+
+func suggestions(out []catalogtypes.LabelSuggestion, err error) ([]catalogtypes.LabelSuggestion, error) {
 	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (catalogtypes.LabelSuggestion, error) {
-		var s catalogtypes.LabelSuggestion
-		return s, r.Scan(&s.Value, &s.Count)
-	})
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
+		return nil, err
 	}
 	if out == nil {
 		out = []catalogtypes.LabelSuggestion{}
@@ -28,7 +26,7 @@ func collectSuggestions(rows pgx.Rows, err error) ([]catalogtypes.LabelSuggestio
 }
 
 func (s *NodeRepository) LabelKeys(ctx context.Context, userID uuid.UUID, all bool, prefix string) ([]catalogtypes.LabelSuggestion, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	return suggestions(postgres.List(ctx, s.db.From(ctx), constraints, scanSuggestion, `
 		WITH RECURSIVE bound AS (
 			SELECT node_id
 			FROM role_bindings
@@ -56,12 +54,11 @@ func (s *NodeRepository) LabelKeys(ctx context.Context, userID uuid.UUID, all bo
 		WHERE k.key ILIKE $3 ESCAPE '\'
 		GROUP BY k.key
 		ORDER BY count(*) DESC, k.key
-		LIMIT 20`, userID, all, prefix)
-	return collectSuggestions(rows, err)
+		LIMIT 20`, userID, all, prefix))
 }
 
 func (s *NodeRepository) LabelValues(ctx context.Context, userID uuid.UUID, all bool, key, prefix string) ([]catalogtypes.LabelSuggestion, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	return suggestions(postgres.List(ctx, s.db.From(ctx), constraints, scanSuggestion, `
 		WITH RECURSIVE bound AS (
 			SELECT node_id
 			FROM role_bindings
@@ -89,6 +86,5 @@ func (s *NodeRepository) LabelValues(ctx context.Context, userID uuid.UUID, all 
 			AND (n.labels ->> $3) ILIKE $4 ESCAPE '\'
 		GROUP BY n.labels ->> $3
 		ORDER BY count(*) DESC, n.labels ->> $3
-		LIMIT 20`, userID, all, key, prefix)
-	return collectSuggestions(rows, err)
+		LIMIT 20`, userID, all, key, prefix))
 }

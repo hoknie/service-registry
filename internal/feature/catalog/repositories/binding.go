@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -17,7 +16,7 @@ type BindingRepository struct{ db *pgtx.DB }
 
 func NewBindingRepository(db *pgtx.DB) *BindingRepository { return &BindingRepository{db: db} }
 
-func scanBinding(row pgx.Row) (catalogtypes.Binding, error) {
+func scanBinding(row pgx.CollectableRow) (catalogtypes.Binding, error) {
 	var b catalogtypes.Binding
 	var isGroup bool
 	var role string
@@ -37,7 +36,7 @@ func scanBinding(row pgx.Row) (catalogtypes.Binding, error) {
 }
 
 func (s *BindingRepository) List(ctx context.Context, nodeIDs []uuid.UUID) ([]catalogtypes.Binding, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	return postgres.List(ctx, s.db.From(ctx), constraints, scanBinding, `
 		SELECT b.id, b.node_id, n.name AS node_name, b.user_id IS NULL AS is_group,
 			COALESCE(b.user_id, b.group_id) AS subject_id, COALESCE(u.email, g.name) AS subject_name, b.role,
 			rfc3339(b.created_at) AS created_at
@@ -47,18 +46,10 @@ func (s *BindingRepository) List(ctx context.Context, nodeIDs []uuid.UUID) ([]ca
 		LEFT JOIN groups g ON g.id = b.group_id
 		WHERE b.node_id = ANY($1)
 		ORDER BY array_position($1, b.node_id), b.user_id IS NULL, lower(COALESCE(u.email, g.name)), b.id`, nodeIDs)
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (catalogtypes.Binding, error) { return scanBinding(r) })
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	return out, nil
 }
 
 func (s *BindingRepository) Put(ctx context.Context, b catalogtypes.NewBinding) (*catalogtypes.Binding, error) {
-	got, err := scanBinding(s.db.From(ctx).QueryRow(ctx, `
+	return postgres.Find(ctx, s.db.From(ctx), constraints, scanBinding, `
 		WITH s AS (
 			SELECT u.id AS user_id, NULL::uuid AS group_id
 			FROM users u
@@ -84,26 +75,12 @@ func (s *BindingRepository) Put(ctx context.Context, b catalogtypes.NewBinding) 
 		FROM ins b
 		JOIN nodes n ON n.id = b.node_id
 		LEFT JOIN users u ON u.id = b.user_id
-		LEFT JOIN groups g ON g.id = b.group_id`, b.ID, b.NodeID, string(b.SubjectKind), b.Subject, b.Role.String()))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	return &got, nil
+		LEFT JOIN groups g ON g.id = b.group_id`, b.ID, b.NodeID, string(b.SubjectKind), b.Subject, b.Role.String())
 }
 
 func (s *BindingRepository) Delete(ctx context.Context, nodeID, id uuid.UUID) error {
-	tag, err := s.db.From(ctx).Exec(ctx, `
+	return postgres.ExecFound(ctx, s.db.From(ctx), constraints, `
 		DELETE FROM role_bindings
 		WHERE node_id = $1
 			AND id = $2`, nodeID, id)
-	if err != nil {
-		return postgres.Translate(err, constraints)
-	}
-	if tag.RowsAffected() == 0 {
-		return apperr.ErrNotFound
-	}
-	return nil
 }

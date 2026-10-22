@@ -38,8 +38,7 @@ func (s *MCPService) ProjectOverview(ctx context.Context, p accesstypes.Principa
 }
 
 func (s *MCPService) DocResources(ctx context.Context, p accesstypes.Principal) ([]DocResource, error) {
-	depth := int64(catalogtypes.TreeMaxDepth)
-	nodes, _, err := s.catalog.Nodes.Tree(ctx, p, nil, &depth)
+	nodes, _, err := s.catalog.Nodes.Tree(ctx, p, nil, new(int64(catalogtypes.TreeMaxDepth)))
 	if err != nil {
 		return nil, apperr.Wrap(err)
 	}

@@ -78,8 +78,7 @@ func (s *syncer) apply(ctx context.Context, t forgetypes.Target) error {
 		s.skip(r.FullPath, code)
 		return nil
 	}
-	f := s.conn.Kind.Forge()
-	repo := catalogtypes.Repo{Forge: &f, RepoURL: ptr.NonEmpty(r.WebURL), DefaultBranch: ptr.NonEmpty(r.DefaultBranch)}
+	repo := catalogtypes.Repo{Forge: new(s.conn.Kind.Forge()), RepoURL: ptr.NonEmpty(r.WebURL), DefaultBranch: ptr.NonEmpty(r.DefaultBranch)}
 	changed := forgetypes.NeedsDetails(t)
 	details, err := s.fetchDetails(ctx, r, changed)
 	if err != nil {
@@ -106,11 +105,10 @@ func (s *syncer) fetchDetails(ctx context.Context, r forgetypes.RemoteRepo, chan
 		return nil, nil
 	}
 	d, err := s.client.Details(ctx, r)
-	var limited *forgetypes.RateLimited
 	switch {
 	case err == nil:
 		return &d, nil
-	case errors.As(err, &limited), errors.Is(err, forgetypes.ErrInterrupted), errors.Is(err, forgetypes.ErrUnauthorized):
+	case forgetypes.StopsSync(err):
 		return nil, err
 	default:
 		s.skipDetails(r.FullPath, err)
@@ -159,14 +157,14 @@ func (s *syncer) update(ctx context.Context, pl placement) error {
 		}
 	}
 	changes := catalogtypes.NodeChanges{
-		Description:   ptr.To(description(r.Description)),
+		Description:   new(description(r.Description)),
 		Forge:         catalogtypes.Change[catalogtypes.Forge]{Set: true, Value: pl.repo.Forge},
 		RepoURL:       catalogtypes.Change[string]{Set: true, Value: pl.repo.RepoURL},
 		DefaultBranch: catalogtypes.Change[string]{Set: true, Value: pl.repo.DefaultBranch},
 	}
 	if !strings.EqualFold(t.Link.FullPath, r.FullPath) && node.Slug != pl.slug {
 		changes.Slug = &pl.slug
-		changes.Name = ptr.To(nodeName(r.Name, pl.slug))
+		changes.Name = new(nodeName(r.Name, pl.slug))
 	}
 	if _, err := s.svc.catalog.System.ChangeNode(ctx, projectID, changes); err != nil {
 		if conflictCode(err) != "" {
@@ -191,9 +189,8 @@ func (s *syncer) branches(ctx context.Context, projectID uuid.UUID, r forgetypes
 	if changed {
 		keep := forgetypes.BranchFilter(settingsOf(s.conn), r.DefaultBranch)
 		list, truncated, err := s.client.ListBranches(ctx, r, keep, int(s.svc.cfg.Branches.SyncMaxPerRepo))
-		var limited *forgetypes.RateLimited
 		switch {
-		case errors.As(err, &limited), errors.Is(err, forgetypes.ErrInterrupted), errors.Is(err, forgetypes.ErrUnauthorized):
+		case forgetypes.StopsSync(err):
 			return err
 		case err != nil:
 			s.skipDetails(r.FullPath, err)

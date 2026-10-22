@@ -75,7 +75,7 @@ func (e *EngineClient) conn(ctx context.Context) (*qd.Client, error) {
 			return nil, err
 		}
 		for _, field := range []string{"project_id", "pb", "file"} {
-			if _, err := e.client.CreateFieldIndex(ctx, &qd.CreateFieldIndexCollection{CollectionName: e.collection, Wait: qd.PtrOf(true),
+			if _, err := e.client.CreateFieldIndex(ctx, &qd.CreateFieldIndexCollection{CollectionName: e.collection, Wait: new(true),
 				FieldName: field, FieldType: qd.FieldType_FieldTypeKeyword.Enum()}); err != nil {
 				return nil, unavailable("index", err)
 			}
@@ -130,7 +130,7 @@ func (e *EngineClient) Sync(ctx context.Context, project uuid.UUID, docs []knowl
 				"path": d.Path, "kind": string(d.Kind), "project_path": d.ProjectPath, "project_name": d.ProjectName, "text": d.Text,
 			})})
 		}
-		if _, err := c.Upsert(ctx, &qd.UpsertPoints{CollectionName: e.collection, Wait: qd.PtrOf(true), Points: points}); err != nil {
+		if _, err := c.Upsert(ctx, &qd.UpsertPoints{CollectionName: e.collection, Wait: new(true), Points: points}); err != nil {
 			return unavailable("upsert", err)
 		}
 	}
@@ -138,7 +138,7 @@ func (e *EngineClient) Sync(ctx context.Context, project uuid.UUID, docs []knowl
 	if len(ids) > 0 {
 		stale.MustNot = []*qd.Condition{qd.NewHasID(ids...)}
 	}
-	if _, err := c.Delete(ctx, &qd.DeletePoints{CollectionName: e.collection, Wait: qd.PtrOf(true), Points: qd.NewPointsSelectorFilter(stale)}); err != nil {
+	if _, err := c.Delete(ctx, &qd.DeletePoints{CollectionName: e.collection, Wait: new(true), Points: qd.NewPointsSelectorFilter(stale)}); err != nil {
 		return unavailable("delete", err)
 	}
 	return nil
@@ -159,7 +159,7 @@ func (e *EngineClient) Retain(ctx context.Context, projects []uuid.UUID) error {
 	if len(keep) > 0 {
 		filter.MustNot = []*qd.Condition{qd.NewMatchKeywords("project_id", keep...)}
 	}
-	if _, err := c.Delete(ctx, &qd.DeletePoints{CollectionName: e.collection, Wait: qd.PtrOf(true), Points: qd.NewPointsSelectorFilter(filter)}); err != nil {
+	if _, err := c.Delete(ctx, &qd.DeletePoints{CollectionName: e.collection, Wait: new(true), Points: qd.NewPointsSelectorFilter(filter)}); err != nil {
 		return unavailable("delete", err)
 	}
 	return nil
@@ -189,8 +189,8 @@ func (e *EngineClient) Search(ctx context.Context, q knowledgetypes.EngineQuery)
 		fetch = want * 5
 	}
 	groups, err := c.QueryGroups(ctx, &qd.QueryPointGroups{CollectionName: e.collection, Query: qd.NewQueryDense(q.Vector),
-		Filter: &qd.Filter{Must: []*qd.Condition{qd.NewMatchKeywords("pb", pairs...)}}, GroupBy: "file", GroupSize: qd.PtrOf(uint64(1)),
-		Limit: qd.PtrOf(uint64(fetch)), WithPayload: qd.NewWithPayload(true)})
+		Filter: &qd.Filter{Must: []*qd.Condition{qd.NewMatchKeywords("pb", pairs...)}}, GroupBy: "file", GroupSize: new(uint64(1)),
+		Limit: new(uint64(fetch)), WithPayload: qd.NewWithPayload(true)})
 	if err != nil {
 		return nil, false, unavailable("query", err)
 	}

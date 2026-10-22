@@ -57,7 +57,7 @@ func (g *githubClient) ReadFile(ctx context.Context, repo forgetypes.RemoteRepo,
 
 func (g *gitlabClient) ListTree(ctx context.Context, repo forgetypes.RemoteRepo, commit string) ([]forgetypes.TreeEntry, bool, error) {
 	var out []forgetypes.TreeEntry
-	opt := &gitlab.ListTreeOptions{Ref: gitlab.Ptr(commit), Recursive: gitlab.Ptr(true), ListOptions: gitlab.ListOptions{PerPage: 100, Page: 1}}
+	opt := &gitlab.ListTreeOptions{Ref: new(commit), Recursive: new(true), ListOptions: gitlab.ListOptions{PerPage: 100, Page: 1}}
 	for {
 		nodes, resp, err := g.c.Repositories.ListTree(repo.ExternalID, opt, gitlab.WithContext(ctx))
 		if err != nil {

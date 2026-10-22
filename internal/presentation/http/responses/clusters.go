@@ -48,8 +48,7 @@ func ClusterOf(c deploytypes.Cluster) Cluster {
 		Status: string(c.Status), LastError: clusterError(c.LastError), LastPolledAt: c.LastPolledAt, NextPollAt: c.NextPollAt,
 		Workloads: c.Workloads, Unmatched: c.Unmatched, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt}
 	if c.Credentials != nil {
-		creds := CredentialsOf(*c.Credentials)
-		out.Credentials = &creds
+		out.Credentials = new(CredentialsOf(*c.Credentials))
 	}
 	return out
 }

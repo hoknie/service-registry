@@ -12,8 +12,7 @@ func TestValidateSearch(t *testing.T) {
 	if err != nil || s.Q != "cache" || s.Limit != 20 || s.Offset != 0 {
 		t.Fatalf("%+v %v", s, err)
 	}
-	five := 5
-	s, err = ValidateSearch(SearchInput{Q: "x", Limit: &five, Cursor: Cursor(40)})
+	s, err = ValidateSearch(SearchInput{Q: "x", Limit: new(5), Cursor: Cursor(40)})
 	if err != nil || s.Limit != 5 || s.Offset != 40 {
 		t.Fatalf("%+v %v", s, err)
 	}

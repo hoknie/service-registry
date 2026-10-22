@@ -42,18 +42,15 @@ func NodeOf(n catalogtypes.Node, readable bool) Node {
 		labels = catalogtypes.Labels{}
 	}
 	body.Description, body.Labels, body.CreatedAt, body.UpdatedAt = &description, &labels, &created, &updated
-	managed := n.Managed
-	body.Managed = &managed
+	body.Managed = new(n.Managed)
 	if n.Kind == catalogtypes.KindProject {
 		var forge *string
 		if n.Repo.Forge != nil {
-			f := string(*n.Repo.Forge)
-			forge = &f
+			forge = new(string(*n.Repo.Forge))
 		}
 		url, branch := n.Repo.RepoURL, n.Repo.DefaultBranch
 		body.Forge, body.RepoURL, body.DefaultBranch = &forge, &url, &branch
-		observe := n.ClusterObservation
-		body.ClusterObservation = &observe
+		body.ClusterObservation = new(n.ClusterObservation)
 	}
 	return body
 }
@@ -62,8 +59,7 @@ func ReadNode(n catalogtypes.Node) Node { return NodeOf(n, true) }
 
 func WalkedNode(w catalogtypes.WalkNode) Node {
 	body := NodeOf(w.Node, w.Readable)
-	depth := w.Depth
-	body.Depth = &depth
+	body.Depth = new(w.Depth)
 	return body
 }
 
@@ -85,8 +81,7 @@ func ScopedNode(s catalogservices.Scoped) Node {
 func ProjectCardOf(card composeservices.ProjectCard) Node {
 	body := ScopedNode(card.Scoped)
 	if card.HasRepository {
-		r := RepositoryOf(card.Repository)
-		body.Repository = &r
+		body.Repository = new(RepositoryOf(card.Repository))
 	}
 	return body
 }
@@ -94,8 +89,7 @@ func ProjectCardOf(card composeservices.ProjectCard) Node {
 func CreatedNode(n catalogtypes.Node, key *catalogservices.IssuedKey) Node {
 	body := ReadNode(n)
 	if key != nil {
-		k := IssuedKeyOf(*key)
-		body.Key = &k
+		body.Key = new(IssuedKeyOf(*key))
 	}
 	return body
 }
@@ -157,7 +151,6 @@ func KeyOf(k catalogtypes.ProjectKey) Key {
 
 func IssuedKeyOf(i catalogservices.IssuedKey) Key {
 	k := KeyOf(i.Key)
-	secret := i.Secret
-	k.Secret = &secret
+	k.Secret = new(i.Secret)
 	return k
 }

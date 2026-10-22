@@ -18,7 +18,6 @@ func TestEnvironmentRules(t *testing.T) {
 	if err != nil || e.Key != "qa" || e.Position != 0 || e.ID.Version() != 7 {
 		t.Fatalf("%+v %v", e, err)
 	}
-	pos := int64(10_001)
 	for name, tt := range map[string]struct {
 		in   CreateEnvironment
 		want error
@@ -27,7 +26,7 @@ func TestEnvironmentRules(t *testing.T) {
 		"space":        {CreateEnvironment{Key: "a b", Names: names()}, InvalidEnvironmentKey},
 		"no locale":    {CreateEnvironment{Key: "qa", Names: names("zh")}, InvalidEnvironmentNames},
 		"no names":     {CreateEnvironment{Key: "qa"}, InvalidEnvironmentNames},
-		"bad position": {CreateEnvironment{Key: "qa", Names: names(), Position: &pos}, InvalidPosition},
+		"bad position": {CreateEnvironment{Key: "qa", Names: names(), Position: new(int64(10_001))}, InvalidPosition},
 	} {
 		if _, err := ValidateNewEnvironment(tt.in); !errors.Is(err, tt.want) {
 			t.Errorf("%s: %v", name, err)

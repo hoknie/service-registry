@@ -29,6 +29,11 @@ type batchVarRow struct {
 	varRow
 }
 
+type batchRepoRow struct {
+	ProjectID uuid.UUID `db:"project_id"`
+	FullPath  string    `db:"full_path"`
+}
+
 type batchDeploymentRow struct {
 	ProjectID uuid.UUID `db:"project_id"`
 	deploymentRow
@@ -74,7 +79,7 @@ func (s *TemplateRepository) ProjectsData(ctx context.Context, ids []uuid.UUID) 
 }
 
 func batchPaths(ctx context.Context, tx pgtx.Querier, ids []uuid.UUID, out map[uuid.UUID]linkstypes.ProjectBatch) error {
-	rows, err := tx.Query(ctx, `
+	path, err := postgres.List(ctx, tx, constraints, pgx.RowToStructByName[batchPathRow], `
 		WITH RECURSIVE up AS (
 			SELECT id AS project_id, id, parent_id, 0 AS lvl
 			FROM nodes
@@ -92,10 +97,6 @@ func batchPaths(ctx context.Context, tx pgtx.Querier, ids []uuid.UUID, out map[u
 	if err != nil {
 		return err
 	}
-	path, err := pgx.CollectRows(rows, pgx.RowToStructByName[batchPathRow])
-	if err != nil {
-		return err
-	}
 	for _, r := range path {
 		b := out[r.ProjectID]
 		b.Path = append(b.Path, linkstypes.PathNode{Slug: r.Slug, Labels: r.Labels})
@@ -106,7 +107,7 @@ func batchPaths(ctx context.Context, tx pgtx.Querier, ids []uuid.UUID, out map[u
 }
 
 func batchTemplates(ctx context.Context, tx pgtx.Querier, ids []uuid.UUID, out map[uuid.UUID]linkstypes.ProjectBatch) error {
-	rows, err := tx.Query(ctx, `
+	templates, err := postgres.List(ctx, tx, constraints, pgx.RowToStructByName[batchTemplateRow], `
 		WITH RECURSIVE up AS (
 			SELECT id AS project_id, id, parent_id, 0 AS lvl
 			FROM nodes
@@ -128,10 +129,6 @@ func batchTemplates(ctx context.Context, tx pgtx.Querier, ids []uuid.UUID, out m
 	if err != nil {
 		return err
 	}
-	templates, err := pgx.CollectRows(rows, pgx.RowToStructByName[batchTemplateRow])
-	if err != nil {
-		return err
-	}
 	for _, r := range templates {
 		b := out[r.ProjectID]
 		b.Templates = append(b.Templates, r.template())
@@ -141,7 +138,7 @@ func batchTemplates(ctx context.Context, tx pgtx.Querier, ids []uuid.UUID, out m
 }
 
 func batchVars(ctx context.Context, tx pgtx.Querier, ids []uuid.UUID, out map[uuid.UUID]linkstypes.ProjectBatch) error {
-	rows, err := tx.Query(ctx, `
+	vars, err := postgres.List(ctx, tx, constraints, pgx.RowToStructByName[batchVarRow], `
 		WITH RECURSIVE up AS (
 			SELECT id AS project_id, id, parent_id, 0 AS lvl
 			FROM nodes
@@ -159,10 +156,6 @@ func batchVars(ctx context.Context, tx pgtx.Querier, ids []uuid.UUID, out map[uu
 	if err != nil {
 		return err
 	}
-	vars, err := pgx.CollectRows(rows, pgx.RowToStructByName[batchVarRow])
-	if err != nil {
-		return err
-	}
 	for _, r := range vars {
 		b := out[r.ProjectID]
 		b.Vars = append(b.Vars, linkstypes.Var{Key: r.Key, Value: r.Value, NodeID: r.NodeID, Inherited: r.Inherited})
@@ -172,7 +165,7 @@ func batchVars(ctx context.Context, tx pgtx.Querier, ids []uuid.UUID, out map[uu
 }
 
 func batchRepos(ctx context.Context, tx pgtx.Querier, ids []uuid.UUID, out map[uuid.UUID]linkstypes.ProjectBatch) error {
-	rows, err := tx.Query(ctx, `
+	repos, err := postgres.List(ctx, tx, constraints, pgx.RowToStructByName[batchRepoRow], `
 		SELECT project_id, full_path
 		FROM forge_repositories
 		WHERE project_id = ANY($1)
@@ -180,30 +173,20 @@ func batchRepos(ctx context.Context, tx pgtx.Querier, ids []uuid.UUID, out map[u
 	if err != nil {
 		return err
 	}
-	var project uuid.UUID
-	var full string
-	if _, err := pgx.ForEachRow(rows, []any{&project, &full}, func() error {
-		b := out[project]
-		path := full
-		b.RepoFullPath = &path
-		out[project] = b
-		return nil
-	}); err != nil {
-		return err
+	for _, r := range repos {
+		b := out[r.ProjectID]
+		b.RepoFullPath = new(r.FullPath)
+		out[r.ProjectID] = b
 	}
 	return nil
 }
 
 func batchDeployments(ctx context.Context, tx pgtx.Querier, ids []uuid.UUID, out map[uuid.UUID]linkstypes.ProjectBatch) error {
-	rows, err := tx.Query(ctx, `
+	deployments, err := postgres.List(ctx, tx, constraints, pgx.RowToStructByName[batchDeploymentRow], `
 		SELECT e.project_id, d.service, d.environment, d.version, d.commit_sha, d.cluster, d.namespace, d.url, d.links
 		FROM service_environments e
 		JOIN service_deployments d ON d.id = e.deployment_id
 		WHERE e.project_id = ANY($1)`, ids)
-	if err != nil {
-		return err
-	}
-	deployments, err := pgx.CollectRows(rows, pgx.RowToStructByName[batchDeploymentRow])
 	if err != nil {
 		return err
 	}

@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,15 +19,14 @@ func NewSourceRepoRepository(db *pgtx.DB) *SourceRepoRepository {
 }
 
 func (s *SourceRepoRepository) ChangedAt(ctx context.Context, projectID uuid.UUID) (*time.Time, error) {
-	var at *time.Time
-	err := s.db.From(ctx).QueryRow(ctx, `
+	at, err := postgres.Find(ctx, s.db.From(ctx), constraints, pgx.RowTo[*time.Time], `
 		SELECT source_updated_at
 		FROM knowledge_source_repos
-		WHERE project_id = $1`, projectID).Scan(&at)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
+		WHERE project_id = $1`, projectID)
+	if err != nil || at == nil {
+		return nil, err
 	}
-	return at, postgres.Translate(err, constraints)
+	return *at, nil
 }
 
 func (s *SourceRepoRepository) Upsert(ctx context.Context, projectID uuid.UUID, r forgetypes.RemoteRepo, d *forgetypes.Details) error {
@@ -61,7 +59,7 @@ func (s *SourceRepoRepository) Upsert(ctx context.Context, projectID uuid.UUID, 
 	if visibility == "" {
 		visibility = string(forgetypes.VisibilityPublic)
 	}
-	_, err := s.db.From(ctx).Exec(ctx, `
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO knowledge_source_repos AS k (project_id, full_path, web_url, description, topics, default_branch,
 			archived, visibility, stars, license, pushed_at, source_updated_at, readme_md, readme_truncated, languages)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $14, COALESCE($15, false), COALESCE($16, '{}'::jsonb))
@@ -76,24 +74,24 @@ func (s *SourceRepoRepository) Upsert(ctx context.Context, projectID uuid.UUID, 
 			languages = CASE WHEN $13 THEN EXCLUDED.languages ELSE k.languages END,
 			synced_at = now()`, projectID, r.FullPath, r.WebURL, r.Description, topics, branch, r.Archived, visibility,
 		r.Stars, license, r.PushedAt, changed, d != nil, readme, truncated, languages)
-	return postgres.Translate(err, constraints)
+	return err
 }
 
 func (s *SourceRepoRepository) Find(ctx context.Context, projectID uuid.UUID) (*forgetypes.Repository, error) {
-	var r forgetypes.Repository
-	var vis, kind string
-	err := s.db.From(ctx).QueryRow(ctx, `
+	return postgres.Find(ctx, s.db.From(ctx), constraints, scanRepository, `
 		SELECT k.full_path, k.web_url, k.description, k.topics, k.languages, k.default_branch, k.archived, k.visibility,
 			k.stars, k.license, rfc3339(k.pushed_at), rfc3339(k.synced_at), k.readme_md IS NOT NULL, s.forge
 		FROM knowledge_source_repos k
 		JOIN knowledge_sources s ON s.project_id = k.project_id AND s.kind = 'remote'
-		WHERE k.project_id = $1`, projectID).Scan(&r.FullPath, &r.WebURL, &r.Description, &r.Topics, &r.Languages,
-		&r.DefaultBranch, &r.Archived, &vis, &r.Stars, &r.License, &r.PushedAt, &r.SyncedAt, &r.HasReadme, &kind)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
+		WHERE k.project_id = $1`, projectID)
+}
+
+func scanRepository(row pgx.CollectableRow) (forgetypes.Repository, error) {
+	var r forgetypes.Repository
+	var vis, kind string
+	if err := row.Scan(&r.FullPath, &r.WebURL, &r.Description, &r.Topics, &r.Languages,
+		&r.DefaultBranch, &r.Archived, &vis, &r.Stars, &r.License, &r.PushedAt, &r.SyncedAt, &r.HasReadme, &kind); err != nil {
+		return r, err
 	}
 	r.Visibility = forgetypes.Visibility(vis)
 	r.Kind = forgetypes.Kind(kind)
@@ -104,24 +102,20 @@ func (s *SourceRepoRepository) Find(ctx context.Context, projectID uuid.UUID) (*
 	if r.Languages == nil {
 		r.Languages = map[string]float64{}
 	}
-	return &r, nil
+	return r, nil
 }
 
 func (s *SourceRepoRepository) Readme(ctx context.Context, projectID uuid.UUID) (*forgetypes.Readme, error) {
-	var r forgetypes.Readme
-	var kind string
-	err := s.db.From(ctx).QueryRow(ctx, `
+	return postgres.Find(ctx, s.db.From(ctx), constraints, func(row pgx.CollectableRow) (forgetypes.Readme, error) {
+		var r forgetypes.Readme
+		var kind string
+		err := row.Scan(&r.Markdown, &r.Truncated, &r.WebURL, &r.DefaultBranch, &kind)
+		r.Kind = forgetypes.Kind(kind)
+		return r, err
+	}, `
 		SELECT k.readme_md, k.readme_truncated, k.web_url, k.default_branch, s.forge
 		FROM knowledge_source_repos k
 		JOIN knowledge_sources s ON s.project_id = k.project_id AND s.kind = 'remote'
 		WHERE k.project_id = $1
-			AND k.readme_md IS NOT NULL`, projectID).Scan(&r.Markdown, &r.Truncated, &r.WebURL, &r.DefaultBranch, &kind)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	r.Kind = forgetypes.Kind(kind)
-	return &r, nil
+			AND k.readme_md IS NOT NULL`, projectID)
 }

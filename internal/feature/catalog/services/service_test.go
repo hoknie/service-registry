@@ -113,8 +113,7 @@ func TestMarkReturnsThePortError(t *testing.T) {
 	var asked []uuid.UUID
 	s := New(Deps{Config: &config.Config{}})
 	s.Use(managedPort{asked: &asked, err: errors.New("forge is down")}, stubPorts{})
-	node := catalogtypes.Node{ID: uuid.Must(uuid.NewV7())}
-	if err := s.Nodes.mark(context.Background(), &node); err == nil {
+	if err := s.Nodes.mark(context.Background(), new(catalogtypes.Node{ID: uuid.Must(uuid.NewV7())})); err == nil {
 		t.Fatal("the port error must reach the caller")
 	}
 }

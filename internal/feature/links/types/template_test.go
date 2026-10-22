@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"svc-registry/internal/platform/apperr"
-	"svc-registry/pkg/ptr"
 
 	"github.com/google/uuid"
 )
@@ -20,15 +19,15 @@ func TestTemplateRecordRules(t *testing.T) {
 		want    error
 	}{
 		{"template", "grafana", PutTemplate{KindKey: "grafana", Template: &tpl}, nil},
-		{"disabled", "grafana", PutTemplate{KindKey: "grafana", Disabled: ptr.To(true)}, nil},
-		{"disabled with empty template", "grafana", PutTemplate{KindKey: "grafana", Template: ptr.To(""), Disabled: ptr.To(true)}, nil},
-		{"disabled with template", "grafana", PutTemplate{KindKey: "grafana", Template: &tpl, Disabled: ptr.To(true)}, InvalidTemplate},
+		{"disabled", "grafana", PutTemplate{KindKey: "grafana", Disabled: new(true)}, nil},
+		{"disabled with empty template", "grafana", PutTemplate{KindKey: "grafana", Template: new(""), Disabled: new(true)}, nil},
+		{"disabled with template", "grafana", PutTemplate{KindKey: "grafana", Template: &tpl, Disabled: new(true)}, InvalidTemplate},
 		{"no template", "grafana", PutTemplate{KindKey: "grafana"}, InvalidTemplate},
 		{"bad link key", "Grafana Business", PutTemplate{KindKey: "grafana", Template: &tpl}, InvalidKindKey},
 		{"bad kind key", "grafana", PutTemplate{KindKey: "", Template: &tpl}, UnknownKind},
-		{"position", "grafana", PutTemplate{KindKey: "grafana", Template: &tpl, Position: ptr.To(int64(-1))}, InvalidPosition},
-		{"unknown variable", "grafana", PutTemplate{KindKey: "grafana", Template: ptr.To("https://x.example/{team}")}, UnknownVariable},
-		{"not a url", "grafana", PutTemplate{KindKey: "grafana", Template: ptr.To("{path|raw}")}, InvalidLinkURL},
+		{"position", "grafana", PutTemplate{KindKey: "grafana", Template: &tpl, Position: new(int64(-1))}, InvalidPosition},
+		{"unknown variable", "grafana", PutTemplate{KindKey: "grafana", Template: new("https://x.example/{team}")}, UnknownVariable},
+		{"not a url", "grafana", PutTemplate{KindKey: "grafana", Template: new("{path|raw}")}, InvalidLinkURL},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -55,7 +54,7 @@ func TestNearestTemplateWinsAndDisabledHides(t *testing.T) {
 	rec := func(node uuid.UUID, key, kind string, kindPos int32, disabled bool) Template {
 		tp := Template{NodeID: node, LinkKey: key, KindKey: kind, KindPosition: kindPos, Disabled: disabled}
 		if !disabled {
-			tp.Template = ptr.To("https://" + key + ".example/")
+			tp.Template = new("https://" + key + ".example/")
 		}
 		return tp
 	}

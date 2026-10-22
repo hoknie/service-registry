@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 
 	"svc-registry/internal/platform/postgres"
 	"svc-registry/pkg/pgtx"
@@ -15,16 +14,16 @@ type AdoptionRepository struct{ db *pgtx.DB }
 func NewAdoptionRepository(db *pgtx.DB) *AdoptionRepository { return &AdoptionRepository{db: db} }
 
 func (s *AdoptionRepository) Insert(ctx context.Context, connID uuid.UUID, externalID string, projectID uuid.UUID) error {
-	_, err := s.db.From(ctx).Exec(ctx, `
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO forge_adoptions (connection_id, external_id, project_id)
 		VALUES ($1, $2, $3)
 		ON CONFLICT (connection_id, external_id)
 		DO UPDATE SET project_id = EXCLUDED.project_id, created_at = now()`, connID, externalID, projectID)
-	return postgres.Translate(err, constraints)
+	return err
 }
 
 func (s *AdoptionRepository) Eligible(ctx context.Context, connID uuid.UUID) (map[string]uuid.UUID, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	return postgres.Pairs[string, uuid.UUID](ctx, s.db.From(ctx), constraints, `
 		SELECT a.external_id, a.project_id
 		FROM forge_adoptions a
 		JOIN forge_connections c ON c.id = a.connection_id
@@ -43,23 +42,12 @@ func (s *AdoptionRepository) Eligible(ctx context.Context, connID uuid.UUID) (ma
 				)
 				SELECT 1 FROM up WHERE up.id = c.node_id
 			)`, connID)
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	out := map[string]uuid.UUID{}
-	var ext string
-	var id uuid.UUID
-	_, err = pgx.ForEachRow(rows, []any{&ext, &id}, func() error {
-		out[ext] = id
-		return nil
-	})
-	return out, postgres.Translate(err, constraints)
 }
 
 func (s *AdoptionRepository) Delete(ctx context.Context, connID uuid.UUID, externalID string) error {
-	_, err := s.db.From(ctx).Exec(ctx, `
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		DELETE FROM forge_adoptions
 		WHERE connection_id = $1
 			AND external_id = $2`, connID, externalID)
-	return postgres.Translate(err, constraints)
+	return err
 }

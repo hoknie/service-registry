@@ -122,12 +122,10 @@ func From(err error) *Error {
 	if err == nil {
 		return nil
 	}
-	var app *Error
-	if errors.As(err, &app) {
+	if app, ok := errors.AsType[*Error](err); ok {
 		return app
 	}
-	var coded Coded
-	if errors.As(err, &coded) {
+	if coded, ok := errors.AsType[Coded](err); ok {
 		return coded.AppError()
 	}
 	if IsUnavailable(err) {
@@ -165,10 +163,13 @@ func (s *sentinel) AppError() *Error {
 func Sentinel(kind Kind, message string) error { return &sentinel{kind: kind, message: message} }
 
 func IsUnavailable(err error) bool {
-	var connect *pgconn.ConnectError
-	var netErr net.Error
-	return errors.As(err, &connect) || errors.As(err, &netErr) ||
-		errors.Is(err, context.DeadlineExceeded) || pgconn.Timeout(err)
+	if _, ok := errors.AsType[*pgconn.ConnectError](err); ok {
+		return true
+	}
+	if _, ok := errors.AsType[net.Error](err); ok {
+		return true
+	}
+	return errors.Is(err, context.DeadlineExceeded) || pgconn.Timeout(err)
 }
 
 func Wrap(err error) error {

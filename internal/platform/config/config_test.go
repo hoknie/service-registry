@@ -25,8 +25,8 @@ func lookup(pairs ...string) config.Env {
 
 func vars(t *testing.T, err error) []string {
 	t.Helper()
-	var errs config.Errors
-	if !errors.As(err, &errs) {
+	errs, ok := errors.AsType[config.Errors](err)
+	if !ok {
 		t.Fatalf("want config.Errors, got %v", err)
 	}
 	got := errs.Vars()

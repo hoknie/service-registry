@@ -49,8 +49,7 @@ func usesDeployment(p *Pattern) bool {
 
 func Parse(template string) (*Pattern, error) {
 	p, err := linktemplate.Parse(template, Known)
-	var e *linktemplate.Error
-	if errors.As(err, &e) {
+	if e, ok := errors.AsType[*linktemplate.Error](err); ok {
 		te := &TemplateError{Invalid: InvalidTemplate, Pos: e.Pos, Detail: e.Detail}
 		if e.UnknownVariable {
 			te.Invalid = UnknownVariable

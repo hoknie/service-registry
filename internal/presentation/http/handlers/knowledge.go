@@ -33,8 +33,7 @@ func optionalQuery(c fiber.Ctx, name string) *string {
 	if !c.Request().URI().QueryArgs().Has(name) {
 		return nil
 	}
-	v := c.Query(name)
-	return &v
+	return new(c.Query(name))
 }
 
 func knowledgeRef(c fiber.Ctx) knowledgeservices.KnowledgeRef {

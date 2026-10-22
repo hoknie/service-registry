@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -17,7 +16,7 @@ type SourceRepository struct{ db *pgtx.DB }
 
 func NewSourceRepository(db *pgtx.DB) *SourceRepository { return &SourceRepository{db: db} }
 
-func scanSource(row pgx.Row) (knowledgetypes.StoredSource, error) {
+func scanSource(row pgx.CollectableRow) (knowledgetypes.StoredSource, error) {
 	var s knowledgetypes.StoredSource
 	var kind string
 	var fp *string
@@ -37,19 +36,12 @@ func scanSource(row pgx.Row) (knowledgetypes.StoredSource, error) {
 }
 
 func (s *SourceRepository) Get(ctx context.Context, projectID uuid.UUID) (*knowledgetypes.StoredSource, error) {
-	src, err := scanSource(s.db.From(ctx).QueryRow(ctx, `
+	return postgres.Find(ctx, s.db.From(ctx), constraints, scanSource, `
 		SELECT s.kind, COALESCE(s.forge, ''), COALESCE(s.url, ''), COALESCE(s.api_url, ''),
 			COALESCE(s.path, ''), s.credentials_secret_id, s.credentials_enc, s.credentials_ref, s.credentials_fingerprint, s.heads,
 			COALESCE(s.default_branch, ''), s.working_tree, s.include_ignored, rfc3339(s.updated_at)
 		FROM knowledge_sources s
-		WHERE s.project_id = $1`, projectID))
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	return &src, nil
+		WHERE s.project_id = $1`, projectID)
 }
 
 func (s *SourceRepository) Put(ctx context.Context, projectID uuid.UUID, n knowledgetypes.NewSource) (knowledgetypes.Source, error) {
@@ -57,7 +49,7 @@ func (s *SourceRepository) Put(ctx context.Context, projectID uuid.UUID, n knowl
 	err := s.db.InTx(ctx, func(ctx context.Context) error {
 		tx := s.db.From(ctx)
 		var err error
-		out, err = scanSource(tx.QueryRow(ctx, `
+		out, err = postgres.One(ctx, tx, constraints, scanSource, `
 			INSERT INTO knowledge_sources AS s (project_id, kind, forge, url, api_url, path, credentials_secret_id,
 				working_tree, include_ignored)
 			VALUES ($1, $2, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), $7, $9, $10)
@@ -84,11 +76,11 @@ func (s *SourceRepository) Put(ctx context.Context, projectID uuid.UUID, n knowl
 			RETURNING s.kind, COALESCE(s.forge, ''), COALESCE(s.url, ''), COALESCE(s.api_url, ''),
 				COALESCE(s.path, ''), s.credentials_secret_id, s.credentials_enc, s.credentials_ref, s.credentials_fingerprint, s.heads,
 				COALESCE(s.default_branch, ''), s.working_tree, s.include_ignored, rfc3339(s.updated_at)`, projectID, string(n.Kind),
-			n.Forge, n.URL, n.APIURL, n.Path, n.SecretID, n.Keep, n.WorkingTree, n.IncludeIgnored))
+			n.Forge, n.URL, n.APIURL, n.Path, n.SecretID, n.Keep, n.WorkingTree, n.IncludeIgnored)
 		if err != nil {
 			return err
 		}
-		_, err = tx.Exec(ctx, `
+		_, err = postgres.Exec(ctx, tx, constraints, `
 			INSERT INTO knowledge_settings (project_id)
 			VALUES ($1)
 			ON CONFLICT (project_id)
@@ -99,63 +91,47 @@ func (s *SourceRepository) Put(ctx context.Context, projectID uuid.UUID, n knowl
 }
 
 func (s *SourceRepository) Delete(ctx context.Context, projectID uuid.UUID) error {
-	_, err := s.db.From(ctx).Exec(ctx, `
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		DELETE FROM knowledge_sources
 		WHERE project_id = $1`, projectID)
-	return postgres.Translate(err, constraints)
+	return err
 }
 
 func (s *SourceRepository) SetHeads(ctx context.Context, projectID uuid.UUID, heads map[string]string, defaultBranch string) error {
 	if heads == nil {
 		heads = map[string]string{}
 	}
-	_, err := s.db.From(ctx).Exec(ctx, `
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		UPDATE knowledge_sources
 		SET heads = $2, default_branch = NULLIF($3, '')
 		WHERE project_id = $1`, projectID, heads, defaultBranch)
-	return postgres.Translate(err, constraints)
+	return err
 }
 
 func (s *SourceRepository) Secrets(ctx context.Context) ([]knowledgetypes.SourceSecret, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	return postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (knowledgetypes.SourceSecret, error) {
+		var x knowledgetypes.SourceSecret
+		err := r.Scan(&x.ProjectID, &x.CredentialsEnc)
+		return x, err
+	}, `
 		SELECT project_id, credentials_enc
 		FROM knowledge_sources
 		WHERE credentials_enc IS NOT NULL
 		ORDER BY project_id`)
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (knowledgetypes.SourceSecret, error) {
-		var x knowledgetypes.SourceSecret
-		err := r.Scan(&x.ProjectID, &x.CredentialsEnc)
-		return x, err
-	})
-	return out, postgres.Translate(err, constraints)
 }
 
 func (s *SourceRepository) ReplaceSecret(ctx context.Context, projectID uuid.UUID, enc string) error {
-	_, err := s.db.From(ctx).Exec(ctx, `
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		UPDATE knowledge_sources
 		SET credentials_enc = $2
 		WHERE project_id = $1`, projectID, enc)
-	return postgres.Translate(err, constraints)
+	return err
 }
 
 func (s *SourceRepository) SecretUsage(ctx context.Context, secrets []uuid.UUID) (map[uuid.UUID]int64, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	return postgres.Pairs[uuid.UUID, int64](ctx, s.db.From(ctx), constraints, `
 		SELECT credentials_secret_id, count(*)
 		FROM knowledge_sources
 		WHERE credentials_secret_id = ANY($1)
 		GROUP BY credentials_secret_id`, secrets)
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	out := map[uuid.UUID]int64{}
-	var id uuid.UUID
-	var n int64
-	_, err = pgx.ForEachRow(rows, []any{&id, &n}, func() error {
-		out[id] = n
-		return nil
-	})
-	return out, postgres.Translate(err, constraints)
 }

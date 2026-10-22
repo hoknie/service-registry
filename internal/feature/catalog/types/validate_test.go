@@ -8,8 +8,6 @@ import (
 	"testing"
 )
 
-func ptr[T any](v T) *T { return &v }
-
 func TestSlugsAreNormalizedAndBounded(t *testing.T) {
 	for raw, want := range map[string]string{" Payments ": "payments", "a-1": "a-1", strings.Repeat("a", 63): strings.Repeat("a", 63)} {
 		if got, err := ValidateSlug(raw); err != nil || got != want {
@@ -100,7 +98,7 @@ func TestRepositoryFields(t *testing.T) {
 			t.Errorf("%q: %v", bad, err)
 		}
 	}
-	raw := RepoInput{RepoURL: ptr("https://example.com/x")}
+	raw := RepoInput{RepoURL: new("https://example.com/x")}
 	if _, err := ValidateRepo(KindFolder, raw); err != InvalidRepoFieldsNotAllowed {
 		t.Errorf("folder: %v", err)
 	}
@@ -111,14 +109,14 @@ func TestRepositoryFields(t *testing.T) {
 
 func TestRepoChangesSetAndClear(t *testing.T) {
 	var c NodeChanges
-	err := ValidateRepoChanges(KindProject, RepoInput{Forge: ptr("github"), DefaultBranch: ptr("")}, &c)
+	err := ValidateRepoChanges(KindProject, RepoInput{Forge: new("github"), DefaultBranch: new("")}, &c)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !c.Forge.Set || *c.Forge.Value != ForgeGithub || c.RepoURL.Set || !c.DefaultBranch.Set || c.DefaultBranch.Value != nil {
 		t.Errorf("changes: %+v", c)
 	}
-	if err := ValidateRepoChanges(KindOrganization, RepoInput{Forge: ptr("")}, &c); err != InvalidRepoFieldsNotAllowed {
+	if err := ValidateRepoChanges(KindOrganization, RepoInput{Forge: new("")}, &c); err != InvalidRepoFieldsNotAllowed {
 		t.Errorf("organization: %v", err)
 	}
 }
@@ -142,8 +140,7 @@ func TestDepthAndGrace(t *testing.T) {
 	if d, err := ValidateDepth(nil); err != nil || d != 3 {
 		t.Errorf("default depth: %d %v", d, err)
 	}
-	ten := int64(10)
-	if d, err := ValidateDepth(&ten); err != nil || d != 10 {
+	if d, err := ValidateDepth(new(int64(10))); err != nil || d != 10 {
 		t.Errorf("10: %d %v", d, err)
 	}
 	for _, bad := range []int64{0, 11, -1} {
@@ -154,7 +151,7 @@ func TestDepthAndGrace(t *testing.T) {
 	if g, err := ValidateGrace(nil); err != nil || g != 86_400 {
 		t.Errorf("default grace: %d %v", g, err)
 	}
-	if g, err := ValidateGrace(ptr[int64](0)); err != nil || g != 0 {
+	if g, err := ValidateGrace(new(int64(0))); err != nil || g != 0 {
 		t.Errorf("0: %d %v", g, err)
 	}
 	for _, bad := range []int64{-1, 604_801} {

@@ -10,8 +10,7 @@ import (
 )
 
 func kindOf(err error) apperr.Kind {
-	var e *apperr.Error
-	if errors.As(err, &e) {
+	if e, ok := errors.AsType[*apperr.Error](err); ok {
 		return e.Kind
 	}
 	return 0

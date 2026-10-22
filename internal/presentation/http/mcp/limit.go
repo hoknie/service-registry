@@ -46,8 +46,7 @@ func failed(err error) (*sdk.CallToolResult, any, error) {
 		code = e.Code
 	}
 	msg := code
-	var app *apperr.Error
-	if errors.As(err, &app) && app.Message != "" && code != "internal" && code != "not_found" {
+	if app, ok := errors.AsType[*apperr.Error](err); ok && app.Message != "" && code != "internal" && code != "not_found" {
 		msg = fmt.Sprintf("%s: %s", code, app.Message)
 	}
 	return &sdk.CallToolResult{IsError: true, Content: []sdk.Content{&sdk.TextContent{Text: msg}}}, nil, nil

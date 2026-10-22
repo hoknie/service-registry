@@ -2,13 +2,11 @@ package repositories
 
 import (
 	"context"
-	"errors"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	accesstypes "svc-registry/internal/feature/access/types"
-	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
 	"svc-registry/pkg/pgtx"
 )
@@ -18,7 +16,7 @@ type TokenRepository struct{ db *pgtx.DB }
 func NewTokenRepository(db *pgtx.DB) *TokenRepository { return &TokenRepository{db: db} }
 
 func revokeUserTokens(ctx context.Context, db pgtx.Querier, userID uuid.UUID) error {
-	_, err := db.Exec(ctx, `
+	_, err := postgres.Exec(ctx, db, constraints, `
 		UPDATE personal_access_tokens
 		SET revoked_at = now()
 		WHERE user_id = $1
@@ -40,10 +38,9 @@ func likePrefix(prefix string) string {
 func (s *TokenRepository) Insert(ctx context.Context, nt accesstypes.NewToken) (accesstypes.Token, error) {
 	var days *int32
 	if nt.ExpiresInDays != nil {
-		d := int32(*nt.ExpiresInDays)
-		days = &d
+		days = new(int32(*nt.ExpiresInDays))
 	}
-	token, err := scanToken(s.db.From(ctx).QueryRow(ctx, `
+	return postgres.One(ctx, s.db.From(ctx), constraints, scanToken, `
 		WITH t AS (
 			INSERT INTO personal_access_tokens (id, user_id, name, prefix, token_hash, scopes, expires_at)
 			VALUES ($1, $2, $3, $4, $5, $6, now() + make_interval(days => $7::int))
@@ -57,12 +54,11 @@ func (s *TokenRepository) Insert(ctx context.Context, nt accesstypes.NewToken) (
 				WHEN t.expires_at <= now() THEN 'expired'
 				ELSE 'active' END AS status
 		FROM t
-		JOIN users u ON u.id = t.user_id`, nt.ID, nt.UserID, nt.Name, nt.Prefix, nt.Hash[:], nt.Scopes.Strings(), days))
-	return token, postgres.Translate(err, constraints)
+		JOIN users u ON u.id = t.user_id`, nt.ID, nt.UserID, nt.Name, nt.Prefix, nt.Hash[:], nt.Scopes.Strings(), days)
 }
 
 func (s *TokenRepository) ListForUser(ctx context.Context, userID uuid.UUID) ([]accesstypes.Token, error) {
-	rows, err := s.db.From(ctx).Query(ctx, `
+	return postgres.List(ctx, s.db.From(ctx), constraints, scanToken, `
 		SELECT t.id, t.user_id, u.email, t.name, t.prefix, t.scopes, rfc3339(t.created_at) AS created_at,
 			rfc3339(t.expires_at) AS expires_at, rfc3339(t.last_used_at) AS last_used_at,
 			rfc3339(t.revoked_at) AS revoked_at,
@@ -74,16 +70,11 @@ func (s *TokenRepository) ListForUser(ctx context.Context, userID uuid.UUID) ([]
 		JOIN users u ON u.id = t.user_id
 		WHERE t.user_id = $1
 		ORDER BY t.created_at DESC, t.id DESC`, userID)
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	items, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (accesstypes.Token, error) { return scanToken(r) })
-	return items, postgres.Translate(err, constraints)
 }
 
 func (s *TokenRepository) List(ctx context.Context, f accesstypes.TokenFilter) (accesstypes.Page[accesstypes.Token], error) {
 	pattern := likePrefix(f.Prefix)
-	rows, err := s.db.From(ctx).Query(ctx, `
+	items, err := postgres.List(ctx, s.db.From(ctx), constraints, scanToken, `
 		SELECT t.id, t.user_id, u.email, t.name, t.prefix, t.scopes, rfc3339(t.created_at) AS created_at,
 			rfc3339(t.expires_at) AS expires_at, rfc3339(t.last_used_at) AS last_used_at,
 			rfc3339(t.revoked_at) AS revoked_at,
@@ -98,42 +89,38 @@ func (s *TokenRepository) List(ctx context.Context, f accesstypes.TokenFilter) (
 		LIMIT $2
 		OFFSET $3`, pattern, int64(f.Page.Limit), int64(f.Page.Offset))
 	if err != nil {
-		return accesstypes.Page[accesstypes.Token]{}, postgres.Translate(err, constraints)
+		return accesstypes.Page[accesstypes.Token]{}, err
 	}
-	items, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (accesstypes.Token, error) { return scanToken(r) })
-	if err != nil {
-		return accesstypes.Page[accesstypes.Token]{}, postgres.Translate(err, constraints)
-	}
-	var total int64
-	if err := s.db.From(ctx).QueryRow(ctx, `
+	total, err := postgres.One(ctx, s.db.From(ctx), constraints, pgx.RowTo[int64], `
 		SELECT count(*)
 		FROM personal_access_tokens t
-		WHERE t.prefix LIKE $1`, pattern).Scan(&total); err != nil {
-		return accesstypes.Page[accesstypes.Token]{}, postgres.Translate(err, constraints)
+		WHERE t.prefix LIKE $1`, pattern)
+	if err != nil {
+		return accesstypes.Page[accesstypes.Token]{}, err
 	}
 	return accesstypes.Page[accesstypes.Token]{Items: items, Total: uint64(max(total, 0)), Limit: f.Page.Limit, Offset: f.Page.Offset}, nil
 }
 
 func (s *TokenRepository) Revoke(ctx context.Context, id uuid.UUID, owner *uuid.UUID) error {
-	tag, err := s.db.From(ctx).Exec(ctx, `
+	return postgres.ExecFound(ctx, s.db.From(ctx), constraints, `
 		UPDATE personal_access_tokens
 		SET revoked_at = COALESCE(revoked_at, now())
 		WHERE id = $1
 			AND ($2::uuid IS NULL OR user_id = $2)`, id, owner)
-	if err != nil {
-		return postgres.Translate(err, constraints)
-	}
-	if tag.RowsAffected() == 0 {
-		return apperr.ErrNotFound
-	}
-	return nil
 }
 
 func (s *TokenRepository) FindValid(ctx context.Context, tokenHash [32]byte) (*accesstypes.TokenUser, error) {
-	var found accesstypes.TokenUser
-	var scopes []string
 	var stale bool
-	user, err := scanUserAfter(s.db.From(ctx).QueryRow(ctx, `
+	found, err := postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (accesstypes.TokenUser, error) {
+		var t accesstypes.TokenUser
+		var scopes []string
+		var err error
+		if t.User, err = scanUserWith(r, []any{&t.TokenID, &scopes, &stale}, nil); err != nil {
+			return t, err
+		}
+		t.Scopes, err = parseScopes(scopes)
+		return t, err
+	}, `
 		SELECT t.id, t.scopes,
 			(t.last_used_at IS NULL OR t.last_used_at < now() - interval '60 seconds') AS stale, u.id, u.email,
 			u.display_name, u.status, u.is_superadmin, u.is_service, u.password_hash IS NOT NULL AS has_password,
@@ -143,24 +130,17 @@ func (s *TokenRepository) FindValid(ctx context.Context, tokenHash [32]byte) (*a
 		WHERE t.token_hash = $1
 			AND t.revoked_at IS NULL
 			AND (t.expires_at IS NULL OR t.expires_at > now())
-			AND u.status = 'active'`, tokenHash[:]), &found.TokenID, &scopes, &stale)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, postgres.Translate(err, constraints)
-	}
-	if found.Scopes, err = parseScopes(scopes); err != nil {
+			AND u.status = 'active'`, tokenHash[:])
+	if err != nil || found == nil {
 		return nil, err
 	}
-	found.User = user
 	if stale {
-		if _, err := s.db.From(ctx).Exec(ctx, `
+		if _, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 			UPDATE personal_access_tokens
 			SET last_used_at = now()
 			WHERE id = $1`, found.TokenID); err != nil {
-			return nil, postgres.Translate(err, constraints)
+			return nil, err
 		}
 	}
-	return &found, nil
+	return found, nil
 }

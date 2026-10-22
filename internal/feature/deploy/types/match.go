@@ -50,8 +50,7 @@ func MatchWorkload(w Workload, clusterEnv string, rules []Rule, resolve Resolver
 	}
 	if ref, ok := ann(AnnotationProject); ok {
 		ref = strings.TrimSpace(ref)
-		shown := clip(ref, MaxAnnotationLen)
-		m.Annotation = &shown
+		m.Annotation = new(clip(ref, MaxAnnotationLen))
 		p, err := resolve(strings.Trim(ref, "/"))
 		if err != nil {
 			return Match{}, err
@@ -164,8 +163,7 @@ func VersionOf(w Workload) *string {
 	name, digest, _ := strings.Cut(ref, "@")
 	slash := strings.LastIndex(name, "/")
 	if colon := strings.LastIndex(name, ":"); colon > slash {
-		tag := name[colon+1:]
-		return &tag
+		return new(name[colon+1:])
 	}
 	if digest != "" {
 		return &digest
