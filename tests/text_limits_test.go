@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"svc-registry/internal/testsupport/forgefake"
-	"svc-registry/internal/testsupport/oidcfake"
+	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/oidcfake"
 )
 
 func longRef(segments int) string {

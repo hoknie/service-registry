@@ -6,12 +6,12 @@ import (
 	knowledgeports "svc-registry/internal/feature/knowledge/ports"
 	"svc-registry/internal/feature/knowledge/repositories"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 	"svc-registry/pkg/secretbox"
 )
 
 type Deps struct {
-	DB       *postgres.DB
+	DB       *pgtx.DB
 	Config   *config.Config
 	Catalog  *catalogservices.CatalogServices
 	Forge    *forgeservices.ForgeServices
@@ -24,7 +24,7 @@ type Deps struct {
 
 type parts struct {
 	cfg                  *config.Config
-	db                   *postgres.DB
+	db                   *pgtx.DB
 	collectionRepository *repositories.CollectionRepository
 	patternRepository    *repositories.PatternRepository
 	snapshotRepository   *repositories.SnapshotRepository

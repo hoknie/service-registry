@@ -10,11 +10,12 @@ import (
 
 	forgetypes "svc-registry/internal/feature/forge/types"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type SourceRepoRepository struct{ db *postgres.DB }
+type SourceRepoRepository struct{ db *pgtx.DB }
 
-func NewSourceRepoRepository(db *postgres.DB) *SourceRepoRepository {
+func NewSourceRepoRepository(db *pgtx.DB) *SourceRepoRepository {
 	return &SourceRepoRepository{db: db}
 }
 

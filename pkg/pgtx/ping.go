@@ -1,4 +1,4 @@
-package postgres
+package pgtx
 
 import (
 	"context"

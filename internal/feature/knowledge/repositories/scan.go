@@ -11,11 +11,12 @@ import (
 	accesstypes "svc-registry/internal/feature/access/types"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type ScanRepository struct{ db *postgres.DB }
+type ScanRepository struct{ db *pgtx.DB }
 
-func NewScanRepository(db *postgres.DB) *ScanRepository { return &ScanRepository{db: db} }
+func NewScanRepository(db *pgtx.DB) *ScanRepository { return &ScanRepository{db: db} }
 
 func (s *ScanRepository) Record(ctx context.Context, scan knowledgetypes.Scan, keep int, maxGap time.Duration) error {
 	branches, err := json.Marshal(nonNil(scan.Branches))

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"svc-registry/internal/testsupport/oidcfake"
+	"svc-registry/pkg/testing/oidcfake"
 )
 
 const publicURL = "https://registry.example"

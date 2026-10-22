@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"svc-registry/internal/testsupport/forgefake"
+	"svc-registry/pkg/testing/forgefake"
 )
 
 func TestFirstImportCreatesProjectsWithMetadata(t *testing.T) {

@@ -73,7 +73,7 @@ func holdsDatabase(expr ast.Expr) bool {
 			continue
 		}
 		switch pkg.Name + "." + sel.Sel.Name {
-		case "postgres.DB", "postgres.Querier", "pgxpool.Pool", "pgx.Tx":
+		case "pgtx.DB", "pgtx.Querier", "pgxpool.Pool", "pgx.Tx":
 			return true
 		}
 	}

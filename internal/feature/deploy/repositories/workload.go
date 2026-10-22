@@ -10,11 +10,12 @@ import (
 
 	deploytypes "svc-registry/internal/feature/deploy/types"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type WorkloadRepository struct{ db *postgres.DB }
+type WorkloadRepository struct{ db *pgtx.DB }
 
-func NewWorkloadRepository(db *postgres.DB) *WorkloadRepository { return &WorkloadRepository{db: db} }
+func NewWorkloadRepository(db *pgtx.DB) *WorkloadRepository { return &WorkloadRepository{db: db} }
 
 func (s *WorkloadRepository) Previous(ctx context.Context, clusterID uuid.UUID) (map[string]deploytypes.Previous, error) {
 	rows, err := s.db.From(ctx).Query(ctx, `

@@ -10,14 +10,15 @@ import (
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
 type BranchRepository struct {
-	db        *postgres.DB
+	db        *pgtx.DB
 	staleDays uint32
 }
 
-func NewBranchRepository(db *postgres.DB, staleDays uint32) *BranchRepository {
+func NewBranchRepository(db *pgtx.DB, staleDays uint32) *BranchRepository {
 	return &BranchRepository{db: db, staleDays: staleDays}
 }
 

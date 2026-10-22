@@ -13,6 +13,7 @@ import (
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/auth"
 	"svc-registry/internal/platform/config"
+	"svc-registry/pkg/password"
 )
 
 type SignedIn struct {
@@ -145,7 +146,7 @@ func (s *AuthService) ChangePassword(ctx context.Context, p accesstypes.Principa
 
 type AuthService struct {
 	cfg               *config.Config
-	hasher            *auth.PasswordHasher
+	hasher            *password.Hasher
 	loginLimiter      *auth.LoginLimiter
 	sessionRepository *repositories.SessionRepository
 	tokenRepository   *repositories.TokenRepository

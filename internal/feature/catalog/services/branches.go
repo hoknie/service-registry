@@ -11,7 +11,7 @@ import (
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
 func (s *BranchesService) AuthorizeProject(ctx context.Context, p accesstypes.Principal, perm catalogtypes.Permission, id uuid.UUID) error {
@@ -150,6 +150,6 @@ func (s *BranchRecordsService) SyncRepositoryBranches(ctx context.Context, proje
 
 type BranchRecordsService struct {
 	branchRepository *repositories.BranchRepository
-	db               *postgres.DB
+	db               *pgtx.DB
 	nodeRepository   *repositories.NodeRepository
 }

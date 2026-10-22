@@ -10,13 +10,14 @@ import (
 	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type TokenRepository struct{ db *postgres.DB }
+type TokenRepository struct{ db *pgtx.DB }
 
-func NewTokenRepository(db *postgres.DB) *TokenRepository { return &TokenRepository{db: db} }
+func NewTokenRepository(db *pgtx.DB) *TokenRepository { return &TokenRepository{db: db} }
 
-func revokeUserTokens(ctx context.Context, db postgres.Querier, userID uuid.UUID) error {
+func revokeUserTokens(ctx context.Context, db pgtx.Querier, userID uuid.UUID) error {
 	_, err := db.Exec(ctx, `
 		UPDATE personal_access_tokens
 		SET revoked_at = now()

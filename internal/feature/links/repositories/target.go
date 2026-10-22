@@ -10,11 +10,12 @@ import (
 
 	linkstypes "svc-registry/internal/feature/links/types"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type TargetRepository struct{ db *postgres.DB }
+type TargetRepository struct{ db *pgtx.DB }
 
-func NewTargetRepository(db *postgres.DB) *TargetRepository { return &TargetRepository{db: db} }
+func NewTargetRepository(db *pgtx.DB) *TargetRepository { return &TargetRepository{db: db} }
 
 func (s *TargetRepository) Seen(ctx context.Context, urls []string) error {
 	if len(urls) == 0 {

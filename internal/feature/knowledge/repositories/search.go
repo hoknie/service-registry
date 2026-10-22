@@ -10,11 +10,12 @@ import (
 
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type SearchRepository struct{ db *postgres.DB }
+type SearchRepository struct{ db *pgtx.DB }
 
-func NewSearchRepository(db *postgres.DB) *SearchRepository { return &SearchRepository{db: db} }
+func NewSearchRepository(db *pgtx.DB) *SearchRepository { return &SearchRepository{db: db} }
 
 func like(s string) string {
 	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)

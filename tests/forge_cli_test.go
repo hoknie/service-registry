@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"svc-registry/internal/testsupport/forgefake"
 	"svc-registry/pkg/secretbox"
+	"svc-registry/pkg/testing/forgefake"
 )
 
 const secretsKey2 = "k2:YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXowMTIzNDU="

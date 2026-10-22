@@ -54,7 +54,8 @@ var rules = []rule{
 	}},
 	{"presentation must not open the database, hash passwords or seal secrets (app does)", func(from, to string) bool {
 		return under(from, "internal/presentation") &&
-			(under(to, "internal/platform/postgres") || under(to, "internal/platform/auth") || under(to, "pkg/secretbox"))
+			(under(to, "internal/platform/postgres") || under(to, "pkg/pgtx") || under(to, "internal/platform/auth") ||
+				under(to, "pkg/password") || under(to, "pkg/secretbox"))
 	}},
 	{"presentation must not import adapters of features", func(from, to string) bool {
 		return under(from, "internal/presentation") && kindOf(to) == kindAdapter
@@ -64,11 +65,21 @@ var rules = []rule{
 	}},
 }
 
+var productionRules = []rule{
+	{"pkg/testing is for tests only (test files, package tests, internal/testsupport)", func(from, to string) bool {
+		return under(to, "pkg/testing") && !under(from, "tests") && !under(from, "internal/testsupport")
+	}},
+}
+
 func sameFeature(from, to string) bool { return feature(from) != "" && feature(from) == feature(to) }
 
-func check(from, to string) []string {
+func check(from, to string, test bool) []string {
+	applied := rules
+	if !test {
+		applied = append(append([]rule{}, rules...), productionRules...)
+	}
 	var problems []string
-	for _, r := range rules {
+	for _, r := range applied {
 		if r.broken(from, to) {
 			problems = append(problems, r.message+": "+from+" -> "+to)
 		}

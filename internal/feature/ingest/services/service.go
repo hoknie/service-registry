@@ -5,11 +5,11 @@ import (
 	"svc-registry/internal/feature/ingest/repositories"
 	"svc-registry/internal/platform/auth"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
 type Deps struct {
-	DB      *postgres.DB
+	DB      *pgtx.DB
 	Config  *config.Config
 	Catalog *catalogservices.CatalogServices
 	Limiter *auth.IngestLimiter
@@ -17,7 +17,7 @@ type Deps struct {
 
 type parts struct {
 	cfg                  *config.Config
-	db                   *postgres.DB
+	db                   *pgtx.DB
 	eventRepository      *repositories.EventRepository
 	deploymentRepository *repositories.DeploymentRepository
 	limiter              *auth.IngestLimiter

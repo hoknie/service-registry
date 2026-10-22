@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"svc-registry/internal/presentation/jobs"
-	"svc-registry/internal/testsupport/forgefake"
+	"svc-registry/pkg/testing/forgefake"
 )
 
 func init() { jobs.ForgeTick = 50 * time.Millisecond }

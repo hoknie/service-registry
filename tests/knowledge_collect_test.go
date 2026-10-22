@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"svc-registry/internal/testsupport/forgefake"
+	"svc-registry/pkg/testing/forgefake"
 )
 
 func TestTheReadmeIsCollectedByDefault(t *testing.T) {

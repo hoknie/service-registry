@@ -10,11 +10,12 @@ import (
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type SourceRepository struct{ db *postgres.DB }
+type SourceRepository struct{ db *pgtx.DB }
 
-func NewSourceRepository(db *postgres.DB) *SourceRepository { return &SourceRepository{db: db} }
+func NewSourceRepository(db *pgtx.DB) *SourceRepository { return &SourceRepository{db: db} }
 
 func scanSource(row pgx.Row) (knowledgetypes.StoredSource, error) {
 	var s knowledgetypes.StoredSource

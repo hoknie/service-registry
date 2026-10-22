@@ -16,7 +16,7 @@ import (
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	forgeports "svc-registry/internal/feature/forge/ports"
 	forgetypes "svc-registry/internal/feature/forge/types"
-	"svc-registry/internal/testsupport/forgefake"
+	"svc-registry/pkg/testing/forgefake"
 )
 
 const token = "tok-123"

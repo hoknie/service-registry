@@ -6,18 +6,17 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
-
-	"svc-registry/internal/platform/config"
+	"time"
 )
 
 func TestServerOfAnUnknownCAIsRejectedUntilTrusted(t *testing.T) {
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(204) }))
 	defer srv.Close()
-	if _, err := New(config.OutboundConfig{TimeoutSecs: 5}).Get(srv.URL); err == nil {
+	if _, err := New(Options{Timeout: 5 * time.Second}).Get(srv.URL); err == nil {
 		t.Fatal("self-signed certificate accepted")
 	}
 	caPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: srv.Certificate().Raw})
-	resp, err := New(config.OutboundConfig{TimeoutSecs: 5, CAPEM: caPEM}).Get(srv.URL)
+	resp, err := New(Options{Timeout: 5 * time.Second, CAPEM: caPEM}).Get(srv.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +27,7 @@ func TestServerOfAnUnknownCAIsRejectedUntilTrusted(t *testing.T) {
 }
 
 func TestProxyFollowsNoProxy(t *testing.T) {
-	c := New(config.OutboundConfig{TimeoutSecs: 5, HTTPSProxy: "http://proxy.example:3128", NoProxy: "internal.example"})
+	c := New(Options{Timeout: 5 * time.Second, HTTPSProxy: "http://proxy.example:3128", NoProxy: "internal.example"})
 	proxy := c.Transport.(*http.Transport).Proxy
 	via := func(raw string) string {
 		u, _ := url.Parse(raw)

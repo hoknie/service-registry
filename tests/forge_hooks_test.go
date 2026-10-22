@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"svc-registry/internal/testsupport/forgefake"
+	"svc-registry/pkg/testing/forgefake"
 )
 
 func hmacHex(secret, body string) string {

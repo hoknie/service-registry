@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"svc-registry/internal/testsupport/oidcfake"
+	"svc-registry/pkg/testing/oidcfake"
 )
 
 func TestProvidersListIsPublic(t *testing.T) {

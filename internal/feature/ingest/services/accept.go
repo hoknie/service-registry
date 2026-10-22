@@ -13,7 +13,7 @@ import (
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/auth"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
 type Authenticated struct {
@@ -87,7 +87,7 @@ func (s *AcceptService) PruneEvents(ctx context.Context) (uint64, error) {
 type AcceptService struct {
 	catalog              *catalogservices.CatalogServices
 	cfg                  *config.Config
-	db                   *postgres.DB
+	db                   *pgtx.DB
 	deploymentRepository *repositories.DeploymentRepository
 	eventRepository      *repositories.EventRepository
 	limiter              *auth.IngestLimiter

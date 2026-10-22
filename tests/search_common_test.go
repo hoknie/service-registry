@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"svc-registry/internal/testsupport/embedfake"
+	"svc-registry/pkg/testing/embedfake"
 )
 
 const embedDims = 64

@@ -9,7 +9,7 @@ import (
 	forgetypes "svc-registry/internal/feature/forge/types"
 	knowledgeservices "svc-registry/internal/feature/knowledge/services"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 	"svc-registry/pkg/secretbox"
 )
 
@@ -43,7 +43,7 @@ func (a *App) RotateSecrets(ctx context.Context) (int, error) {
 	return rotateSecrets(ctx, a.Secrets, a.Catalog.SecretResolver, a.Forge.Ports, a.Deploy.Ports, a.Knowledge.Ports)
 }
 
-func rotateSecretsOver(ctx context.Context, db *postgres.DB, box *secretbox.Box) (int, error) {
+func rotateSecretsOver(ctx context.Context, db *pgtx.DB, box *secretbox.Box) (int, error) {
 	cat := catalogservices.New(catalogservices.Deps{DB: db, Config: &config.Config{}, Secrets: box})
 	return rotateSecrets(ctx, box, cat.SecretResolver, forgeservices.New(forgeservices.Deps{DB: db, Secrets: box}).Ports, deployservices.New(deployservices.Deps{DB: db, Secrets: box}).Ports,
 		knowledgeservices.New(knowledgeservices.Deps{DB: db, Secrets: box}).Ports)

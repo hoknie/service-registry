@@ -15,7 +15,7 @@ import (
 	ingesttypes "svc-registry/internal/feature/ingest/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
 func (s *PollService) ClaimClusterPolls(ctx context.Context, limit, leaseSecs int) ([]uuid.UUID, error) {
@@ -220,7 +220,7 @@ type PollService struct {
 	catalog            *catalogservices.CatalogServices
 	cfg                *config.Config
 	clusterRepository  *repositories.ClusterRepository
-	db                 *postgres.DB
+	db                 *pgtx.DB
 	ingest             *ingestservices.IngestServices
 	workloadRepository *repositories.WorkloadRepository
 	clustersService    *ClustersService

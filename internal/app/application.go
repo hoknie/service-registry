@@ -20,8 +20,10 @@ import (
 	linksservices "svc-registry/internal/feature/links/services"
 	"svc-registry/internal/platform/auth"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/platform/outbound"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/outbound"
+	"svc-registry/pkg/password"
+	"svc-registry/pkg/pgtx"
 	"svc-registry/pkg/secretbox"
 )
 
@@ -29,8 +31,8 @@ var ErrNotWired = errors.New("catalog ports are not wired")
 
 type App struct {
 	Config    *config.Config
-	DB        *postgres.DB
-	Hasher    *auth.PasswordHasher
+	DB        *pgtx.DB
+	Hasher    *password.Hasher
 	Secrets   *secretbox.Box
 	Access    *accessservices.AccessServices
 	Catalog   *catalogservices.CatalogServices
@@ -54,17 +56,17 @@ func New(cfg config.Config, opts ...Option) (*App, error) {
 		pool.Close()
 		return nil, err
 	}
-	db := postgres.New(pool)
+	db := pgtx.New(pool)
 	a := &App{
 		Config:  &cfg,
 		DB:      db,
-		Hasher:  auth.NewPasswordHasher(cfg.PasswordHash),
+		Hasher:  password.NewHasher(cfg.PasswordHash.Params()),
 		Secrets: secretbox.New(cfg.Secrets.Keys),
 		search:  srch,
 	}
-	forges := forgeclient.NewFactoryClient(outbound.New(cfg.Outbound))
+	forges := forgeclient.NewFactoryClient(outbound.New(cfg.Outbound.Options()))
 	a.Access = accessservices.New(accessservices.Deps{DB: db, Config: &cfg, Hasher: a.Hasher,
-		OAuth:        oidc.NewOIDCClient(cfg.OAuth, cfg.Web.PublicURL, outbound.New(cfg.Outbound)),
+		OAuth:        oidc.NewOIDCClient(cfg.OAuth, cfg.Web.PublicURL, outbound.New(cfg.Outbound.Options())),
 		LoginLimiter: auth.NewLoginLimiter(cfg.LoginLimit)})
 	a.Catalog = catalogservices.New(catalogservices.Deps{DB: db, Config: &cfg, Secrets: a.Secrets})
 	a.Links = linksservices.New(linksservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Checker: linkChecker(o, cfg),

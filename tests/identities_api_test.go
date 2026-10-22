@@ -3,7 +3,7 @@ package tests
 import (
 	"testing"
 
-	"svc-registry/internal/testsupport/oidcfake"
+	"svc-registry/pkg/testing/oidcfake"
 )
 
 func TestIdentitiesOfTheAccount(t *testing.T) {

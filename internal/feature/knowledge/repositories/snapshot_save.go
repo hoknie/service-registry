@@ -9,6 +9,7 @@ import (
 
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
 func (s *SnapshotRepository) Save(ctx context.Context, n knowledgetypes.NewSnapshot, keep uint32) error {
@@ -64,7 +65,7 @@ func (s *SnapshotRepository) Save(ctx context.Context, n knowledgetypes.NewSnaps
 	return postgres.Translate(err, constraints)
 }
 
-func sameTree(ctx context.Context, tx postgres.Querier, snapshotID uuid.UUID, files []knowledgetypes.File) (bool, error) {
+func sameTree(ctx context.Context, tx pgtx.Querier, snapshotID uuid.UUID, files []knowledgetypes.File) (bool, error) {
 	stored := map[string]string{}
 	rows, err := tx.Query(ctx, `
 		SELECT path, COALESCE(encode(sha256, 'hex'), 'skip:' || skip_reason) || ':' || COALESCE(meta ->> 'git', '')
@@ -99,7 +100,7 @@ func sameTree(ctx context.Context, tx postgres.Querier, snapshotID uuid.UUID, fi
 	return true, nil
 }
 
-func insertSnapshot(ctx context.Context, tx postgres.Querier, n knowledgetypes.NewSnapshot) error {
+func insertSnapshot(ctx context.Context, tx pgtx.Querier, n knowledgetypes.NewSnapshot) error {
 	var sums [][]byte
 	var contents []string
 	var sizes []int64
@@ -169,7 +170,7 @@ func insertSnapshot(ctx context.Context, tx postgres.Querier, n knowledgetypes.N
 	return err
 }
 
-func addSnapshotRow(ctx context.Context, tx postgres.Querier, n knowledgetypes.NewSnapshot, errorCode string, files int, bytes int64, skipped int, truncated bool) error {
+func addSnapshotRow(ctx context.Context, tx pgtx.Querier, n knowledgetypes.NewSnapshot, errorCode string, files int, bytes int64, skipped int, truncated bool) error {
 	_, err := tx.Exec(ctx, `
 		INSERT INTO knowledge_snapshots (id, project_id, branch, commit_sha, status, error_code, files,
 			bytes, skipped, truncated)
@@ -178,7 +179,7 @@ func addSnapshotRow(ctx context.Context, tx postgres.Querier, n knowledgetypes.N
 	return err
 }
 
-func dropFailedSnapshots(ctx context.Context, tx postgres.Querier, projectID uuid.UUID, branch string, keep uuid.UUID) error {
+func dropFailedSnapshots(ctx context.Context, tx pgtx.Querier, projectID uuid.UUID, branch string, keep uuid.UUID) error {
 	_, err := tx.Exec(ctx, `
 		DELETE FROM knowledge_snapshots
 		WHERE project_id = $1

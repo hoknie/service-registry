@@ -11,11 +11,12 @@ import (
 	forgetypes "svc-registry/internal/feature/forge/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type RepoRepository struct{ db *postgres.DB }
+type RepoRepository struct{ db *pgtx.DB }
 
-func NewRepoRepository(db *postgres.DB) *RepoRepository { return &RepoRepository{db: db} }
+func NewRepoRepository(db *pgtx.DB) *RepoRepository { return &RepoRepository{db: db} }
 
 func (s *RepoRepository) Links(ctx context.Context, connID uuid.UUID) ([]forgetypes.Link, error) {
 	rows, err := s.db.From(ctx).Query(ctx, `

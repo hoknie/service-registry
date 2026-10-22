@@ -6,6 +6,9 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
+
+	"svc-registry/pkg/outbound"
 )
 
 type OutboundConfig struct {
@@ -56,4 +59,14 @@ func firstSet(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func (c OutboundConfig) Options() outbound.Options {
+	return outbound.Options{
+		CAPEM:      c.CAPEM,
+		Timeout:    time.Duration(c.TimeoutSecs) * time.Second,
+		HTTPSProxy: c.HTTPSProxy,
+		HTTPProxy:  c.HTTPProxy,
+		NoProxy:    c.NoProxy,
+	}
 }

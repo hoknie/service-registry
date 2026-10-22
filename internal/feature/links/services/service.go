@@ -5,11 +5,11 @@ import (
 	linksports "svc-registry/internal/feature/links/ports"
 	"svc-registry/internal/feature/links/repositories"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
 type Deps struct {
-	DB      *postgres.DB
+	DB      *pgtx.DB
 	Config  *config.Config
 	Catalog *catalogservices.CatalogServices
 	Checker linksports.CheckerPort

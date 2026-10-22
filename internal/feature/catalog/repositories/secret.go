@@ -10,11 +10,12 @@ import (
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type SecretRepository struct{ db *postgres.DB }
+type SecretRepository struct{ db *pgtx.DB }
 
-func NewSecretRepository(db *postgres.DB) *SecretRepository { return &SecretRepository{db: db} }
+func NewSecretRepository(db *pgtx.DB) *SecretRepository { return &SecretRepository{db: db} }
 
 type secretRow struct {
 	ID          uuid.UUID  `db:"id"`

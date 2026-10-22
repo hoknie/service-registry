@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"svc-registry/internal/testsupport/forgefake"
+	"svc-registry/pkg/testing/forgefake"
 )
 
 func TestConnectionDefaultsAndSecretHandling(t *testing.T) {

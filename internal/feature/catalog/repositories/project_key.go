@@ -10,11 +10,12 @@ import (
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type ProjectKeyRepository struct{ db *postgres.DB }
+type ProjectKeyRepository struct{ db *pgtx.DB }
 
-func NewProjectKeyRepository(db *postgres.DB) *ProjectKeyRepository {
+func NewProjectKeyRepository(db *pgtx.DB) *ProjectKeyRepository {
 	return &ProjectKeyRepository{db: db}
 }
 

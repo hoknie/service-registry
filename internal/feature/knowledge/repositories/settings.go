@@ -10,11 +10,12 @@ import (
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type CollectionRepository struct{ db *postgres.DB }
+type CollectionRepository struct{ db *pgtx.DB }
 
-func NewCollectionRepository(db *postgres.DB) *CollectionRepository {
+func NewCollectionRepository(db *pgtx.DB) *CollectionRepository {
 	return &CollectionRepository{db: db}
 }
 

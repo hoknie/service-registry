@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"svc-registry/internal/testsupport/forgefake"
+	"svc-registry/pkg/testing/forgefake"
 )
 
 func TestCreateProjectWithSource(t *testing.T) {

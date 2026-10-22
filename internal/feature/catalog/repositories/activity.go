@@ -7,11 +7,12 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type ActivityRepository struct{ db *postgres.DB }
+type ActivityRepository struct{ db *pgtx.DB }
 
-func NewActivityRepository(db *postgres.DB) *ActivityRepository { return &ActivityRepository{db: db} }
+func NewActivityRepository(db *pgtx.DB) *ActivityRepository { return &ActivityRepository{db: db} }
 
 func (s *ActivityRepository) Containers(ctx context.Context, userID uuid.UUID, all bool, projects, containers []uuid.UUID) (map[uuid.UUID][]uuid.UUID, error) {
 	out := map[uuid.UUID][]uuid.UUID{}

@@ -10,11 +10,12 @@ import (
 	forgetypes "svc-registry/internal/feature/forge/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type RunRepository struct{ db *postgres.DB }
+type RunRepository struct{ db *pgtx.DB }
 
-func NewRunRepository(db *postgres.DB) *RunRepository { return &RunRepository{db: db} }
+func NewRunRepository(db *pgtx.DB) *RunRepository { return &RunRepository{db: db} }
 
 func (s *RunRepository) Start(ctx context.Context, n forgetypes.NewRun) (forgetypes.Run, error) {
 	r, err := scanRun(s.db.From(ctx).QueryRow(ctx, `

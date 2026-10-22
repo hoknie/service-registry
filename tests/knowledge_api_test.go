@@ -4,7 +4,7 @@ import (
 	"net/url"
 	"testing"
 
-	"svc-registry/internal/testsupport/forgefake"
+	"svc-registry/pkg/testing/forgefake"
 )
 
 func knowledgePath(id string) string { return nodePath(id) + "/knowledge" }

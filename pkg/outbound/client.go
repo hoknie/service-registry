@@ -9,24 +9,30 @@ import (
 	"time"
 
 	"golang.org/x/net/http/httpproxy"
-
-	"svc-registry/internal/platform/config"
 )
 
-func New(cfg config.OutboundConfig) *http.Client {
+type Options struct {
+	CAPEM      []byte
+	Timeout    time.Duration
+	HTTPSProxy string
+	HTTPProxy  string
+	NoProxy    string
+}
+
+func New(o Options) *http.Client {
 	roots, err := x509.SystemCertPool()
 	if err != nil || roots == nil {
 		roots = x509.NewCertPool()
 	}
-	if len(cfg.CAPEM) > 0 {
-		roots.AppendCertsFromPEM(cfg.CAPEM)
+	if len(o.CAPEM) > 0 {
+		roots.AppendCertsFromPEM(o.CAPEM)
 	}
 	proxy := (&httpproxy.Config{
-		HTTPSProxy: cfg.HTTPSProxy,
-		HTTPProxy:  cfg.HTTPProxy,
-		NoProxy:    cfg.NoProxy,
+		HTTPSProxy: o.HTTPSProxy,
+		HTTPProxy:  o.HTTPProxy,
+		NoProxy:    o.NoProxy,
 	}).ProxyFunc()
-	timeout := time.Duration(cfg.TimeoutSecs) * time.Second
+	timeout := o.Timeout
 	transport := &http.Transport{
 		Proxy:                 func(r *http.Request) (*url.URL, error) { return proxy(r.URL) },
 		DialContext:           (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext,

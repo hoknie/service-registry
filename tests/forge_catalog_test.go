@@ -3,7 +3,7 @@ package tests
 import (
 	"testing"
 
-	"svc-registry/internal/testsupport/forgefake"
+	"svc-registry/pkg/testing/forgefake"
 )
 
 func TestManagedNodesRefuseManualMovesDeletesAndManagedFields(t *testing.T) {

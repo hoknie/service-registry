@@ -11,11 +11,12 @@ import (
 	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type GroupRepository struct{ db *postgres.DB }
+type GroupRepository struct{ db *pgtx.DB }
 
-func NewGroupRepository(db *postgres.DB) *GroupRepository { return &GroupRepository{db: db} }
+func NewGroupRepository(db *pgtx.DB) *GroupRepository { return &GroupRepository{db: db} }
 
 func (s *GroupRepository) Insert(ctx context.Context, g accesstypes.NewGroup) (accesstypes.Group, error) {
 	group, err := scanGroup(s.db.From(ctx).QueryRow(ctx, `

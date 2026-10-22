@@ -16,7 +16,7 @@ import (
 
 	"svc-registry/internal/app"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/platform/outbound"
+	"svc-registry/pkg/outbound"
 )
 
 func mcpStdioCmd() *cobra.Command {
@@ -58,7 +58,7 @@ func mcpStdio(cmd *cobra.Command, address, tokenEnv string) error {
 		return fmt.Errorf("--url must be an http(s) address of the registry")
 	}
 	endpoint := u.String() + "/api/mcp"
-	client := outbound.New(out)
+	client := outbound.New(out.Options())
 	w := bufio.NewWriter(cmd.OutOrStdout())
 	in := bufio.NewScanner(cmd.InOrStdin())
 	in.Buffer(make([]byte, 64<<10), stdioMaxLine)

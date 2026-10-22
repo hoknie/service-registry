@@ -4,19 +4,19 @@ import (
 	catalogports "svc-registry/internal/feature/catalog/ports"
 	"svc-registry/internal/feature/catalog/repositories"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 	"svc-registry/pkg/secretbox"
 )
 
 type Deps struct {
-	DB      *postgres.DB
+	DB      *pgtx.DB
 	Config  *config.Config
 	Secrets *secretbox.Box
 }
 
 type parts struct {
 	cfg                  *config.Config
-	db                   *postgres.DB
+	db                   *pgtx.DB
 	nodeRepository       *repositories.NodeRepository
 	bindingRepository    *repositories.BindingRepository
 	projectKeyRepository *repositories.ProjectKeyRepository

@@ -4,9 +4,10 @@ import (
 	"context"
 
 	accessservices "svc-registry/internal/feature/access/services"
-	"svc-registry/internal/platform/auth"
 	"svc-registry/internal/platform/config"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/password"
+	"svc-registry/pkg/pgtx"
 	"svc-registry/pkg/secretbox"
 )
 
@@ -23,7 +24,7 @@ func OpenAccounts(db config.DbConfig, hash config.PasswordHashConfig) (*accessse
 	if err != nil {
 		return nil, nil, err
 	}
-	return accessservices.New(accessservices.Deps{DB: postgres.New(pool), Hasher: auth.NewPasswordHasher(hash)}), pool.Close, nil
+	return accessservices.New(accessservices.Deps{DB: pgtx.New(pool), Hasher: password.NewHasher(hash.Params())}), pool.Close, nil
 }
 
 func OpenSecretRotation(db config.DbConfig, keys config.SecretsConfig) (func(context.Context) (int, error), func(), error) {
@@ -32,7 +33,7 @@ func OpenSecretRotation(db config.DbConfig, keys config.SecretsConfig) (func(con
 		return nil, nil, err
 	}
 	rotate := func(ctx context.Context) (int, error) {
-		return rotateSecretsOver(ctx, postgres.New(pool), secretbox.New(keys.Keys))
+		return rotateSecretsOver(ctx, pgtx.New(pool), secretbox.New(keys.Keys))
 	}
 	return rotate, pool.Close, nil
 }

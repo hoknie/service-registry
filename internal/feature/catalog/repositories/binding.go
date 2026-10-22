@@ -10,11 +10,12 @@ import (
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type BindingRepository struct{ db *postgres.DB }
+type BindingRepository struct{ db *pgtx.DB }
 
-func NewBindingRepository(db *postgres.DB) *BindingRepository { return &BindingRepository{db: db} }
+func NewBindingRepository(db *pgtx.DB) *BindingRepository { return &BindingRepository{db: db} }
 
 func scanBinding(row pgx.Row) (catalogtypes.Binding, error) {
 	var b catalogtypes.Binding

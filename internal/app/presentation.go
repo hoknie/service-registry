@@ -6,11 +6,10 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 
-	"svc-registry/internal/platform/postgres"
-
 	apphttp "svc-registry/internal/presentation/http"
 	"svc-registry/internal/presentation/http/webui"
 	"svc-registry/internal/presentation/jobs"
+	"svc-registry/pkg/pgtx"
 )
 
 func (a *App) Router(dist webui.Dist) *fiber.App {
@@ -27,5 +26,5 @@ type databaseReadiness struct{ app *App }
 
 func (r databaseReadiness) Ready(ctx context.Context) bool {
 	timeout := time.Duration(r.app.Config.DB.AcquireTimeoutSecs) * time.Second
-	return postgres.Ping(ctx, r.app.DB.Pool(), timeout)
+	return pgtx.Ping(ctx, r.app.DB.Pool(), timeout)
 }

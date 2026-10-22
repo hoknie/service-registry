@@ -9,11 +9,12 @@ import (
 
 	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type SessionRepository struct{ db *postgres.DB }
+type SessionRepository struct{ db *pgtx.DB }
 
-func NewSessionRepository(db *postgres.DB) *SessionRepository { return &SessionRepository{db: db} }
+func NewSessionRepository(db *pgtx.DB) *SessionRepository { return &SessionRepository{db: db} }
 
 func secs(n uint64) float64 { return float64(n) }
 

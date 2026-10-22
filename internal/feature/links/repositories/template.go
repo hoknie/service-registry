@@ -10,13 +10,14 @@ import (
 	linkstypes "svc-registry/internal/feature/links/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type TemplateRepository struct{ db *postgres.DB }
+type TemplateRepository struct{ db *pgtx.DB }
 
-func NewTemplateRepository(db *postgres.DB) *TemplateRepository { return &TemplateRepository{db: db} }
+func NewTemplateRepository(db *pgtx.DB) *TemplateRepository { return &TemplateRepository{db: db} }
 
-func lockNode(ctx context.Context, tx postgres.Querier, nodeID uuid.UUID) error {
+func lockNode(ctx context.Context, tx pgtx.Querier, nodeID uuid.UUID) error {
 	_, err := tx.Exec(ctx, `
 		SELECT 1
 		FROM nodes

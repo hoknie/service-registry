@@ -10,7 +10,7 @@ import (
 
 	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/testsupport/oidcfake"
+	"svc-registry/pkg/testing/oidcfake"
 )
 
 func login(t *testing.T, o *OIDCClient, nonce, verifier string) string {

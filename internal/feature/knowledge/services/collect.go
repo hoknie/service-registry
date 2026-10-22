@@ -19,7 +19,7 @@ import (
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 	"svc-registry/pkg/secretbox"
 )
 
@@ -155,7 +155,7 @@ type CollectService struct {
 	readers              knowledgeports.ReaderFactoryPort
 	catalog              *catalogservices.CatalogServices
 	cfg                  *config.Config
-	db                   *postgres.DB
+	db                   *pgtx.DB
 	forge                *forgeservices.ForgeServices
 	scanRepository       *repositories.ScanRepository
 	secrets              *secretbox.Box

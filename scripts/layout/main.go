@@ -26,8 +26,11 @@ func main() {
 	}
 	var problems []string
 	for _, p := range pkgs {
-		for _, imp := range p.allImports() {
-			problems = append(problems, check(p.ImportPath, imp)...)
+		for _, imp := range p.Imports {
+			problems = append(problems, check(p.ImportPath, imp, false)...)
+		}
+		for _, imp := range p.testImports() {
+			problems = append(problems, check(p.ImportPath, imp, true)...)
 		}
 	}
 	sort.Strings(problems)
@@ -61,8 +64,6 @@ func listPackages() ([]listedPackage, error) {
 	}
 }
 
-func (p listedPackage) allImports() []string {
-	all := append([]string{}, p.Imports...)
-	all = append(all, p.TestImports...)
-	return append(all, p.XTestImports...)
+func (p listedPackage) testImports() []string {
+	return append(append([]string{}, p.TestImports...), p.XTestImports...)
 }

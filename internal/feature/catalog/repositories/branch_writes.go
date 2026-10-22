@@ -4,11 +4,10 @@ import (
 	"context"
 	"regexp"
 	"strings"
+	"svc-registry/pkg/pgtx"
 	"time"
 
 	"github.com/google/uuid"
-
-	"svc-registry/internal/platform/postgres"
 )
 
 var hexSHA = regexp.MustCompile(`^[0-9a-f]{7,64}$`)
@@ -24,7 +23,7 @@ func branchSHA(s *string) *string {
 	return &v
 }
 
-func UpsertIngestBranch(ctx context.Context, db postgres.Querier, projectID uuid.UUID, name string, commit *string, at string) error {
+func UpsertIngestBranch(ctx context.Context, db pgtx.Querier, projectID uuid.UUID, name string, commit *string, at string) error {
 	_, err := db.Exec(ctx, `
 		INSERT INTO branches AS b (id, project_id, name, head_sha, sources, last_activity_at)
 		VALUES ($1, $2, $3, $4, ARRAY['ingest'], $5::timestamptz)
@@ -43,7 +42,7 @@ func UpsertIngestBranch(ctx context.Context, db postgres.Querier, projectID uuid
 	return err
 }
 
-func UpsertForgeBranch(ctx context.Context, db postgres.Querier, projectID uuid.UUID, name, head string, protected *bool, committed *time.Time) error {
+func UpsertForgeBranch(ctx context.Context, db pgtx.Querier, projectID uuid.UUID, name, head string, protected *bool, committed *time.Time) error {
 	_, err := db.Exec(ctx, `
 		INSERT INTO branches AS b (id, project_id, name, head_sha, protected, sources, last_activity_at)
 		VALUES ($1, $2, $3, $4, $5, ARRAY['forge'], COALESCE($6, now()))
@@ -62,7 +61,7 @@ func UpsertForgeBranch(ctx context.Context, db postgres.Querier, projectID uuid.
 	return err
 }
 
-func UpsertClusterBranch(ctx context.Context, db postgres.Querier, projectID uuid.UUID, name string, commit *string, activity *time.Time) error {
+func UpsertClusterBranch(ctx context.Context, db pgtx.Querier, projectID uuid.UUID, name string, commit *string, activity *time.Time) error {
 	_, err := db.Exec(ctx, `
 		INSERT INTO branches AS b (id, project_id, name, head_sha, sources, last_activity_at)
 		VALUES ($1, $2, $3, $4, ARRAY['cluster'], COALESCE($5::timestamptz, now()))
@@ -83,7 +82,7 @@ func UpsertClusterBranch(ctx context.Context, db postgres.Querier, projectID uui
 	return err
 }
 
-func SyncRepositoryBranches(ctx context.Context, db postgres.Querier, projectID uuid.UUID, heads map[string]string, defaultBranch string) error {
+func SyncRepositoryBranches(ctx context.Context, db pgtx.Querier, projectID uuid.UUID, heads map[string]string, defaultBranch string) error {
 	ids := make([]uuid.UUID, 0, len(heads))
 	names := make([]string, 0, len(heads))
 	shas := make([]*string, 0, len(heads))

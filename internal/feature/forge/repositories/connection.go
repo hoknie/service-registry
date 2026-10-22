@@ -10,11 +10,12 @@ import (
 	forgetypes "svc-registry/internal/feature/forge/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type ConnectionRepository struct{ db *postgres.DB }
+type ConnectionRepository struct{ db *pgtx.DB }
 
-func NewConnectionRepository(db *postgres.DB) *ConnectionRepository {
+func NewConnectionRepository(db *pgtx.DB) *ConnectionRepository {
 	return &ConnectionRepository{db: db}
 }
 

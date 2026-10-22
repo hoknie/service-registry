@@ -1,16 +1,14 @@
-package auth
+package password
 
 import (
 	"strings"
 	"testing"
 
 	"github.com/alexedwards/argon2id"
-
-	"svc-registry/internal/platform/config"
 )
 
-func hasher(m, t, p uint32) *PasswordHasher {
-	return NewPasswordHasher(config.PasswordHashConfig{MemoryKiB: m, Iterations: t, Parallelism: p})
+func hasher(m, t, p uint32) *Hasher {
+	return NewHasher(Params{MemoryKiB: m, Iterations: t, Parallelism: p})
 }
 
 func TestHashIsPHCAndVerifies(t *testing.T) {

@@ -9,11 +9,12 @@ import (
 	deploytypes "svc-registry/internal/feature/deploy/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type EnvironmentRepository struct{ db *postgres.DB }
+type EnvironmentRepository struct{ db *pgtx.DB }
 
-func NewEnvironmentRepository(db *postgres.DB) *EnvironmentRepository {
+func NewEnvironmentRepository(db *pgtx.DB) *EnvironmentRepository {
 	return &EnvironmentRepository{db: db}
 }
 

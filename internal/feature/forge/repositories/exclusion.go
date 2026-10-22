@@ -9,11 +9,12 @@ import (
 
 	forgetypes "svc-registry/internal/feature/forge/types"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type ExclusionRepository struct{ db *postgres.DB }
+type ExclusionRepository struct{ db *pgtx.DB }
 
-func NewExclusionRepository(db *postgres.DB) *ExclusionRepository {
+func NewExclusionRepository(db *pgtx.DB) *ExclusionRepository {
 	return &ExclusionRepository{db: db}
 }
 

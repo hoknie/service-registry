@@ -6,12 +6,12 @@ import (
 	"svc-registry/internal/feature/deploy/repositories"
 	ingestservices "svc-registry/internal/feature/ingest/services"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 	"svc-registry/pkg/secretbox"
 )
 
 type Deps struct {
-	DB      *postgres.DB
+	DB      *pgtx.DB
 	Config  *config.Config
 	Catalog *catalogservices.CatalogServices
 	Ingest  *ingestservices.IngestServices
@@ -21,7 +21,7 @@ type Deps struct {
 
 type parts struct {
 	cfg                   *config.Config
-	db                    *postgres.DB
+	db                    *pgtx.DB
 	environmentRepository *repositories.EnvironmentRepository
 	clusterRepository     *repositories.ClusterRepository
 	workloadRepository    *repositories.WorkloadRepository

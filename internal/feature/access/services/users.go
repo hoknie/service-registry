@@ -8,10 +8,10 @@ import (
 	"svc-registry/internal/feature/access/repositories"
 	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/platform/apperr"
-	"svc-registry/internal/platform/auth"
+	"svc-registry/pkg/password"
 )
 
-func prepareUser(hasher *auth.PasswordHasher, in accesstypes.CreateUser) (accesstypes.NewUser, error) {
+func prepareUser(hasher *password.Hasher, in accesstypes.CreateUser) (accesstypes.NewUser, error) {
 	email, err := accesstypes.ValidateEmail(in.Email)
 	if err != nil {
 		return accesstypes.NewUser{}, apperr.Wrap(err)
@@ -133,7 +133,7 @@ func (s *UsersService) ResetPassword(ctx context.Context, p accesstypes.Principa
 }
 
 type UsersService struct {
-	hasher            *auth.PasswordHasher
+	hasher            *password.Hasher
 	sessionRepository *repositories.SessionRepository
 	userRepository    *repositories.UserRepository
 }

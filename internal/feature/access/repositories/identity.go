@@ -10,13 +10,14 @@ import (
 	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type IdentityRepository struct{ db *postgres.DB }
+type IdentityRepository struct{ db *pgtx.DB }
 
-func NewIdentityRepository(db *postgres.DB) *IdentityRepository { return &IdentityRepository{db: db} }
+func NewIdentityRepository(db *pgtx.DB) *IdentityRepository { return &IdentityRepository{db: db} }
 
-func insertIdentity(ctx context.Context, db postgres.Querier, n accesstypes.NewIdentity, userID uuid.UUID) (accesstypes.Identity, error) {
+func insertIdentity(ctx context.Context, db pgtx.Querier, n accesstypes.NewIdentity, userID uuid.UUID) (accesstypes.Identity, error) {
 	return scanIdentity(db.QueryRow(ctx, `
 		INSERT INTO user_identities AS i (id, user_id, provider, subject, email)
 		VALUES ($1, $2, $3, $4, $5)

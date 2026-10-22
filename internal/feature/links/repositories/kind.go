@@ -9,11 +9,12 @@ import (
 	linkstypes "svc-registry/internal/feature/links/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type KindRepository struct{ db *postgres.DB }
+type KindRepository struct{ db *pgtx.DB }
 
-func NewKindRepository(db *postgres.DB) *KindRepository { return &KindRepository{db: db} }
+func NewKindRepository(db *pgtx.DB) *KindRepository { return &KindRepository{db: db} }
 
 func (s *KindRepository) List(ctx context.Context) ([]linkstypes.Kind, error) {
 	rows, err := s.db.From(ctx).Query(ctx, `

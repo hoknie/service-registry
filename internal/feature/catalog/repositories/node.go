@@ -9,11 +9,12 @@ import (
 
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type NodeRepository struct{ db *postgres.DB }
+type NodeRepository struct{ db *pgtx.DB }
 
-func NewNodeRepository(db *postgres.DB) *NodeRepository { return &NodeRepository{db: db} }
+func NewNodeRepository(db *pgtx.DB) *NodeRepository { return &NodeRepository{db: db} }
 
 type chainRow struct {
 	nodeRow

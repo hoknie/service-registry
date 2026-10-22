@@ -8,11 +8,12 @@ import (
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type PatternRepository struct{ db *postgres.DB }
+type PatternRepository struct{ db *pgtx.DB }
 
-func NewPatternRepository(db *postgres.DB) *PatternRepository { return &PatternRepository{db: db} }
+func NewPatternRepository(db *pgtx.DB) *PatternRepository { return &PatternRepository{db: db} }
 
 func (s *PatternRepository) Chain(ctx context.Context, nodeID uuid.UUID) ([]knowledgetypes.ChainNode, error) {
 	rows, err := s.db.From(ctx).Query(ctx, `

@@ -8,10 +8,10 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	ingesttypes "svc-registry/internal/feature/ingest/types"
-	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-func InsertDeployment(ctx context.Context, tx postgres.Querier, d ingesttypes.DeploymentRecord) (bool, error) {
+func InsertDeployment(ctx context.Context, tx pgtx.Querier, d ingesttypes.DeploymentRecord) (bool, error) {
 	metadata := d.Metadata
 	if metadata == nil {
 		metadata = map[string]string{}

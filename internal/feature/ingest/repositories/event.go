@@ -11,15 +11,16 @@ import (
 	ingesttypes "svc-registry/internal/feature/ingest/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type EventRepository struct{ db *postgres.DB }
+type EventRepository struct{ db *pgtx.DB }
 
-func NewEventRepository(db *postgres.DB) *EventRepository { return &EventRepository{db: db} }
+func NewEventRepository(db *pgtx.DB) *EventRepository { return &EventRepository{db: db} }
 
 const pruneBatch = 5000
 
-func loadEvent(ctx context.Context, tx postgres.Querier, id uuid.UUID) (ingesttypes.Event, error) {
+func loadEvent(ctx context.Context, tx pgtx.Querier, id uuid.UUID) (ingesttypes.Event, error) {
 	rows, _ := tx.Query(ctx, `
 		SELECT e.id, e.project_id, e.type, e.version, e.idempotency_key,
 			rfc3339(e.occurred_at) AS occurred_at, rfc3339(e.received_at) AS received_at,
@@ -34,7 +35,7 @@ func loadEvent(ctx context.Context, tx postgres.Querier, id uuid.UUID) (ingestty
 	return r.event(), nil
 }
 
-func loadResult(ctx context.Context, tx postgres.Querier, eventID uuid.UUID) (*ingesttypes.DeploymentResult, error) {
+func loadResult(ctx context.Context, tx pgtx.Querier, eventID uuid.UUID) (*ingesttypes.DeploymentResult, error) {
 	rows, _ := tx.Query(ctx, `
 		SELECT id, service, environment, version, became_current
 		FROM service_deployments
@@ -49,7 +50,7 @@ func loadResult(ctx context.Context, tx postgres.Querier, eventID uuid.UUID) (*i
 	return &d, nil
 }
 
-func applyDeployed(ctx context.Context, tx postgres.Querier, e ingesttypes.NewEvent, p *ingesttypes.ServiceDeployed) (ingesttypes.DeploymentResult, error) {
+func applyDeployed(ctx context.Context, tx pgtx.Querier, e ingesttypes.NewEvent, p *ingesttypes.ServiceDeployed) (ingesttypes.DeploymentResult, error) {
 	at := e.Envelope.OccurredAt
 	eventID := e.ID
 	became, err := InsertDeployment(ctx, tx, ingesttypes.DeploymentRecord{

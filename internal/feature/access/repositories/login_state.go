@@ -8,11 +8,12 @@ import (
 
 	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type LoginStateRepository struct{ db *postgres.DB }
+type LoginStateRepository struct{ db *pgtx.DB }
 
-func NewLoginStateRepository(db *postgres.DB) *LoginStateRepository {
+func NewLoginStateRepository(db *pgtx.DB) *LoginStateRepository {
 	return &LoginStateRepository{db: db}
 }
 

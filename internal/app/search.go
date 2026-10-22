@@ -14,7 +14,7 @@ import (
 	knowledgeports "svc-registry/internal/feature/knowledge/ports"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/platform/outbound"
+	"svc-registry/pkg/outbound"
 )
 
 type search struct {
@@ -42,7 +42,7 @@ func buildSearch(all config.Config, pool *pgxpool.Pool) (search, error) {
 			return search{}, fmt.Errorf("EMBEDDINGS_API_KEY: %w", err)
 		}
 		out.embedder = embeddings.New(cfg.EmbeddingsURL, key, cfg.EmbeddingsModel, cfg.EmbeddingsDims, cfg.EmbeddingsBatch,
-			outbound.New(all.Outbound))
+			outbound.New(all.Outbound.Options()))
 	}
 	switch cfg.Engine {
 	case "pgvector":

@@ -8,6 +8,7 @@ import (
 
 	linkstypes "svc-registry/internal/feature/links/types"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
 type batchPathRow struct {
@@ -72,7 +73,7 @@ func (s *TemplateRepository) ProjectsData(ctx context.Context, ids []uuid.UUID) 
 	return out, postgres.Translate(err, constraints)
 }
 
-func batchPaths(ctx context.Context, tx postgres.Querier, ids []uuid.UUID, out map[uuid.UUID]linkstypes.ProjectBatch) error {
+func batchPaths(ctx context.Context, tx pgtx.Querier, ids []uuid.UUID, out map[uuid.UUID]linkstypes.ProjectBatch) error {
 	rows, err := tx.Query(ctx, `
 		WITH RECURSIVE up AS (
 			SELECT id AS project_id, id, parent_id, 0 AS lvl
@@ -104,7 +105,7 @@ func batchPaths(ctx context.Context, tx postgres.Querier, ids []uuid.UUID, out m
 	return nil
 }
 
-func batchTemplates(ctx context.Context, tx postgres.Querier, ids []uuid.UUID, out map[uuid.UUID]linkstypes.ProjectBatch) error {
+func batchTemplates(ctx context.Context, tx pgtx.Querier, ids []uuid.UUID, out map[uuid.UUID]linkstypes.ProjectBatch) error {
 	rows, err := tx.Query(ctx, `
 		WITH RECURSIVE up AS (
 			SELECT id AS project_id, id, parent_id, 0 AS lvl
@@ -139,7 +140,7 @@ func batchTemplates(ctx context.Context, tx postgres.Querier, ids []uuid.UUID, o
 	return nil
 }
 
-func batchVars(ctx context.Context, tx postgres.Querier, ids []uuid.UUID, out map[uuid.UUID]linkstypes.ProjectBatch) error {
+func batchVars(ctx context.Context, tx pgtx.Querier, ids []uuid.UUID, out map[uuid.UUID]linkstypes.ProjectBatch) error {
 	rows, err := tx.Query(ctx, `
 		WITH RECURSIVE up AS (
 			SELECT id AS project_id, id, parent_id, 0 AS lvl
@@ -170,7 +171,7 @@ func batchVars(ctx context.Context, tx postgres.Querier, ids []uuid.UUID, out ma
 	return nil
 }
 
-func batchRepos(ctx context.Context, tx postgres.Querier, ids []uuid.UUID, out map[uuid.UUID]linkstypes.ProjectBatch) error {
+func batchRepos(ctx context.Context, tx pgtx.Querier, ids []uuid.UUID, out map[uuid.UUID]linkstypes.ProjectBatch) error {
 	rows, err := tx.Query(ctx, `
 		SELECT project_id, full_path
 		FROM forge_repositories
@@ -193,7 +194,7 @@ func batchRepos(ctx context.Context, tx postgres.Querier, ids []uuid.UUID, out m
 	return nil
 }
 
-func batchDeployments(ctx context.Context, tx postgres.Querier, ids []uuid.UUID, out map[uuid.UUID]linkstypes.ProjectBatch) error {
+func batchDeployments(ctx context.Context, tx pgtx.Querier, ids []uuid.UUID, out map[uuid.UUID]linkstypes.ProjectBatch) error {
 	rows, err := tx.Query(ctx, `
 		SELECT e.project_id, d.service, d.environment, d.version, d.commit_sha, d.cluster, d.namespace, d.url, d.links
 		FROM service_environments e

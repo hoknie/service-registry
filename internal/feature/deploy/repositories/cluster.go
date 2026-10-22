@@ -10,11 +10,12 @@ import (
 	deploytypes "svc-registry/internal/feature/deploy/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type ClusterRepository struct{ db *postgres.DB }
+type ClusterRepository struct{ db *pgtx.DB }
 
-func NewClusterRepository(db *postgres.DB) *ClusterRepository { return &ClusterRepository{db: db} }
+func NewClusterRepository(db *pgtx.DB) *ClusterRepository { return &ClusterRepository{db: db} }
 
 func (s *ClusterRepository) List(ctx context.Context) ([]deploytypes.Cluster, error) {
 	rows, err := s.db.From(ctx).Query(ctx, `

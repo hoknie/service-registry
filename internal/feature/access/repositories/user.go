@@ -12,13 +12,14 @@ import (
 	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type UserRepository struct{ db *postgres.DB }
+type UserRepository struct{ db *pgtx.DB }
 
-func NewUserRepository(db *postgres.DB) *UserRepository { return &UserRepository{db: db} }
+func NewUserRepository(db *pgtx.DB) *UserRepository { return &UserRepository{db: db} }
 
-func insertUser(ctx context.Context, db postgres.Querier, u accesstypes.NewUser) (accesstypes.User, error) {
+func insertUser(ctx context.Context, db pgtx.Querier, u accesstypes.NewUser) (accesstypes.User, error) {
 	return scanUser(db.QueryRow(ctx, `
 		INSERT INTO users AS u (id, email, display_name, password_hash, is_superadmin, is_service)
 		VALUES ($1, $2, $3, NULLIF($4, ''), $5, $6)
@@ -27,7 +28,7 @@ func insertUser(ctx context.Context, db postgres.Querier, u accesstypes.NewUser)
 			rfc3339(u.updated_at) AS updated_at`, u.ID, u.Email, u.DisplayName, u.PasswordHash, u.IsSuperadmin, u.IsService))
 }
 
-func setPassword(ctx context.Context, db postgres.Querier, id uuid.UUID, hash string) (pgconn.CommandTag, error) {
+func setPassword(ctx context.Context, db pgtx.Querier, id uuid.UUID, hash string) (pgconn.CommandTag, error) {
 	return db.Exec(ctx, `
 		UPDATE users
 		SET password_hash = $2, updated_at = now()

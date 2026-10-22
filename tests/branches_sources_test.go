@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"svc-registry/internal/testsupport/forgefake"
+	"svc-registry/pkg/testing/forgefake"
 )
 
 func branchesPath(project string) string { return nodePath(project) + "/branches" }

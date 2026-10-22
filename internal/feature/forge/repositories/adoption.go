@@ -7,11 +7,12 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type AdoptionRepository struct{ db *postgres.DB }
+type AdoptionRepository struct{ db *pgtx.DB }
 
-func NewAdoptionRepository(db *postgres.DB) *AdoptionRepository { return &AdoptionRepository{db: db} }
+func NewAdoptionRepository(db *pgtx.DB) *AdoptionRepository { return &AdoptionRepository{db: db} }
 
 func (s *AdoptionRepository) Insert(ctx context.Context, connID uuid.UUID, externalID string, projectID uuid.UUID) error {
 	_, err := s.db.From(ctx).Exec(ctx, `

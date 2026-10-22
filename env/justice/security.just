@@ -15,7 +15,7 @@ vuln:
 # limits or Postgres column types before it is converted.
 [group('security')]
 sast:
-    {{ GO }} run {{ GOSEC }} -quiet -exclude-generated -exclude-dir=tests -exclude-dir=internal/testsupport -exclude=G115 ./...
+    {{ GO }} run {{ GOSEC }} -quiet -exclude-generated -exclude-dir=tests -exclude-dir=internal/testsupport -exclude-dir=pkg/testing -exclude=G115 ./...
 
 # Known vulnerabilities of the web's production dependencies, high and above
 [group('security')]

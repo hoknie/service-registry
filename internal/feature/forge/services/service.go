@@ -5,12 +5,12 @@ import (
 	forgeports "svc-registry/internal/feature/forge/ports"
 	"svc-registry/internal/feature/forge/repositories"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 	"svc-registry/pkg/secretbox"
 )
 
 type Deps struct {
-	DB      *postgres.DB
+	DB      *pgtx.DB
 	Config  *config.Config
 	Catalog *catalogservices.CatalogServices
 	Clients forgeports.ClientFactoryPort
@@ -19,7 +19,7 @@ type Deps struct {
 
 type parts struct {
 	cfg                  *config.Config
-	db                   *postgres.DB
+	db                   *pgtx.DB
 	connectionRepository *repositories.ConnectionRepository
 	repoRepository       *repositories.RepoRepository
 	exclusionRepository  *repositories.ExclusionRepository

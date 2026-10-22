@@ -6,7 +6,7 @@ import (
 	"svc-registry/internal/feature/knowledge/clients/search/meili"
 	"svc-registry/internal/feature/knowledge/clients/search/qdrant"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/platform/outbound"
+	"svc-registry/pkg/outbound"
 )
 
 func buildExternal(all config.Config, out *search) error {
@@ -28,7 +28,7 @@ func buildExternal(all config.Config, out *search) error {
 		if err != nil {
 			return fmt.Errorf("MEILISEARCH_API_KEY: %w", err)
 		}
-		e := meili.New(cfg.MeilisearchURL, key, cfg.MeilisearchIndex, dims, outbound.New(all.Outbound))
+		e := meili.New(cfg.MeilisearchURL, key, cfg.MeilisearchIndex, dims, outbound.New(all.Outbound.Options()))
 		out.engine, out.external = e, e
 	default:
 		return fmt.Errorf("KNOWLEDGE_SEARCH_ENGINE=%s is unknown", cfg.Engine)

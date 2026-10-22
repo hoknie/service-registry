@@ -6,8 +6,8 @@ import (
 
 	"svc-registry/internal/feature/access/repositories"
 	accesstypes "svc-registry/internal/feature/access/types"
-	"svc-registry/internal/platform/auth"
 	"svc-registry/internal/platform/config"
+	"svc-registry/pkg/password"
 )
 
 const BootstrapAdminName = "Administrator"
@@ -33,6 +33,6 @@ func (s *BootstrapService) EnsureBootstrapAdmin(ctx context.Context, admin acces
 }
 
 type BootstrapService struct {
-	hasher         *auth.PasswordHasher
+	hasher         *password.Hasher
 	userRepository *repositories.UserRepository
 }

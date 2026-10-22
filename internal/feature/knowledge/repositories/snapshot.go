@@ -11,11 +11,12 @@ import (
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type SnapshotRepository struct{ db *postgres.DB }
+type SnapshotRepository struct{ db *pgtx.DB }
 
-func NewSnapshotRepository(db *postgres.DB) *SnapshotRepository { return &SnapshotRepository{db: db} }
+func NewSnapshotRepository(db *pgtx.DB) *SnapshotRepository { return &SnapshotRepository{db: db} }
 
 func lastSnapshot(ctx context.Context, q querier, projectID uuid.UUID, branch string, withFailed bool) (*knowledgetypes.Snapshot, error) {
 	return oneSnapshot(ctx, q, `

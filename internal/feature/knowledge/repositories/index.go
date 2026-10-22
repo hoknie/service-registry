@@ -8,11 +8,12 @@ import (
 
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type IndexRepository struct{ db *postgres.DB }
+type IndexRepository struct{ db *pgtx.DB }
 
-func NewIndexRepository(db *postgres.DB) *IndexRepository { return &IndexRepository{db: db} }
+func NewIndexRepository(db *pgtx.DB) *IndexRepository { return &IndexRepository{db: db} }
 
 func (s *IndexRepository) Claim(ctx context.Context, limit, leaseSecs int) ([]uuid.UUID, error) {
 	if _, err := s.db.From(ctx).Exec(ctx, `

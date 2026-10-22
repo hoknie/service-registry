@@ -5,14 +5,15 @@ import (
 	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/platform/auth"
 	"svc-registry/internal/platform/config"
-	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/password"
+	"svc-registry/pkg/pgtx"
 )
 
 type Deps struct {
-	DB           *postgres.DB
+	DB           *pgtx.DB
 	Config       *config.Config
 	OAuth        accesstypes.OAuthClient
-	Hasher       *auth.PasswordHasher
+	Hasher       *password.Hasher
 	LoginLimiter *auth.LoginLimiter
 }
 
@@ -25,7 +26,7 @@ type parts struct {
 	identityRepository   *repositories.IdentityRepository
 	loginStateRepository *repositories.LoginStateRepository
 	oauth                accesstypes.OAuthClient
-	hasher               *auth.PasswordHasher
+	hasher               *password.Hasher
 	loginLimiter         *auth.LoginLimiter
 }
 

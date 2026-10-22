@@ -13,7 +13,7 @@ import (
 	"svc-registry/internal/feature/forge/repositories"
 	forgetypes "svc-registry/internal/feature/forge/types"
 	"svc-registry/internal/platform/apperr"
-	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
 type ExclusionView struct {
@@ -123,7 +123,7 @@ type UnlinkService struct {
 	adoptionRepository   *repositories.AdoptionRepository
 	catalog              *catalogservices.CatalogServices
 	connectionRepository *repositories.ConnectionRepository
-	db                   *postgres.DB
+	db                   *pgtx.DB
 	exclusionRepository  *repositories.ExclusionRepository
 	repoRepository       *repositories.RepoRepository
 	sources              forgeports.ProjectSourcesPort

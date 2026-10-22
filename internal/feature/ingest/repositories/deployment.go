@@ -9,11 +9,12 @@ import (
 	accesstypes "svc-registry/internal/feature/access/types"
 	ingesttypes "svc-registry/internal/feature/ingest/types"
 	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
 )
 
-type DeploymentRepository struct{ db *postgres.DB }
+type DeploymentRepository struct{ db *pgtx.DB }
 
-func NewDeploymentRepository(db *postgres.DB) *DeploymentRepository {
+func NewDeploymentRepository(db *pgtx.DB) *DeploymentRepository {
 	return &DeploymentRepository{db: db}
 }
 
