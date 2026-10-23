@@ -101,6 +101,12 @@ export function ProjectPage({ locale, labels, space, branch: branchParam, nodePa
   };
 
   const notCollected = branches.length === 0 || current?.missing;
+  const noDocument = !!notCollected || !!current?.error || (!!current?.files && (!open || !paths.includes(open)));
+
+  useEffect(() => {
+    if (noDocument) onHeadings([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noDocument]);
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
@@ -187,7 +193,6 @@ export function ProjectPage({ locale, labels, space, branch: branchParam, nodePa
       )}
       {current?.files && node && open && paths.includes(open) && (
         <DocViewer
-          key={`${current.branch}:${open}`}
           node={node}
           branch={current.branch}
           path={open}

@@ -27,6 +27,8 @@ func (stubPorts) ActivitySignals(context.Context, []uuid.UUID, bool, bool) (map[
 	return nil, nil
 }
 
+func (stubPorts) AddTokenRoot(context.Context, uuid.UUID, uuid.UUID) (bool, error) { return true, nil }
+
 func TestServiceIsWiredOnlyAfterUse(t *testing.T) {
 	t.Parallel()
 	s := New(Deps{Config: &config.Config{}})
@@ -42,6 +44,10 @@ func TestServiceIsWiredOnlyAfterUse(t *testing.T) {
 		t.Fatal("a service without the owners filter must not be wired")
 	}
 	s.UseOwners(stubPorts{})
+	if s.Wired() {
+		t.Fatal("a service without token roots must not be wired")
+	}
+	s.UseTokenRoots(stubPorts{})
 	if !s.Wired() {
 		t.Fatal("a service with ports must be wired")
 	}

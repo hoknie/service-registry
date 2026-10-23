@@ -85,6 +85,7 @@ type Project struct {
 	ConnectionID  *uuid.UUID
 	Settings      Settings
 	Force         bool
+	Editor        bool
 }
 
 type Hit struct {

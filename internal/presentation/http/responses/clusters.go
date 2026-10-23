@@ -21,9 +21,11 @@ func clusterError(f *deploytypes.Failure) *ClusterError {
 }
 
 type ClusterAgent struct {
-	Version       *string  `json:"version"`
-	LastReportAt  *string  `json:"last_report_at"`
-	TokenPrefixes []string `json:"token_prefixes"`
+	Version         *string  `json:"version"`
+	LastReportAt    *string  `json:"last_report_at"`
+	TokenPrefixes   []string `json:"token_prefixes"`
+	ReportGapSecs   int32    `json:"report_gap_secs"`
+	ReportWorkloads int32    `json:"report_workloads"`
 }
 
 type AgentToken struct {
@@ -85,7 +87,8 @@ func ClusterOf(c deploytypes.Cluster) Cluster {
 		out.Credentials = new(CredentialsOf(*c.Credentials))
 	}
 	if a := c.Agent; a != nil {
-		out.Agent = &ClusterAgent{Version: a.Version, LastReportAt: a.LastReportAt, TokenPrefixes: a.TokenPrefixes}
+		out.Agent = &ClusterAgent{Version: a.Version, LastReportAt: a.LastReportAt, TokenPrefixes: a.TokenPrefixes,
+			ReportGapSecs: a.ReportGapSecs, ReportWorkloads: a.ReportWorkloads}
 	}
 	return out
 }

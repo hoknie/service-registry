@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Locale } from "@/i18n/config";
 import { errorText } from "@/i18n/errors";
 import type { Messages } from "@/i18n/messages";
+import type { DocSpace as DocSpaceData } from "@/lib/api";
 import { ensureSpace, knownSpace, spaceEntry, useDocRevalidate, useDocStore } from "@/lib/docSpaceStore";
 import { DOC_NAVIGATE, docHref, parseDocLocation, splitPath, type DocLocation } from "@/lib/docPath";
 
@@ -53,6 +54,11 @@ function usePanelOpen(): [boolean, (open: boolean) => void] {
   ];
 }
 
+type Shown = { space: DocSpaceData | null; missing: boolean; error: string | null };
+type Page = { sig: string; loc: DocLocation; current: Shown; docKey: string };
+
+const PREPARE_MS = 2000;
+
 function currentLocation(): DocLocation {
   return parseDocLocation(window.location.pathname, window.location.search);
 }
@@ -62,7 +68,9 @@ export function DocSpace({ locale, labels }: Props) {
   const t = labels.space;
   const [loc, setLoc] = useState<DocLocation | null>(null);
   const [contents, setContents] = useState(false);
-  const [headings, setHeadings] = useState<{ items: DocHeading[] } | null>(null);
+  const [headings, setHeadings] = useState<{ key: string; items: DocHeading[] } | null>(null);
+  const [shown, setShown] = useState<Page | null>(null);
+  const [forced, setForced] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = usePanelOpen();
 
   useEffect(() => {
@@ -99,9 +107,33 @@ export function DocSpace({ locale, labels }: Props) {
             error: entry.error && entry.error !== "not_found" ? errorText(errors, entry.error) : null,
           }
         : null;
-  const space = current?.space ?? null;
+  const latest: Page | null =
+    current && loc
+      ? {
+          sig: [key, current.space?.node?.id ?? "", current.space?.doc_path ?? "", current.missing, current.error ?? ""].join("|"),
+          loc,
+          current,
+          docKey: `${loc.segments.join("/")}|${loc.branch ?? ""}`,
+        }
+      : null;
+  const latestProject = latest?.current.space?.node?.kind === "project" ? latest.current.space.node.id : null;
+  const waits = !!latest && !!shown && !!latestProject && latestProject !== shown.current.space?.node?.id;
+  const ready = !waits || headings?.key === latest?.docKey || forced === latest?.docKey;
+  if (latest && ready && latest.sig !== shown?.sig) setShown(latest);
+  const view = latest && ready ? latest : shown;
+  const preparing = latest && !ready ? latest : null;
+  const pending = (!latest && !!shown) || !!preparing;
+  const viewLoc = view?.loc ?? loc;
+  const docKey = view?.docKey ?? "";
+  const space = view?.current.space ?? null;
+
+  const preparingKey = preparing?.docKey ?? null;
+  useEffect(() => {
+    if (!preparingKey) return;
+    const timer = setTimeout(() => setForced(preparingKey), PREPARE_MS);
+    return () => clearTimeout(timer);
+  }, [preparingKey]);
   const treeSpace = space ?? known?.space ?? null;
-  const nodePath = space?.node ? [...space.ancestors.map((a) => a.slug), space.node.slug] : [];
   const treePath = treeSpace?.node ? [...treeSpace.ancestors.map((a) => a.slug), treeSpace.node.slug] : [];
 
   const crumbs = useCallback(() => {
@@ -113,20 +145,21 @@ export function DocSpace({ locale, labels }: Props) {
   }, [space, t.title]);
 
   const headingItems = space?.node?.kind === "project" && headings ? headings.items : [];
+  const tocStale = pending || headings?.key !== docKey;
   const sections = (
     <div className="grid min-w-0 gap-3">
       {headingItems.length >= 2 && (
-        <PanelSection title={t.toc} icon={ListOrdered} storageKey="svcr-doc-toc">
+        <PanelSection title={t.toc} icon={ListOrdered} storageKey="svcr-doc-toc" busy={tocStale}>
           <DocToc headings={headingItems} label={t.toc} />
         </PanelSection>
       )}
-      <PanelSection title={t.structure} icon={ListTree} storageKey="svcr-doc-tree">
-        {loc && (
+      <PanelSection title={t.structure} icon={ListTree} storageKey="svcr-doc-tree" busy={pending}>
+        {viewLoc && (
           <DocSpaceTree
             locale={locale}
             labels={labels}
             nodePath={treePath}
-            branch={loc.branch}
+            branch={viewLoc.branch}
             docPath={treeSpace?.doc_path ?? null}
             projectId={treeSpace?.node?.kind === "project" ? treeSpace.node.id : null}
           />
@@ -173,32 +206,40 @@ export function DocSpace({ locale, labels }: Props) {
           </div>
           {panelOpen && sections}
         </aside>
-        <section className="min-w-0">
-          {!current && <SkeletonPanel lines={6} label={common.loading} />}
-          {current?.error && <Message note={{ kind: "error", text: current.error }} />}
-          {current?.missing && (
-            <EmptyState
-              icon={BookOpen}
-              title={t.notFound}
-              action={
-                <DocLink href={docHref([])} className="text-signal hover:underline">
-                  {t.toRoot}
-                </DocLink>
-              }
-            />
-          )}
-          {space && space.node?.kind === "project" && loc && (
-            <ProjectPage
-              key={space.node.id}
-              locale={locale}
-              labels={labels}
-              space={space}
-              branch={loc.branch}
-              nodePath={nodePath}
-              onHeadings={(items) => setHeadings({ items })}
-            />
-          )}
-          {space && space.node?.kind !== "project" && <ContainerPage locale={locale} labels={labels} space={space} nodePath={nodePath} />}
+        <section aria-busy={pending || undefined} inert={pending} className={cn("motion-control min-w-0", pending && "opacity-60 delay-150")}>
+          {!view && <SkeletonPanel lines={6} label={common.loading} />}
+          {[view, preparing].map((page) => {
+            if (!page) return null;
+            const pageSpace = page.current.space;
+            const path = pageSpace?.node ? [...pageSpace.ancestors.map((a) => a.slug), pageSpace.node.slug] : [];
+            return (
+              <div key={pageSpace?.node?.id ?? page.sig} hidden={page === preparing} className="min-w-0">
+                {page.current.error && <Message note={{ kind: "error", text: page.current.error }} />}
+                {page.current.missing && (
+                  <EmptyState
+                    icon={BookOpen}
+                    title={t.notFound}
+                    action={
+                      <DocLink href={docHref([])} className="text-signal hover:underline">
+                        {t.toRoot}
+                      </DocLink>
+                    }
+                  />
+                )}
+                {pageSpace && pageSpace.node?.kind === "project" && (
+                  <ProjectPage
+                    locale={locale}
+                    labels={labels}
+                    space={pageSpace}
+                    branch={page.loc.branch}
+                    nodePath={path}
+                    onHeadings={(items) => setHeadings({ key: page.docKey, items })}
+                  />
+                )}
+                {pageSpace && pageSpace.node?.kind !== "project" && <ContainerPage locale={locale} labels={labels} space={pageSpace} nodePath={path} />}
+              </div>
+            );
+          })}
         </section>
       </div>
       <Dialog open={contents} onOpenChange={setContents} title={t.contents}>

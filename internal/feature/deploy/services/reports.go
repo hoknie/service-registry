@@ -39,7 +39,7 @@ func (s *ReportsService) AgentConfig(ctx context.Context, a Agent) (deploytypes.
 	if err != nil {
 		return deploytypes.AgentConfig{}, err
 	}
-	return deploytypes.ConfigOf(c), nil
+	return deploytypes.ConfigOf(c, c.Agent.ReportGapSecs), nil
 }
 
 func (s *ReportsService) AcceptReport(ctx context.Context, a Agent, r deploytypes.Report) (deploytypes.ReportAnswer, error) {
@@ -85,10 +85,11 @@ func (s *ReportsService) process(ctx context.Context, a Agent, r deploytypes.Rep
 			counts.Matched, counts.Unmatched = run.counts()
 		}
 	}
-	if err := s.clusterRepository.FinishReport(context.WithoutCancel(ctx), c.ID, r.AgentVersion, summary); err != nil {
+	gap, err := s.clusterRepository.FinishReport(context.WithoutCancel(ctx), c.ID, r.AgentVersion, len(r.Workloads), summary)
+	if err != nil {
 		return deploytypes.ReportAnswer{}, err
 	}
-	return deploytypes.ReportAnswer{AgentConfig: deploytypes.ConfigOf(c), Accepted: counts}, nil
+	return deploytypes.ReportAnswer{AgentConfig: deploytypes.ConfigOf(c, gap), Accepted: counts}, nil
 }
 
 func (s *ReportsService) cluster(ctx context.Context, a Agent) (deploytypes.Cluster, error) {

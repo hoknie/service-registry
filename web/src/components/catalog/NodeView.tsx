@@ -11,6 +11,7 @@ import { isSummary, useActivity, type Settled } from "@/lib/activity";
 import { apiGet, errorCode, type CatalogNode, type CatalogTable, type Items, type NodeActivity, type ProjectLink } from "@/lib/api";
 import { useCatalogVersion } from "@/lib/catalogEvents";
 import { useChildrenView } from "@/lib/childrenView";
+import { cn } from "@/lib/cn";
 import { resolveTab, sectionsOf, tabsOf, type NodeTab, type Section } from "@/lib/nodeSettings";
 import { forgetRecentNode, recordRecentNode } from "@/lib/recentNodes";
 
@@ -33,6 +34,7 @@ import { Menu, MenuContent, MenuItem, MenuTrigger } from "../ui/Menu";
 import { NodeHero } from "../ui/NodeHero";
 import { Segmented } from "../ui/Segmented";
 import { EmptyState } from "../ui/EmptyState";
+import { KeepPrevious } from "../ui/KeepPrevious";
 import { Message } from "../ui/Message";
 import { PageHeader, Panel } from "../ui/Panel";
 import { Pager } from "../ui/Pager";
@@ -87,35 +89,43 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
   const { errors, common } = useUiText();
   const { session } = useSession();
   const router = useRouter();
-  const [node, setNode] = useState<CatalogNode | null>(null);
-  const [children, setChildren] = useState<CatalogTable | null>(null);
+  const [data, setData] = useState<{ id: string | null; node: CatalogNode | null; children: CatalogTable } | null>(null);
   const [docsReload, setDocsReload] = useState(0);
   const [offset, setOffset] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<{ id: string | null; text: string } | null>(null);
   const [childFilter, setChildFilter] = useState("");
+  const [shownId, setShownId] = useState(id);
   const [view, setView] = useChildrenView();
 
-  const fail = useCallback((e: unknown) => errorText(errors, errorCode(e)), [errors]);
+  if (shownId !== id) {
+    setShownId(id);
+    setOffset(0);
+    setChildFilter("");
+  }
 
-  const loadChildren = useCallback(async () => {
-    const parent = id ? `parent=${id}&` : "";
-    setChildren(await apiGet<CatalogTable>(`/v1/catalog/table?${parent}limit=${PAGE}&offset=${offset}`));
-  }, [id, offset]);
+  const fail = useCallback((e: unknown) => errorText(errors, errorCode(e)), [errors]);
+  const pageOffset = shownId === id ? offset : 0;
+  const seq = useRef(0);
 
   const load = useCallback(async () => {
+    const parent = id ? `parent=${id}&` : "";
+    const n = ++seq.current;
     try {
-      if (id) {
-        const loaded = await apiGet<CatalogNode>(`/v1/catalog/nodes/${id}`);
-        setNode(loaded);
-        recordRecentNode({ ...loaded, path: (loaded.path ?? []).map((p) => p.name).join(" / ") });
-      }
-      await loadChildren();
-      setError(null);
+      const [loaded, table] = await Promise.all([
+        id ? apiGet<CatalogNode>(`/v1/catalog/nodes/${id}`) : Promise.resolve(null),
+        apiGet<CatalogTable>(`/v1/catalog/table?${parent}limit=${PAGE}&offset=${pageOffset}`),
+      ]);
+      if (n !== seq.current) return;
+      if (loaded) recordRecentNode({ ...loaded, path: (loaded.path ?? []).map((p) => p.name).join(" / ") });
+      setData({ id, node: loaded, children: table });
+      setFailure(null);
     } catch (e) {
+      if (n !== seq.current) return;
       if (id && errorCode(e) === "not_found") forgetRecentNode(id);
-      setError(fail(e));
+      setData((prev) => (prev?.id === id ? prev : null));
+      setFailure({ id, text: fail(e) });
     }
-  }, [id, loadChildren, fail]);
+  }, [id, pageOffset, fail]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -131,8 +141,13 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
     [onChanged],
   );
   const { activity, refresh: refreshActivity } = useActivity(id, loadActivity, onSettled);
-  const [heroLinks, setHeroLinks] = useState<ProjectLink[]>([]);
+  const [linksOf, setLinksOf] = useState<{ id: string; links: ProjectLink[] } | null>(null);
+  const pending = !!data && data.id !== id;
+  const node = data?.node ?? null;
+  const children = data?.children ?? null;
+  const error = failure?.id === id ? failure.text : null;
   const projectId = node?.kind === "project" && node.access === "read" ? node.id : null;
+  const heroLinks = linksOf && linksOf.id === projectId ? linksOf.links : [];
 
   useEffect(() => {
     if (!projectId) return;
@@ -146,9 +161,9 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
           const seen = first.get(l.link_key);
           if (!seen || (!seen.url && l.url)) first.set(l.link_key, l);
         }
-        setHeroLinks([...first.values()]);
+        setLinksOf({ id: projectId, links: [...first.values()] });
       })
-      .catch(() => live && setHeroLinks([]));
+      .catch(() => live && setLinksOf({ id: projectId, links: [] }));
     return () => {
       live = false;
     };
@@ -157,10 +172,10 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
   const resolved = resolveTab(node, tabParam, sectionParam);
   const redirect = resolved.redirect;
   useEffect(() => {
-    if (node && redirect) {
+    if (node && redirect && !pending) {
       router.replace(catalogHref(locale, node.id, redirect.tab, branchParam, null, redirect.section), { scroll: false });
     }
-  }, [node, redirect, router, locale, branchParam]);
+  }, [node, redirect, pending, router, locale, branchParam]);
 
   const version = useCatalogVersion();
   const seen = useRef(version);
@@ -183,7 +198,7 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
       </>
     );
   }
-  if (!children || (id && !node)) {
+  if (!children) {
     return (
       <div className="grid gap-6">
         <div className="flex items-center gap-3">
@@ -195,6 +210,7 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
     );
   }
 
+  const shownActivity = pending ? null : activity;
   const superadmin = session.status === "signed-in" && session.user.is_superadmin;
   const can = (p: string) => (node ? (node.permissions ?? []).includes(p) : superadmin);
   const readable = !node || node.access === "read";
@@ -435,156 +451,159 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
         ]}
       />
 
-      {node ? (
-        <NodeHero
-          kind={node.kind}
-          icon={<KindIcon kind={node.kind} tile className="size-14 rounded-2xl shadow-elev-1 [&>svg]:size-7" />}
-          title={node.name}
-          actions={actions}
-          meta={
-            <>
-              <Badge tone="outline" className="bg-surface/70">
-                {t.kinds[node.kind]}
-              </Badge>
-              <code className="inline-flex h-6 items-center rounded-md bg-surface px-2 font-mono text-xs text-ink ring-1 ring-line ring-inset">
-                {node.slug}
-              </code>
-              {!readable && <Badge tone="outline">{t.navigateOnly}</Badge>}
-              {readable && activity?.processes && <ProcessBadges processes={activity.processes} labels={t.activity} locale={locale} />}
-              {readable && activity?.summary && <SummaryBadges summary={activity.summary} labels={t.activity} />}
-              {project && readable && <BranchPicker projectId={node.id} current={branch} labels={t.branches} onSelect={selectBranch} />}
-              {managed && (
+      <div aria-busy={pending || undefined} inert={pending} className={cn("motion-control", pending && "opacity-60 delay-150")}>
+        {node ? (
+          <NodeHero
+            kind={node.kind}
+            icon={<KindIcon kind={node.kind} tile className="size-14 rounded-2xl shadow-elev-1 [&>svg]:size-7" />}
+            title={node.name}
+            actions={actions}
+            meta={
+              <>
                 <Badge tone="outline" className="bg-surface/70">
-                  <GitBranch aria-hidden="true" className="size-3" />
-                  {t.repoMeta.managed}
+                  {t.kinds[node.kind]}
                 </Badge>
-              )}
-            </>
-          }
-        >
-          {project && readable && heroLinks.length > 0 && (
-            <LinkIconRow links={heroLinks} locale={locale} labels={t.linkIcons} size={20} className={labelEntries.length > 0 ? "mb-3" : undefined} />
-          )}
-          {labelEntries.length > 0 && (
-            <ul aria-label={t.node.labels} className="flex flex-wrap gap-1.5">
-              {labelEntries.map(([k, v]) => (
-                <li key={k}>
-                  <LabelChip name={k} value={v} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </NodeHero>
-      ) : (
-        <PageHeader title={t.title} lead={t.lead} actions={addButton} glyph={FolderTree} />
-      )}
-
-      {error && <Message note={{ kind: "error", text: error }} className="mb-4" />}
-
-      {!node ? (
-        childrenList
-      ) : tabs.length > 1 ? (
-        <Tabs value={tab} onValueChange={selectTab} activationMode="manual">
-          <TabsList aria-label={t.tabs.label}>
-            {tabs.map((name) => {
-              const Icon = tabIcons[name];
-              return (
-                <TabsTrigger key={name} value={name}>
-                  <Icon aria-hidden="true" />
-                  {t.tabs[name]}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-          <TabsContent value="overview">{overview}</TabsContent>
-          {tabs.includes("details") && (
-            <TabsContent value="details">
-              <NodeDetails node={node} locale={locale} labels={t} branch={branchParam} canWrite={canWrite}>
-                {project && <RepositoryBlock node={node} locale={locale} labels={t} canWrite={canWrite} fail={fail} onChanged={changed} />}
-              </NodeDetails>
-            </TabsContent>
-          )}
-          {project && (
-            <>
-              <TabsContent value="releases">
-                <ReleasesTab
-                  key={branch ?? ""}
-                  projectId={node.id}
-                  branch={branch}
-                  locale={locale}
-                  labels={t}
-                  onConnect={() => selectTab("connect")}
-                />
-              </TabsContent>
-              <TabsContent value="docs">
-                <DocsTab
-                  node={node}
-                  branch={branchParam}
-                  doc={doc}
-                  locale={locale}
-                  labels={t}
-                  canWrite={canWrite}
-                  reload={docsReload}
-                  onCollect={refreshActivity}
-                  onOpen={(nextBranch, nextDoc) =>
-                    router.replace(catalogHref(locale, node.id, "docs", nextBranch, nextDoc), { scroll: false })
-                  }
-                />
-              </TabsContent>
-            </>
-          )}
-          {tabs.includes("dependencies") && (
-            <TabsContent value="dependencies">
-              <DependenciesTab node={node} locale={locale} labels={t} canWrite={canWrite} fail={fail} />
-            </TabsContent>
-          )}
-          {tabs.includes("settings") && (
-            <TabsContent value="settings">
-              <NodeSettings node={node} sections={sections} section={section} branch={branchParam} locale={locale} labels={t}>
-                {section === "general" && (
-                  <SettingsGeneral
-                    node={node}
-                    labels={t}
-                    fail={fail}
-                    canWrite={canWrite}
-                    canMove={canMove}
-                    canDelete={canDelete}
-                    superadmin={superadmin}
-                    onSaved={changed}
-                    onDeleted={() => {
-                      router.push(catalogHref(locale, node.parent_id));
-                      onChanged();
-                    }}
-                  />
+                <code className="inline-flex h-6 items-center rounded-md bg-surface px-2 font-mono text-xs text-ink ring-1 ring-line ring-inset">
+                  {node.slug}
+                </code>
+                {!readable && <Badge tone="outline">{t.navigateOnly}</Badge>}
+                {readable && shownActivity?.processes && <ProcessBadges processes={shownActivity.processes} labels={t.activity} locale={locale} />}
+                {readable && shownActivity?.summary && <SummaryBadges summary={shownActivity.summary} labels={t.activity} />}
+                {project && readable && <BranchPicker key={node.id} projectId={node.id} current={branch} labels={t.branches} onSelect={selectBranch} />}
+                {managed && (
+                  <Badge tone="outline" className="bg-surface/70">
+                    <GitBranch aria-hidden="true" className="size-3" />
+                    {t.repoMeta.managed}
+                  </Badge>
                 )}
-                {section === "owners" && <OwnersSettings node={node} locale={locale} labels={t} canWrite={canWrite} fail={fail} />}
-                {section === "branches" && <BranchesTab projectId={node.id} locale={locale} labels={t} canWrite={canWrite} managed={managed} onDefault={changed} />}
-                {section === "links" && <LinksTab node={node} branch={branch} locale={locale} labels={t} canWrite={canWrite} />}
-                {section === "dependencies" && <DependencySettings node={node} locale={locale} labels={t} fail={fail} />}
-                {section === "docs" && <DocsSettingsTab node={node} locale={locale} labels={t} canWrite={canWrite} onChanged={refreshActivity} />}
-                {section === "scans" && <ProjectScans projectId={node.id} branch={branchParam} locale={locale} labels={t} />}
-                {section === "keys" && <ProjectKeys projectId={node.id} locale={locale} labels={t} />}
-                {section === "secrets" && <SecretsTable locale={locale} nodeId={node.id} canManage={can("catalog.access")} />}
-                {section === "access" && <AccessTab nodeId={node.id} labels={t} />}
-                {section === "notifications" && <NotificationsSettings node={node} locale={locale} labels={t} branch={branch} />}
-                {section === "connect" && (
-                  <IngestHowTo
+              </>
+            }
+          >
+            {project && readable && heroLinks.length > 0 && (
+              <LinkIconRow links={heroLinks} locale={locale} labels={t.linkIcons} size={20} className={labelEntries.length > 0 ? "mb-3" : undefined} />
+            )}
+            {labelEntries.length > 0 && (
+              <ul aria-label={t.node.labels} className="flex flex-wrap gap-1.5">
+                {labelEntries.map(([k, v]) => (
+                  <li key={k}>
+                    <LabelChip name={k} value={v} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </NodeHero>
+        ) : (
+          <PageHeader title={t.title} lead={t.lead} actions={addButton} glyph={FolderTree} />
+        )}
+      </div>
+
+      <KeepPrevious id={node?.id ?? "top"} pending={pending}>
+        {error && <Message note={{ kind: "error", text: error }} className="mb-4" />}
+
+        {!node ? (
+          childrenList
+        ) : tabs.length > 1 ? (
+          <Tabs value={tab} onValueChange={selectTab} activationMode="manual">
+            <TabsList aria-label={t.tabs.label}>
+              {tabs.map((name) => {
+                const Icon = tabIcons[name];
+                return (
+                  <TabsTrigger key={name} value={name}>
+                    <Icon aria-hidden="true" />
+                    {t.tabs[name]}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+            <TabsContent value="overview">{overview}</TabsContent>
+            {tabs.includes("details") && (
+              <TabsContent value="details">
+                <NodeDetails node={node} locale={locale} labels={t} branch={branchParam} canWrite={canWrite}>
+                  {project && <RepositoryBlock node={node} locale={locale} labels={t} canWrite={canWrite} fail={fail} onChanged={changed} />}
+                </NodeDetails>
+              </TabsContent>
+            )}
+            {project && (
+              <>
+                <TabsContent value="releases">
+                  <ReleasesTab
+                    key={branch ?? ""}
                     projectId={node.id}
-                    labels={t.howTo}
-                    onKeys={sections.includes("keys") ? () => router.replace(catalogHref(locale, node.id, "keys"), { scroll: false }) : undefined}
+                    branch={branch}
+                    locale={locale}
+                    labels={t}
+                    onConnect={() => selectTab("connect")}
                   />
-                )}
-                {section === "forge" && (
-                  <ForgeTab nodeId={node.id} locale={locale} labels={t} canWrite={canWrite} canAccess={can("catalog.access")} onSynced={changed} />
-                )}
-              </NodeSettings>
-            </TabsContent>
-          )}
-        </Tabs>
-      ) : (
+                </TabsContent>
+                <TabsContent value="docs">
+                  <DocsTab
+                    node={node}
+                    branch={branchParam}
+                    doc={doc}
+                    locale={locale}
+                    labels={t}
+                    canWrite={canWrite}
+                    reload={docsReload}
+                    onCollect={refreshActivity}
+                    onOpen={(nextBranch, nextDoc) =>
+                      router.replace(catalogHref(locale, node.id, "docs", nextBranch, nextDoc), { scroll: false })
+                    }
+                  />
+                </TabsContent>
+              </>
+            )}
+            {tabs.includes("dependencies") && (
+              <TabsContent value="dependencies">
+                <DependenciesTab node={node} locale={locale} labels={t} canWrite={canWrite} fail={fail} />
+              </TabsContent>
+            )}
+            {tabs.includes("settings") && (
+              <TabsContent value="settings">
+                <NodeSettings node={node} sections={sections} section={section} branch={branchParam} locale={locale} labels={t}>
+                  {section === "general" && (
+                    <SettingsGeneral
+                      node={node}
+                      labels={t}
+                      fail={fail}
+                      canWrite={canWrite}
+                      canMove={canMove}
+                      canDelete={canDelete}
+                      superadmin={superadmin}
+                      onSaved={changed}
+                      onDeleted={() => {
+                        router.push(catalogHref(locale, node.parent_id));
+                        onChanged();
+                      }}
+                    />
+                  )}
+                  {section === "owners" && <OwnersSettings node={node} locale={locale} labels={t} canWrite={canWrite} fail={fail} />}
+                  {section === "branches" && <BranchesTab projectId={node.id} locale={locale} labels={t} canWrite={canWrite} managed={managed} onDefault={changed} />}
+                  {section === "links" && <LinksTab node={node} branch={branch} locale={locale} labels={t} canWrite={canWrite} />}
+                  {section === "dependencies" && <DependencySettings node={node} locale={locale} labels={t} fail={fail} />}
+                  {section === "docs" && <DocsSettingsTab node={node} locale={locale} labels={t} canWrite={canWrite} onChanged={refreshActivity} />}
+                  {section === "scans" && <ProjectScans projectId={node.id} branch={branchParam} locale={locale} labels={t} />}
+                  {section === "keys" && <ProjectKeys projectId={node.id} locale={locale} labels={t} />}
+                  {section === "secrets" && <SecretsTable locale={locale} nodeId={node.id} canManage={can("catalog.access")} />}
+                  {section === "access" && <AccessTab nodeId={node.id} labels={t} />}
+                  {section === "notifications" && <NotificationsSettings node={node} locale={locale} labels={t} branch={branch} />}
+                  {section === "connect" && (
+                    <IngestHowTo
+                      projectId={node.id}
+                      labels={t.howTo}
+                      onKeys={sections.includes("keys") ? () => router.replace(catalogHref(locale, node.id, "keys"), { scroll: false }) : undefined}
+                    />
+                  )}
+                  {section === "forge" && (
+                    <ForgeTab nodeId={node.id} locale={locale} labels={t} canWrite={canWrite} canAccess={can("catalog.access")} onSynced={changed} />
+                  )}
+                </NodeSettings>
+              </TabsContent>
+            )}
+          </Tabs>
+        ) : (
         overview
       )}
-
+      </KeepPrevious>
     </>
   );
 }

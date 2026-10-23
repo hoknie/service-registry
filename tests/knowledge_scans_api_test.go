@@ -74,7 +74,7 @@ func TestKnowledgeScansAPIIsForSuperadmins(t *testing.T) {
 	r = a.bearer("GET", scansPath, a.pat(a.admin, "read"), nil)
 	eq(t, r.status, 403)
 	eq(t, code(t, r), any("auth.insufficient_scope"))
-	r = a.bearer("GET", scansPath, a.pat(a.admin, "settings"), nil)
+	r = a.bearer("GET", scansPath, a.pat(a.admin, "settings:read"), nil)
 	eq(t, r.status, 200, r.text())
 	eq(t, strings.Contains(r.text(), `"items":[]`), true, r.text())
 	eq(t, a.get(scansPath, "").status, 401)

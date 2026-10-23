@@ -46,7 +46,7 @@ export function DocsTab({ node, branch: branchParam, doc, locale, labels, canWri
   const { errors, common } = useUiText();
   const t = labels.docs;
   const [overview, setOverview] = useState<Knowledge | null>(null);
-  const [files, setFiles] = useState<KnowledgeFiles | null>(null);
+  const [files, setFiles] = useState<KnowledgeFiles | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -194,6 +194,7 @@ export function DocsTab({ node, branch: branchParam, doc, locale, labels, canWri
         )}
       </Panel>
 
+      {snapshot && files === undefined && <SkeletonPanel lines={6} label={common.loading} />}
       {snapshot && files && (
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
           <Panel title={t.files} className="min-w-0 overflow-hidden" bodyClassName="p-2 sm:p-2">
@@ -205,7 +206,6 @@ export function DocsTab({ node, branch: branchParam, doc, locale, labels, canWri
           </Panel>
           {open ? (
             <DocViewer
-              key={`${branch}:${open}`}
               node={node}
               branch={branch ?? ""}
               path={open}

@@ -2,7 +2,7 @@ package tests
 
 import "testing"
 
-func TestSnapshotLimitsAreExplainedToSuperadminsOnly(t *testing.T) {
+func TestSnapshotLimitsAreExplainedToEditors(t *testing.T) {
 	t.Parallel()
 	d := startDocs(t, map[string]string{
 		"a.md": "a", "b.md": "b", "api/openapi.yaml": "openapi: 3.0.0\n", "proto/Billing.PROTO": "syntax = \"proto3\";\n",
@@ -26,6 +26,13 @@ func TestSnapshotLimitsAreExplainedToSuperadminsOnly(t *testing.T) {
 	eq(t, at(viewer, "branches", 0, "snapshot", "skipped_limit"), any(float64(2)))
 	eq(t, at(viewer, "branches", 0, "snapshot", "limits"), nil)
 	eq(t, at(d.app.get(knowledgePath(d.id)+"/files", bob).json(t), "snapshot", "limits"), nil)
+
+	d.app.user("eve@example.com", false)
+	eve := d.app.session("eve@example.com", password)
+	d.app.grant(d.admin, d.id, "user", "eve@example.com", "editor")
+	editor := d.app.get(knowledgePath(d.id), eve).json(t)
+	eq(t, at(editor, "branches", 0, "snapshot", "limits", 0, "name"), any("KNOWLEDGE_MAX_FILES"))
+	eq(t, at(d.app.get(knowledgePath(d.id)+"/files", eve).json(t), "snapshot", "limits", 0, "value"), any(float64(2)))
 
 	scans := d.app.get(knowledgePath(d.id)+"/scans", d.admin).json(t)
 	branch := at(scans, "items", 0, "branches", 0)

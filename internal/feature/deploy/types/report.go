@@ -25,18 +25,21 @@ func ParseMode(raw string) (Mode, error) {
 }
 
 const (
-	ReportWireLimit    = 16 << 20
-	MaxReportWorkloads = 100000
-	MaxReportMissing   = 20
-	MaxAgentVersionLen = 64
-	MaxReportMessage   = 1024
+	ReportWireLimit           = 16 << 20
+	MaxReportWorkloads        = 100000
+	DefaultWorkloadsPerGapSec = 2000
+	MaxReportMissing          = 20
+	MaxAgentVersionLen        = 64
+	MaxReportMessage          = 1024
 )
 
 type AgentState struct {
-	Version       *string
-	LastReportAt  *string
-	TokenPrefixes []string
-	Report        *ReportSummary
+	Version         *string
+	LastReportAt    *string
+	TokenPrefixes   []string
+	Report          *ReportSummary
+	ReportGapSecs   int32
+	ReportWorkloads int32
 }
 
 type ReportSummary struct {
@@ -119,11 +122,12 @@ type AgentCluster struct {
 }
 
 type AgentConfig struct {
-	Cluster      AgentCluster `json:"cluster"`
-	Enabled      bool         `json:"enabled"`
-	Namespaces   []string     `json:"namespaces"`
-	Rules        []Rule       `json:"rules"`
-	IntervalSecs int32        `json:"interval_secs"`
+	Cluster       AgentCluster `json:"cluster"`
+	Enabled       bool         `json:"enabled"`
+	Namespaces    []string     `json:"namespaces"`
+	Rules         []Rule       `json:"rules"`
+	IntervalSecs  int32        `json:"interval_secs"`
+	ReportGapSecs int32        `json:"report_gap_secs"`
 }
 
 type ReportCounts struct {
@@ -152,9 +156,9 @@ type ReportAnswer struct {
 	Accepted ReportCounts `json:"accepted"`
 }
 
-func ConfigOf(c Cluster) AgentConfig {
+func ConfigOf(c Cluster, gapSecs int32) AgentConfig {
 	return AgentConfig{Cluster: AgentCluster{ID: c.ID, Name: c.Name}, Enabled: c.Enabled, Namespaces: c.Namespaces,
-		Rules: c.Rules, IntervalSecs: c.IntervalSecs}
+		Rules: c.Rules, IntervalSecs: c.IntervalSecs, ReportGapSecs: gapSecs}
 }
 
 func ValidateReport(r Report) error {

@@ -62,6 +62,7 @@ type AuthorizeQuery struct {
 	State               string
 	Resource            string
 	PeerIP              string
+	Superadmin          bool
 }
 
 type NewAuthorization struct {

@@ -1,6 +1,10 @@
 package config
 
-import "strings"
+import (
+	"strings"
+
+	"svc-registry/pkg/netguard"
+)
 
 type MCPOAuthConfig struct {
 	Mode                   string   `env:"MCP_OAUTH" envDefault:"off"`
@@ -12,6 +16,7 @@ type MCPOAuthConfig struct {
 	Enabled                bool     `env:"-"`
 	ClientMetadata         bool     `env:"-"`
 	ClientMetadataHosts    []string `env:"-"`
+	ClientMetadataAnyHost  bool     `env:"-"`
 }
 
 func (c *MCPOAuthConfig) check() Errors {
@@ -23,14 +28,26 @@ func (c *MCPOAuthConfig) check() Errors {
 	if c.ClientMetadata, ok = onOff(&c.ClientMetadataMode); !ok {
 		errs = append(errs, &Error{Var: "MCP_OAUTH_CLIENT_METADATA", Reason: `must be "on" or "off"`})
 	}
-	if c.ClientMetadataHosts, ok = hostPatterns(c.ClientMetadataHostsRaw); !ok {
-		errs = append(errs, &Error{Var: "MCP_OAUTH_CLIENT_METADATA_HOSTS", Reason: "must be host names or *.domain separated by commas"})
+	raw := c.ClientMetadataHostsRaw
+	if c.ClientMetadataAnyHost = onlyWildcard(raw); c.ClientMetadataAnyHost {
+		raw = ""
+	}
+	if c.ClientMetadataHosts, ok = hostPatterns(raw); !ok {
+		errs = append(errs, &Error{Var: "MCP_OAUTH_CLIENT_METADATA_HOSTS", Reason: "must be *, or host names and *.domain separated by commas"})
 	}
 	return errs
 }
 
 func (c MCPOAuthConfig) ClientDocuments() bool {
-	return c.ClientMetadata && len(c.ClientMetadataHosts) > 0
+	return c.ClientMetadata && (c.ClientMetadataAnyHost || len(c.ClientMetadataHosts) > 0)
+}
+
+func (c MCPOAuthConfig) ClientMetadataHostAllowed(host string) bool {
+	return c.ClientMetadataAnyHost || netguard.MatchHost(c.ClientMetadataHosts, host)
+}
+
+func onlyWildcard(raw string) bool {
+	return strings.TrimSpace(raw) == "*"
 }
 
 func onOff(mode *string) (bool, bool) {

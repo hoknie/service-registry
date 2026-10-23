@@ -34,3 +34,7 @@ type SecretUserPort interface {
 type OwnersFilterPort interface {
 	OwnedProjects(ctx context.Context, caller uuid.UUID, f catalogtypes.OwnerFilter) ([]uuid.UUID, error)
 }
+
+type TokenRootsPort interface {
+	AddTokenRoot(ctx context.Context, tokenID, nodeID uuid.UUID) (bool, error)
+}

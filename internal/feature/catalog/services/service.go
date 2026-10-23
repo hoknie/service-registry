@@ -56,8 +56,13 @@ func (c *CatalogServices) UseOwners(owners catalogports.OwnersFilterPort) {
 	c.Table.owners = owners
 }
 
+func (c *CatalogServices) UseTokenRoots(roots catalogports.TokenRootsPort) {
+	c.Nodes.tokenRoots = roots
+}
+
 func (c *CatalogServices) Wired() bool {
-	return c.Nodes.managed != nil && len(c.Activity.sources) > 0 && len(c.Secrets.secretUsers) > 0 && c.Table.owners != nil
+	return c.Nodes.managed != nil && len(c.Activity.sources) > 0 && len(c.Secrets.secretUsers) > 0 && c.Table.owners != nil &&
+		c.Nodes.tokenRoots != nil
 }
 
 type CatalogServices struct {
@@ -83,7 +88,7 @@ func New(d Deps) *CatalogServices {
 		Bindings:       &BindingsService{bindingRepository: p.bindingRepository},
 		Branches:       &BranchesService{branchRepository: p.branchRepository, cfg: p.cfg},
 		Labels:         &LabelsService{nodeRepository: p.nodeRepository},
-		Nodes:          &NodesService{branchRepository: p.branchRepository, managed: p.managed, nodeRepository: p.nodeRepository},
+		Nodes:          &NodesService{branchRepository: p.branchRepository, managed: p.managed, nodeRepository: p.nodeRepository, db: p.db},
 		ProjectKeys:    &ProjectKeysService{projectKeyRepository: p.projectKeyRepository},
 		Secrets:        &SecretsService{box: p.box, secretUsers: p.secretUsers, secretRepository: p.secretRepository},
 		SecretResolver: &SecretResolverService{box: p.box, secretRepository: p.secretRepository},

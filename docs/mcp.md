@@ -39,7 +39,8 @@ more than you can read, and only through `/api/mcp`; the REST API refuses its to
   apps on the user's page. Disabling a user or resetting their password revokes all their apps.
 - Clients identify themselves in one of two ways:
   - **Client ID Metadata Document** (`MCP_OAUTH_CLIENT_METADATA=on`, the default, and the document's host listed in
-    `MCP_OAUTH_CLIENT_METADATA_HOSTS` — `host` or `*.domain`, comma-separated): the `client_id` is an `https://`
+    `MCP_OAUTH_CLIENT_METADATA_HOSTS` — `host` or `*.domain`, comma-separated, or exactly `*` for any host, which
+    `serve` warns about at start): the `client_id` is an `https://`
     address of a JSON document with `client_id` (the same address), `client_name` and `redirect_uris`. With an empty
     list no documents are accepted (`oauth.client_not_allowed`) and the server metadata says
     `client_id_metadata_document_supported: false`; removing a host also stops token requests of its clients. The
@@ -49,7 +50,12 @@ more than you can read, and only through `/api/mcp`; the REST API refuses its to
     address. It connects directly, checking the IP at dial; with `MCP_OAUTH_CLIENT_METADATA_USE_PROXY=true` it goes
     through `HTTPS_PROXY`/`HTTP_PROXY` instead, and then the IP behind the proxy is **not** checked: only hosts written
     as an IP address, `localhost` and `*.localhost` are refused before the request, hosts in `NO_PROXY` are reached
-    directly with the full check, and `serve` logs a warning at start. The consent page shows the document's host;
+    directly with the full check, and `serve` logs a warning at start. When a document is refused because its host is not
+    listed (or documents are off), a superadmin who opens the request sees which host to add to
+    `MCP_OAUTH_CLIENT_METADATA_HOSTS`; when the document could not be fetched or failed the checks, a superadmin sees a
+    short reason (`timeout`, `dns`, `tls`, `blocked_address`, `redirect`, the HTTP status, `too_large`, a missing
+    `client_name`, a `client_secret` in the document, …) — never the remote server's answer, which only the server log
+    carries. Other users are only told to contact an administrator. The consent page shows the document's host;
     when the app returns to `localhost`, it also warns that any program on this computer could pretend to be the app.
   - **Dynamic registration** (`POST /api/oauth/register`): the consent page shows the host the app returns to and
     that the registry has not verified the app; registrations are limited to 10 per hour per address.

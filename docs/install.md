@@ -86,7 +86,8 @@ gains nothing, and a policy without the page hashes breaks the interface.
 `/.well-known/oauth-authorization-server…` and `/api/oauth/…` to the service unchanged.
 `MCP_OAUTH_ACCESS_TTL_SECS` (300–86400, default 3600) and `MCP_OAUTH_REFRESH_DAYS` (1–365, default 30) set the
 token lifetimes. Clients may identify themselves by an `https://` metadata document address only from the sites in
-`MCP_OAUTH_CLIENT_METADATA_HOSTS` (empty — none; `MCP_OAUTH_CLIENT_METADATA=off` turns documents off). The registry
+`MCP_OAUTH_CLIENT_METADATA_HOSTS` (empty — none; exactly `*` — any public host, logged as a warning;
+`MCP_OAUTH_CLIENT_METADATA=off` turns documents off). The registry
 fetches documents directly, not through `HTTPS_PROXY`, unless `MCP_OAUTH_CLIENT_METADATA_USE_PROXY=true` — then the
 IP behind the proxy is not checked.
 

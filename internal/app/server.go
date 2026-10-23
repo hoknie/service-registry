@@ -54,7 +54,11 @@ func ServeUntil(ctx context.Context, cfg config.Config) error {
 	if cfg.MCPOAuth.Enabled && cfg.MCPOAuth.ClientMetadata {
 		if !cfg.MCPOAuth.ClientDocuments() {
 			slog.Info("client metadata documents are refused: MCP_OAUTH_CLIENT_METADATA_HOSTS lists no hosts")
-		} else if cfg.MCPOAuth.ClientMetadataUseProxy {
+		}
+		if cfg.MCPOAuth.ClientMetadataAnyHost {
+			slog.Warn("MCP_OAUTH_CLIENT_METADATA_HOSTS=*: client metadata documents are accepted from any host that passes the address policy")
+		}
+		if cfg.MCPOAuth.ClientDocuments() && cfg.MCPOAuth.ClientMetadataUseProxy {
 			slog.Warn("MCP_OAUTH_CLIENT_METADATA_USE_PROXY=true: client metadata documents are fetched through the outbound proxy; the IP behind the proxy is not checked")
 		}
 	}

@@ -103,12 +103,22 @@ func (a *Handlers) OAuthAuthorize(c fiber.Ctx) error {
 		ResponseType: c.Query("response_type"), ClientID: c.Query("client_id"), RedirectURI: c.Query("redirect_uri"),
 		CodeChallenge: c.Query("code_challenge"), CodeChallengeMethod: c.Query("code_challenge_method"),
 		Scope: c.Query("scope"), State: c.Query("state"), Resource: c.Query("resource"), PeerIP: c.IP(),
+		Superadmin: a.sessionSuperadmin(c),
 	})
 	if err != nil {
 		return oauthFail(c, err)
 	}
 	c.Set(fiber.HeaderCacheControl, "no-store")
 	return c.Redirect().Status(http.StatusFound).To(location)
+}
+
+func (a *Handlers) sessionSuperadmin(c fiber.Ctx) bool {
+	token := c.Cookies(SessionCookie)
+	if token == "" {
+		return false
+	}
+	p, _, err := a.Access.Auth.Authenticate(c.Context(), token)
+	return err == nil && p.IsSuperadmin
 }
 
 func (a *Handlers) OAuthToken(c fiber.Ctx) error {

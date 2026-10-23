@@ -38,6 +38,8 @@ func newDocumentServer(t *testing.T) *documentServer {
 			w.Header().Set("Cache-Control", "no-store")
 		case "/other.json":
 			doc["client_id"] = "https://other.example/client.json"
+		case "/secret.json":
+			doc["client_secret"] = "s"
 		case "/redirect.json":
 			http.Redirect(w, r, "/client.json", http.StatusFound)
 			return
@@ -63,14 +65,19 @@ func documentApp(t *testing.T, d *documentServer, extra ...string) *testApp {
 
 func (a *testApp) authorizeRefusal(clientID, redirect string) string {
 	a.t.Helper()
+	return a.authorizeRefusalAs(clientID, redirect, "").Get("error")
+}
+
+func (a *testApp) authorizeRefusalAs(clientID, redirect, session string) url.Values {
+	a.t.Helper()
 	v := url.Values{"response_type": {"code"}, "client_id": {clientID}, "redirect_uri": {redirect},
 		"code_challenge": {oauth2.S256ChallengeFromVerifier(oauth2.GenerateVerifier())}, "code_challenge_method": {"S256"}}
-	r := a.get("/api/oauth/authorize?"+v.Encode(), "")
+	r := a.get("/api/oauth/authorize?"+v.Encode(), session)
 	eq(a.t, r.status, 302, r.text())
 	loc, err := url.Parse(r.header("Location"))
 	must(a.t, err)
 	eq(a.t, loc.Scheme+"://"+loc.Host+loc.Path, oauthIssuer+"/oauth/authorize")
-	return loc.Query().Get("error")
+	return loc.Query()
 }
 
 func TestMCPOAuthClientMetadataDocumentFlow(t *testing.T) {
@@ -167,4 +174,71 @@ func TestMCPOAuthClientMetadataPolicy(t *testing.T) {
 	eq(t, at(off.get("/.well-known/oauth-authorization-server", "").json(t), "client_id_metadata_document_supported"), any(false))
 	eq(t, docs.hits.Load(), int64(0))
 	off.registerClient()
+}
+
+func TestMCPOAuthClientMetadataRefusalHintsForSuperadmins(t *testing.T) {
+	t.Parallel()
+	docs := newDocumentServer(t)
+	clientID := "https://app.example/client.json"
+
+	listed := documentApp(t, docs, "MCP_OAUTH_CLIENT_METADATA_HOSTS", "*.trusted.example")
+	root := listed.admin()
+	q := listed.authorizeRefusalAs(clientID, oauthRedirect, root)
+	eq(t, q.Get("error"), "oauth.client_not_allowed")
+	eq(t, q.Get("hint"), "metadata_hosts")
+	eq(t, q.Get("host"), "app.example")
+	q = listed.authorizeRefusalAs(clientID, oauthRedirect, bobSession(listed))
+	eq(t, q.Get("error"), "oauth.client_not_allowed")
+	eq(t, q.Get("hint")+q.Get("host"), "", "other users get no details")
+	eq(t, listed.authorizeRefusalAs(clientID, oauthRedirect, "").Get("host"), "")
+
+	off := documentApp(t, docs, "MCP_OAUTH_CLIENT_METADATA", "off")
+	offRoot := off.admin()
+	q = off.authorizeRefusalAs(clientID, oauthRedirect, offRoot)
+	eq(t, q.Get("error"), "oauth.invalid_client")
+	eq(t, q.Get("hint"), "metadata_disabled")
+	eq(t, q.Get("host"), "app.example")
+	eq(t, off.authorizeRefusalAs(newID(), oauthRedirect, offRoot).Get("hint"), "", "an unknown registered client gets no hint")
+
+	eq(t, docs.hits.Load(), int64(0))
+}
+
+func TestMCPOAuthClientMetadataRefusalReasonsForSuperadmins(t *testing.T) {
+	t.Parallel()
+	docs := newDocumentServer(t)
+	app := documentApp(t, docs)
+	root, bob := app.admin(), bobSession(app)
+	for path, want := range map[string][3]string{
+		"/missing.json":  {"oauth.client_metadata_unavailable", "metadata_unavailable", "status_404"},
+		"/redirect.json": {"oauth.client_metadata_unavailable", "metadata_unavailable", "redirect"},
+		"/other.json":    {"oauth.client_metadata_invalid", "metadata_invalid", "client_id_mismatch"},
+		"/secret.json":   {"oauth.client_metadata_invalid", "metadata_invalid", "has_secret"},
+	} {
+		q := app.authorizeRefusalAs(docs.url(path), oauthRedirect, root)
+		eq(t, [3]string{q.Get("error"), q.Get("hint"), q.Get("reason")}, want, path)
+		eq(t, q.Get("host"), "127.0.0.1", path)
+		q = app.authorizeRefusalAs(docs.url(path), oauthRedirect, bob)
+		eq(t, q.Get("error"), want[0], path)
+		eq(t, q.Get("hint")+q.Get("reason")+q.Get("host"), "", "other users get no reason")
+		eq(t, app.authorizeRefusalAs(docs.url(path), oauthRedirect, "").Get("reason"), "", "no session, no reason")
+	}
+
+	guarded := startApp(t, "MCP_OAUTH", "on", "PUBLIC_URL", oauthIssuer, "MCP_OAUTH_CLIENT_METADATA_HOSTS", "127.0.0.1")
+	q := guarded.authorizeRefusalAs(docs.url("/client.json"), oauthRedirect, guarded.admin())
+	eq(t, q.Get("error"), "oauth.client_metadata_unavailable")
+	eq(t, q.Get("reason"), "blocked_address")
+}
+
+func TestMCPOAuthClientMetadataAnyHost(t *testing.T) {
+	t.Parallel()
+	docs := newDocumentServer(t)
+
+	guarded := startApp(t, "MCP_OAUTH", "on", "PUBLIC_URL", oauthIssuer, "MCP_OAUTH_CLIENT_METADATA_HOSTS", "*")
+	eq(t, at(guarded.get("/.well-known/oauth-authorization-server", "").json(t), "client_id_metadata_document_supported"), any(true))
+	eq(t, guarded.authorizeRefusal(docs.url("/client.json"), oauthRedirect), "oauth.client_metadata_unavailable")
+	eq(t, docs.hits.Load(), int64(0), "* keeps the address policy: loopback is never dialled")
+
+	wide := documentApp(t, docs, "MCP_OAUTH_CLIENT_METADATA_HOSTS", "*")
+	wide.startAuthorization(docs.url("/client.json"))
+	eq(t, docs.hits.Load(), int64(1))
 }

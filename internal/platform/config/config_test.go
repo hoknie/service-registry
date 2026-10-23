@@ -64,7 +64,8 @@ func TestDefaultsApplyWhenOnlyRequiredVarsAreSet(t *testing.T) {
 		{"link check", cfg.LinkCheck, config.LinkCheckConfig{IntervalSecs: 3600, TimeoutSecs: 5, Concurrency: 4,
 			AllowPrivate: true, History: 20, TargetTTLDays: 30}},
 		{"k8s", cfg.K8s, config.K8sConfig{PollConcurrency: 2,
-			K8sClientConfig: config.K8sClientConfig{RequestTimeoutSecs: 10, ListLimit: 500}, HistoryConfirmSecs: 600, WorkloadRetentionDays: 7, AgentReportMaxBytes: 64 << 20}},
+			K8sClientConfig: config.K8sClientConfig{RequestTimeoutSecs: 10, ListLimit: 500}, HistoryConfirmSecs: 600, WorkloadRetentionDays: 7, AgentReportMaxBytes: 64 << 20,
+			WorkloadsPerGapSec: 2000}},
 		{"bootstrap", cfg.Bootstrap.Admin == nil, true},
 	}
 	for _, c := range checks {
@@ -395,10 +396,23 @@ func TestK8sSettings(t *testing.T) {
 	if _, err := config.Load[config.K8sConfig](lookup("K8S_HISTORY_CONFIRM_SECS", "0", "K8S_LIST_LIMIT", "5000")); err != nil {
 		t.Fatal(err)
 	}
+	for raw, want := range map[string]int32{"": 2000, "100": 100, "100000": 100000} {
+		env := lookup()
+		if raw != "" {
+			env = lookup("K8S_AGENT_WORKLOADS_PER_GAP_SEC", raw)
+		}
+		got, err := config.Load[config.K8sConfig](env)
+		if err != nil || got.WorkloadsPerGapSec != want {
+			t.Fatalf("workloads per gap %q: %d %v", raw, got.WorkloadsPerGapSec, err)
+		}
+	}
+	if _, err := config.Load[config.K8sConfig](lookup("K8S_AGENT_WORKLOADS_PER_GAP_SEC", "100001")); err == nil {
+		t.Fatal("workloads per gap above the bound accepted")
+	}
 	_, err := config.Load[config.K8sConfig](lookup("K8S_POLL_CONCURRENCY", "0", "K8S_REQUEST_TIMEOUT_SECS", "121",
 		"K8S_LIST_LIMIT", "49", "K8S_HISTORY_CONFIRM_SECS", "86401", "K8S_WORKLOAD_RETENTION_DAYS", "0",
-		"K8S_AGENT_REPORT_MAX_BYTES", "1000"))
-	want := []string{"K8S_AGENT_REPORT_MAX_BYTES", "K8S_HISTORY_CONFIRM_SECS", "K8S_LIST_LIMIT", "K8S_POLL_CONCURRENCY", "K8S_REQUEST_TIMEOUT_SECS",
+		"K8S_AGENT_REPORT_MAX_BYTES", "1000", "K8S_AGENT_WORKLOADS_PER_GAP_SEC", "10"))
+	want := []string{"K8S_AGENT_REPORT_MAX_BYTES", "K8S_AGENT_WORKLOADS_PER_GAP_SEC", "K8S_HISTORY_CONFIRM_SECS", "K8S_LIST_LIMIT", "K8S_POLL_CONCURRENCY", "K8S_REQUEST_TIMEOUT_SECS",
 		"K8S_WORKLOAD_RETENTION_DAYS"}
 	if got := vars(t, err); !reflect.DeepEqual(got, want) {
 		t.Fatalf("vars %v", got)
@@ -607,6 +621,18 @@ func TestMCPOAuthSettings(t *testing.T) {
 	c, err = config.Load[config.MCPOAuthConfig](lookup("MCP_OAUTH_CLIENT_METADATA_HOSTS", "app.example", "MCP_OAUTH_CLIENT_METADATA_USE_PROXY", "true"))
 	if err != nil || !c.ClientDocuments() || !c.ClientMetadataUseProxy {
 		t.Fatalf("%+v %v", c, err)
+	}
+	c, err = config.Load[config.MCPOAuthConfig](lookup("MCP_OAUTH_CLIENT_METADATA_HOSTS", " * "))
+	if err != nil || !c.ClientMetadataAnyHost || !c.ClientDocuments() || c.ClientMetadataHosts != nil ||
+		!c.ClientMetadataHostAllowed("any.example") {
+		t.Fatalf("%+v %v", c, err)
+	}
+	if c.ClientMetadataAnyHost = false; c.ClientMetadataHostAllowed("any.example") {
+		t.Fatal("an empty list allows no host")
+	}
+	_, err = config.Load[config.MCPOAuthConfig](lookup("MCP_OAUTH_CLIENT_METADATA_HOSTS", "*, app.example"))
+	if got := vars(t, err); !reflect.DeepEqual(got, []string{"MCP_OAUTH_CLIENT_METADATA_HOSTS"}) {
+		t.Fatalf("vars %v", got)
 	}
 	_, err = config.Load[config.MCPOAuthConfig](lookup("MCP_OAUTH_CLIENT_METADATA", "maybe", "MCP_OAUTH_CLIENT_METADATA_HOSTS", "https://app.example",
 		"MCP_OAUTH_CLIENT_METADATA_USE_PROXY", "sometimes"))

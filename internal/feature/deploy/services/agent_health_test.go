@@ -3,6 +3,8 @@ package services
 import (
 	"testing"
 	"time"
+
+	deploytypes "svc-registry/internal/feature/deploy/types"
 )
 
 func TestAgentHealth(t *testing.T) {
@@ -43,5 +45,23 @@ func TestAgentHealth(t *testing.T) {
 	now = now.Add(time.Minute)
 	if h.Live() {
 		t.Fatal("more than three intervals without a step")
+	}
+}
+
+func TestAgentPauseFollowsTheReportGap(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		interval, gap int32
+		want          time.Duration
+	}{
+		{0, 0, 60 * time.Second},
+		{60, 30, 60 * time.Second},
+		{15, 50, 50 * time.Second},
+		{0, 21, 21 * time.Second},
+	}
+	for _, c := range cases {
+		if got := pause(deploytypes.AgentConfig{IntervalSecs: c.interval, ReportGapSecs: c.gap}); got != c.want {
+			t.Errorf("pause(%d, %d) = %v, want %v", c.interval, c.gap, got, c.want)
+		}
 	}
 }

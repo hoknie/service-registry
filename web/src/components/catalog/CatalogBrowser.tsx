@@ -20,7 +20,7 @@ export function CatalogBrowser({ locale, labels }: Props) {
 
   return (
     <section className="min-w-0">
-      <NodeView key={nodeId ?? "top"} id={nodeId} tab={tab} section={section} branch={branch} doc={doc} locale={locale} labels={labels} onChanged={catalogChanged} />
+      <NodeView id={nodeId} tab={tab} section={section} branch={branch} doc={doc} locale={locale} labels={labels} onChanged={catalogChanged} />
     </section>
   );
 }

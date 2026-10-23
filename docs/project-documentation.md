@@ -74,10 +74,11 @@ type of a linked `.proto` that comes from another file of the snapshot links to 
 
 A snapshot keeps at most `KNOWLEDGE_MAX_FILES` files (default 2000), `KNOWLEDGE_MAX_SNAPSHOT_BYTES` in total (16 MiB)
 and files up to `KNOWLEDGE_MAX_FILE_BYTES` (512 KiB); files beyond them are listed with `skip_reason` `limit` or
-`too_large`. Snapshots in the API count them (`skipped_limit`, `skipped_too_large`), and for superadmins `limits` names
-the variables the snapshot ran into with their current values. The **Documentation** tab and the project page of the
-documentation section warn about an incomplete snapshot: superadmins see which variable to raise, editors are advised to
-narrow the patterns or ask an administrator, other readers are told to contact an administrator. After raising a limit
+`too_large`. Snapshots in the API count them (`skipped_limit`, `skipped_too_large`), and for users who may edit the project
+(`catalog.write`, superadmins included) `limits` names the variables the snapshot ran into with their current values. The
+**Documentation** tab and the project page of the documentation section warn about an incomplete snapshot: superadmins see
+which variable to raise and that the server needs a restart, editors see the same variables and are advised to narrow the
+patterns or ask an administrator, other readers are told to contact an administrator. After raising a limit
 restart the server; the snapshot is rebuilt with the next commit or on **Collect now**. The scan history shows how many
 skipped files of a branch are API descriptions (`api_skipped`).
 

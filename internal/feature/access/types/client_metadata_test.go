@@ -36,22 +36,21 @@ func TestParseClientMetadataDocument(t *testing.T) {
 	t.Parallel()
 	const id = "https://app.example/client.json"
 	tests := []struct {
-		name string
-		body string
-		want string
+		name, body, want, reason string
 	}{
-		{"valid", `{"client_id":"` + id + `","client_name":" Example ","redirect_uris":["http://localhost:3000/cb"],"logo_uri":"https://x"}`, ""},
-		{"not an object", `["x"]`, "not a JSON object"},
-		{"broken", `{"client_id":`, "not valid JSON"},
-		{"other id", `{"client_id":"https://other.example/client.json","client_name":"E","redirect_uris":["http://localhost/cb"]}`, "differs"},
-		{"no id", `{"client_name":"E","redirect_uris":["http://localhost/cb"]}`, "differs"},
-		{"no name", `{"client_id":"` + id + `","redirect_uris":["http://localhost/cb"]}`, "client_name"},
-		{"blank name", `{"client_id":"` + id + `","client_name":"  ","redirect_uris":["http://localhost/cb"]}`, "client_name"},
-		{"secret", `{"client_id":"` + id + `","client_name":"E","client_secret":"s","redirect_uris":["http://localhost/cb"]}`, "client_secret"},
-		{"no redirects", `{"client_id":"` + id + `","client_name":"E"}`, "redirect_uris"},
-		{"unsafe redirect", `{"client_id":"` + id + `","client_name":"E","redirect_uris":["http://evil.example/cb"]}`, "redirect URI"},
-		{"private key", `{"client_id":"` + id + `","client_name":"E","redirect_uris":["http://localhost/cb"],"token_endpoint_auth_method":"private_key_jwt"}`, "public clients"},
-		{"implicit", `{"client_id":"` + id + `","client_name":"E","redirect_uris":["http://localhost/cb"],"response_types":["token"]}`, "response_types"},
+		{"valid", `{"client_id":"` + id + `","client_name":" Example ","redirect_uris":["http://localhost:3000/cb"],"logo_uri":"https://x"}`, "", ""},
+		{"not an object", `["x"]`, "not a JSON object", ReasonNotJSON},
+		{"broken", `{"client_id":`, "not valid JSON", ReasonNotJSON},
+		{"other id", `{"client_id":"https://other.example/client.json","client_name":"E","redirect_uris":["http://localhost/cb"]}`, "differs", ReasonClientIDMismatch},
+		{"no id", `{"client_name":"E","redirect_uris":["http://localhost/cb"]}`, "differs", ReasonClientIDMismatch},
+		{"no name", `{"client_id":"` + id + `","redirect_uris":["http://localhost/cb"]}`, "client_name", ReasonMissingClientName},
+		{"blank name", `{"client_id":"` + id + `","client_name":"  ","redirect_uris":["http://localhost/cb"]}`, "client_name", ReasonMissingClientName},
+		{"secret", `{"client_id":"` + id + `","client_name":"E","client_secret":"s","redirect_uris":["http://localhost/cb"]}`, "client_secret", ReasonHasSecret},
+		{"no redirects", `{"client_id":"` + id + `","client_name":"E"}`, "redirect_uris", ReasonBadRedirectURI},
+		{"unsafe redirect", `{"client_id":"` + id + `","client_name":"E","redirect_uris":["http://evil.example/cb"]}`, "redirect URI", ReasonBadRedirectURI},
+		{"private key", `{"client_id":"` + id + `","client_name":"E","redirect_uris":["http://localhost/cb"],"token_endpoint_auth_method":"private_key_jwt"}`, "public clients", ReasonAuthMethod},
+		{"implicit grant", `{"client_id":"` + id + `","client_name":"E","redirect_uris":["http://localhost/cb"],"grant_types":["implicit"]}`, "grant_types", ReasonGrantTypes},
+		{"implicit", `{"client_id":"` + id + `","client_name":"E","redirect_uris":["http://localhost/cb"],"response_types":["token"]}`, "response_types", ReasonResponseTypes},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -63,7 +62,7 @@ func TestParseClientMetadataDocument(t *testing.T) {
 				}
 				return
 			}
-			if err == nil || err.Code != CodeClientMetadataInvalid || !strings.Contains(err.Detail, tt.want) {
+			if err == nil || err.Code != CodeClientMetadataInvalid || err.Reason != tt.reason || !strings.Contains(err.Detail, tt.want) {
 				t.Fatalf("got %v, want %q", err, tt.want)
 			}
 		})

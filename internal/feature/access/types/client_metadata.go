@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -25,6 +26,40 @@ const (
 	CodeInvalidRedirectURI        = "oauth.invalid_redirect_uri"
 )
 
+const (
+	HintMetadataHosts       = "metadata_hosts"
+	HintMetadataDisabled    = "metadata_disabled"
+	HintMetadataUnavailable = "metadata_unavailable"
+	HintMetadataInvalid     = "metadata_invalid"
+)
+
+const (
+	ReasonTimeout           = "timeout"
+	ReasonDNS               = "dns"
+	ReasonTLS               = "tls"
+	ReasonBlockedAddress    = "blocked_address"
+	ReasonConnection        = "connection"
+	ReasonRedirect          = "redirect"
+	ReasonTooLarge          = "too_large"
+	ReasonRateLimited       = "rate_limited"
+	ReasonFetchFailed       = "fetch_failed"
+	ReasonNotJSON           = "not_json"
+	ReasonClientIDMismatch  = "client_id_mismatch"
+	ReasonMissingClientName = "missing_client_name"
+	ReasonHasSecret         = "has_secret"
+	ReasonBadRedirectURI    = "bad_redirect_uri"
+	ReasonAuthMethod        = "auth_method"
+	ReasonGrantTypes        = "grant_types"
+	ReasonResponseTypes     = "response_types"
+)
+
+func ReasonStatus(code int) string {
+	if code < 100 || code > 599 {
+		return ReasonFetchFailed
+	}
+	return "status_" + strconv.Itoa(code)
+}
+
 type FetchedMetadata struct {
 	Body         []byte
 	CacheControl string
@@ -32,13 +67,27 @@ type FetchedMetadata struct {
 
 type ClientMetadataError struct {
 	Code   string
+	Reason string
 	Detail string
 }
 
-func (e *ClientMetadataError) Error() string { return e.Code + ": " + e.Detail }
+func (e *ClientMetadataError) Error() string {
+	text := e.Code
+	if e.Reason != "" {
+		text += " (" + e.Reason + ")"
+	}
+	if e.Detail != "" {
+		text += ": " + e.Detail
+	}
+	return text
+}
 
-func metadataInvalid(detail string) *ClientMetadataError {
-	return &ClientMetadataError{Code: CodeClientMetadataInvalid, Detail: detail}
+func metadataInvalid(reason, detail string) *ClientMetadataError {
+	return &ClientMetadataError{Code: CodeClientMetadataInvalid, Reason: reason, Detail: detail}
+}
+
+func MetadataUnavailable(reason, detail string) *ClientMetadataError {
+	return &ClientMetadataError{Code: CodeClientMetadataUnavailable, Reason: reason, Detail: detail}
 }
 
 func ValidClientMetadataURL(raw string) bool {
@@ -75,26 +124,40 @@ type metadataDocument struct {
 func ParseClientMetadataDocument(clientID string, body []byte) (ClientMetadata, *ClientMetadataError) {
 	trimmed := bytes.TrimSpace(body)
 	if len(trimmed) == 0 || trimmed[0] != '{' {
-		return ClientMetadata{}, metadataInvalid("the document is not a JSON object")
+		return ClientMetadata{}, metadataInvalid(ReasonNotJSON, "the document is not a JSON object")
 	}
 	var doc metadataDocument
 	if err := json.Unmarshal(trimmed, &doc); err != nil {
-		return ClientMetadata{}, metadataInvalid("the document is not valid JSON: " + err.Error())
+		return ClientMetadata{}, metadataInvalid(ReasonNotJSON, "the document is not valid JSON: "+err.Error())
 	}
 	switch {
 	case doc.ClientID == nil || *doc.ClientID != clientID:
-		return ClientMetadata{}, metadataInvalid("client_id of the document differs from its address")
+		return ClientMetadata{}, metadataInvalid(ReasonClientIDMismatch, "client_id of the document differs from its address")
 	case doc.ClientName == nil || strings.TrimSpace(*doc.ClientName) == "":
-		return ClientMetadata{}, metadataInvalid("client_name is required")
+		return ClientMetadata{}, metadataInvalid(ReasonMissingClientName, "client_name is required")
 	case doc.ClientSecret != nil || doc.ClientSecretExpiresAt != nil:
-		return ClientMetadata{}, metadataInvalid("the document must not carry client_secret")
+		return ClientMetadata{}, metadataInvalid(ReasonHasSecret, "the document must not carry client_secret")
 	}
-	meta, refusal := ValidateClientMetadata(ClientMetadata{Name: doc.ClientName, RedirectURIs: doc.RedirectURIs,
-		TokenEndpointAuthMethod: doc.TokenEndpointAuthMethod, GrantTypes: doc.GrantTypes, ResponseTypes: doc.ResponseTypes})
+	in := ClientMetadata{Name: doc.ClientName, RedirectURIs: doc.RedirectURIs,
+		TokenEndpointAuthMethod: doc.TokenEndpointAuthMethod, GrantTypes: doc.GrantTypes, ResponseTypes: doc.ResponseTypes}
+	meta, refusal := ValidateClientMetadata(in)
 	if refusal != nil {
-		return ClientMetadata{}, metadataInvalid(refusal.Description)
+		return ClientMetadata{}, metadataInvalid(invalidReason(in, refusal), refusal.Description)
 	}
 	return meta, nil
+}
+
+func invalidReason(in ClientMetadata, refusal *OAuthError) string {
+	switch {
+	case refusal.Code == "invalid_redirect_uri":
+		return ReasonBadRedirectURI
+	case in.TokenEndpointAuthMethod != nil && *in.TokenEndpointAuthMethod != "none":
+		return ReasonAuthMethod
+	case slices.ContainsFunc(in.GrantTypes, func(g string) bool { return g != "authorization_code" && g != "refresh_token" }):
+		return ReasonGrantTypes
+	default:
+		return ReasonResponseTypes
+	}
 }
 
 func MetadataLifetime(cacheControl string) time.Duration {

@@ -12,7 +12,6 @@ import (
 	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/auth"
-	"svc-registry/pkg/netguard"
 )
 
 var (
@@ -166,47 +165,49 @@ func (s *AuthorizationServerService) Revoke(ctx context.Context, rawClientID, to
 	return nil
 }
 
-func (s *AuthorizationServerService) authorizingClient(ctx context.Context, q accesstypes.AuthorizeQuery) (*accesstypes.OAuthClientRecord, string, error) {
+func (s *AuthorizationServerService) authorizingClient(ctx context.Context, q accesstypes.AuthorizeQuery) (*accesstypes.OAuthClientRecord, *accesstypes.ClientMetadataError, error) {
+	invalid := &accesstypes.ClientMetadataError{Code: accesstypes.CodeInvalidClient}
 	if id, err := uuid.Parse(q.ClientID); err == nil {
 		client, err := s.clientRepository.Find(ctx, id)
 		if err != nil || client != nil {
-			return client, "", err
+			return client, nil, err
 		}
-		return nil, accesstypes.CodeInvalidClient, nil
+		return nil, invalid, nil
 	}
 	if !s.cfg.MCPOAuth.ClientMetadata || !accesstypes.ValidClientMetadataURL(q.ClientID) {
-		return nil, accesstypes.CodeInvalidClient, nil
+		return nil, invalid, nil
 	}
 	return s.documentClient(ctx, q.PeerIP, q.ClientID)
 }
 
-func (s *AuthorizationServerService) documentClient(ctx context.Context, ip, clientID string) (*accesstypes.OAuthClientRecord, string, error) {
+func (s *AuthorizationServerService) documentClient(ctx context.Context, ip, clientID string) (*accesstypes.OAuthClientRecord, *accesstypes.ClientMetadataError, error) {
 	u, err := url.Parse(clientID)
 	if err != nil {
-		return nil, accesstypes.CodeInvalidClient, nil
+		return nil, &accesstypes.ClientMetadataError{Code: accesstypes.CodeInvalidClient}, nil
 	}
-	if !netguard.MatchHost(s.cfg.MCPOAuth.ClientMetadataHosts, u.Hostname()) {
-		return nil, accesstypes.CodeClientNotAllowed, nil
+	if !s.cfg.MCPOAuth.ClientMetadataHostAllowed(u.Hostname()) {
+		return nil, &accesstypes.ClientMetadataError{Code: accesstypes.CodeClientNotAllowed}, nil
 	}
 	cached, err := s.clientRepository.FindDocument(ctx, clientID)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 	if cached != nil && cached.Fresh {
-		return cached, "", nil
+		return cached, nil, nil
 	}
 	meta, refusal := s.fetchDocument(ctx, ip, clientID)
 	if refusal != nil {
-		slog.Warn("client metadata document refused", "client_id", clientID, "code", refusal.Code, "detail", refusal.Detail)
-		return nil, refusal.Code, nil
+		slog.Warn("client metadata document refused", "client_id", clientID, "code", refusal.Code,
+			"reason", refusal.Reason, "detail", refusal.Detail)
+		return nil, refusal, nil
 	}
 	life := accesstypes.MetadataLifetime(meta.cacheControl)
 	client, err := s.clientRepository.SaveDocument(ctx, uuid.Must(uuid.NewV7()), clientID, meta.ClientMetadata,
 		int64(life/time.Second))
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
-	return &client, "", nil
+	return &client, nil, nil
 }
 
 type fetchedClient struct {
@@ -215,18 +216,20 @@ type fetchedClient struct {
 }
 
 func (s *AuthorizationServerService) fetchDocument(ctx context.Context, ip, clientID string) (fetchedClient, *accesstypes.ClientMetadataError) {
-	unavailable := func(detail string) *accesstypes.ClientMetadataError {
-		return &accesstypes.ClientMetadataError{Code: accesstypes.CodeClientMetadataUnavailable, Detail: detail}
-	}
 	if s.metadata == nil {
-		return fetchedClient{}, unavailable("no metadata fetcher")
+		return fetchedClient{}, accesstypes.MetadataUnavailable(accesstypes.ReasonFetchFailed, "no metadata fetcher")
 	}
 	if !s.fetches.Hit(ip, time.Now()) {
-		return fetchedClient{}, unavailable("too many document fetches from " + ip)
+		return fetchedClient{}, accesstypes.MetadataUnavailable(accesstypes.ReasonRateLimited, "too many document fetches from "+ip)
 	}
 	doc, err := s.metadata.Fetch(ctx, clientID)
 	if err != nil {
-		return fetchedClient{}, unavailable(err.Error())
+		reason := accesstypes.ReasonFetchFailed
+		var failure *accesstypes.ClientMetadataError
+		if errors.As(err, &failure) {
+			reason = failure.Reason
+		}
+		return fetchedClient{}, accesstypes.MetadataUnavailable(reason, err.Error())
 	}
 	meta, refusal := accesstypes.ParseClientMetadataDocument(clientID, doc.Body)
 	if refusal != nil {
@@ -250,7 +253,29 @@ func (s *AuthorizationServerService) tokenClient(ctx context.Context, raw string
 	return id, apperr.Wrap(err)
 }
 
+func (s *AuthorizationServerService) metadataHint(v url.Values, clientID string, refusal *accesstypes.ClientMetadataError) {
+	u, err := url.Parse(clientID)
+	if err != nil || !accesstypes.ValidClientMetadataURL(clientID) {
+		return
+	}
+	switch {
+	case refusal.Code == accesstypes.CodeClientNotAllowed:
+		v.Set("hint", accesstypes.HintMetadataHosts)
+	case refusal.Code == accesstypes.CodeInvalidClient && !s.cfg.MCPOAuth.ClientMetadata:
+		v.Set("hint", accesstypes.HintMetadataDisabled)
+	case refusal.Code == accesstypes.CodeClientMetadataUnavailable && refusal.Reason != "":
+		v.Set("hint", accesstypes.HintMetadataUnavailable)
+		v.Set("reason", refusal.Reason)
+	case refusal.Code == accesstypes.CodeClientMetadataInvalid && refusal.Reason != "":
+		v.Set("hint", accesstypes.HintMetadataInvalid)
+		v.Set("reason", refusal.Reason)
+	default:
+		return
+	}
+	v.Set("host", u.Hostname())
+}
+
 func (s *AuthorizationServerService) documentHostAllowed(raw string) bool {
 	u, err := url.Parse(raw)
-	return err == nil && s.cfg.MCPOAuth.ClientMetadata && netguard.MatchHost(s.cfg.MCPOAuth.ClientMetadataHosts, u.Hostname())
+	return err == nil && s.cfg.MCPOAuth.ClientMetadata && s.cfg.MCPOAuth.ClientMetadataHostAllowed(u.Hostname())
 }

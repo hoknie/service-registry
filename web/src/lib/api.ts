@@ -224,7 +224,9 @@ export type ProjectKey = {
   secret?: string;
 };
 
-export type GlobalScope = "users" | "groups" | "clusters" | "settings" | "catalog.root";
+export type GlobalArea = "users" | "groups" | "clusters" | "settings";
+
+export type GlobalScope = `${GlobalArea}:${"read" | "write"}` | "catalog.root";
 
 export type Scope = "read" | "write" | "mcp" | GlobalScope;
 
@@ -420,7 +422,13 @@ export type Cluster = {
   next_poll_at: string;
   workloads: number;
   unmatched: number;
-  agent: { version: string | null; last_report_at: string | null; token_prefixes: string[] } | null;
+  agent: {
+    version: string | null;
+    last_report_at: string | null;
+    token_prefixes: string[];
+    report_gap_secs: number;
+    report_workloads: number;
+  } | null;
   agent_token?: AgentToken;
   created_at: string;
   updated_at: string;

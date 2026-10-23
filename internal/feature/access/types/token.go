@@ -5,19 +5,25 @@ import "github.com/google/uuid"
 type Scope string
 
 const (
-	ScopeRead        Scope = "read"
-	ScopeWrite       Scope = "write"
-	ScopeMCP         Scope = "mcp"
-	ScopeUsers       Scope = "users"
-	ScopeGroups      Scope = "groups"
-	ScopeClusters    Scope = "clusters"
-	ScopeSettings    Scope = "settings"
-	ScopeCatalogRoot Scope = "catalog.root"
+	ScopeRead          Scope = "read"
+	ScopeWrite         Scope = "write"
+	ScopeMCP           Scope = "mcp"
+	ScopeUsersRead     Scope = "users:read"
+	ScopeUsersWrite    Scope = "users:write"
+	ScopeGroupsRead    Scope = "groups:read"
+	ScopeGroupsWrite   Scope = "groups:write"
+	ScopeClustersRead  Scope = "clusters:read"
+	ScopeClustersWrite Scope = "clusters:write"
+	ScopeSettingsRead  Scope = "settings:read"
+	ScopeSettingsWrite Scope = "settings:write"
+	ScopeCatalogRoot   Scope = "catalog.root"
 )
 
-var AllScopes = []Scope{ScopeRead, ScopeWrite, ScopeMCP, ScopeUsers, ScopeGroups, ScopeClusters, ScopeSettings, ScopeCatalogRoot}
+var AllScopes = []Scope{ScopeRead, ScopeWrite, ScopeMCP, ScopeUsersRead, ScopeUsersWrite, ScopeGroupsRead, ScopeGroupsWrite,
+	ScopeClustersRead, ScopeClustersWrite, ScopeSettingsRead, ScopeSettingsWrite, ScopeCatalogRoot}
 
-var GlobalScopes = Scopes{ScopeUsers, ScopeGroups, ScopeClusters, ScopeSettings, ScopeCatalogRoot}
+var GlobalScopes = Scopes{ScopeUsersRead, ScopeUsersWrite, ScopeGroupsRead, ScopeGroupsWrite, ScopeClustersRead,
+	ScopeClustersWrite, ScopeSettingsRead, ScopeSettingsWrite, ScopeCatalogRoot}
 
 func (sc Scope) Global() bool { return GlobalScopes.Has(sc) }
 
@@ -44,6 +50,15 @@ func (s Scopes) Has(scope Scope) bool {
 func (s Scopes) AnyGlobal() bool {
 	for _, sc := range s {
 		if sc.Global() {
+			return true
+		}
+	}
+	return false
+}
+
+func (s Scopes) AnyGlobalBut(allowed Scope) bool {
+	for _, sc := range s {
+		if sc.Global() && sc != allowed {
 			return true
 		}
 	}

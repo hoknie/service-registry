@@ -94,7 +94,7 @@ func TestSecretRulesAndRights(t *testing.T) {
 	gid := idOf(g.json(t))
 	eq(t, app.get(globalSecretsPath+"/"+gid, root).status, 200)
 	eq(t, app.bearer("GET", globalSecretsPath, app.pat(root, "read"), nil).status, 403)
-	eq(t, app.bearer("GET", globalSecretsPath, app.pat(root, "settings"), nil).status, 200)
+	eq(t, app.bearer("GET", globalSecretsPath, app.pat(root, "settings:read"), nil).status, 200)
 	eq(t, app.get(globalSecretsPath+"/"+id, root).status, 404, "a node secret is not global")
 
 	conn := app.send("POST", connectionsPath(acme), root, obj{"kind": "github", "owner_path": "acme-inc", "credentials": obj{"secret_id": id}})

@@ -41,6 +41,8 @@ type clusterRow struct {
 	AgentVersion  *string                    `db:"agent_version"`
 	ReportedAt    *string                    `db:"agent_reported_at"`
 	AgentReport   *deploytypes.ReportSummary `db:"agent_report"`
+	ReportGapSecs int32                      `db:"report_gap_secs"`
+	AgentLoads    int32                      `db:"agent_workloads"`
 	TokenPrefixes []string                   `db:"token_prefixes"`
 	Workloads     int64                      `db:"workloads"`
 	Unmatched     int64                      `db:"unmatched"`
@@ -72,7 +74,7 @@ func (r clusterRow) cluster() deploytypes.Cluster {
 	}
 	if c.Mode == deploytypes.ModeAgent {
 		c.Agent = &deploytypes.AgentState{Version: r.AgentVersion, LastReportAt: r.ReportedAt, TokenPrefixes: r.TokenPrefixes,
-			Report: r.AgentReport}
+			Report: r.AgentReport, ReportGapSecs: r.ReportGapSecs, ReportWorkloads: r.AgentLoads}
 		if c.Agent.TokenPrefixes == nil {
 			c.Agent.TokenPrefixes = []string{}
 		}

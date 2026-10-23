@@ -11,7 +11,7 @@ import (
 	"svc-registry/pkg/secretbox"
 )
 
-const legacyCredentialsBarrier = 20261022100002
+const legacyCredentialsBarrier = 20261022100001
 
 func Migrate(ctx context.Context, db config.DbConfig) (int, error) {
 	pool, err := postgres.ConnectLazy(db)

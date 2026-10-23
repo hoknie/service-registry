@@ -100,9 +100,9 @@ func (s *AccessService) Authorize(ctx context.Context, p accesstypes.Principal, 
 	return sc, nil
 }
 
-func (s *AccessService) AuthorizeContainer(ctx context.Context, p accesstypes.Principal, parent *uuid.UUID) (*Scoped, error) {
+func (s *AccessService) AuthorizeContainer(ctx context.Context, p accesstypes.Principal, parent, node *uuid.UUID) (*Scoped, error) {
 	if parent == nil {
-		return nil, accesstypes.RequireCatalogRoot(p)
+		return nil, accesstypes.RequireCatalogRoot(p, node)
 	}
 	sc, err := s.Authorize(ctx, p, catalogtypes.PermWrite, *parent)
 	if err != nil {

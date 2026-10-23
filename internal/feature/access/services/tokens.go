@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 
@@ -170,4 +171,12 @@ type TokensService struct {
 	roots           accessports.NodeRootsPort
 	tokenRepository *repositories.TokenRepository
 	userRepository  *repositories.UserRepository
+}
+
+func (s *TokensService) AddTokenRoot(ctx context.Context, tokenID, nodeID uuid.UUID) (bool, error) {
+	err := s.tokenRepository.AddNode(ctx, tokenID, nodeID)
+	if errors.Is(err, apperr.ErrNotFound) {
+		return false, nil
+	}
+	return err == nil, apperr.Wrap(err)
 }

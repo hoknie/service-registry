@@ -92,7 +92,7 @@ func TestAgentAuthentication(t *testing.T) {
 	refused(app.agentReport("not-a-uuid", tokenA, agentReportOf()), "not a uuid")
 	refused(app.agentReport(idOf(polled), tokenA, agentReportOf()), "polled cluster")
 	refused(app.agentReport(idOf(a), tokenA[:len(tokenA)-1]+"x", agentReportOf()), "bad checksum")
-	refused(app.agentReport(idOf(a), app.pat(root, "clusters"), agentReportOf()), "personal token")
+	refused(app.agentReport(idOf(a), app.pat(root, "clusters:write"), agentReportOf()), "personal token")
 	refused(request(t, app.addr, "POST", clusterIngest(idOf(a))+"/reports", "{}", "content-type", "application/json",
 		"sec-fetch-site", "cross-site", "cookie", root), "cross-site without a token")
 	refused(request(t, app.addr, "GET", clusterIngest(idOf(a))+"/config", "", "cookie", root), "session cookie")

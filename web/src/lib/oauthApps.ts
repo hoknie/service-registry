@@ -11,9 +11,59 @@ export function appName(client: { name: string | null }, unnamed: string): strin
   return client.name ?? unnamed;
 }
 
-export function consentParams(search: string): { request: string | null; error: string | null } {
+const HINTS = ["metadata_hosts", "metadata_disabled", "metadata_unavailable", "metadata_invalid"] as const;
+
+const REASONS = {
+  metadata_unavailable: [
+    "timeout",
+    "dns",
+    "tls",
+    "blocked_address",
+    "connection",
+    "redirect",
+    "too_large",
+    "rate_limited",
+    "fetch_failed",
+  ],
+  metadata_invalid: [
+    "not_json",
+    "client_id_mismatch",
+    "missing_client_name",
+    "has_secret",
+    "bad_redirect_uri",
+    "auth_method",
+    "grant_types",
+    "response_types",
+  ],
+} as const;
+
+export type ConsentReason = (typeof REASONS)[keyof typeof REASONS][number] | `status_${number}`;
+
+export type ConsentHint = { kind: (typeof HINTS)[number]; host: string; reason?: ConsentReason };
+
+function hintReason(kind: (typeof HINTS)[number], raw: string | null): ConsentReason | null {
+  if (kind === "metadata_unavailable" && raw && /^status_[1-5][0-9]{2}$/.test(raw)) return raw as ConsentReason;
+  if (kind !== "metadata_unavailable" && kind !== "metadata_invalid") return null;
+  const known: readonly string[] = REASONS[kind];
+  return raw && known.includes(raw) ? (raw as ConsentReason) : null;
+}
+
+export function consentParams(search: string): { request: string | null; error: string | null; hint: ConsentHint | null } {
   const q = new URLSearchParams(search);
-  return { request: q.get("request"), error: q.get("error") };
+  const kind = HINTS.find((h) => h === q.get("hint"));
+  const host = q.get("host");
+  let hint: ConsentHint | null = null;
+  if (kind && host) {
+    const reason = hintReason(kind, q.get("reason"));
+    if (kind === "metadata_hosts" || kind === "metadata_disabled") hint = { kind, host };
+    else if (reason) hint = { kind, host, reason };
+  }
+  return { request: q.get("request"), error: q.get("error"), hint };
+}
+
+export function reasonText(reasons: Record<string, string>, reason: ConsentReason): string {
+  if (reason.startsWith("status_")) return (reasons.status ?? "").replace("{status}", reason.slice("status_".length));
+  return reasons[reason] ?? reason;
 }
 
 export const OAUTH_ERRORS = [

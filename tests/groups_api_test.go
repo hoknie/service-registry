@@ -166,7 +166,7 @@ func TestGroupContactsAndOnCall(t *testing.T) {
 	eq(t, r.status, 403)
 	eq(t, code(t, r), any("auth.forbidden"))
 	eq(t, code(t, app.bearer("PUT", path, app.pat(admin, "read", "write"), body)), any("auth.insufficient_scope"))
-	eq(t, app.bearer("PUT", path, app.pat(admin, "groups"), body).status, 200)
+	eq(t, app.bearer("PUT", path, app.pat(admin, "groups:write"), body).status, 200)
 	eq(t, app.send("PUT", "/api/v1/groups/"+uuid.Must(uuid.NewV7()).String()+"/contacts", admin, body).status, 404)
 	eq(t, app.call("DELETE", "/api/v1/groups/"+idOf(g), admin).status, 204)
 	eq(t, scalar[int64](t, app.db, "SELECT count(*) FROM group_contacts"), int64(0))

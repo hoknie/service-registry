@@ -41,9 +41,9 @@ export function useActivity(
   load: (id: string) => Promise<NodeActivity>,
   onSettled?: (kinds: Settled[]) => void,
 ): { activity: NodeActivity | null; refresh: () => void } {
-  const [activity, setActivity] = useState<NodeActivity | null>(null);
+  const [state, setState] = useState<{ id: string; activity: NodeActivity | null } | null>(null);
   const [tick, setTick] = useState(0);
-  const last = useRef<NodeActivity | null>(null);
+  const last = useRef<{ id: string; activity: NodeActivity | null } | null>(null);
   const settledRef = useRef(onSettled);
   useEffect(() => {
     settledRef.current = onSettled;
@@ -56,15 +56,16 @@ export function useActivity(
     const run = async () => {
       clearTimeout(timer);
       if (document.visibilityState === "hidden") return;
-      let next = last.current;
+      const prev = last.current?.id === nodeId ? last.current.activity : null;
+      let next = prev;
       try {
         next = await load(nodeId);
       } catch {
       }
       if (!live) return;
-      const done = settled(last.current, next);
-      last.current = next;
-      setActivity(next);
+      const done = settled(prev, next);
+      last.current = { id: nodeId, activity: next };
+      setState(last.current);
       if (done.length > 0) settledRef.current?.(done);
       timer = setTimeout(() => void run(), pollDelay(next));
     };
@@ -82,5 +83,5 @@ export function useActivity(
   }, [nodeId, load, tick]);
 
   const refresh = useCallback(() => setTick((n) => n + 1), []);
-  return { activity, refresh };
+  return { activity: state && state.id === nodeId ? state.activity : null, refresh };
 }

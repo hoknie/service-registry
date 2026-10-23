@@ -92,7 +92,8 @@ func TestTokenRulesOnIssue(t *testing.T) {
 		{"unknown scope", bob, obj{"name": "t", "scopes": []string{"read", "deploy"}, "expires_in_days": 1}, 400, "validation.invalid_scopes"},
 		{"no scopes", bob, obj{"name": "t", "scopes": []string{}, "expires_in_days": 1}, 400, "validation.invalid_scopes"},
 		{"removed admin scope", root, obj{"name": "t", "scopes": []string{"admin"}, "expires_in_days": 1}, 400, "validation.invalid_scopes"},
-		{"global scope of a user", bob, obj{"name": "t", "scopes": []string{"users"}, "expires_in_days": 1}, 400, "validation.invalid_scopes"},
+		{"global scope of a user", bob, obj{"name": "t", "scopes": []string{"users:read"}, "expires_in_days": 1}, 400, "validation.invalid_scopes"},
+		{"undivided global scope", root, obj{"name": "t", "scopes": []string{"users"}, "expires_in_days": 1}, 400, "validation.invalid_scopes"},
 		{"blank name", bob, obj{"name": " ", "scopes": []string{"read"}, "expires_in_days": 1}, 400, "validation.invalid_token_name"},
 		{"no lifetime of a user", bob, obj{"name": "t", "scopes": []string{"read"}}, 400, "validation.invalid_token_lifetime"},
 		{"null lifetime of a user", bob, obj{"name": "t", "scopes": []string{"read"}, "expires_in_days": nil}, 400, "validation.invalid_token_lifetime"},
@@ -112,7 +113,7 @@ func TestTokenRulesOnIssue(t *testing.T) {
 	}
 	eq(t, app.count("personal_access_tokens"), int64(1), "only the valid one is stored")
 
-	r := app.issue(root, obj{"name": "automation", "scopes": []string{"users", "settings"}, "expires_in_days": nil})
+	r := app.issue(root, obj{"name": "automation", "scopes": []string{"users:read", "settings:write"}, "expires_in_days": nil})
 	eq(t, r.status, 201, r.text())
 	eq(t, r.json(t)["expires_at"], nil)
 	eq(t, r.json(t)["status"], any("active"))
@@ -243,7 +244,7 @@ func TestSuperadminListsSearchesAndRevokesTokens(t *testing.T) {
 	bobUser := app.user("bob@example.com", false)
 	bob := app.session("bob@example.com", password)
 	secret := app.pat(bob, "read")
-	app.pat(root, "users")
+	app.pat(root, "users:read")
 
 	r := app.get("/api/v1/users/"+bobUser.ID.String()+"/tokens", root)
 	eq(t, r.status, 200, r.text())
@@ -285,7 +286,8 @@ func TestTokensNeverManageTokensOrSessions(t *testing.T) {
 	app := startApp(t)
 	root := app.admin()
 	rootUser := scalar[string](t, app.db, "SELECT id::text FROM users WHERE email = 'root@example.com'")
-	secret := app.pat(root, "read", "write", "mcp", "users", "groups", "clusters", "settings", "catalog.root")
+	secret := app.pat(root, "read", "write", "mcp", "users:read", "users:write", "groups:read", "groups:write", "clusters:read",
+		"clusters:write", "settings:read", "settings:write", "catalog.root")
 	calls := []struct{ method, path string }{
 		{"GET", tokensPath},
 		{"POST", tokensPath},
@@ -328,7 +330,7 @@ func TestRemovingTheSuperadminFlagRevokesTokensWithoutExpiry(t *testing.T) {
 	root := app.admin()
 	ann := app.user("ann@example.com", true)
 	annCookie := app.session("ann@example.com", password)
-	forever := app.issue(annCookie, obj{"name": "forever", "scopes": []string{"users"}}).json(t)
+	forever := app.issue(annCookie, obj{"name": "forever", "scopes": []string{"users:read"}}).json(t)
 	month := app.issue(annCookie, obj{"name": "month", "scopes": []string{"read"}, "expires_in_days": 30}).json(t)
 
 	r := app.send("PATCH", "/api/v1/users/"+ann.ID.String(), root, obj{"is_superadmin": false})
@@ -338,7 +340,7 @@ func TestRemovingTheSuperadminFlagRevokesTokensWithoutExpiry(t *testing.T) {
 	eq(t, tokenByID(t, listed, idOf(month))["status"], any("active"))
 
 	rootID := scalar[string](t, app.db, "SELECT id::text FROM users WHERE email = 'root@example.com'")
-	rootForever := app.issue(root, obj{"name": "f", "scopes": []string{"users"}}).json(t)
+	rootForever := app.issue(root, obj{"name": "f", "scopes": []string{"users:read"}}).json(t)
 	r = app.send("PATCH", "/api/v1/users/"+rootID, root, obj{"is_superadmin": false})
 	eq(t, code(t, r), any("conflict.last_superadmin"))
 	eq(t, tokenByID(t, app.get(tokensPath, root), idOf(rootForever))["status"], any("active"))
@@ -399,17 +401,17 @@ func TestSuperadminPowersThroughATokenNeedTheAdminScope(t *testing.T) {
 	eq(t, code(t, app.bearer("GET", "/api/v1/users", read, nil)), any("auth.insufficient_scope"))
 	eq(t, code(t, app.bearer("GET", "/api/v1/groups", read, nil)), any("auth.insufficient_scope"))
 
-	people := app.pat(root, "users", "groups")
+	people := app.pat(root, "users:read", "groups:read")
 	eq(t, app.bearer("GET", "/api/v1/users", people, nil).status, 200)
 	eq(t, app.bearer("GET", "/api/v1/groups", people, nil).status, 200)
 	eq(t, code(t, app.bearer("GET", "/api/v1/catalog/nodes", people, nil)), any("auth.insufficient_scope"))
 
-	both := app.pat(root, "read", "users")
+	both := app.pat(root, "read", "users:read")
 	eq(t, app.bearer("GET", "/api/v1/catalog/nodes", both, nil).json(t)["total"], any(float64(1)))
 	top := app.pat(root, "write", "catalog.root")
 	r = app.bearer("POST", "/api/v1/catalog/nodes", top, obj{"kind": "organization", "parent_id": nil, "slug": "beta", "name": "Beta"})
 	eq(t, r.status, 201, r.text())
-	for _, scopes := range [][]string{{"write"}, {"write", "users", "groups", "clusters", "settings"}} {
+	for _, scopes := range [][]string{{"write"}, {"write", "users:write", "groups:write", "clusters:write", "settings:write"}} {
 		r = app.bearer("POST", "/api/v1/catalog/nodes", app.pat(root, scopes...), obj{"kind": "organization", "parent_id": nil, "slug": "gamma", "name": "Gamma"})
 		eq(t, code(t, r), any("auth.insufficient_scope"), "top level needs catalog.root")
 	}

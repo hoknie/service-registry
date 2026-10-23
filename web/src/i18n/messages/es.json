@@ -298,7 +298,8 @@
       "cluster_mode_poll": "El registro sondea este clúster: no tiene tokens de agente.",
       "cluster_disabled": "El clúster está desactivado.",
       "agent_report_in_progress": "Se está procesando un informe de este clúster.",
-      "dependency_exists": "Esta dependencia ya se ha añadido manualmente."
+      "dependency_exists": "Esta dependencia ya se ha añadido manualmente.",
+      "token_nodes_full": "El token ya incluye 20 nodos; no se le puede añadir una nueva organización."
     },
     "ingest": {
       "unknown_event_type": "Tipo de evento desconocido.",
@@ -346,7 +347,7 @@
       "invalid_redirect_uri": "La aplicación pidió volver a una dirección que no registró, así que la solicitud se detuvo.",
       "client_metadata_unavailable": "No se pudo cargar la descripción de la aplicación desde su dirección. Inténtalo más tarde o consulta al desarrollador de la aplicación.",
       "client_metadata_invalid": "La descripción de la aplicación en su dirección no es válida, así que la solicitud se detuvo.",
-      "client_not_allowed": "El registro no acepta aplicaciones descritas en este sitio."
+      "client_not_allowed": "El registro no permite esta aplicación. Póngase en contacto con un administrador."
     },
     "notify": {
       "rate_limited": "Se envió una prueba hace menos de 10 segundos. Inténtalo más tarde."
@@ -452,11 +453,21 @@
       "read": "Leer el catálogo",
       "write": "Cambiar el catálogo",
       "mcp": "Endpoint MCP",
-      "users": "Usuarios, sus identidades y grupos",
-      "groups": "Grupos, miembros y contactos",
-      "clusters": "Clústeres de Kubernetes y tokens de agente",
-      "settings": "Tipos de enlace, entornos, secretos globales, historial de escaneos",
-      "catalog.root": "Crear, mover y eliminar organizaciones de nivel superior"
+      "users:read": "Ver usuarios, sus identidades y grupos",
+      "users:write": "Crear, cambiar y desactivar usuarios",
+      "groups:read": "Ver grupos, miembros y contactos",
+      "groups:write": "Crear y cambiar grupos, miembros y contactos",
+      "clusters:read": "Ver clústeres de Kubernetes",
+      "clusters:write": "Cambiar clústeres y tokens de agentes",
+      "settings:read": "Ver secretos globales e historial de escaneos",
+      "settings:write": "Cambiar tipos de enlace, entornos y secretos globales",
+      "catalog.root": "Crear organizaciones de nivel superior, moverlas y eliminarlas"
+    },
+    "scopeAreas": {
+      "users": "Usuarios",
+      "groups": "Grupos",
+      "clusters": "Clústeres",
+      "settings": "Ajustes"
     },
     "revoke": "Revocar",
     "revokeTitle": "Revocar token",
@@ -468,6 +479,8 @@
       "namePlaceholder": "p. ej. despliegue de CI",
       "scopes": "Ámbitos",
       "globalScopes": "Derechos globales",
+      "globalRead": "lectura",
+      "globalWrite": "cambio",
       "lifetime": "Caduca en",
       "days": "{n} días",
       "custom": "Otro número de días",
@@ -480,7 +493,7 @@
       "accessNodes": "Solo los nodos elegidos",
       "nodesSearch": "Busca un nodo por nombre o ruta",
       "nodesHint": "Hasta {n} nodos. El token solo funciona dentro de ellos y nunca más allá de tus permisos.",
-      "nodesGlobal": "Los derechos globales abarcan toda la instalación y no están disponibles para un token limitado a nodos.",
+      "nodesGlobal": "Los derechos sobre usuarios, grupos, clústeres y ajustes abarcan toda la instalación y no están disponibles para un token limitado a nodos. catalog.root sigue disponible: el token crea organizaciones de nivel superior, añade cada una a sus nodos (hasta 20) y solo mueve o elimina las organizaciones de nivel superior entre ellos.",
       "nodesSuperadmin": "En los nodos seleccionados el token actúa como administrador del catálogo; la administración global sigue cerrada.",
       "wholeSuperadmin": "El token actúa como administrador del catálogo en todos los nodos; el nivel superior requiere catalog.root y la administración, el derecho global correspondiente.",
       "nodesPicked": "Nodos elegidos",
@@ -794,6 +807,8 @@
       },
       "agent": "Agente en el clúster",
       "neverReported": "Aún sin informes",
+      "reportGap": "Informes como máximo una vez cada {secs} s",
+      "reportGapLoads": "Informes como máximo una vez cada {secs} s (último informe: {count} workloads)",
       "newToken": "Nuevo token de agente",
       "revokeTokens": "Revocar tokens",
       "confirmNewToken": "¿Emitir un nuevo token de agente para «{name}»? El token actual seguirá funcionando 24 horas.",
@@ -2087,7 +2102,31 @@
     "deny": "Rechazar",
     "stale": "La solicitud ha caducado: vuelve a iniciar la conexión en la aplicación.",
     "publishedOn": "La descripción de la aplicación está publicada en",
-    "loopbackWarning": "La respuesta vuelve a este equipo. Cualquier programa que se ejecute en él podría hacerse pasar por esta aplicación: permite el acceso solo si iniciaste tú la conexión."
+    "loopbackWarning": "La respuesta vuelve a este equipo. Cualquier programa que se ejecute en él podría hacerse pasar por esta aplicación: permite el acceso solo si iniciaste tú la conexión.",
+    "hintHosts": "Para el administrador: si confía en esta aplicación, añada {host} a MCP_OAUTH_CLIENT_METADATA_HOSTS y reinicie el servidor.",
+    "hintDisabled": "Para el administrador: los documentos de descripción de aplicaciones están desactivados. Para aceptar esta aplicación, defina MCP_OAUTH_CLIENT_METADATA=on y añada {host} a MCP_OAUTH_CLIENT_METADATA_HOSTS.",
+    "hintUnavailable": "Para el administrador: no se pudo descargar el documento de descripción de la aplicación desde {host}: {reason}.",
+    "hintInvalid": "Para el administrador: el documento de descripción de la aplicación en {host} no superó las comprobaciones: {reason}.",
+    "reasons": {
+      "timeout": "el servidor no respondió en 5 segundos",
+      "dns": "el nombre del host no se resuelve",
+      "tls": "el certificado TLS no es de confianza o falló el protocolo TLS",
+      "blocked_address": "la dirección está prohibida por la política de direcciones (privada, loopback o host denegado)",
+      "connection": "falló la conexión",
+      "redirect": "el servidor respondió con una redirección; las redirecciones no se siguen",
+      "too_large": "el documento supera los 5 KiB",
+      "rate_limited": "demasiadas descargas de documentos desde su dirección; inténtelo más tarde",
+      "fetch_failed": "la solicitud falló",
+      "status": "el servidor respondió con el estado {status}",
+      "not_json": "el documento no es un objeto JSON",
+      "client_id_mismatch": "el client_id del documento no coincide con su dirección",
+      "missing_client_name": "falta client_name",
+      "has_secret": "el documento contiene client_secret",
+      "bad_redirect_uri": "redirect_uris faltan o no están permitidas",
+      "auth_method": "token_endpoint_auth_method no es \"none\"",
+      "grant_types": "grant_types contienen algo distinto de authorization_code y refresh_token",
+      "response_types": "response_types contienen algo distinto de \"code\""
+    }
   },
   "notify": {
     "title": "Notificaciones",

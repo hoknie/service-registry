@@ -8,10 +8,11 @@ import { apiSend, type PersonalToken, type Scope } from "@/lib/api";
 import {
   BASE_SCOPES,
   canSubmitNodes,
-  GLOBAL_SCOPES,
+  CATALOG_ROOT,
+  GLOBAL_AREAS,
   isGlobalScope,
-  SCOPES,
   scopesForAccess,
+  toggleScope,
   tokenNodesBody,
   type PickedNode,
   type TokenAccess,
@@ -85,8 +86,7 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
     setAccess(next);
     setScopes((current) => scopesForAccess(next, current));
   };
-  const toggle = (scope: Scope, on: boolean) =>
-    setScopes((current) => SCOPES.filter((s) => (s === scope ? on : current.includes(s))));
+  const toggle = (scope: Scope, on: boolean) => setScopes((current) => toggleScope(current, scope, on));
 
   const reset = () => {
     setName("");
@@ -125,7 +125,7 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
       footer={
         <>
           <Button onClick={() => onOpenChange(false)}>{common.cancel}</Button>
-          <Button type="submit" form="issue-token" variant="primary" disabled={busy || scopes.length === 0 || !canSubmitNodes(access, nodes, global)}>
+          <Button type="submit" form="issue-token" variant="primary" disabled={busy || scopes.length === 0 || !canSubmitNodes(access, nodes, scopes)}>
             {t.submit}
           </Button>
         </>
@@ -145,16 +145,32 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
         {superadmin && (
           <fieldset className="grid gap-2">
             <legend className="mb-1.5 text-sm font-medium text-ink-2">{t.globalScopes}</legend>
-            {GLOBAL_SCOPES.map((s) => (
-              <ScopeBox
-                key={s}
-                scope={s}
-                hint={labels.scopeHints[s]}
-                checked={scopes.includes(s)}
-                disabled={scoped}
-                onChange={(on) => toggle(s, on)}
-              />
+            {GLOBAL_AREAS.map((area) => (
+              <div key={area} className="grid gap-1 sm:grid-cols-[1fr_auto_auto] sm:items-center sm:gap-4">
+                <span className="text-sm">
+                  <span className="font-medium text-ink">{labels.scopeAreas[area]}</span>
+                </span>
+                {(["read", "write"] as const).map((action) => {
+                  const scope: Scope = `${area}:${action}`;
+                  return (
+                    <Checkbox
+                      key={scope}
+                      checked={scopes.includes(scope)}
+                      disabled={scoped}
+                      title={labels.scopeHints[scope]}
+                      onChange={(e) => toggle(scope, e.target.checked)}
+                      label={action === "read" ? t.globalRead : t.globalWrite}
+                    />
+                  );
+                })}
+              </div>
             ))}
+            <ScopeBox
+              scope={CATALOG_ROOT}
+              hint={labels.scopeHints[CATALOG_ROOT]}
+              checked={scopes.includes(CATALOG_ROOT)}
+              onChange={(on) => toggle(CATALOG_ROOT, on)}
+            />
             {scoped && <p className="text-xs text-muted">{t.nodesGlobal}</p>}
           </fieldset>
         )}

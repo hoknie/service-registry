@@ -96,12 +96,16 @@ func (s *AuthorizationServerService) StartAuthorization(ctx context.Context, q a
 	if err := s.enabled(); err != nil {
 		return "", err
 	}
-	client, code, err := s.authorizingClient(ctx, q)
+	client, refusal, err := s.authorizingClient(ctx, q)
 	if err != nil {
 		return "", apperr.Wrap(err)
 	}
-	if code != "" {
-		return s.uiLocation(url.Values{"error": {code}}), nil
+	if refusal != nil {
+		v := url.Values{"error": {refusal.Code}}
+		if q.Superadmin {
+			s.metadataHint(v, q.ClientID, refusal)
+		}
+		return s.uiLocation(v), nil
 	}
 	if !accesstypes.RedirectMatches(client.RedirectURIs, q.RedirectURI) {
 		return s.uiLocation(url.Values{"error": {accesstypes.CodeInvalidRedirectURI}}), nil

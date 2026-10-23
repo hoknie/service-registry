@@ -31,7 +31,8 @@ func (s *ClusterRepository) Signals(ctx context.Context, projects []uuid.UUID, b
 				AND c.enabled
 			CROSS JOIN LATERAL (
 				SELECT c.mode = 'agent'
-					AND COALESCE(c.agent_reported_at, c.updated_at) < now() - make_interval(secs => 3 * c.interval_secs) AS silent
+					AND COALESCE(c.agent_reported_at, c.updated_at) < now() - make_interval(secs => 3 * GREATEST(c.interval_secs,
+						agent_report_gap(c.interval_secs, c.agent_workloads, $3))) AS silent
 			) q
 			GROUP BY w.project_id
 		)
@@ -42,7 +43,7 @@ func (s *ClusterRepository) Signals(ctx context.Context, projects []uuid.UUID, b
 			OR a.queued
 			OR a.failed
 		ORDER BY a.project_id`,
-		projects, busy)
+		projects, busy, s.perGap)
 	if err != nil {
 		return nil, err
 	}

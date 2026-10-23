@@ -10,6 +10,7 @@ import (
 	"svc-registry/internal/feature/catalog/repositories"
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	"svc-registry/internal/platform/apperr"
+	"svc-registry/pkg/pgtx"
 )
 
 const TreeMaxNodes = 1000
@@ -117,4 +118,6 @@ type NodesService struct {
 	nodeRepository     *repositories.NodeRepository
 	access             *AccessService
 	projectKeysService *ProjectKeysService
+	db                 *pgtx.DB
+	tokenRoots         catalogports.TokenRootsPort
 }

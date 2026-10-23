@@ -114,6 +114,16 @@ func (s *TokenRepository) Revoke(ctx context.Context, id uuid.UUID, owner *uuid.
 			AND ($2::uuid IS NULL OR user_id = $2)`, id, owner)
 }
 
+func (s *TokenRepository) AddNode(ctx context.Context, id, nodeID uuid.UUID) error {
+	return postgres.ExecFound(ctx, s.db.From(ctx), constraints, `
+		UPDATE personal_access_tokens
+		SET node_ids = array_append(live_node_ids(node_ids), $2)
+		WHERE id = $1
+			AND node_ids IS NOT NULL
+			AND cardinality(live_node_ids(node_ids)) < 20
+			AND NOT $2 = ANY (node_ids)`, id, nodeID)
+}
+
 func (s *TokenRepository) FindValid(ctx context.Context, tokenHash [32]byte) (*accesstypes.TokenUser, error) {
 	var stale bool
 	found, err := postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (accesstypes.TokenUser, error) {

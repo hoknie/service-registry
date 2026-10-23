@@ -77,21 +77,25 @@ func routeNeed(method, route string) accesstypes.Need {
 	case route == "/api/v1/users/:id/tokens", route == "/api/v1/users/:id/apps", route == "/api/v1/users/:id/apps/:gid":
 		return accesstypes.NeedSession
 	case route == "/api/v1/users", strings.HasPrefix(route, "/api/v1/users/"):
-		return accesstypes.NeedUsers
+		return globalNeed(method, accesstypes.NeedUsersRead, accesstypes.NeedUsersWrite)
 	case route == "/api/v1/groups", strings.HasPrefix(route, "/api/v1/groups/"):
-		return accesstypes.NeedGroups
+		return globalNeed(method, accesstypes.NeedGroupsRead, accesstypes.NeedGroupsWrite)
 	case route == "/api/v1/clusters", strings.HasPrefix(route, "/api/v1/clusters/"):
-		return accesstypes.NeedClusters
+		return globalNeed(method, accesstypes.NeedClustersRead, accesstypes.NeedClustersWrite)
 	case route == "/api/v1/secrets", strings.HasPrefix(route, "/api/v1/secrets/"), route == "/api/v1/knowledge/scans":
-		return accesstypes.NeedSettings
+		return globalNeed(method, accesstypes.NeedSettingsRead, accesstypes.NeedSettingsWrite)
 	case route == "/api/v1/link-kinds", strings.HasPrefix(route, "/api/v1/link-kinds/"),
 		route == "/api/v1/environments", strings.HasPrefix(route, "/api/v1/environments/"):
-		if method == fiber.MethodGet || method == fiber.MethodHead {
-			return accesstypes.NeedRead
-		}
-		return accesstypes.NeedSettings
+		return globalNeed(method, accesstypes.NeedRead, accesstypes.NeedSettingsWrite)
 	}
 	return accesstypes.NeedSession
+}
+
+func globalNeed(method string, read, write accesstypes.Need) accesstypes.Need {
+	if method == fiber.MethodGet || method == fiber.MethodHead {
+		return read
+	}
+	return write
 }
 
 func parseID(c fiber.Ctx, name string) (uuid.UUID, error) {

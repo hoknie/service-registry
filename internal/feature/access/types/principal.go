@@ -1,6 +1,8 @@
 package types
 
 import (
+	"slices"
+
 	"github.com/google/uuid"
 
 	"svc-registry/internal/platform/apperr"
@@ -28,11 +30,22 @@ const (
 	NeedRead
 	NeedWrite
 	NeedWriteWhole
-	NeedUsers
-	NeedGroups
-	NeedClusters
-	NeedSettings
+	NeedUsersRead
+	NeedUsersWrite
+	NeedGroupsRead
+	NeedGroupsWrite
+	NeedClustersRead
+	NeedClustersWrite
+	NeedSettingsRead
+	NeedSettingsWrite
 )
+
+var globalNeeds = map[Need]Scope{
+	NeedUsersRead: ScopeUsersRead, NeedUsersWrite: ScopeUsersWrite,
+	NeedGroupsRead: ScopeGroupsRead, NeedGroupsWrite: ScopeGroupsWrite,
+	NeedClustersRead: ScopeClustersRead, NeedClustersWrite: ScopeClustersWrite,
+	NeedSettingsRead: ScopeSettingsRead, NeedSettingsWrite: ScopeSettingsWrite,
+}
 
 func RequireScope(p Principal, need Need) error {
 	if !p.ByToken() {
@@ -51,16 +64,12 @@ func RequireScope(p Principal, need Need) error {
 			return apperr.New(apperr.InsufficientScope)
 		}
 		scope = ScopeWrite
-	case NeedUsers:
-		scope = ScopeUsers
-	case NeedGroups:
-		scope = ScopeGroups
-	case NeedClusters:
-		scope = ScopeClusters
-	case NeedSettings:
-		scope = ScopeSettings
 	default:
-		return apperr.New(apperr.SessionRequired)
+		global, ok := globalNeeds[need]
+		if !ok {
+			return apperr.New(apperr.SessionRequired)
+		}
+		scope = global
 	}
 	if !p.Scopes.Has(scope) {
 		return apperr.New(apperr.InsufficientScope)
@@ -75,9 +84,25 @@ func RequireSuperadmin(p Principal) error {
 	return apperr.New(apperr.Forbidden)
 }
 
-func RequireCatalogRoot(p Principal) error {
-	if p.ByToken() && !p.Scopes.Has(ScopeCatalogRoot) {
+func RequireCatalogRoot(p Principal, node *uuid.UUID) error {
+	if !p.ByToken() {
+		return RequireSuperadmin(p)
+	}
+	if !p.Scopes.Has(ScopeCatalogRoot) {
 		return apperr.New(apperr.InsufficientScope)
 	}
-	return RequireSuperadmin(p)
+	if p.Nodes == nil {
+		return RequireSuperadmin(p)
+	}
+	if !p.CatalogAdmin {
+		return apperr.New(apperr.Forbidden)
+	}
+	if node != nil && !slices.Contains(p.Nodes, *node) {
+		return apperr.New(apperr.InsufficientScope)
+	}
+	return nil
+}
+
+func (p Principal) AddsRoots() bool {
+	return p.ByToken() && !p.App && p.Nodes != nil && p.CatalogAdmin && p.Scopes.Has(ScopeCatalogRoot)
 }

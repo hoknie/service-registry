@@ -52,7 +52,7 @@ func TestTokenNodesAreCheckedAndDescribed(t *testing.T) {
 		eq(t, r.status, 400, name)
 		eq(t, code(t, r), any("validation.invalid_token_nodes"), name)
 	}
-	r = app.patOn(tr.admin, []string{tr.acme}, "read", "users")
+	r = app.patOn(tr.admin, []string{tr.acme}, "read", "users:read")
 	eq(t, r.status, 400)
 	eq(t, code(t, r), any("validation.invalid_token_nodes"))
 	eq(t, app.count("personal_access_tokens"), int64(3))

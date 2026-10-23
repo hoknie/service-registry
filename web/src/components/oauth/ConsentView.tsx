@@ -4,13 +4,15 @@ import { ShieldAlert, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { errorText } from "@/i18n/errors";
+import { format } from "@/i18n/format";
 import type { Messages } from "@/i18n/messages";
 import { apiGet, apiSend, errorCode, type ConsentRequest } from "@/lib/api";
-import { appName, consentError, consentParams, isLoopbackRedirect } from "@/lib/oauthApps";
+import { appName, consentError, consentParams, isLoopbackRedirect, reasonText, type ConsentHint } from "@/lib/oauthApps";
 import { canSubmitNodes, tokenNodesBody, type PickedNode, type TokenAccess } from "@/lib/tokenNodes";
 
 import { NodeScopePicker } from "../account/NodeScopePicker";
 import type { NodeScopeLabels } from "../account/TokenNodes";
+import { useSession } from "../SessionProvider";
 import { useUiText } from "../UiText";
 import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
@@ -22,11 +24,23 @@ type Props = { labels: Messages["oauth"]; scopeLabels: NodeScopeLabels };
 
 type State =
   | { kind: "loading" }
-  | { kind: "refused"; text: string }
+  | { kind: "refused"; text: string; hint?: ConsentHint | null }
   | { kind: "ready"; request: ConsentRequest };
+
+function hintText(t: Messages["oauth"], hint: ConsentHint): string {
+  const reason = hint.reason ? reasonText(t.reasons, hint.reason) : "";
+  const template = {
+    metadata_hosts: t.hintHosts,
+    metadata_disabled: t.hintDisabled,
+    metadata_unavailable: t.hintUnavailable,
+    metadata_invalid: t.hintInvalid,
+  }[hint.kind];
+  return format(template, { host: hint.host, reason });
+}
 
 export function ConsentView({ labels: t, scopeLabels }: Props) {
   const { errors } = useUiText();
+  const { session } = useSession();
   const [state, setState] = useState<State>({ kind: "loading" });
   const [access, setAccess] = useState<TokenAccess>("all");
   const [nodes, setNodes] = useState<PickedNode[]>([]);
@@ -34,12 +48,12 @@ export function ConsentView({ labels: t, scopeLabels }: Props) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    const { request, error } = consentParams(window.location.search);
+    const { request, error, hint } = consentParams(window.location.search);
     const known = consentError(error);
     const controller = new AbortController();
     if (known || !request) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setState({ kind: "refused", text: known ? errorText(errors, known) : t.stale });
+      setState({ kind: "refused", text: known ? errorText(errors, known) : t.stale, hint: known ? hint : null });
       return;
     }
     apiGet<ConsentRequest>(`/v1/oauth/requests/${encodeURIComponent(request)}`, controller.signal)
@@ -65,6 +79,11 @@ export function ConsentView({ labels: t, scopeLabels }: Props) {
     return (
       <div role="alert">
         <EmptyState icon={ShieldAlert} title={t.title} text={state.text} />
+        {state.hint && session.user?.is_superadmin && (
+          <p className="mx-auto mt-2 max-w-xl text-center text-sm break-words text-ink-2">
+            {hintText(t, state.hint)}
+          </p>
+        )}
       </div>
     );
   }
@@ -121,7 +140,7 @@ export function ConsentView({ labels: t, scopeLabels }: Props) {
           <Button busy={busy} disabled={busy} onClick={() => void decide("deny")}>
             {t.deny}
           </Button>
-          <Button variant="primary" busy={busy} disabled={busy || !canSubmitNodes(access, nodes, false)} onClick={() => void decide("approve")}>
+          <Button variant="primary" busy={busy} disabled={busy || !canSubmitNodes(access, nodes, ["mcp"])} onClick={() => void decide("approve")}>
             {t.allow}
           </Button>
         </div>

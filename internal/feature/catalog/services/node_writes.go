@@ -12,7 +12,7 @@ import (
 )
 
 func (s *NodesService) CreateNode(ctx context.Context, p accesstypes.Principal, in catalogtypes.CreateNode, source catalogports.SourceFactoryPort) (catalogtypes.Node, *IssuedKey, error) {
-	parent, err := s.access.AuthorizeContainer(ctx, p, in.ParentID)
+	parent, err := s.access.AuthorizeContainer(ctx, p, in.ParentID, nil)
 	if err != nil {
 		return catalogtypes.Node{}, nil, err
 	}
@@ -43,9 +43,9 @@ func (s *NodesService) CreateNode(ctx context.Context, p accesstypes.Principal, 
 			row.Repo.Forge, row.Repo.RepoURL = f, url
 		}
 	}
-	node, err := s.nodeRepository.Insert(ctx, row)
+	node, err := s.insert(ctx, p, row)
 	if err != nil {
-		return catalogtypes.Node{}, nil, apperr.Wrap(err)
+		return catalogtypes.Node{}, nil, err
 	}
 	if kind != catalogtypes.KindProject {
 		if err := s.mark(ctx, &node); err != nil {
@@ -141,7 +141,7 @@ func (s *NodesService) MoveNode(ctx context.Context, p accesstypes.Principal, id
 	if err != nil {
 		return catalogtypes.Node{}, err
 	}
-	if _, err := s.access.AuthorizeContainer(ctx, p, scoped.Node.ParentID); err != nil {
+	if _, err := s.access.AuthorizeContainer(ctx, p, scoped.Node.ParentID, &id); err != nil {
 		return catalogtypes.Node{}, err
 	}
 	if err := s.refuseManaged(ctx, id); err != nil {
@@ -150,7 +150,7 @@ func (s *NodesService) MoveNode(ctx context.Context, p accesstypes.Principal, id
 	if parent != nil && *parent == id {
 		return catalogtypes.Node{}, apperr.Wrap(catalogtypes.ConflictCycle)
 	}
-	target, err := s.access.AuthorizeContainer(ctx, p, parent)
+	target, err := s.access.AuthorizeContainer(ctx, p, parent, &id)
 	if err != nil {
 		return catalogtypes.Node{}, err
 	}
@@ -176,13 +176,39 @@ func (s *NodesService) DeleteNode(ctx context.Context, p accesstypes.Principal, 
 	if err != nil {
 		return err
 	}
-	if _, err := s.access.AuthorizeContainer(ctx, p, scoped.Node.ParentID); err != nil {
+	if _, err := s.access.AuthorizeContainer(ctx, p, scoped.Node.ParentID, &id); err != nil {
 		return err
 	}
 	if err := s.refuseManaged(ctx, id); err != nil {
 		return err
 	}
 	return apperr.Wrap(s.nodeRepository.Delete(ctx, id))
+}
+
+func (s *NodesService) insert(ctx context.Context, p accesstypes.Principal, row catalogtypes.NewNode) (catalogtypes.Node, error) {
+	if row.ParentID != nil || !p.AddsRoots() {
+		node, err := s.nodeRepository.Insert(ctx, row)
+		return node, apperr.Wrap(err)
+	}
+	if len(p.Nodes) >= accesstypes.TokenMaxNodes {
+		return catalogtypes.Node{}, apperr.Wrap(catalogtypes.ConflictTokenNodesFull)
+	}
+	var node catalogtypes.Node
+	err := s.db.InTx(ctx, func(ctx context.Context) error {
+		var err error
+		if node, err = s.nodeRepository.Insert(ctx, row); err != nil {
+			return err
+		}
+		added, err := s.tokenRoots.AddTokenRoot(ctx, p.TokenID, node.ID)
+		if err != nil {
+			return err
+		}
+		if !added {
+			return catalogtypes.ConflictTokenNodesFull
+		}
+		return nil
+	})
+	return node, apperr.Wrap(err)
 }
 
 func (s *NodesService) refuseManaged(ctx context.Context, id uuid.UUID) error {

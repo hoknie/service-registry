@@ -293,7 +293,7 @@ func TestMCPOAuthAppsAreListedAndRevoked(t *testing.T) {
 
 	userApps := "/api/v1/users/" + bobUser.ID.String() + "/apps"
 	eq(t, app.get(userApps, bob).status, 403)
-	adminPat := app.pat(admin, "read", "users")
+	adminPat := app.pat(admin, "read", "users:read")
 	eq(t, code(t, request(t, app.addr, "GET", userApps, "", "authorization", "Bearer "+adminPat)), any("auth.session_required"))
 	eq(t, len(app.get(userApps, admin).json(t)["items"].([]any)), 2)
 	eq(t, app.call("DELETE", "/api/v1/account/apps/"+id, admin).status, 404)

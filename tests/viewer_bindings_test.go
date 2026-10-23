@@ -138,7 +138,7 @@ func TestTokenNodesRollbackRefusesActiveScopedTokens(t *testing.T) {
 	id := uuid.New()
 	execSQL(t, w.tdb, "INSERT INTO personal_access_tokens (id, user_id, name, prefix, token_hash, scopes, node_ids) "+
 		"VALUES ($1, $2, 't', 'svcp_0000000', decode(repeat('00', 32), 'hex'), '{read}', ARRAY[$3::uuid])", id, w.bob, w.api)
-	_, err := rollbackThrough(t, m, w.tdb, "alter_personal_access_tokens_node_ids")
+	_, err := rollbackThrough(t, m, w.tdb, squashMigration)
 	if err == nil {
 		t.Fatal("rollback with an active scoped token succeeded")
 	}
@@ -151,9 +151,9 @@ func TestTokenNodesRollbackRefusesActiveScopedTokens(t *testing.T) {
 	w2 := newBindingWorld(t)
 	execSQL(t, w2.tdb, "INSERT INTO personal_access_tokens (id, user_id, name, prefix, token_hash, scopes, node_ids, revoked_at) "+
 		"VALUES ($1, $2, 't', 'svcp_0000000', decode(repeat('00', 32), 'hex'), '{read}', ARRAY[$3::uuid], now())", id, w2.bob, w2.api)
-	n, err := rollbackThrough(t, m, w2.tdb, "alter_personal_access_tokens_node_ids")
+	n, err := rollbackThrough(t, m, w2.tdb, squashMigration)
 	must(t, err)
-	eq(t, n, migrationsFrom(t, m, "alter_personal_access_tokens_node_ids"))
+	eq(t, n, migrationsFrom(t, m, squashMigration))
 	eq(t, scalar[int64](t, w2.tdb, columns), int64(0))
 	eq(t, scalar[int64](t, w2.tdb, functions), int64(0))
 	eq(t, scalar[int64](t, w2.tdb, "SELECT count(*) FROM personal_access_tokens"), int64(1))

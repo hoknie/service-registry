@@ -298,7 +298,8 @@
       "cluster_mode_poll": "The registry polls this cluster: it has no agent tokens.",
       "cluster_disabled": "The cluster is disabled.",
       "agent_report_in_progress": "A report of this cluster is being processed.",
-      "dependency_exists": "This dependency has already been added manually."
+      "dependency_exists": "This dependency has already been added manually.",
+      "token_nodes_full": "The token already names 20 nodes; a new organization cannot be added to it."
     },
     "ingest": {
       "unknown_event_type": "Unknown event type.",
@@ -346,7 +347,7 @@
       "invalid_redirect_uri": "The app asked to return to an address it did not register, so the request was stopped.",
       "client_metadata_unavailable": "The app's description could not be loaded from its address. Try again later or ask the app's developer.",
       "client_metadata_invalid": "The app's description at its address is not valid, so the request was stopped.",
-      "client_not_allowed": "The registry does not accept apps described on this site."
+      "client_not_allowed": "The registry does not allow this app. Contact an administrator."
     },
     "notify": {
       "rate_limited": "A test was sent less than 10 seconds ago. Try again later."
@@ -452,11 +453,21 @@
       "read": "Read the catalog",
       "write": "Change the catalog",
       "mcp": "MCP endpoint",
-      "users": "Users, their identities and groups",
-      "groups": "Groups, members and contacts",
-      "clusters": "Kubernetes clusters and agent tokens",
-      "settings": "Link kinds, environments, global secrets, scan history",
-      "catalog.root": "Create, move and delete top-level organizations"
+      "users:read": "View users, their identities and groups",
+      "users:write": "Create, change and disable users",
+      "groups:read": "View groups, members and contacts",
+      "groups:write": "Create and change groups, members and contacts",
+      "clusters:read": "View Kubernetes clusters",
+      "clusters:write": "Change clusters and agent tokens",
+      "settings:read": "View global secrets and scan history",
+      "settings:write": "Change link kinds, environments and global secrets",
+      "catalog.root": "Create top-level organizations; move and delete them"
+    },
+    "scopeAreas": {
+      "users": "Users",
+      "groups": "Groups",
+      "clusters": "Clusters",
+      "settings": "Settings"
     },
     "revoke": "Revoke",
     "revokeTitle": "Revoke token",
@@ -468,6 +479,8 @@
       "namePlaceholder": "e.g. CI deploy",
       "scopes": "Scopes",
       "globalScopes": "Global rights",
+      "globalRead": "read",
+      "globalWrite": "change",
       "lifetime": "Expires in",
       "days": "{n} days",
       "custom": "Other number of days",
@@ -480,7 +493,7 @@
       "accessNodes": "Selected nodes only",
       "nodesSearch": "Find a node by name or path",
       "nodesHint": "Up to {n} nodes. The token works only inside them and never beyond your own rights.",
-      "nodesGlobal": "Global rights cover the whole installation and are unavailable for a token limited to nodes.",
+      "nodesGlobal": "Rights over users, groups, clusters and settings cover the whole installation and are unavailable for a token limited to nodes. catalog.root stays available: the token creates top-level organizations, adds each to its nodes (up to 20) and moves or deletes only the top-level organizations among them.",
       "nodesSuperadmin": "In the selected nodes the token acts as a catalog administrator; global administration stays closed.",
       "wholeSuperadmin": "The token acts as a catalog administrator on every node; the top level of the catalog needs catalog.root, administration needs the matching global right.",
       "nodesPicked": "Selected nodes",
@@ -794,6 +807,8 @@
       },
       "agent": "Agent in the cluster",
       "neverReported": "No reports yet",
+      "reportGap": "Reports at most once every {secs} s",
+      "reportGapLoads": "Reports at most once every {secs} s (last report: {count} workloads)",
       "newToken": "New agent token",
       "revokeTokens": "Revoke tokens",
       "confirmNewToken": "Issue a new agent token for “{name}”? The current token keeps working for 24 hours.",
@@ -2087,7 +2102,31 @@
     "deny": "Deny",
     "stale": "The request is out of date — start connecting in the app again.",
     "publishedOn": "The app's description is published on",
-    "loopbackWarning": "The answer goes back to this computer. Any program running on it could pretend to be this app — allow only if you started the connection yourself."
+    "loopbackWarning": "The answer goes back to this computer. Any program running on it could pretend to be this app — allow only if you started the connection yourself.",
+    "hintHosts": "As an administrator: if you trust this app, add {host} to MCP_OAUTH_CLIENT_METADATA_HOSTS and restart the server.",
+    "hintDisabled": "As an administrator: app description documents are turned off. Set MCP_OAUTH_CLIENT_METADATA=on and add {host} to MCP_OAUTH_CLIENT_METADATA_HOSTS to accept this app.",
+    "hintUnavailable": "As an administrator: the app description document could not be fetched from {host}: {reason}.",
+    "hintInvalid": "As an administrator: the app description document on {host} failed the checks: {reason}.",
+    "reasons": {
+      "timeout": "the server did not answer in 5 seconds",
+      "dns": "the host name does not resolve",
+      "tls": "the TLS certificate is not trusted or the TLS handshake failed",
+      "blocked_address": "the address is forbidden by the address policy (private, loopback or denied host)",
+      "connection": "the connection failed",
+      "redirect": "the server answered with a redirect, redirects are not followed",
+      "too_large": "the document is larger than 5 KiB",
+      "rate_limited": "too many document fetches from your address, try again later",
+      "fetch_failed": "the request failed",
+      "status": "the server answered with status {status}",
+      "not_json": "the document is not a JSON object",
+      "client_id_mismatch": "client_id in the document differs from its address",
+      "missing_client_name": "client_name is missing",
+      "has_secret": "the document carries client_secret",
+      "bad_redirect_uri": "redirect_uris are missing or not allowed",
+      "auth_method": "token_endpoint_auth_method is not \"none\"",
+      "grant_types": "grant_types hold something besides authorization_code and refresh_token",
+      "response_types": "response_types hold something besides \"code\""
+    }
   },
   "notify": {
     "title": "Notifications",

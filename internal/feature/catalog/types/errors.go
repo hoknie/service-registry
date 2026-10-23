@@ -36,6 +36,7 @@ var (
 	ConflictCycle             = apperr.Conflicting("conflict.cycle", "a node cannot be moved under itself or its descendant")
 	ConflictNodeNotEmpty      = apperr.Conflicting("conflict.node_not_empty", "the node has children")
 	ConflictManagedByForge    = apperr.Conflicting("conflict.managed_by_forge", "the node or field is managed by forge synchronization")
+	ConflictTokenNodesFull    = apperr.Conflicting("conflict.token_nodes_full", "the token already names the maximum number of nodes")
 	ConflictBranchIsDefault   = apperr.Conflicting("conflict.branch_is_default", "the default branch of a project cannot be deleted")
 	ConflictSecretInUse       = apperr.Conflicting("conflict.secret_in_use", "the secret is used by forge connections, documentation sources or clusters")
 	ConflictSecretNameTaken   = apperr.Conflicting("conflict.secret_name_taken", "a secret with this name already exists here")

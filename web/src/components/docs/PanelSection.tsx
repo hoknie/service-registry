@@ -13,7 +13,9 @@ function stored(key: string): boolean {
   }
 }
 
-export function PanelSection({ title, icon: Icon, storageKey, children }: { title: string; icon: LucideIcon; storageKey: string; children: ReactNode }) {
+type Props = { title: string; icon: LucideIcon; storageKey: string; busy?: boolean; children: ReactNode };
+
+export function PanelSection({ title, icon: Icon, storageKey, busy = false, children }: Props) {
   const [open, setOpen] = useState(() => stored(storageKey));
   const id = useId();
   const toggle = () => {
@@ -37,7 +39,13 @@ export function PanelSection({ title, icon: Icon, storageKey, children }: { titl
         <span className="min-w-0 flex-1 truncate">{title}</span>
         <ChevronDown aria-hidden="true" className={cn("motion-control size-3.5 shrink-0", !open && "-rotate-90")} />
       </button>
-      <div id={id} hidden={!open} className="animate-fade-in min-w-0 pt-1.5">
+      <div
+        id={id}
+        hidden={!open}
+        aria-busy={busy || undefined}
+        inert={busy}
+        className={cn("motion-control animate-fade-in min-w-0 pt-1.5", busy && "opacity-50 delay-150")}
+      >
         {children}
       </div>
     </section>

@@ -120,7 +120,7 @@ func TestLinkKindScopesOfTokens(t *testing.T) {
 	root := app.admin()
 	read := app.pat(root, "read")
 	readWrite := app.pat(root, "read", "write")
-	admin := app.pat(root, "settings")
+	admin := app.pat(root, "settings:write")
 	eq(t, app.bearer("GET", linkKindsPath, read, nil).status, 200)
 	r := app.bearer("POST", linkKindsPath, readWrite, obj{"key": "x", "names": allNames("X")})
 	eq(t, r.status, 403)

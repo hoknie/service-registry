@@ -298,7 +298,8 @@
       "cluster_mode_poll": "注册表轮询此集群：它没有代理令牌。",
       "cluster_disabled": "集群已停用。",
       "agent_report_in_progress": "正在处理此集群的一份报告。",
-      "dependency_exists": "该依赖已手动添加。"
+      "dependency_exists": "该依赖已手动添加。",
+      "token_nodes_full": "该令牌已包含 20 个节点，无法再加入新组织。"
     },
     "ingest": {
       "unknown_event_type": "未知的事件类型。",
@@ -346,7 +347,7 @@
       "invalid_redirect_uri": "该应用要求返回到未注册的地址，因此请求已停止。",
       "client_metadata_unavailable": "无法从应用的地址加载其描述。请稍后重试或联系应用开发者。",
       "client_metadata_invalid": "应用地址上的描述无效，因此请求已停止。",
-      "client_not_allowed": "注册中心不接受在此站点上描述的应用。"
+      "client_not_allowed": "注册表不允许此应用。请联系管理员。"
     },
     "notify": {
       "rate_limited": "不到 10 秒前刚发送过测试，请稍后重试。"
@@ -452,11 +453,21 @@
       "read": "读取目录",
       "write": "修改目录",
       "mcp": "MCP 端点",
-      "users": "用户、其登录身份和群组",
-      "groups": "群组、成员和联系方式",
-      "clusters": "Kubernetes 集群和代理令牌",
-      "settings": "链接类型、环境、全局密钥、扫描历史",
-      "catalog.root": "创建、移动和删除顶级组织"
+      "users:read": "查看用户及其登录方式和群组",
+      "users:write": "创建、修改和停用用户",
+      "groups:read": "查看群组、成员和联系方式",
+      "groups:write": "创建和修改群组、成员和联系方式",
+      "clusters:read": "查看 Kubernetes 集群",
+      "clusters:write": "修改集群和代理令牌",
+      "settings:read": "查看全局密钥和扫描历史",
+      "settings:write": "修改链接类型、环境和全局密钥",
+      "catalog.root": "创建顶层组织，以及移动和删除它们"
+    },
+    "scopeAreas": {
+      "users": "用户",
+      "groups": "群组",
+      "clusters": "集群",
+      "settings": "设置"
     },
     "revoke": "吊销",
     "revokeTitle": "吊销令牌",
@@ -468,6 +479,8 @@
       "namePlaceholder": "例如：CI 部署",
       "scopes": "作用域",
       "globalScopes": "全局权限",
+      "globalRead": "读取",
+      "globalWrite": "修改",
       "lifetime": "有效期",
       "days": "{n} 天",
       "custom": "其他天数",
@@ -480,7 +493,7 @@
       "accessNodes": "仅选定的节点",
       "nodesSearch": "按名称或路径查找节点",
       "nodesHint": "最多 {n} 个节点。令牌只在这些节点内生效，且不超出你自己的权限。",
-      "nodesGlobal": "全局权限作用于整个安装，限定节点的令牌不可用。",
+      "nodesGlobal": "用户、群组、集群和设置的权限作用于整个安装，限定节点的令牌不能使用。catalog.root 仍可用：令牌可创建顶层组织，并将每个组织加入自己的节点（最多 20 个），且只能移动或删除其中的顶层组织。",
       "nodesSuperadmin": "在所选节点中，令牌以目录管理员身份操作；全局管理仍然关闭。",
       "wholeSuperadmin": "该令牌在所有节点上作为目录管理员；目录顶层需要 catalog.root，管理操作需要相应的全局权限。",
       "nodesPicked": "已选节点",
@@ -794,6 +807,8 @@
       },
       "agent": "集群内代理",
       "neverReported": "尚无报告",
+      "reportGap": "报告间隔不少于 {secs} 秒",
+      "reportGapLoads": "报告间隔不少于 {secs} 秒（上次报告：{count} 个 workload）",
       "newToken": "新代理令牌",
       "revokeTokens": "吊销令牌",
       "confirmNewToken": "为“{name}”签发新的代理令牌？当前令牌还可使用 24 小时。",
@@ -2087,7 +2102,31 @@
     "deny": "拒绝",
     "stale": "请求已过期——请在应用中重新开始连接。",
     "publishedOn": "应用描述发布于",
-    "loopbackWarning": "响应将返回到这台计算机。在其上运行的任何程序都可能冒充此应用——仅当连接由您本人发起时才允许。"
+    "loopbackWarning": "响应将返回到这台计算机。在其上运行的任何程序都可能冒充此应用——仅当连接由您本人发起时才允许。",
+    "hintHosts": "管理员提示：如果您信任此应用，请将 {host} 添加到 MCP_OAUTH_CLIENT_METADATA_HOSTS 并重启服务器。",
+    "hintDisabled": "管理员提示：应用描述文档已关闭。要接受此应用，请设置 MCP_OAUTH_CLIENT_METADATA=on 并将 {host} 添加到 MCP_OAUTH_CLIENT_METADATA_HOSTS。",
+    "hintUnavailable": "管理员提示：无法从 {host} 获取应用描述文档：{reason}。",
+    "hintInvalid": "管理员提示：{host} 上的应用描述文档未通过检查：{reason}。",
+    "reasons": {
+      "timeout": "服务器在 5 秒内未响应",
+      "dns": "无法解析主机名",
+      "tls": "TLS 证书不受信任或 TLS 握手失败",
+      "blocked_address": "地址被地址策略禁止（私有、回环或被拒绝的主机）",
+      "connection": "连接失败",
+      "redirect": "服务器返回了重定向，不会跟随重定向",
+      "too_large": "文档大于 5 KiB",
+      "rate_limited": "来自您地址的文档获取次数过多，请稍后再试",
+      "fetch_failed": "请求失败",
+      "status": "服务器返回状态 {status}",
+      "not_json": "文档不是 JSON 对象",
+      "client_id_mismatch": "文档中的 client_id 与其地址不一致",
+      "missing_client_name": "缺少 client_name",
+      "has_secret": "文档包含 client_secret",
+      "bad_redirect_uri": "redirect_uris 缺失或不被允许",
+      "auth_method": "token_endpoint_auth_method 不是 \"none\"",
+      "grant_types": "grant_types 包含 authorization_code 和 refresh_token 以外的值",
+      "response_types": "response_types 包含 \"code\" 以外的值"
+    }
   },
   "notify": {
     "title": "通知",

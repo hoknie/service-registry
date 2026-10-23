@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 export function Skeleton({ className }: { className?: string }) {
-  return <span aria-hidden="true" className={cn("block animate-shimmer rounded-md bg-surface-3", className)} />;
+  return <span aria-hidden="true" data-skeleton="" className={cn("block animate-shimmer rounded-md bg-surface-3", className)} />;
 }
 
 export function SkeletonRows({ rows = 4, label, className }: { rows?: number; label: string; className?: string }) {

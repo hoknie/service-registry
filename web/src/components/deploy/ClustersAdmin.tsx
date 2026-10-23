@@ -257,6 +257,16 @@ export function ClustersAdmin({ locale, labels: t, pager }: Props) {
                       {c.last_polled_at ? ago(c.last_polled_at, locale, "") : c.mode === "agent" ? t.neverReported : t.never}
                     </span>
                     {c.last_error && <span className="text-xs text-danger">{errorText(errors, c.last_error.code)}</span>}
+                    {c.agent && (
+                      <span className="text-xs text-muted">
+                        {c.agent.last_report_at
+                          ? format(t.reportGapLoads, {
+                              secs: c.agent.report_gap_secs,
+                              count: new Intl.NumberFormat(locale).format(c.agent.report_workloads),
+                            })
+                          : format(t.reportGap, { secs: c.agent.report_gap_secs })}
+                      </span>
+                    )}
                   </span>
                 </Td>
                 <Td numeric className="text-ink-2">

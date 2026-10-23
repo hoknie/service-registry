@@ -45,8 +45,10 @@ state and deployments are computed by the registry exactly as for a polled clust
    `CLUSTER_ID`, and apply it: a ServiceAccount with `get`/`list` on the same resources as above
    plus `create` on `selfsubjectaccessreviews` (the permission check), and one replica of the agent.
 3. The cluster turns `ok` after the first report; "Test connection" shows the Kubernetes version and
-   missing permissions from the last report. Three intervals without a report make the cluster
-   `error` with `k8s.agent_silent`.
+   missing permissions from the last report. The agent reports every `max(interval, report gap)`:
+   the gap grows with the size of the last report — `max(15, interval/2, ⌈workloads/K8S_AGENT_WORKLOADS_PER_GAP_SEC⌉)` seconds
+   (2000 by default, set on the registry's `serve`), 50 s for 100 000 workloads; the clusters page shows it — and comes in the registry's answers as `report_gap_secs`. Three such periods without a
+   report make the cluster `error` with `k8s.agent_silent`.
 4. Rotate: "New agent token" issues a token and keeps the old one valid for 24 hours — update the
    Secret and restart the agent within that time. "Revoke tokens" stops the agent at once (it exits
    with `the registry refused the agent token`).
@@ -56,9 +58,9 @@ report and exits with `0` when the registry accepted it.
 
 Health checks (ADR-0091): with `--health-addr :8081` (used by `agent.yaml`, off by default, not with
 `--once`) the agent answers `GET /healthz` — `200 {"status":"ok"}` while its loop keeps stepping (at most
-`max(3 × interval, 10 min)` between steps; a registry that is down does not fail it, so the pod is not
+`max(3 × period, 10 min)` between steps, the period being `max(interval, report gap)`; a registry that is down does not fail it, so the pod is not
 restarted in a loop) — and `GET /readyz` — `200` while the registry accepted a report (or answered that
-the cluster is disabled) within three intervals, `503 {"status":"unavailable"}` otherwise.
+the cluster is disabled) within three periods, `503 {"status":"unavailable"}` otherwise.
 
 Report size: the agent streams the report gzip-compressed. The registry accepts up to 16 MiB as sent on
 this route (other routes keep the 2 MiB server limit) and up to `K8S_AGENT_REPORT_MAX_BYTES` (64 MiB by

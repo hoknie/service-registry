@@ -29,8 +29,11 @@ func TestTokenRules(t *testing.T) {
 		{"no scopes", CreateToken{Name: "t", ExpiresInDays: new(int64(1))}, false, InvalidScopes},
 		{"unknown scope", CreateToken{Name: "t", Scopes: []string{"read", "deploy"}, ExpiresInDays: new(int64(1))}, false, InvalidScopes},
 		{"repeated scope", CreateToken{Name: "t", Scopes: []string{"read", "read"}, ExpiresInDays: new(int64(1))}, false, InvalidScopes},
-		{"admin of a user", CreateToken{Name: "t", Scopes: []string{"admin"}, ExpiresInDays: new(int64(1))}, false, InvalidScopes},
-		{"admin of a superadmin", CreateToken{Name: "t", Scopes: []string{"admin"}, ExpiresInDays: new(int64(1))}, true, nil},
+		{"removed admin scope", CreateToken{Name: "t", Scopes: []string{"admin"}, ExpiresInDays: new(int64(1))}, true, InvalidScopes},
+		{"global scope of a user", CreateToken{Name: "t", Scopes: []string{"read", "users:read"}, ExpiresInDays: new(int64(1))}, false, InvalidScopes},
+		{"catalog root of a user", CreateToken{Name: "t", Scopes: []string{"catalog.root"}, ExpiresInDays: new(int64(1))}, false, InvalidScopes},
+		{"global scopes of a superadmin", CreateToken{Name: "t", Scopes: []string{"settings:write", "users:read", "catalog.root"}, ExpiresInDays: new(int64(1))}, true, nil},
+		{"undivided global scope", CreateToken{Name: "t", Scopes: []string{"users"}, ExpiresInDays: new(int64(1))}, true, InvalidScopes},
 		{"zero days", CreateToken{Name: "t", Scopes: []string{"read"}, ExpiresInDays: new(int64(0))}, true, InvalidTokenLifetime},
 		{"one day", CreateToken{Name: "t", Scopes: []string{"read"}, ExpiresInDays: new(int64(1))}, false, nil},
 		{"max days", CreateToken{Name: "t", Scopes: []string{"read"}, ExpiresInDays: new(int64(365))}, false, nil},
@@ -71,7 +74,8 @@ func TestTokenNodeRules(t *testing.T) {
 		{"too many", &many, []string{"read"}, InvalidTokenNodes, 0},
 		{"repeated", &[]string{a, a}, []string{"read"}, InvalidTokenNodes, 0},
 		{"not an id", &[]string{"acme"}, []string{"read"}, InvalidTokenNodes, 0},
-		{"with admin", &[]string{a}, []string{"read", "admin"}, InvalidTokenNodes, 0},
+		{"with a global scope", &[]string{a}, []string{"read", "clusters:read"}, InvalidTokenNodes, 0},
+		{"with catalog root", &[]string{a}, []string{"write", "catalog.root"}, nil, 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -39,7 +39,7 @@ func withInlineCredentials(t *testing.T) legacySetup {
 		"url": "https://github.example/acme-inc/docs", "api_url": f.APIURL(), "credentials": nil})
 	eq(t, r.status, 200, r.text())
 
-	_, err := rollbackThrough(t, embedded(t), app.db, "alter_forge_connections_drop_inline_credentials")
+	_, err := rollbackThrough(t, embedded(t), app.db, squashMigration)
 	must(t, err)
 	eq(t, inlineColumns(t, app), int64(9))
 	box := secretbox.New(app.services.Config.Secrets.Keys)
@@ -93,7 +93,7 @@ func TestMigrateStopsBeforeDroppingInlineCredentials(t *testing.T) {
 
 	code, out, errOut = run(t, []string{"db:migrate"}, "", env...)
 	eq(t, code, 0, errOut)
-	dropped := migrationsFrom(t, embedded(t), "alter_forge_connections_drop_inline_credentials")
+	dropped := migrationsFrom(t, embedded(t), squashMigration)
 	eq(t, strings.TrimSpace(out), fmt.Sprintf("applied %d migration(s)", dropped))
 	eq(t, inlineColumns(t, a), int64(0))
 	c := a.get(connectionPath(s.acme, s.conn), s.root).json(t)

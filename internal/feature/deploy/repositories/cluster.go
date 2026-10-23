@@ -12,23 +12,28 @@ import (
 	"svc-registry/pkg/pgtx"
 )
 
-type ClusterRepository struct{ db *pgtx.DB }
+type ClusterRepository struct {
+	db     *pgtx.DB
+	perGap int32
+}
 
-func NewClusterRepository(db *pgtx.DB) *ClusterRepository { return &ClusterRepository{db: db} }
+func NewClusterRepository(db *pgtx.DB, workloadsPerGapSec int32) *ClusterRepository {
+	return &ClusterRepository{db: db, perGap: workloadsPerGapSec}
+}
 
 func (s *ClusterRepository) List(ctx context.Context) ([]deploytypes.Cluster, error) {
-	return clusters(ctx, s.db.From(ctx), nil)
+	return clusters(ctx, s.db.From(ctx), nil, s.perGap)
 }
 
 func (s *ClusterRepository) Get(ctx context.Context, id uuid.UUID) (*deploytypes.Cluster, error) {
-	items, err := clusters(ctx, s.db.From(ctx), &id)
+	items, err := clusters(ctx, s.db.From(ctx), &id, s.perGap)
 	if err != nil || len(items) == 0 {
 		return nil, err
 	}
 	return &items[0], nil
 }
 
-func clusters(ctx context.Context, q pgtx.Querier, id *uuid.UUID) ([]deploytypes.Cluster, error) {
+func clusters(ctx context.Context, q pgtx.Querier, id *uuid.UUID, perGap int32) ([]deploytypes.Cluster, error) {
 	return postgres.List(ctx, q, constraints, postgres.Struct(clusterRow.cluster), `
 		SELECT c.id, c.mode, c.name, c.environment, c.in_cluster, c.api_url, c.ca_pem, c.credentials_secret_id,
 			c.namespaces, c.rules, c.interval_secs, c.enabled,
@@ -36,7 +41,8 @@ func clusters(ctx context.Context, q pgtx.Querier, id *uuid.UUID) ([]deploytypes
 			CASE WHEN q.silent THEN jsonb_build_object('code', 'k8s.agent_silent',
 				'message', 'the agent has not reported for three intervals') ELSE c.last_error END AS last_error,
 			rfc3339(c.last_polled_at) AS last_polled_at, rfc3339(c.next_run_at) AS next_run_at,
-			c.agent_version, rfc3339(c.agent_reported_at) AS agent_reported_at, c.agent_report, ARRAY(
+			c.agent_version, rfc3339(c.agent_reported_at) AS agent_reported_at, c.agent_report,
+			agent_report_gap(c.interval_secs, c.agent_workloads, $2) AS report_gap_secs, c.agent_workloads, ARRAY(
 				SELECT t.prefix
 				FROM cluster_agent_tokens t
 				WHERE t.cluster_id = c.id
@@ -59,11 +65,12 @@ func clusters(ctx context.Context, q pgtx.Querier, id *uuid.UUID) ([]deploytypes
 		FROM clusters c
 		CROSS JOIN LATERAL (
 			SELECT c.mode = 'agent' AND c.enabled
-				AND COALESCE(c.agent_reported_at, c.updated_at) < now() - make_interval(secs => 3 * c.interval_secs) AS silent
+				AND COALESCE(c.agent_reported_at, c.updated_at) < now() - make_interval(secs => 3 * GREATEST(c.interval_secs,
+					agent_report_gap(c.interval_secs, c.agent_workloads, $2))) AS silent
 		) q
 		WHERE $1::uuid IS NULL
 			OR c.id = $1
-		ORDER BY lower(c.name), c.id`, id)
+		ORDER BY lower(c.name), c.id`, id, perGap)
 }
 
 func rulesParam(rules []deploytypes.Rule) []deploytypes.Rule {
@@ -114,6 +121,7 @@ func (s *ClusterRepository) Update(ctx context.Context, id uuid.UUID, u deployty
 			agent_version = CASE WHEN $13 = 'poll' THEN NULL ELSE agent_version END,
 			agent_reported_at = CASE WHEN $13 = 'poll' THEN NULL ELSE agent_reported_at END,
 			agent_report = CASE WHEN $13 = 'poll' THEN NULL ELSE agent_report END,
+			agent_workloads = CASE WHEN $13 = 'poll' THEN 0 ELSE agent_workloads END,
 			mode = $13,
 			updated_at = now()
 		WHERE id = $1`, id, st.Name, st.Environment, st.InCluster, st.APIURL, st.CAPEM,
@@ -235,36 +243,43 @@ func (s *ClusterRepository) LeaseReport(ctx context.Context, id uuid.UUID, lease
 			AND enabled
 			AND (lease_until IS NULL OR lease_until < now())
 			AND (agent_reported_at IS NULL
-				OR agent_reported_at <= now() - make_interval(secs => GREATEST(15, interval_secs / 2)))
-		RETURNING id`, id, leaseSecs)
+				OR agent_reported_at <= now() - make_interval(secs => agent_report_gap(interval_secs, agent_workloads, $3)))
+		RETURNING id`, id, leaseSecs, s.perGap)
 	if err != nil || got != nil {
 		return deploytypes.ReportLease{Leased: got != nil}, err
 	}
 	lease, err := postgres.Find(ctx, s.db.From(ctx), constraints, pgx.RowToStructByPos[deploytypes.ReportLease], `
 		SELECT false, NOT enabled, COALESCE(lease_until > now(), false),
-			GREATEST(1, ceil(extract(epoch FROM agent_reported_at + make_interval(secs => GREATEST(15, interval_secs / 2)) - now())))::bigint
+			GREATEST(1, ceil(extract(epoch FROM agent_reported_at
+				+ make_interval(secs => agent_report_gap(interval_secs, agent_workloads, $2)) - now())))::bigint
 		FROM clusters
-		WHERE id = $1`, id)
+		WHERE id = $1`, id, s.perGap)
 	if err != nil || lease == nil {
 		return deploytypes.ReportLease{Disabled: true}, err
 	}
 	return *lease, nil
 }
 
-func (s *ClusterRepository) FinishReport(ctx context.Context, id uuid.UUID, version string, summary deploytypes.ReportSummary) error {
+func (s *ClusterRepository) FinishReport(ctx context.Context, id uuid.UUID, version string, workloads int,
+	summary deploytypes.ReportSummary) (int32, error) {
 	status := string(deploytypes.StatusOK)
 	var lastError any
 	if summary.Error != nil {
 		status = string(deploytypes.StatusError)
 		lastError = errorJSON{Code: summary.Error.Code, Message: summary.Error.Message}
 	}
-	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+	gap, err := postgres.Find(ctx, s.db.From(ctx), constraints, pgx.RowTo[int32], `
 		UPDATE clusters
 		SET status = $2, last_error = $3::jsonb, last_polled_at = now(), agent_reported_at = now(),
-			agent_version = $4, agent_report = $5::jsonb,
-			next_run_at = now() + make_interval(secs => interval_secs), lease_until = NULL
-		WHERE id = $1`, id, status, lastError, version, summary)
-	return err
+			agent_version = $4, agent_report = $5::jsonb, agent_workloads = $6,
+			next_run_at = now() + make_interval(secs => GREATEST(interval_secs, agent_report_gap(interval_secs, $6, $7))),
+			lease_until = NULL
+		WHERE id = $1
+		RETURNING agent_report_gap(interval_secs, agent_workloads, $7)`, id, status, lastError, version, summary, workloads, s.perGap)
+	if err != nil || gap == nil {
+		return 0, err
+	}
+	return *gap, nil
 }
 
 func (s *ClusterRepository) Release(ctx context.Context, id uuid.UUID) error {

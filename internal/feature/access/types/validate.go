@@ -149,7 +149,7 @@ func validateTokenNodes(raw *[]string, scopes Scopes) ([]uuid.UUID, error) {
 	if raw == nil {
 		return nil, nil
 	}
-	if len(*raw) == 0 || len(*raw) > TokenMaxNodes || scopes.AnyGlobal() {
+	if len(*raw) == 0 || len(*raw) > TokenMaxNodes || scopes.AnyGlobalBut(ScopeCatalogRoot) {
 		return nil, InvalidTokenNodes
 	}
 	out := make([]uuid.UUID, 0, len(*raw))

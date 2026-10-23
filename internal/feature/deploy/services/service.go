@@ -4,6 +4,7 @@ import (
 	catalogservices "svc-registry/internal/feature/catalog/services"
 	deployports "svc-registry/internal/feature/deploy/ports"
 	"svc-registry/internal/feature/deploy/repositories"
+	deploytypes "svc-registry/internal/feature/deploy/types"
 	ingestservices "svc-registry/internal/feature/ingest/services"
 	notifyservices "svc-registry/internal/feature/notify/services"
 	topologyservices "svc-registry/internal/feature/topology/services"
@@ -43,7 +44,7 @@ func newParts(d Deps) *parts {
 		cfg:                   d.Config,
 		db:                    d.DB,
 		environmentRepository: repositories.NewEnvironmentRepository(d.DB),
-		clusterRepository:     repositories.NewClusterRepository(d.DB),
+		clusterRepository:     repositories.NewClusterRepository(d.DB, workloadsPerGapSec(d.Config)),
 		agentTokenRepository:  repositories.NewAgentTokenRepository(d.DB),
 		workloadRepository:    repositories.NewWorkloadRepository(d.DB),
 		k8s:                   d.K8s,
@@ -53,6 +54,13 @@ func newParts(d Deps) *parts {
 		notify:                d.Notify,
 		topology:              d.Topology,
 	}
+}
+
+func workloadsPerGapSec(cfg *config.Config) int32 {
+	if cfg == nil {
+		return deploytypes.DefaultWorkloadsPerGapSec
+	}
+	return cfg.K8s.WorkloadsPerGapSec
 }
 
 type DeployServices struct {

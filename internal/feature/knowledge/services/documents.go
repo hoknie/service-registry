@@ -66,6 +66,7 @@ func (s *DocumentsService) knowledgeProject(ctx context.Context, p accesstypes.P
 	if err != nil {
 		return knowledgetypes.Project{}, apperr.Wrap(err)
 	}
+	kp.Editor = sc.Allows(catalogtypes.PermWrite)
 	kp.Settings, err = s.settingsService.effectiveSettings(ctx, id)
 	return kp, err
 }
@@ -106,8 +107,8 @@ func (s *DocumentsService) GetKnowledge(ctx context.Context, p accesstypes.Princ
 		if bs.Snapshot, err = s.snapshotRepository.Latest(ctx, id, b.Name); err != nil {
 			return KnowledgeOverview{}, apperr.Wrap(err)
 		}
-		s.explain(p, bs.Last)
-		s.explain(p, bs.Snapshot)
+		s.explain(kp, bs.Last)
+		s.explain(kp, bs.Snapshot)
 		bs.Pending = collecting && !b.Gone && (b.HeadSHA != "" || d.Source != nil) &&
 			(kp.Force || bs.Last == nil || bs.Last.Commit != b.HeadSHA || bs.Last.Status == knowledgetypes.StatusFailed)
 		out.Branches = append(out.Branches, bs)
@@ -158,12 +159,12 @@ func (s *DocumentsService) KnowledgeFiles(ctx context.Context, p accesstypes.Pri
 		return knowledgetypes.Snapshot{}, nil, err
 	}
 	snap, files, err := s.snapshotRepository.Files(ctx, id, branch, ref)
-	s.explain(p, &snap)
+	s.explain(kp, &snap)
 	return snap, files, apperr.Wrap(err)
 }
 
-func (s *DocumentsService) explain(p accesstypes.Principal, snap *knowledgetypes.Snapshot) {
-	if snap != nil && p.IsSuperadmin {
+func (s *DocumentsService) explain(kp knowledgetypes.Project, snap *knowledgetypes.Snapshot) {
+	if snap != nil && kp.Editor {
 		k := s.cfg.Knowledge
 		snap.Limits = knowledgetypes.Limits{MaxFileBytes: k.MaxFileBytes, MaxFiles: int(k.MaxFiles), MaxSnapshotBytes: k.MaxSnapshotBytes}.Reached(*snap)
 	}
@@ -179,7 +180,7 @@ func (s *DocumentsService) KnowledgeFile(ctx context.Context, p accesstypes.Prin
 		return knowledgetypes.Snapshot{}, knowledgetypes.FileContent{}, err
 	}
 	snap, f, err := s.snapshotRepository.File(ctx, id, branch, ref, path)
-	s.explain(p, &snap)
+	s.explain(kp, &snap)
 	return snap, f, apperr.Wrap(err)
 }
 

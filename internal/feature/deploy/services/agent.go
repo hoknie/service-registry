@@ -148,10 +148,14 @@ func (r *AgentRunner) details(ctx context.Context, w deploytypes.Workload) (*[]d
 }
 
 func pause(cfg deploytypes.AgentConfig) time.Duration {
-	if cfg.IntervalSecs <= 0 {
-		return deploytypes.DefaultInterval * time.Second
+	if p := period(cfg); p > 0 {
+		return p
 	}
-	return time.Duration(cfg.IntervalSecs) * time.Second
+	return deploytypes.DefaultInterval * time.Second
+}
+
+func period(cfg deploytypes.AgentConfig) time.Duration {
+	return time.Duration(max(cfg.IntervalSecs, cfg.ReportGapSecs, 0)) * time.Second
 }
 
 func backoff(attempt int, ceiling time.Duration, err error) time.Duration {
@@ -169,7 +173,7 @@ func (r *AgentRunner) wait(ctx context.Context, d time.Duration, cfg deploytypes
 	case <-ctx.Done():
 		return false
 	case <-t.C:
-		r.health.Beat(time.Duration(cfg.IntervalSecs) * time.Second)
+		r.health.Beat(period(cfg))
 		return true
 	}
 }
