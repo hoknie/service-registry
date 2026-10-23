@@ -14,7 +14,7 @@ export default async function NewNodePage({ params }: { params: Promise<{ locale
   return (
     <RequireAuth locale={locale} labels={m.guard}>
       <Suspense fallback={<SkeletonRows rows={6} label={m.catalog.loading} />}>
-        <CreateNodePage locale={locale} labels={{ ...m.catalog, scans: m.scans }} />
+        <CreateNodePage locale={locale} labels={{ ...m.catalog, scans: m.scans, notify: m.notify }} />
       </Suspense>
     </RequireAuth>
   );

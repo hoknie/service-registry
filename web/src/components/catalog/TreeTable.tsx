@@ -12,6 +12,7 @@ import { BUSY_MS, IDLE_MS, busy, isSummary } from "@/lib/activity";
 import { apiGet, errorCode, type CatalogTable, type CatalogTableRow } from "@/lib/api";
 import { useCatalogVersion } from "@/lib/catalogEvents";
 import { cn } from "@/lib/cn";
+import { badgeNames } from "@/lib/owners";
 import {
   TREE_PAGE,
   buildRows,
@@ -34,6 +35,7 @@ import { Input } from "../ui/Field";
 import { Select } from "../ui/Select";
 import { Table, Td, Th, Tr } from "../ui/Table";
 import { LinkIconRow } from "../links/LinkIcons";
+import { OwnerFilter } from "../owners/OwnerFilter";
 import { ProcessBadges, SummaryBadges } from "./ActivityBadges";
 import { LabelFilter } from "./LabelFilter";
 import { KindIcon } from "./KindIcon";
@@ -194,7 +196,7 @@ export function TreeTable({ rootId, locale, labels }: Props) {
 
   const reset = () => {
     setDraft({ q: "", label: "" });
-    navigate({ q: "", kind: "", label: "", activity: "" });
+    navigate({ q: "", kind: "", label: "", activity: "", owner: "" });
   };
 
   const go = (i: number) => {
@@ -256,7 +258,7 @@ export function TreeTable({ rootId, locale, labels }: Props) {
     );
 
   return (
-    <section className="grid gap-3">
+    <section className="@container grid gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <Input
           type="search"
@@ -287,6 +289,7 @@ export function TreeTable({ rootId, locale, labels }: Props) {
           <option value="queued">{t.queued}</option>
           <option value="failed">{t.failed}</option>
         </Select>
+        <OwnerFilter value={filters.owner} onChange={(owner) => navigate({ owner })} labels={t} className="w-44 max-w-full" />
         {filtered && (
           <Button variant="ghost" onClick={reset}>
             {t.reset}
@@ -316,6 +319,7 @@ export function TreeTable({ rootId, locale, labels }: Props) {
               <Th>{t.name}</Th>
               <Th className="hidden sm:table-cell">{t.slug}</Th>
               <Th className="hidden lg:table-cell">{t.labels}</Th>
+              <Th className="hidden @min-[640px]:table-cell">{t.owners}</Th>
               <Th>{t.activity}</Th>
               <Th numeric className="hidden sm:table-cell">
                 {t.children}
@@ -325,7 +329,7 @@ export function TreeTable({ rootId, locale, labels }: Props) {
           <tbody>
             {loadingRoot && (
               <tr>
-                <Td colSpan={5} className="text-muted">
+                <Td colSpan={6} className="text-muted">
                   {t.loading}
                 </Td>
               </tr>
@@ -344,7 +348,7 @@ export function TreeTable({ rootId, locale, labels }: Props) {
               if (r.type !== "node") {
                 return (
                   <Tr key={`${r.parent}:${r.type}`} {...common}>
-                    <Td colSpan={5}>
+                    <Td colSpan={6}>
                       <span className="flex items-center gap-2" style={indent(r.level)}>
                         <span className="size-6 shrink-0" />
                         {r.type === "loading" && <span className="text-muted">{t.loading}</span>}
@@ -424,6 +428,9 @@ export function TreeTable({ rootId, locale, labels }: Props) {
                       {labelEntries.length > 3 && <Badge tone="outline">+{labelEntries.length - 3}</Badge>}
                     </span>
                   </Td>
+                  <Td className="hidden @min-[640px]:table-cell">
+                    <OwnerNames owners={row.owners ?? []} dim={dim} />
+                  </Td>
                   <Td>
                     <span className="grid gap-1.5">
                       {activityCell(row)}
@@ -440,5 +447,16 @@ export function TreeTable({ rootId, locale, labels }: Props) {
         </Table>
       )}
     </section>
+  );
+}
+
+function OwnerNames({ owners, dim }: { owners: CatalogTableRow["owners"]; dim: boolean }) {
+  const { names, more } = badgeNames(owners);
+  if (names.length === 0) return null;
+  return (
+    <span className={cn("flex flex-wrap items-center gap-1 text-sm", dim ? "text-muted" : "text-ink-2")}>
+      <span className="truncate">{names.join(", ")}</span>
+      {more > 0 && <Badge tone="outline">+{more}</Badge>}
+    </span>
   );
 }

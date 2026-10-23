@@ -7,18 +7,18 @@ const project = (permissions = []) => ({ kind: "project", access: "read", permis
 const folder = (permissions = []) => ({ kind: "folder", access: "read", permissions });
 
 test("tabs of a project and of a container", () => {
-  assert.deepEqual(tabsOf(project()), ["overview", "docs", "details", "releases", "settings"]);
-  assert.deepEqual(tabsOf(folder()), ["overview", "details", "settings"]);
+  assert.deepEqual(tabsOf(project()), ["overview", "docs", "details", "releases", "dependencies", "settings"]);
+  assert.deepEqual(tabsOf(folder()), ["overview", "details", "dependencies", "settings"]);
   assert.deepEqual(tabsOf({ kind: "folder", access: "navigate" }), ["overview"]);
   assert.deepEqual(tabsOf(null), ["overview"]);
 });
 
 test("sections follow permissions", () => {
-  assert.deepEqual(sectionsOf(project(["catalog.read"])), ["general", "branches", "links", "docs", "connect"]);
-  assert.deepEqual(sectionsOf(project(["catalog.keys", "catalog.access"])), ["general", "branches", "links", "docs", "keys", "access", "connect"]);
-  assert.deepEqual(sectionsOf(project(["catalog.write"])), ["general", "branches", "links", "docs", "scans", "connect"]);
-  assert.deepEqual(sectionsOf(folder(["catalog.access"])), ["general", "forge", "secrets", "links", "docs", "access"]);
-  assert.deepEqual(sectionsOf(folder(["catalog.read"])), ["general", "forge", "secrets", "links", "docs"]);
+  assert.deepEqual(sectionsOf(project(["catalog.read"])), ["general", "owners", "branches", "links", "docs", "connect"]);
+  assert.deepEqual(sectionsOf(project(["catalog.keys", "catalog.access"])), ["general", "owners", "branches", "links", "docs", "keys", "access", "notifications", "connect"]);
+  assert.deepEqual(sectionsOf(project(["catalog.write"])), ["general", "owners", "branches", "links", "dependencies", "docs", "scans", "connect"]);
+  assert.deepEqual(sectionsOf(folder(["catalog.access"])), ["general", "owners", "forge", "secrets", "links", "docs", "access", "notifications"]);
+  assert.deepEqual(sectionsOf(folder(["catalog.read"])), ["general", "owners", "forge", "secrets", "links", "docs"]);
 });
 
 test("old tabs move into settings", () => {
@@ -33,6 +33,8 @@ test("old tabs move into settings", () => {
   assert.deepEqual(resolveTab(project(), "settings", "secrets").section, "general", "projects have no secrets");
   assert.deepEqual(resolveTab(project(), "settings", "scans").section, "general", "viewers have no scan history");
   assert.deepEqual(resolveTab(project(["catalog.write"]), "settings", "scans").section, "scans");
+  assert.deepEqual(resolveTab(project(["catalog.write"]), "settings", "notifications").section, "general", "editors have no notifications");
+  assert.deepEqual(resolveTab(project(["catalog.access"]), "settings", "notifications").section, "notifications");
 });
 
 test("renamed and removed project tabs redirect", () => {

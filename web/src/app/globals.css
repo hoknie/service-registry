@@ -46,6 +46,11 @@
   --kind-folder-soft: #fbefd9;
   --kind-project: #0a6f58;
   --kind-project-soft: #e1f2ec;
+  --method-get: #2c4fc1;
+  --method-post: #0a6f58;
+  --method-put: #8a5300;
+  --method-delete: #b42318;
+  --method-other: #6b3fa0;
   --hero-to: #ffffff;
   --elev-1: 0 1px 2px rgb(24 32 44 / 0.06), 0 1px 1px rgb(24 32 44 / 0.04);
   --elev-2: 0 10px 28px -8px rgb(24 32 44 / 0.18), 0 2px 6px rgb(24 32 44 / 0.06);
@@ -86,6 +91,11 @@
   --kind-folder-soft: #382a12;
   --kind-project: #4cc9a7;
   --kind-project-soft: #10332b;
+  --method-get: #93abf5;
+  --method-post: #4cc9a7;
+  --method-put: #e7b866;
+  --method-delete: #f38a7f;
+  --method-other: #c9a7f2;
   --hero-to: #151c25;
   --elev-1: 0 1px 2px rgb(0 0 0 / 0.35), 0 0 0 1px rgb(255 255 255 / 0.02);
   --elev-2: 0 14px 36px -10px rgb(0 0 0 / 0.65), 0 2px 8px rgb(0 0 0 / 0.35);
@@ -127,6 +137,11 @@
     --kind-folder-soft: #382a12;
     --kind-project: #4cc9a7;
     --kind-project-soft: #10332b;
+    --method-get: #93abf5;
+    --method-post: #4cc9a7;
+    --method-put: #e7b866;
+    --method-delete: #f38a7f;
+    --method-other: #c9a7f2;
     --hero-to: #151c25;
     --elev-1: 0 1px 2px rgb(0 0 0 / 0.35), 0 0 0 1px rgb(255 255 255 / 0.02);
     --elev-2: 0 14px 36px -10px rgb(0 0 0 / 0.65), 0 2px 8px rgb(0 0 0 / 0.35);
@@ -170,6 +185,11 @@
   --color-kind-folder-soft: var(--kind-folder-soft);
   --color-kind-project: var(--kind-project);
   --color-kind-project-soft: var(--kind-project-soft);
+  --color-method-get: var(--method-get);
+  --color-method-post: var(--method-post);
+  --color-method-put: var(--method-put);
+  --color-method-delete: var(--method-delete);
+  --color-method-other: var(--method-other);
   --color-hero-to: var(--hero-to);
 
   --font-sans: "IBM Plex Sans Variable", "IBM Plex Sans", "PingFang SC", "Hiragino Sans GB",

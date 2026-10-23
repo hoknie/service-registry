@@ -21,6 +21,7 @@ import {
   scanAddress,
   scanCodes,
   scanCodeText,
+  scanNotes,
   scanQuery,
   scanTotals,
   seriesText,
@@ -298,7 +299,8 @@ function ScanSummary({ scan, totals, labels: t }: { scan: Scan; totals: ReturnTy
   const text =
     scan.kind === "collect"
       ? format(t.summary.collect, { branches: totals.branches, files: totals.files }) +
-        (totals.skipped ? ` · ${format(t.summary.skipped, { skipped: totals.skipped })}` : "")
+        (totals.skipped ? ` · ${format(t.summary.skipped, { skipped: totals.skipped })}` : "") +
+        (totals.api ? `, ${format(t.summary.apiSkipped, { api: totals.api })}` : "")
       : format(t.summary.index, { chunks: scan.index?.embedded_chunks ?? 0, documents: scan.index?.documents ?? 0 });
   return (
     <span title={text} className="inline-flex items-center gap-3 font-mono text-xs whitespace-nowrap tabular-nums text-ink-2">
@@ -310,6 +312,24 @@ function ScanSummary({ scan, totals, labels: t }: { scan: Scan; totals: ReturnTy
         </span>
       ))}
     </span>
+  );
+}
+
+function ScanNotes({ scan, code, labels: t }: { scan: Scan; code: string; labels: Labels }) {
+  const { items, more } = scanNotes(scan, code);
+  if (items.length === 0) return null;
+  return (
+    <ul className="mt-2 grid gap-1 text-sm text-ink-2">
+      {items.map((n, i) => (
+        <li key={i} className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+          {n.branch && <span className="font-mono text-xs text-muted">{n.branch}</span>}
+          {n.path && <code className="font-mono text-xs break-all text-ink">{n.path}</code>}
+          {n.reason && <span>{t.noteReasons[n.reason]}</span>}
+          {n.detail && <span className="break-words">{n.detail}</span>}
+        </li>
+      ))}
+      {more > 0 && <li className="text-muted">{format(t.details.more, { n: more })}</li>}
+    </ul>
   );
 }
 
@@ -337,6 +357,7 @@ function ScanDetails({ scan, labels: t, codes }: { scan: Scan; labels: Labels; c
                 {text.hint}
               </p>
             )}
+            <ScanNotes scan={scan} code={code} labels={t} />
           </div>
         );
       })}
@@ -397,7 +418,7 @@ function ScanDetails({ scan, labels: t, codes }: { scan: Scan; labels: Labels; c
                     ? t.details.none
                     : Object.entries(b.skipped)
                         .map(([reason, n]) => `${t.skipReasons[reason as keyof Labels["skipReasons"]] ?? reason}: ${n}`)
-                        .join(", ")}
+                        .join(", ") + (b.api_skipped ? ` · ${t.details.apiSkipped}: ${b.api_skipped}` : "")}
                 </Td>
               </Tr>
             ))}

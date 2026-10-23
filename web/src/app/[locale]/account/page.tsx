@@ -20,7 +20,13 @@ export default async function AccountPage({ params }: { params: Promise<{ locale
       <div className="mx-auto max-w-5xl">
         <PageHeader glyph={UserRound} title={m.account.title} lead={m.account.lead} />
         <Suspense fallback={<SkeletonRows rows={4} label={m.guard.loading} />}>
-          <AccountView locale={locale} labels={m.account} tokenLabels={m.tokens} superadminLabel={m.header.user.superadmin} />
+          <AccountView
+            locale={locale}
+            labels={m.account}
+            tokenLabels={m.tokens}
+            contactLabels={m.admin.groups.contacts}
+            superadminLabel={m.header.user.superadmin}
+          />
         </Suspense>
       </div>
     </RequireAuth>

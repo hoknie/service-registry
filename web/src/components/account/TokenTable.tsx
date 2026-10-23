@@ -6,6 +6,7 @@ import type { Locale } from "@/i18n/config";
 import type { Messages } from "@/i18n/messages";
 import { ago, when } from "@/i18n/time";
 import type { PersonalToken } from "@/lib/api";
+import { tokenNodeLabels } from "@/lib/tokenNodes";
 
 import { Badge, type Tone } from "../ui/Badge";
 import { Button } from "../ui/Button";
@@ -32,6 +33,7 @@ export function TokenTable({ tokens, locale, labels, showOwner, onRevoke }: Prop
           <Th>{t.name}</Th>
           {showOwner && <Th>{t.owner}</Th>}
           <Th>{t.scopes}</Th>
+          <Th>{t.nodes}</Th>
           <Th>{t.created}</Th>
           <Th>{t.expires}</Th>
           <Th>{t.lastUsed}</Th>
@@ -67,6 +69,20 @@ export function TokenTable({ tokens, locale, labels, showOwner, onRevoke }: Prop
                   <Badge key={s} tone={s === "admin" ? "amber" : "neutral"} title={labels.scopeHints[s]}>
                     {s}
                   </Badge>
+                ))}
+                {tok.catalog_admin && !tok.scopes.includes("admin") && (
+                  <Badge tone="amber" title={labels.catalogAdminHint}>
+                    {labels.catalogAdmin}
+                  </Badge>
+                )}
+              </span>
+            </Td>
+            <Td className="min-w-32 text-ink-2">
+              <span className="grid gap-0.5">
+                {tokenNodeLabels(tok, labels.allNodes, labels.deletedNode).map((label, i) => (
+                  <span key={`${label}-${i}`} className={tok.nodes && tok.nodes[i]?.path ? "font-mono text-xs break-all" : undefined}>
+                    {label}
+                  </span>
                 ))}
               </span>
             </Td>

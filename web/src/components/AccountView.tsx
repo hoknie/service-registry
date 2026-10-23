@@ -1,11 +1,13 @@
 "use client";
 
-import { KeyRound, LogIn, UserRound } from "lucide-react";
+import { AppWindow, KeyRound, LogIn, UserRound, UsersRound } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import type { Locale } from "@/i18n/config";
 import type { Messages } from "@/i18n/messages";
 
+import { AppsTab } from "./account/AppsTab";
+import { GroupsTab } from "./account/GroupsTab";
 import { LoginMethodsTab } from "./account/LoginMethodsTab";
 import { PasswordPanel } from "./account/PasswordPanel";
 import { TokensTab } from "./account/TokensTab";
@@ -14,13 +16,19 @@ import { Badge } from "./ui/Badge";
 import { Panel } from "./ui/Panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/Tabs";
 
-type Props = { locale: Locale; labels: Messages["account"]; tokenLabels: Messages["tokens"]; superadminLabel: string };
+type Props = {
+  locale: Locale;
+  labels: Messages["account"];
+  tokenLabels: Messages["tokens"];
+  contactLabels: Messages["admin"]["groups"]["contacts"];
+  superadminLabel: string;
+};
 
-type Tab = "profile" | "login" | "tokens";
+type Tab = "profile" | "login" | "tokens" | "apps" | "groups";
 
-const tabs: Tab[] = ["profile", "login", "tokens"];
+const tabs: Tab[] = ["profile", "login", "tokens", "apps", "groups"];
 
-export function AccountView({ locale, labels, tokenLabels, superadminLabel }: Props) {
+export function AccountView({ locale, labels, tokenLabels, contactLabels, superadminLabel }: Props) {
   const router = useRouter();
   const asked = useSearchParams().get("tab");
   const tab: Tab = tabs.find((t) => t === asked) ?? "profile";
@@ -43,6 +51,14 @@ export function AccountView({ locale, labels, tokenLabels, superadminLabel }: Pr
           <KeyRound aria-hidden="true" />
           {labels.tabs.tokens}
         </TabsTrigger>
+        <TabsTrigger value="apps">
+          <AppWindow aria-hidden="true" />
+          {labels.tabs.apps}
+        </TabsTrigger>
+        <TabsTrigger value="groups">
+          <UsersRound aria-hidden="true" />
+          {labels.tabs.groups}
+        </TabsTrigger>
       </TabsList>
       <TabsContent value="profile">
         <Profile labels={labels} superadminLabel={superadminLabel} />
@@ -52,6 +68,12 @@ export function AccountView({ locale, labels, tokenLabels, superadminLabel }: Pr
       </TabsContent>
       <TabsContent value="tokens">
         <TokensTab locale={locale} superadmin={session.user.is_superadmin} labels={tokenLabels} />
+      </TabsContent>
+      <TabsContent value="apps">
+        <AppsTab locale={locale} labels={tokenLabels} />
+      </TabsContent>
+      <TabsContent value="groups">
+        <GroupsTab labels={labels.groups} contactLabels={contactLabels} />
       </TabsContent>
     </Tabs>
   );

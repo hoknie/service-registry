@@ -48,15 +48,43 @@ export function oauthStartUrl(provider: string, options: { next?: string; link?:
 
 export type Page<T> = { items: T[]; total: number; limit: number; offset: number };
 
+export type ContactKind = "email" | "chat" | "url" | "phone";
+export type Contact = { kind: ContactKind; value: string; label: string | null };
+
 export type Group = {
   id: string;
   name: string;
   member_count: number;
+  contacts: Contact[];
+  on_call_url: string | null;
   created_at: string;
   updated_at: string;
 };
 
-export type Member = Pick<User, "id" | "email" | "display_name" | "status"> & { source: string };
+export type SubjectKind = "user" | "group";
+export type Owner = {
+  subject_kind: SubjectKind;
+  subject_id: string;
+  name: string;
+  email: string | null;
+  status: "active" | "disabled" | null;
+  contacts: Contact[];
+  on_call_url: string | null;
+  node_id: string;
+  inherited: boolean;
+};
+export type OwnerSet = { items: Owner[]; from: string | null; own: boolean; none: boolean };
+export type OwnerBadge = { subject_kind: SubjectKind; subject_id: string; name: string };
+export type OwnerCandidate = OwnerBadge & { email: string | null };
+export type OwnerSuggestion = OwnerBadge & { count: number };
+
+export type Member = Pick<User, "id" | "email" | "display_name" | "status"> & {
+  source: string;
+  contact_editor: boolean;
+  contact_editor_source: string | null;
+};
+
+export type OwnGroup = Group & { can_edit_contacts: boolean };
 
 export type GroupDetails = Group & { members: Member[] };
 
@@ -95,6 +123,7 @@ export type CatalogTableRow = CatalogNode & {
   match: boolean;
   activity: Process[] | ActivitySummary;
   links: LinkBadge[];
+  owners: OwnerBadge[];
 };
 export type CatalogTable = Page<CatalogTableRow> & { truncated: boolean };
 
@@ -199,11 +228,15 @@ export type Scope = "read" | "write" | "admin" | "mcp";
 
 export const SCOPES: readonly Scope[] = ["read", "write", "admin", "mcp"];
 
+export type TokenNode = { id: string; kind: NodeKind | null; name: string | null; path: string | null };
+
 export type PersonalToken = {
   id: string;
   name: string;
   prefix: string;
   scopes: Scope[];
+  nodes: TokenNode[] | null;
+  catalog_admin: boolean;
   status: "active" | "expired" | "revoked";
   created_at: string;
   expires_at: string | null;
@@ -212,6 +245,35 @@ export type PersonalToken = {
   user_id?: string;
   user_email?: string;
   secret?: string;
+};
+
+export type OAuthClientRef = {
+  id: string;
+  name: string | null;
+  redirect_uri?: string;
+  redirect_host: string;
+  metadata_url: string | null;
+  metadata_host: string | null;
+};
+
+export type OAuthApp = {
+  id: string;
+  client: OAuthClientRef;
+  scopes: Scope[];
+  nodes: TokenNode[] | null;
+  created_at: string;
+  last_used_at: string | null;
+  expires_at: string;
+  revoked_at: string | null;
+  status: "active" | "expired" | "revoked";
+};
+
+export type ConsentRequest = {
+  id: string;
+  client: OAuthClientRef;
+  scopes: Scope[];
+  resource: string | null;
+  expires_at: string;
 };
 
 export type Role = "viewer" | "editor" | "admin";
@@ -236,7 +298,6 @@ export type SecretRef = { id: string; name: string; from: NodeRef | null };
 
 export type Credentials =
   | { kind: "secret"; secret: SecretRef }
-  | { kind: "legacy"; storage: "stored" | "reference"; fingerprint?: string; ref?: string }
   | { kind: "none" };
 
 export type Secret = {
@@ -338,8 +399,11 @@ export type DirectoryEnvironment = {
 
 export type ClusterError = { code: string; message: string };
 
+export type AgentToken = { id: string; prefix: string; created_at: string; expires_at: string | null; secret: string };
+
 export type Cluster = {
   id: string;
+  mode: "poll" | "agent";
   name: string;
   environment: string;
   in_cluster: boolean;
@@ -356,6 +420,8 @@ export type Cluster = {
   next_poll_at: string;
   workloads: number;
   unmatched: number;
+  agent: { version: string | null; last_report_at: string | null; token_prefixes: string[] } | null;
+  agent_token?: AgentToken;
   created_at: string;
   updated_at: string;
 };
@@ -447,13 +513,13 @@ export type ProjectLink = {
   source: "template" | "event";
 };
 
-export type KnowledgeSettings = { include: string[] | null; exclude: string[]; branches: string[] };
+export type KnowledgeSettings = { include: string[] | null; exclude: string[]; branches: string[]; apis: boolean };
 
 export type SettingsField = "include" | "exclude" | "branches";
 
 export type NodeKnowledgeSettings = KnowledgeSettings & {
   own: Partial<KnowledgeSettings>;
-  from: Record<SettingsField, { id: string; kind: NodeKind; name: string } | null>;
+  from: Record<SettingsField | "apis", { id: string; kind: NodeKind; name: string } | null>;
 };
 
 export type Snapshot = {
@@ -465,9 +531,14 @@ export type Snapshot = {
   files: number;
   bytes: number;
   skipped: number;
+  skipped_limit?: number;
+  skipped_too_large?: number;
   truncated: boolean;
+  limits?: SnapshotLimit[] | null;
   collected_at: string;
 };
+
+export type SnapshotLimit = { name: string; value: number };
 
 export type KnowledgeBranch = {
   name: string;
@@ -493,7 +564,7 @@ export type KnowledgeSource = {
   url: string | null;
   api_url: string | null;
   path: string | null;
-  credentials: { mode: "secret" | "legacy" | "none"; secret: SecretRef | null; fingerprint: string | null };
+  credentials: { mode: "secret" | "none"; secret: SecretRef | null };
   working_tree: boolean;
   include_ignored: boolean;
   updated_at: string;
@@ -608,6 +679,7 @@ export type ScanBranch = {
   result: "collected" | "unchanged" | "failed";
   files: number;
   skipped: Record<string, number>;
+  api_skipped?: number;
   truncated: boolean;
   working_tree: boolean;
   error: string | null;
@@ -629,6 +701,16 @@ export type Scan = {
   index: { embedded_files: number; embedded_chunks: number; documents: number; engine: string; model: string } | null;
   error: { code: string; detail: string } | null;
   warnings: string[];
+  warning_details: ScanNote[];
+  warning_counts: Record<string, number>;
+};
+
+export type ScanNote = {
+  code: string;
+  branch: string | null;
+  path: string | null;
+  reason: "too_large" | "binary" | "limit" | null;
+  detail: string | null;
 };
 
 

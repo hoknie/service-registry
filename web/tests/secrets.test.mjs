@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { credentialsText, NO_SECRET, secretBody, secretFrom, secretOptions, secretsPath } from "../src/lib/secrets.ts";
 
-const t = { here: "Here", global: "Global", inherited: "From {name}", none: "No token", legacyShort: "Inline token" };
+const t = { here: "Here", global: "Global", inherited: "From {name}", none: "No token" };
 const own = { id: "a", name: "gitlab", description: "ci", own: true, from: { id: "n", name: "Acme" }, fingerprint: "ab12", ref: null };
 const up = { id: "b", name: "deploy", description: "", own: false, from: { id: "p", name: "Root" }, fingerprint: null, ref: "env:X" };
 const glob = { id: "c", name: "k8s", description: "", own: false, from: null, fingerprint: "ff", ref: null };
@@ -37,6 +37,5 @@ test("an edit without a new value keeps the old one", () => {
 test("credentials of a record read as text", () => {
   assert.equal(credentialsText({ kind: "secret", secret: { id: "c", name: "k8s", from: null } }, t), "k8s · Global");
   assert.equal(credentialsText({ kind: "secret", secret: { id: "a", name: "gl", from: { id: "n", name: "Acme" } } }, t), "gl · Acme");
-  assert.equal(credentialsText({ kind: "legacy", storage: "stored", fingerprint: "x", ref: null }, t), "Inline token");
   assert.equal(credentialsText({ kind: "none" }, t), "No token");
 });

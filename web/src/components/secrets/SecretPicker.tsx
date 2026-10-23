@@ -21,11 +21,10 @@ type Props = {
   onChange: (id: string | null) => void;
   manageHref: string;
   allowNone?: boolean;
-  legacy?: boolean;
   required?: boolean;
 };
 
-export function SecretPicker({ listOn, createOn, value, onChange, manageHref, allowNone, legacy, required }: Props) {
+export function SecretPicker({ listOn, createOn, value, onChange, manageHref, allowNone, required }: Props) {
   const { secrets: t, errors } = useUiText();
   const [items, setItems] = useState<Secret[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -47,12 +46,12 @@ export function SecretPicker({ listOn, createOn, value, onChange, manageHref, al
 
   const options = secretOptions(items ?? [], t, allowNone ?? false);
   return (
-    <Field label={t.picker} error={error ?? undefined} hint={legacy && !value ? t.legacy : items && items.length === 0 ? t.noneAvailable : undefined}>
+    <Field label={t.picker} error={error ?? undefined} hint={items && items.length === 0 ? t.noneAvailable : undefined}>
       {(p) => (
         <div className="grid gap-2">
           <Combobox
             {...p}
-            value={value ?? (allowNone && !legacy ? NO_SECRET : "")}
+            value={value ?? (allowNone ? NO_SECRET : "")}
             options={options}
             placeholder={t.pickerPlaceholder}
             required={required}

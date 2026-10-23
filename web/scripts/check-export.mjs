@@ -34,11 +34,20 @@ for (const locale of LOCALES) {
 }
 read("404.html");
 
+const INLINE_HANDLER = /<[a-z][^>]*?\son[a-z]+\s*=/i;
+const JAVASCRIPT_URL = /<[a-z][^>]*?\s(?:href|src|action|formaction)\s*=\s*["']?\s*javascript:/i;
+
 function files(dir) {
   if (!existsSync(dir)) return [];
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
     e.isDirectory() ? files(join(dir, e.name)) : [join(dir, e.name)],
   );
+}
+
+for (const file of files(out).filter((f) => f.endsWith(".html"))) {
+  const markup = readFileSync(file, "utf8").replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "<script></script>");
+  if (INLINE_HANDLER.test(markup)) problems.push(`${relative(out, file)}: inline event handler (not allowed by CSP)`);
+  if (JAVASCRIPT_URL.test(markup)) problems.push(`${relative(out, file)}: javascript: URL (not allowed by CSP)`);
 }
 
 const js = files(join(out, "_next", "static")).filter((f) => f.endsWith(".js"));

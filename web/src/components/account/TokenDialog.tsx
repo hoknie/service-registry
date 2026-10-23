@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 
 import { format } from "@/i18n/format";
 import { apiSend, SCOPES, type PersonalToken, type Scope } from "@/lib/api";
+import { canSubmitNodes, scopesForAccess, tokenNodesBody, type PickedNode, type TokenAccess } from "@/lib/tokenNodes";
 
 import { useUiText } from "../UiText";
 import { Button } from "../ui/Button";
@@ -12,6 +13,7 @@ import { Dialog } from "../ui/Dialog";
 import { Checkbox, Field, Input } from "../ui/Field";
 import { Select } from "../ui/Select";
 import { Message, type Note } from "../ui/Message";
+import { NodeScopePicker } from "./NodeScopePicker";
 import type { TokenLabels } from "./TokenTable";
 
 const PRESETS = [7, 30, 90, 365] as const;
@@ -45,10 +47,18 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
   const [scopes, setScopes] = useState<Scope[]>(initialScopes);
   const [lifetime, setLifetime] = useState<Lifetime>("90");
   const [customDays, setCustomDays] = useState("");
+  const [access, setAccess] = useState<TokenAccess>("all");
+  const [nodes, setNodes] = useState<PickedNode[]>([]);
   const [note, setNote] = useState<Note>(null);
   const [busy, setBusy] = useState(false);
 
+  const admin = scopes.includes("admin");
+  const scoped = access === "nodes";
   const available = SCOPES.filter((s) => s !== "admin" || superadmin);
+  const changeAccess = (next: TokenAccess) => {
+    setAccess(next);
+    setScopes((current) => scopesForAccess(next, current));
+  };
   const toggle = (scope: Scope, on: boolean) =>
     setScopes((current) => SCOPES.filter((s) => (s === scope ? on : current.includes(s))));
 
@@ -57,6 +67,8 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
     setScopes(initialScopes);
     setLifetime("90");
     setCustomDays("");
+    setAccess("all");
+    setNodes([]);
     setNote(null);
   };
 
@@ -66,7 +78,7 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
     setNote(null);
     const days = lifetime === "forever" ? null : lifetime === "custom" ? Number(customDays) : Number(lifetime);
     try {
-      const token = await apiSend<PersonalToken>("POST", endpoint, { name, scopes, expires_in_days: days });
+      const token = await apiSend<PersonalToken>("POST", endpoint, { name, scopes, expires_in_days: days, nodes: tokenNodesBody(access, nodes) });
       reset();
       onIssued(token);
     } catch (e) {
@@ -87,7 +99,7 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
       footer={
         <>
           <Button onClick={() => onOpenChange(false)}>{common.cancel}</Button>
-          <Button type="submit" form="issue-token" variant="primary" disabled={busy || scopes.length === 0}>
+          <Button type="submit" form="issue-token" variant="primary" disabled={busy || scopes.length === 0 || !canSubmitNodes(access, nodes, admin)}>
             {t.submit}
           </Button>
         </>
@@ -103,6 +115,7 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
             <Checkbox
               key={s}
               checked={scopes.includes(s)}
+              disabled={s === "admin" && scoped}
               onChange={(e) => toggle(s, e.target.checked)}
               label={
                 <span>
@@ -111,8 +124,18 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
               }
             />
           ))}
+          {superadmin && scoped && <p className="text-xs text-muted">{t.nodesAdmin}</p>}
+          {superadmin && !scoped && !admin && <p className="text-xs text-muted">{t.wholeSuperadmin}</p>}
         </fieldset>
-        {scopes.includes("admin") && <Warning>{t.adminWarning}</Warning>}
+        {admin && <Warning>{t.adminWarning}</Warning>}
+        <NodeScopePicker
+          access={access}
+          onAccess={changeAccess}
+          nodes={nodes}
+          onNodes={setNodes}
+          labels={t}
+          note={superadmin ? t.nodesSuperadmin : undefined}
+        />
         <Field label={t.lifetime}>
           {(p) => (
             <Select {...p} value={lifetime} onChange={(e) => setLifetime(e.target.value as Lifetime)}>

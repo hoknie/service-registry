@@ -62,9 +62,10 @@
     "title": "Ir rápidamente",
     "placeholder": "Buscar páginas y en el catálogo…",
     "pages": "Páginas",
+    "recent": "Recientes",
     "nodes": "Catálogo",
     "empty": "No se encontró nada.",
-    "loading": "Cargando el catálogo…",
+    "searching": "Buscando…",
     "hint": "Las flechas mueven, Enter abre, Esc cierra.",
     "searchDocs": "Buscar «{q}» en la documentación"
   },
@@ -93,7 +94,16 @@
       "warning": "Advertencia",
       "caution": "Precaución"
     },
-    "headingAnchor": "Enlace a esta sección"
+    "headingAnchor": "Enlace a esta sección",
+    "docLimits": {
+      "title": "La documentación está incompleta",
+      "count": "{n} archivos no entraron en la instantánea",
+      "reached": "Límite alcanzado: {name} = {value}.",
+      "admin": "Aumente la variable de entorno y reinicie el servidor; la instantánea se reconstruye con el siguiente commit o con «Recopilar ahora».",
+      "editor": "Los archivos quedaron fuera por los límites del servidor. Acote los patrones en la configuración de la documentación o pida a un administrador que aumente el límite.",
+      "editorLink": "Configuración de la documentación",
+      "reader": "Algunos archivos no entraron en la instantánea. Contacte con un administrador."
+    }
   },
   "home": {
     "title": "Registro de servicios",
@@ -172,7 +182,8 @@
       "oauth_link_required": "Primero el propietario debe vincular esta cuenta en la configuración de la cuenta.",
       "oauth_not_provisioned": "No hay una cuenta del registro para este correo. Pide ayuda a un administrador.",
       "oauth_identity_taken": "Esta cuenta del proveedor ya está vinculada a otro usuario.",
-      "service_account": "Es una cuenta de servicio; no puede iniciar sesión."
+      "service_account": "Es una cuenta de servicio; no puede iniciar sesión.",
+      "invalid_agent_token": "Se requiere un token de agente válido para este clúster."
     },
     "validation": {
       "invalid_body": "La solicitud no es válida.",
@@ -200,6 +211,7 @@
       "invalid_token_name": "El nombre del token debe tener de 1 a 100 caracteres.",
       "invalid_scopes": "Elige al menos un ámbito permitido.",
       "invalid_token_lifetime": "Elige una duración dentro del máximo permitido.",
+      "invalid_token_nodes": "Elige de 1 a 20 nodos distintos que puedas leer; los nodos no se combinan con el ámbito admin.",
       "invalid_token_prefix": "El prefijo tiene como máximo 12 caracteres.",
       "invalid_api_url": "Indique una dirección de API válida: http(s) para un forge (obligatoria para Forgejo y Gitea), https para un clúster (ninguna si el registro se ejecuta en él).",
       "invalid_owner_path": "Introduce una organización, un usuario o la ruta de un grupo.",
@@ -239,7 +251,18 @@
       "invalid_secret": "Indica un nombre de hasta 100 caracteres y un valor o una referencia env:/file:.",
       "secret_not_available": "Este secreto no está disponible aquí: elige un secreto de este nodo, de sus ancestros o uno global.",
       "credentials_inline_removed": "Los tokens ya no se introducen en el formulario: crea un secreto y elígelo.",
-      "invalid_link_kind_order": "El orden debe incluir cada tipo de enlace una vez."
+      "invalid_link_kind_order": "El orden debe incluir cada tipo de enlace una vez.",
+      "invalid_cluster_mode": "El modo debe ser «sondeado por el registro» o «agente en el clúster»; «en este clúster» requiere sondeo.",
+      "invalid_owners": "Como máximo 10 responsables, cada usuario o grupo una sola vez.",
+      "invalid_contacts": "Revisa los contactos: como máximo 10, un correo, una dirección http(s) o un teléfono (+ y dígitos) válidos y una etiqueta de hasta 100 caracteres.",
+      "invalid_on_call_url": "El enlace de guardia debe ser una dirección https://.",
+      "invalid_subscription": "Revisa la suscripción: canal, eventos, entornos e idioma.",
+      "too_many_subscriptions": "Un nodo tiene como máximo 20 suscripciones.",
+      "invalid_notification_url": "El secreto debe contener una dirección http(s); para Slack, una dirección https://hooks.slack.com/.",
+      "recovery_without_failure": "Un evento de recuperación necesita su evento de fallo: elige también el tipo de fallo.",
+      "invalid_dependency": "El destino no es un proyecto que pueda leer ni un nombre válido de sistema externo.",
+      "invalid_dependency_depth": "La profundidad debe ser 1, 2 o 3.",
+      "not_group_member": "Este permiso solo se puede conceder a un miembro del grupo."
     },
     "conflict": {
       "email_taken": "Ya existe un usuario con este correo.",
@@ -260,6 +283,7 @@
       "cluster_name_taken": "Ya existe un clúster con este nombre.",
       "environment_taken": "Ya existe un entorno con esta clave.",
       "membership_managed": "Esta pertenencia proviene del proveedor de inicio de sesión y no se puede quitar aquí.",
+      "contact_editor_managed": "Este permiso de editor de contactos proviene del proveedor de inicio de sesión y no se puede quitar aquí.",
       "last_login_method": "Es tu única forma de iniciar sesión. Establece primero una contraseña.",
       "knowledge_not_synced": "La documentación solo se recopila en proyectos sincronizados con un forge.",
       "local_sources_disabled": "Las fuentes locales están desactivadas en este servidor.",
@@ -269,7 +293,12 @@
       "secret_in_use": "El secreto está en uso: reemplázalo primero en conexiones, fuentes y clústeres.",
       "secret_name_taken": "Ya existe aquí un secreto con este nombre.",
       "link_kind_order_stale": "La lista de tipos de enlace ha cambiado; se ha recargado, inténtelo de nuevo.",
-      "forge_not_linked": "Este proyecto no está vinculado a un repositorio de la forja."
+      "forge_not_linked": "Este proyecto no está vinculado a un repositorio de la forja.",
+      "cluster_mode_agent": "El agente de este clúster envía sus informes; el registro no lo sondea.",
+      "cluster_mode_poll": "El registro sondea este clúster: no tiene tokens de agente.",
+      "cluster_disabled": "El clúster está desactivado.",
+      "agent_report_in_progress": "Se está procesando un informe de este clúster.",
+      "dependency_exists": "Esta dependencia ya se ha añadido manualmente."
     },
     "ingest": {
       "unknown_event_type": "Tipo de evento desconocido.",
@@ -296,7 +325,9 @@
       "tls_error": "El certificado del clúster no es de confianza: revise la CA.",
       "unauthorized": "El clúster rechazó el token.",
       "forbidden": "El token no puede leer lo que necesita el registro.",
-      "timeout": "El clúster no respondió a tiempo."
+      "timeout": "El clúster no respondió a tiempo.",
+      "agent_silent": "El agente no ha enviado informes durante tres intervalos.",
+      "agent_never_reported": "El agente aún no ha enviado ningún informe."
     },
     "source": {
       "not_found": "El directorio o repositorio no existe.",
@@ -309,6 +340,24 @@
       "embeddings_dimensions": "Los embeddings tienen un tamaño distinto del que espera el índice de búsqueda.",
       "engine_unavailable": "El motor de búsqueda no está disponible.",
       "engine_dimensions": "La colección del motor de búsqueda guarda vectores de otras dimensiones."
+    },
+    "oauth": {
+      "invalid_client": "La aplicación no está registrada en el registro o se eliminó. Vuelve a iniciar la conexión en la aplicación.",
+      "invalid_redirect_uri": "La aplicación pidió volver a una dirección que no registró, así que la solicitud se detuvo.",
+      "client_metadata_unavailable": "No se pudo cargar la descripción de la aplicación desde su dirección. Inténtalo más tarde o consulta al desarrollador de la aplicación.",
+      "client_metadata_invalid": "La descripción de la aplicación en su dirección no es válida, así que la solicitud se detuvo.",
+      "client_not_allowed": "El registro no acepta aplicaciones descritas en este sitio."
+    },
+    "notify": {
+      "rate_limited": "Se envió una prueba hace menos de 10 segundos. Inténtalo más tarde."
+    },
+    "api": {
+      "invalid_document": "El archivo no se puede leer como descripción de API.",
+      "ref_unresolved": "Una referencia no se encuentra en la instantánea.",
+      "import_not_found": "Una importación no se encuentra en la instantánea.",
+      "schema_too_deep": "Un esquema está anidado demasiado y se recortó.",
+      "file_skipped": "El archivo se omitió al recopilar.",
+      "too_large": "La descripción es demasiado grande; se muestran los primeros 5000 elementos."
     }
   },
   "guard": {
@@ -335,7 +384,9 @@
       "label": "Secciones de la cuenta",
       "profile": "Perfil",
       "tokens": "Tokens",
-      "login": "Métodos de inicio de sesión"
+      "login": "Métodos de inicio de sesión",
+      "apps": "Aplicaciones",
+      "groups": "Grupos"
     },
     "login": {
       "title": "Métodos de inicio de sesión",
@@ -358,6 +409,15 @@
       "lead": "Inicias sesión a través de un proveedor. Una contraseña te permite iniciar sesión también con tu correo.",
       "submit": "Establecer contraseña",
       "success": "Contraseña establecida."
+    },
+    "groups": {
+      "title": "Grupos",
+      "lead": "Grupos a los que perteneces, con sus contactos y enlace de guardia. Los miembros con el permiso de editor de contactos pueden cambiarlos.",
+      "empty": "No perteneces a ningún grupo.",
+      "edit": "Editar contactos",
+      "noContacts": "Todavía no hay contactos.",
+      "contacts": "Contactos",
+      "onCall": "Guardia"
     }
   },
   "tokens": {
@@ -370,6 +430,7 @@
       "owner": "Propietario",
       "prefix": "Prefijo",
       "scopes": "Ámbitos",
+      "nodes": "Nodos",
       "created": "Creado",
       "expires": "Caduca",
       "lastUsed": "Último uso",
@@ -378,6 +439,10 @@
     },
     "never": "Nunca usado",
     "noExpiry": "Sin caducidad",
+    "allNodes": "Todo el catálogo",
+    "deletedNode": "Nodo eliminado",
+    "catalogAdmin": "admin del catálogo",
+    "catalogAdminHint": "Emitido por un superadministrador: administrador del catálogo en sus nodos mientras el propietario siga siendo superadministrador",
     "statuses": {
       "active": "Activo",
       "expired": "Caducado",
@@ -405,6 +470,16 @@
       "forever": "Sin caducidad",
       "foreverWarning": "Un token sin caducidad sigue siendo válido hasta que se revoque o dejes de ser superadministrador.",
       "adminWarning": "El ámbito admin da a este token tus permisos de superadministrador.",
+      "access": "Acceso al catálogo",
+      "accessAll": "Todo el catálogo",
+      "accessNodes": "Solo los nodos elegidos",
+      "nodesSearch": "Busca un nodo por nombre o ruta",
+      "nodesHint": "Hasta {n} nodos. El token solo funciona dentro de ellos y nunca más allá de tus permisos.",
+      "nodesAdmin": "El ámbito admin solo cubre todo el catálogo y no está disponible para un token limitado a nodos.",
+      "nodesSuperadmin": "En los nodos seleccionados el token actúa como administrador del catálogo; la administración global sigue cerrada.",
+      "wholeSuperadmin": "Sin admin el token actúa como administrador del catálogo en todos los nodos; el nivel superior del catálogo y la administración global requieren admin.",
+      "nodesPicked": "Nodos elegidos",
+      "removeNode": "Quitar {name}",
       "submit": "Crear token",
       "done": "Token creado."
     },
@@ -421,7 +496,33 @@
       "claude": "Claude Code",
       "bridge": "Clientes solo con stdio",
       "issue": "Nuevo token para MCP",
-      "withToken": "Claude Code con este token"
+      "withToken": "Claude Code con este token",
+      "oauth": "Claude Code con inicio de sesión (OAuth)",
+      "oauthHint": "El cliente abre un navegador donde inicias sesión y permites el acceso. Las aplicaciones conectadas aparecen en la pestaña Aplicaciones.",
+      "withPat": "Claude Code con un token personal"
+    },
+    "apps": {
+      "title": "Aplicaciones conectadas",
+      "lead": "Clientes MCP a los que permitiste usar el registro en tu nombre mediante OAuth. Revocar detiene la aplicación al instante.",
+      "empty": "Todavía no hay aplicaciones conectadas. Una aplicación aparece aquí después de conectar un cliente MCP con inicio de sesión OAuth.",
+      "userEmpty": "No hay aplicaciones conectadas.",
+      "unnamed": "Aplicación sin nombre",
+      "table": {
+        "app": "Aplicación",
+        "access": "Acceso al catálogo",
+        "granted": "Permitida",
+        "lastUsed": "Último uso",
+        "expires": "Caduca",
+        "status": "Estado"
+      },
+      "statuses": {
+        "active": "Activa",
+        "expired": "Caducada",
+        "revoked": "Revocada"
+      },
+      "revokeTitle": "Revocar el acceso de la aplicación",
+      "confirmRevoke": "¿Revocar el acceso de «{name}»? La aplicación deja de funcionar al instante y habrá que conectarla de nuevo.",
+      "revoked": "Acceso revocado."
     }
   },
   "admin": {
@@ -526,7 +627,10 @@
         "submit": "Añadir",
         "manual": "Manual",
         "fromProvider": "De {provider}",
-        "managedHint": "Gestionado por el proveedor: cambia cuando el usuario inicia sesión."
+        "managedHint": "Gestionado por el proveedor: cambia cuando el usuario inicia sesión.",
+        "contactEditor": "Editor de contactos",
+        "contactEditorHint": "El miembro puede cambiar los contactos y el enlace de guardia del grupo desde su cuenta.",
+        "editorFromProvider": "Otorgado por {provider}"
       },
       "lead": "Los grupos reciben roles en el catálogo en nombre de todos sus miembros.",
       "page": {
@@ -535,6 +639,29 @@
         "notFound": "Grupo no encontrado.",
         "lead": "Miembros: {n}",
         "settings": "Grupo"
+      },
+      "contacts": {
+        "title": "Contactos y guardia",
+        "lead": "Visibles para todos los que leen los nodos de este grupo.",
+        "kind": "Tipo",
+        "kinds": {
+          "email": "Correo",
+          "chat": "Chat",
+          "url": "Enlace",
+          "phone": "Teléfono"
+        },
+        "value": "Valor",
+        "label": "Etiqueta",
+        "add": "Añadir contacto",
+        "remove": "Quitar",
+        "up": "Subir",
+        "down": "Bajar",
+        "onCall": "Enlace de guardia",
+        "onCallHint": "Dirección https:// del calendario de guardias: PagerDuty, Grafana OnCall, Opsgenie y similares.",
+        "save": "Guardar",
+        "saved": "Contactos guardados.",
+        "empty": "No hay contactos.",
+        "onCallBadge": "Guardia"
       }
     },
     "tokens": {
@@ -630,7 +757,10 @@
         "rules": "Reglas de asignación",
         "rulesHint": "Una por línea: etiqueta=plantilla de ruta del proyecto, p. ej. app.kubernetes.io/name=acme/{namespace}/{label:app.kubernetes.io/name}.",
         "interval": "Intervalo de consulta, segundos",
-        "enabled": "Activado"
+        "enabled": "Activado",
+        "mode": "Modo",
+        "agentHint": "El agente se ejecuta dentro del clúster y envía informes; el registro no necesita acceso al clúster.",
+        "reportInterval": "Intervalo de informes, segundos"
       },
       "submit": "Guardar",
       "created": "Clúster añadido.",
@@ -656,6 +786,25 @@
         "project_not_found": "Proyecto no encontrado",
         "invalid_service": "Nombre de servicio no válido",
         "invalid_environment": "Entorno no válido"
+      },
+      "agent": "Agente en el clúster",
+      "neverReported": "Aún sin informes",
+      "newToken": "Nuevo token de agente",
+      "revokeTokens": "Revocar tokens",
+      "confirmNewToken": "¿Emitir un nuevo token de agente para «{name}»? El token actual seguirá funcionando 24 horas.",
+      "confirmRevokeTokens": "¿Revocar todos los tokens de agente de «{name}»? Su agente se rechaza de inmediato.",
+      "tokensRevoked": "Tokens de agente revocados.",
+      "modes": {
+        "poll": "Sondeado por el registro",
+        "agent": "Agente en el clúster"
+      },
+      "tokenDialog": {
+        "title": "Token de agente",
+        "warning": "Copie el token ahora: se muestra una sola vez y no se puede recuperar.",
+        "copy": "Copiar",
+        "close": "Ya lo guardé",
+        "manifest": "Secret y comando del agente",
+        "probes": "Sondas livenessProbe y readinessProbe: /healthz y /readyz en el puerto 8081 (--health-addr), como en examples/k8s/agent.yaml."
       }
     },
     "environments": {
@@ -751,7 +900,8 @@
       "docsSettings": "Ajustes de documentación",
       "settings": "Ajustes",
       "details": "Detalles",
-      "releases": "Lanzamientos"
+      "releases": "Lanzamientos",
+      "dependencies": "Dependencias"
     },
     "create": {
       "title": "Añadir",
@@ -966,7 +1116,6 @@
       "tokenKeep": "Déjalo vacío para conservar el token actual.",
       "tokenRef": "Referencia",
       "tokenRefHint": "env:VARIABLE o file:/ruta/absoluta — el servidor lee el token allí; no se guarda nada.",
-      "credToken": "Token ··{fingerprint}",
       "credRef": "Referencia {ref}",
       "include": "Incluir nombres",
       "exclude": "Excluir nombres",
@@ -1270,7 +1419,12 @@
         "override": "Redefinir",
         "reset": "Restablecer",
         "readmeRule": "Solo el README de la raíz",
-        "none": "Ninguno"
+        "none": "Ninguno",
+        "apis": "Descripciones de API",
+        "apisCollect": "Recopilar descripciones de API",
+        "apisHint": "Los archivos OpenAPI, Swagger y .proto de cualquier carpeta y todo lo que está en apidocs/ y api-docs/ se recopilan sin patrones de «Incluir»; «Excluir» también se aplica a ellos.",
+        "apisOn": "Se recopilan",
+        "apisOff": "No se recopilan"
       },
       "noSource": "La documentación necesita una fuente: sincroniza el proyecto con un forge o define una fuente en los ajustes de documentación.",
       "source": {
@@ -1296,8 +1450,6 @@
         "pathHint": "Una ruta absoluta dentro de los directorios permitidos por el servidor.",
         "gitHint": "Las ramas se leen de los commits; la rama actual también puede incluir archivos sin confirmar.",
         "credentials": {
-          "stored": "Token guardado ({fingerprint})",
-          "reference": "Token desde una referencia del servidor",
           "none": "Sin token"
         },
         "check": "Comprobar",
@@ -1339,6 +1491,62 @@
       "gitStatusHint": {
         "untracked": "Fuera del índice de git: el archivo solo está en la copia de trabajo",
         "ignored": "Ignorado por git: el archivo se recopila por el ajuste «recopilar archivos ignorados»"
+      },
+      "api": {
+        "view": "API",
+        "tree": "Árbol",
+        "source": "Fuente",
+        "views": "Vista",
+        "operations": "Operaciones",
+        "schemas": "Esquemas",
+        "services": "Servicios",
+        "messages": "Mensajes",
+        "enums": "Enumeraciones",
+        "parameters": "Parámetros",
+        "requestBody": "Cuerpo de la solicitud",
+        "responses": "Respuestas",
+        "untagged": "Sin etiqueta",
+        "deprecated": "Obsoleta",
+        "stream": "flujo",
+        "noOperations": "Ninguna operación coincide con el filtro",
+        "refMissing": "Referencia no encontrada",
+        "problems": "Problemas de análisis: {count}",
+        "filter": "Filtrar",
+        "name": "Nombre",
+        "place": "Dónde",
+        "required": "Obligatorio",
+        "type": "Tipo",
+        "description": "Descripción",
+        "number": "#",
+        "label": "Etiqueta",
+        "value": "Valor",
+        "package": "Paquete",
+        "syntax": "Sintaxis",
+        "imports": "Importaciones",
+        "servers": "Servidores",
+        "input": "Entrada",
+        "output": "Salida",
+        "block": "API",
+        "cardOperations": "{n} operaciones",
+        "cardMethods": "{services} servicios, {methods} métodos",
+        "cardProblems": "{n} problemas",
+        "skippedFile": "Omitido al recopilar",
+        "yes": "sí",
+        "fields": "Campos",
+        "values": "Valores",
+        "empty": "Nada que mostrar",
+        "loading": "Cargando la descripción de la API…",
+        "places": {
+          "query": "consulta",
+          "path": "ruta",
+          "header": "cabecera",
+          "cookie": "cookie",
+          "formData": "formulario"
+        },
+        "showVendored": "Mostrar de terceros ({n})",
+        "hideVendored": "Ocultar de terceros",
+        "vendored": "de terceros",
+        "definedIn": "Definido en {path}"
       }
     },
     "summary": {
@@ -1398,7 +1606,11 @@
       "truncated": "Se muestran las primeras 500 coincidencias: afina el filtro.",
       "noMatch": "Nada coincide con el filtro.",
       "reset": "Restablecer filtros",
-      "label_aria": "Árbol del catálogo"
+      "label_aria": "Árbol del catálogo",
+      "owner": "Responsable",
+      "anyOwner": "Cualquier responsable",
+      "mine": "Míos",
+      "owners": "Responsables"
     },
     "about": {
       "title": "Descripción",
@@ -1423,7 +1635,10 @@
         "connect": "Envío de eventos",
         "forge": "Forge",
         "secrets": "Secretos",
-        "scans": "Historial de escaneos"
+        "scans": "Historial de escaneos",
+        "owners": "Responsables",
+        "notifications": "Notificaciones",
+        "dependencies": "Dependencias"
       }
     },
     "linkIcons": {
@@ -1451,6 +1666,86 @@
       "noSecret": "La conexión no tiene un secreto con nombre: la nueva fuente no tendrá token.",
       "submit": "Desvincular",
       "done": "Proyecto desvinculado de la forja."
+    },
+    "owners": {
+      "title": "Responsables",
+      "primary": "Principal",
+      "inheritedFrom": "Heredado de {name}",
+      "none": "No hay responsables asignados.",
+      "assign": "Asignar responsables",
+      "onCall": "Guardia",
+      "disabled": "Desactivado",
+      "group": "Grupo",
+      "user": "Usuario",
+      "lead": "Grupos y personas responsables de este nodo; el primero es el responsable principal. Todo lo que contiene los hereda salvo que tenga los suyos.",
+      "own": "Definir responsables propios",
+      "inherit": "Heredar",
+      "add": "Añadir responsable",
+      "addPlaceholder": "Nombre del grupo o correo del usuario, al menos 2 caracteres",
+      "up": "Subir",
+      "down": "Bajar",
+      "remove": "Quitar",
+      "save": "Guardar",
+      "saved": "Responsables guardados.",
+      "empty": "La lista está vacía: al guardar, el nodo hereda los responsables de arriba.",
+      "noneAbove": "No hay responsables en este nodo ni por encima.",
+      "readOnly": "Solo los editores del nodo pueden cambiar los responsables.",
+      "contacts": "Contactos",
+      "noOwners": "Sin responsables",
+      "here": "Definido aquí",
+      "clear": "Sin responsables",
+      "clearConfirm": "¿Dejar de heredar responsables aquí? El nodo y todo lo que contiene no tendrán responsables hasta que se defina un conjunto más abajo. Se eliminan los responsables propios del nodo."
+    },
+    "dependencies": {
+      "dependsOn": "Depende de",
+      "dependents": "Dependientes",
+      "list": "Lista",
+      "graph": "Grafo",
+      "view": "Vista",
+      "depth": "Profundidad",
+      "fit": "Ajustar",
+      "zoomIn": "Acercar",
+      "zoomOut": "Alejar",
+      "sources": {
+        "event": "Evento de CI",
+        "cluster": "Clúster",
+        "repository": "Repositorio",
+        "manual": "Manual"
+      },
+      "external": "Sistema externo",
+      "unresolved": "No encontrado en el registro",
+      "hidden": "Proyecto no disponible",
+      "moreHidden": "{count} proyectos no disponibles más",
+      "hiddenEdges": "Enlaces ocultos: {count}",
+      "truncated": "Se muestran los primeros 500 nodos",
+      "seen": "{origin}, confirmado {when}",
+      "emptyDependsOn": "Sin dependencias",
+      "emptyDependents": "Nadie depende de él",
+      "emptyFolder": "No hay dependencias en esta carpeta",
+      "howTo": "Informe las dependencias en el evento de despliegue, una anotación de Kubernetes o el archivo .svc-registry.yaml.",
+      "howToEvents": "Envío de eventos",
+      "howToManual": "Añadir manualmente",
+      "manualTitle": "Dependencias manuales",
+      "manualLead": "Las dependencias añadidas aquí se conservan hasta que las elimine; las fuentes automáticas nunca las cambian.",
+      "autoTitle": "Dependencias automáticas",
+      "autoLead": "Provienen de eventos de despliegue, anotaciones del clúster y el archivo .svc-registry.yaml y solo cambian allí.",
+      "noManual": "No hay dependencias manuales.",
+      "noAuto": "No hay dependencias automáticas.",
+      "project": "Proyecto",
+      "externalKind": "Sistema externo",
+      "target": "Destino",
+      "projectPlaceholder": "Busque un proyecto",
+      "externalPlaceholder": "Nombre del sistema, p. ej. stripe",
+      "note": "Nota",
+      "notePlaceholder": "Nota opcional",
+      "add": "Añadir",
+      "added": "Dependencia añadida.",
+      "remove": "Eliminar",
+      "removeTitle": "¿Eliminar la dependencia?",
+      "removeText": "Se eliminará la dependencia de {name}.",
+      "removed": "Dependencia eliminada.",
+      "origin": "Origen",
+      "graphLabel": "Grafo de dependencias"
     }
   },
   "notFound": {
@@ -1524,7 +1819,8 @@
       "collect": "Ramas: {branches} · archivos: {files}",
       "skipped": "omitidos: {skipped}",
       "index": "Fragmentos: {chunks} · documentos: {documents}",
-      "series": "×{n} desde {from} hasta {to}"
+      "series": "×{n} desde {from} hasta {to}",
+      "apiSkipped": "de ellos API: {api}"
     },
     "details": {
       "expand": "Mostrar detalles",
@@ -1545,7 +1841,9 @@
       "technical": "Detalles técnicos",
       "whatToDo": "Qué hacer",
       "none": "—",
-      "workingTree": "copia de trabajo"
+      "workingTree": "copia de trabajo",
+      "more": "y {n} más",
+      "apiSkipped": "API"
     },
     "results": {
       "collected": "Recopilado",
@@ -1556,6 +1854,11 @@
       "too_large": "demasiado grandes",
       "binary": "binarios",
       "limit": "sobre el límite"
+    },
+    "noteReasons": {
+      "too_large": "demasiado grande",
+      "binary": "binario",
+      "limit": "sobre el límite de archivos"
     },
     "empty": "Aún no hay escaneos.",
     "emptyText": "Las ejecuciones aparecen aquí cuando se recopila la documentación o se indexa un proyecto para la búsqueda.",
@@ -1593,6 +1896,11 @@
           "title": "El proyecto no tiene fuente de documentación",
           "text": "No hay fuente de documentación ni sincronización con un forge: no hay nada que recopilar.",
           "hint": "Define una fuente en «Ajustes de documentación» → «Fuente» o conecta la carpeta a un forge."
+        },
+        "manifest_invalid": {
+          "title": "El archivo de descripción del proyecto no se leyó por completo",
+          "text": "El archivo .svc-registry.yaml de la rama predeterminada supera 64 KiB, no es YAML válido o contiene referencias no válidas en dependencies, así que algunas dependencias no se tomaron.",
+          "hint": "Corrija el archivo en el repositorio: dependencies debe ser una lista de rutas de proyectos o referencias external:<nombre>."
         }
       },
       "source": {
@@ -1727,9 +2035,7 @@
     "none": "Sin token",
     "manage": "Gestionar secretos",
     "create": "Crear secreto",
-    "legacy": "Token incrustado (obsoleto): elige un secreto",
-    "noneAvailable": "No hay secretos disponibles.",
-    "legacyShort": "Token incrustado (obsoleto)"
+    "noneAvailable": "No hay secretos disponibles."
   },
   "docSpace": {
     "title": "Documentación",
@@ -1763,5 +2069,156 @@
     "structure": "Estructura",
     "panelHide": "Contraer el panel",
     "panelShow": "Expandir el panel"
+  },
+  "oauth": {
+    "title": "Permitir el acceso al registro",
+    "loading": "Cargando la solicitud…",
+    "unnamed": "Aplicación sin nombre",
+    "unverified": "El registro no ha verificado esta aplicación.",
+    "returnTo": "Después de tu decisión volverás a",
+    "access": "Acceso solicitado",
+    "accessText": "Usar el servidor MCP del registro en tu nombre: leer los proyectos, la documentación, los despliegues y los enlaces que tú ves.",
+    "allow": "Permitir",
+    "deny": "Rechazar",
+    "stale": "La solicitud ha caducado: vuelve a iniciar la conexión en la aplicación.",
+    "publishedOn": "La descripción de la aplicación está publicada en",
+    "loopbackWarning": "La respuesta vuelve a este equipo. Cualquier programa que se ejecute en él podría hacerse pasar por esta aplicación: permite el acceso solo si iniciaste tú la conexión."
+  },
+  "notify": {
+    "title": "Notificaciones",
+    "lead": "Adónde se envían los eventos de este nodo y de todo lo que contiene: un webhook o Slack. Una suscripción definida más arriba también se aplica aquí hasta que se reemplace o desactive.",
+    "empty": "No hay suscripciones",
+    "emptyText": "Añade un webhook o un canal de Slack para enterarte de despliegues, desviaciones, enlaces rotos y fallos de sincronización con la forja.",
+    "add": "Nueva suscripción",
+    "columns": {
+      "key": "Clave",
+      "channel": "Canal",
+      "secret": "Secreto de la dirección",
+      "events": "Eventos",
+      "environments": "Entornos",
+      "locale": "Idioma",
+      "state": "Estado",
+      "source": "Definida en"
+    },
+    "channels": {
+      "webhook": "Webhook",
+      "slack": "Slack"
+    },
+    "events": {
+      "deployment.created": "Despliegue",
+      "deployment.drift": "Desviación",
+      "link.check_failed": "Enlace roto",
+      "forge.sync_failed": "Falló la sincronización",
+      "deployment.drift_resolved": "Desviación resuelta",
+      "link.check_recovered": "Enlace restablecido",
+      "forge.sync_recovered": "Sincronización restablecida",
+      "test": "Prueba"
+    },
+    "allEnvironments": "todos",
+    "here": "aquí",
+    "enabled": "activa",
+    "disabled": "desactivada",
+    "noSecret": "—",
+    "actions": {
+      "menu": "Acciones de {key}",
+      "edit": "Editar",
+      "remove": "Eliminar",
+      "test": "Enviar una prueba",
+      "override": "Reemplazar",
+      "disableHere": "Desactivar aquí"
+    },
+    "removeTitle": "¿Eliminar la suscripción {key}?",
+    "removeText": "Las notificaciones de esta suscripción dejan de enviarse aquí. Vuelve a aplicarse una suscripción con la misma clave definida más arriba.",
+    "removeConfirm": "Eliminar",
+    "dialog": {
+      "createTitle": "Nueva suscripción",
+      "editTitle": "Suscripción {key}",
+      "overrideTitle": "Reemplazar {key} aquí",
+      "key": "Clave",
+      "keyHint": "a-z, 0-9 y -, única en el nodo",
+      "channel": "Canal",
+      "secret": "Secreto de la dirección",
+      "secretHint": "El secreto guarda la dirección del webhook; para Slack, un incoming webhook https://hooks.slack.com/.",
+      "events": "Eventos",
+      "environments": "Entornos",
+      "environmentsHint": "Vacío — todos los entornos. Los enlaces rotos y los fallos de la forja no tienen entorno y siempre pasan.",
+      "locale": "Idioma de los mensajes",
+      "disabled": "Desactivada",
+      "disabledHint": "Una suscripción desactivada no recibe nada y apaga la de la misma clave definida más arriba.",
+      "save": "Guardar",
+      "invalidKey": "Usa a-z, 0-9 y -, de 1 a 63 caracteres.",
+      "invalidEnvironment": "No es un nombre de entorno.",
+      "eventsRequired": "Elige al menos un evento."
+    },
+    "signing": {
+      "title": "Clave de firma",
+      "none": "Sin clave de firma: las solicitudes no se firman.",
+      "fingerprint": "Clave {fingerprint}",
+      "create": "Crear una clave de firma",
+      "replace": "Reemplazar la clave",
+      "once": "Copia la clave ahora: no se volverá a mostrar. Los receptores comprueban webhook-signature con ella.",
+      "created": "Clave de firma creada"
+    },
+    "test": {
+      "delivered": "Entregado (HTTP {status}, {ms} ms)",
+      "failed": "{text} (HTTP {status})",
+      "failedNoStatus": "{text}",
+      "tooOften": "Demasiado seguido, inténtalo de nuevo en {n} s"
+    },
+    "journal": {
+      "title": "Registro de entregas",
+      "lead": "Entregas de las suscripciones de este nodo, las más recientes primero.",
+      "subscription": "Suscripción",
+      "subscriptionAny": "Todas las suscripciones",
+      "status": "Estado",
+      "statusAny": "Cualquier estado",
+      "reset": "Restablecer",
+      "empty": "Todavía no se ha enviado nada",
+      "emptyFiltered": "Ninguna entrega coincide con los filtros",
+      "nextAttempt": "siguiente {when}",
+      "hiddenNode": "un nodo que no puedes leer",
+      "columns": {
+        "time": "Hora",
+        "event": "Evento",
+        "node": "Nodo",
+        "subscription": "Suscripción",
+        "status": "Estado",
+        "attempts": "Intentos",
+        "http": "HTTP",
+        "error": "Error"
+      }
+    },
+    "statuses": {
+      "pending": "pendiente",
+      "delivered": "entregado",
+      "failed": "no entregado"
+    },
+    "saved": "Suscripción guardada",
+    "removed": "Suscripción eliminada",
+    "refresh": {
+      "label": "Actualización automática",
+      "off": "desactivada",
+      "every": "{n} s",
+      "now": "Actualizar ahora"
+    },
+    "pager": {
+      "label": "Páginas",
+      "prev": "Anterior",
+      "next": "Siguiente",
+      "range": "{from}–{to} de {total}"
+    },
+    "codes": {
+      "notify": {
+        "http_status": "El receptor respondió con un error",
+        "timeout": "El receptor no respondió a tiempo",
+        "tls_error": "Falló la conexión TLS",
+        "dns_error": "El nombre de host no se resuelve",
+        "unreachable": "El receptor no es accesible",
+        "blocked": "La política de direcciones de notificaciones prohíbe la dirección",
+        "redirect": "El receptor respondió con una redirección",
+        "url_unavailable": "No se puede leer el secreto de la dirección o no contiene una dirección válida",
+        "subscription_disabled": "La suscripción está desactivada"
+      }
+    }
   }
 }

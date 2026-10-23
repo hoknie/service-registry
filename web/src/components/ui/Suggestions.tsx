@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
 import type { Suggestion } from "@/lib/labelSuggest";
@@ -78,9 +78,10 @@ type ListProps = {
   active: number;
   onActive: (i: number) => void;
   onChoose: (s: Suggestion) => void;
+  icon?: (s: Suggestion) => ReactNode;
 };
 
-export function SuggestionList({ id, items, active, onActive, onChoose }: ListProps) {
+export function SuggestionList({ id, items, active, onActive, onChoose, icon }: ListProps) {
   const { common } = useUiText();
   return (
     <ul
@@ -103,6 +104,7 @@ export function SuggestionList({ id, items, active, onActive, onChoose }: ListPr
             i === active && "bg-surface-3",
           )}
         >
+          {icon?.(s)}
           <span className="min-w-0 flex-1 truncate">{s.label}</span>
           {s.detail && <span className="shrink-0 text-xs text-muted">{s.detail}</span>}
         </li>

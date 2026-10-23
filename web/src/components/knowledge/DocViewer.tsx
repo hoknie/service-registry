@@ -5,8 +5,10 @@ import { useEffect, useRef, useState } from "react";
 import { errorText } from "@/i18n/errors";
 import { format } from "@/i18n/format";
 import { apiGet, errorCode, type CatalogNode, type KnowledgeFileContent } from "@/lib/api";
+import { apiQuery, isApiCandidate, viewParam, withView, type ApiDocument, type ApiView as View } from "@/lib/apis";
 import { structuredKind } from "@/lib/structured";
 
+import { ApiView } from "../apis/ApiView";
 import { useUiText } from "../UiText";
 import { Badge } from "../ui/Badge";
 import { Message } from "../ui/Message";
@@ -39,6 +41,12 @@ function headingsOf(root: HTMLElement): DocHeading[] {
   return sub.length > 0 ? sub : all;
 }
 
+function resolveImport(paths: string[], imp: string): string | null {
+  if (paths.includes(imp)) return imp;
+  const found = paths.filter((p) => p.endsWith(`/${imp}`));
+  return found.length === 1 ? (found[0] ?? null) : null;
+}
+
 const docQuery = (href: string) => new URL(href, window.location.origin).searchParams.get("doc");
 
 export function DocViewer({ node, branch, path, paths, docHref, onOpenDoc, labels: t, docOf = docQuery, onHeadings }: Props) {
@@ -47,6 +55,24 @@ export function DocViewer({ node, branch, path, paths, docHref, onOpenDoc, label
   const [file, setFile] = useState<KnowledgeFileContent | null>(null);
   const [html, setHtml] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [api, setApi] = useState<ApiDocument | null | undefined>(isApiCandidate(path) ? undefined : null);
+  const [view, setView] = useState<View>(() => (typeof window === "undefined" ? "api" : viewParam(window.location.search)));
+
+  useEffect(() => {
+    if (!isApiCandidate(path)) return;
+    let live = true;
+    apiGet<ApiDocument>(`/v1/catalog/nodes/${node.id}/knowledge/api?${apiQuery(path, branch)}`)
+      .then((d) => live && setApi(d))
+      .catch(() => live && setApi(null));
+    return () => {
+      live = false;
+    };
+  }, [node.id, branch, path]);
+
+  const changeView = (next: View) => {
+    setView(next);
+    window.history.replaceState(window.history.state, "", withView(window.location.href, next));
+  };
 
   useEffect(() => {
     let live = true;
@@ -107,11 +133,23 @@ export function DocViewer({ node, branch, path, paths, docHref, onOpenDoc, label
       }
     >
       {error && <Message note={{ kind: "error", text: error }} />}
-      {!file && !error && <SkeletonPanel lines={6} label={common.loading} />}
-      {file && file.content === null && (
+      {(!file || api === undefined) && !error && <SkeletonPanel lines={6} label={common.loading} />}
+      {file && api && (
+        <ApiView
+          doc={api}
+          content={file.content}
+          view={view}
+          onView={changeView}
+          labels={t}
+          resolveImport={(imp) => resolveImport(paths, imp)}
+          fileHref={docHref}
+          onOpenFile={onOpenDoc}
+        />
+      )}
+      {file && api === null && file.content === null && (
         <p className="text-sm text-muted">{format(t.skippedFile, { reason: file.skip_reason ? t.skipped[file.skip_reason] : "" })}</p>
       )}
-      {file && file.content !== null && html && (
+      {file && api === null && file.content !== null && html && (
         <div
           ref={body}
           className="readme max-w-none animate-rise-in text-sm leading-relaxed text-ink-2"
@@ -119,10 +157,10 @@ export function DocViewer({ node, branch, path, paths, docHref, onOpenDoc, label
           dangerouslySetInnerHTML={{ __html: html }}
         />
       )}
-      {file && file.content !== null && !html && structuredKind(file.path) && (
+      {file && api === null && file.content !== null && !html && structuredKind(file.path) && (
         <StructuredView kind={structuredKind(file.path)!} content={file.content} labels={t.viewer} />
       )}
-      {file && file.content !== null && !html && !structuredKind(file.path) && (
+      {file && api === null && file.content !== null && !html && !structuredKind(file.path) && (
         <pre className="overflow-x-auto rounded-md bg-surface-2 p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-ink-2">{file.content}</pre>
       )}
     </Panel>

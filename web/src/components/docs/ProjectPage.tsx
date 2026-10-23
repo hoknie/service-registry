@@ -12,8 +12,10 @@ import { shortCommit } from "@/lib/commit";
 import { docHref, navigateDoc, parseDocLocation, splitPath, startPage } from "@/lib/docPath";
 import { ensureFiles, filesEntry, useDocStore } from "@/lib/docSpaceStore";
 
+import { ApiCards } from "../apis/ApiCards";
 import { KindIcon } from "../catalog/KindIcon";
 import { DocViewer, type DocHeading } from "../knowledge/DocViewer";
+import { LimitNotice } from "../knowledge/LimitNotice";
 import { useUiText } from "../UiText";
 import { EmptyState } from "../ui/EmptyState";
 import { Field } from "../ui/Field";
@@ -136,6 +138,9 @@ export function ProjectPage({ locale, labels, space, branch: branchParam, nodePa
         </div>
       </header>
 
+      {current?.files && (
+        <LimitNotice snapshot={current.files.snapshot} canWrite={canWrite} settingsHref={`/${locale}/catalog?node=${project.id}&tab=settings&section=docs`} />
+      )}
       {current?.error && <Message note={{ kind: "error", text: current.error }} />}
       {notCollected && (
         <EmptyState
@@ -176,6 +181,9 @@ export function ProjectPage({ locale, labels, space, branch: branchParam, nodePa
             ))}
           </ul>
         </Panel>
+      )}
+      {current?.files && !space.doc_path && (
+        <ApiCards projectId={project.id} branch={current.branch} labels={labels.catalog.docs.api} hrefOf={(p) => hrefOf(p)} />
       )}
       {current?.files && node && open && paths.includes(open) && (
         <DocViewer

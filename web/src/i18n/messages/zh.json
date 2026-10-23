@@ -62,9 +62,10 @@
     "title": "快速跳转",
     "placeholder": "搜索页面和目录…",
     "pages": "页面",
+    "recent": "最近访问",
     "nodes": "目录",
     "empty": "未找到结果。",
-    "loading": "正在加载目录…",
+    "searching": "正在搜索…",
     "hint": "方向键选择，Enter 打开，Esc 关闭。",
     "searchDocs": "在文档中搜索“{q}”"
   },
@@ -93,7 +94,16 @@
       "warning": "警告",
       "caution": "小心"
     },
-    "headingAnchor": "链接到此部分"
+    "headingAnchor": "链接到此部分",
+    "docLimits": {
+      "title": "文档未完整收集",
+      "count": "{n} 个文件未进入快照",
+      "reached": "已达到上限：{name} = {value}。",
+      "admin": "请调大该环境变量并重启服务器；快照将在下一次提交或点击“立即收集”时重新构建。",
+      "editor": "这些文件因服务器上限而被略过。请在文档设置中缩小匹配模式，或请管理员调高上限。",
+      "editorLink": "文档设置",
+      "reader": "部分文件未进入快照。请联系管理员。"
+    }
   },
   "home": {
     "title": "服务注册中心",
@@ -172,7 +182,8 @@
       "oauth_link_required": "此账号需先由其所有者在账号设置中关联。",
       "oauth_not_provisioned": "该邮箱没有注册中心账号，请联系管理员。",
       "oauth_identity_taken": "该提供方账号已关联到其他用户。",
-      "service_account": "这是服务账号，无法登录。"
+      "service_account": "这是服务账号，无法登录。",
+      "invalid_agent_token": "需要此集群的有效代理令牌。"
     },
     "validation": {
       "invalid_body": "请求格式错误。",
@@ -200,6 +211,7 @@
       "invalid_token_name": "令牌名称必须为 1 到 100 个字符。",
       "invalid_scopes": "请至少选择一个允许的作用域。",
       "invalid_token_lifetime": "请选择不超过允许上限的有效期。",
+      "invalid_token_nodes": "请选择 1 到 20 个你可读取的不同节点；节点不能与 admin 范围同时使用。",
       "invalid_token_prefix": "前缀最多 12 个字符。",
       "invalid_api_url": "请输入有效的 API 地址：forge 使用 http(s)（Forgejo 和 Gitea 必填），集群使用 https（注册表运行在该集群内时无需填写）。",
       "invalid_owner_path": "请输入组织、用户或群组路径。",
@@ -239,7 +251,18 @@
       "invalid_secret": "请填写不超过 100 个字符的名称，以及值或 env:/file: 引用。",
       "secret_not_available": "此处不可用该密钥——请选择此节点、其上级节点的密钥或全局密钥。",
       "credentials_inline_removed": "不再在表单中输入令牌——请创建密钥并选择它。",
-      "invalid_link_kind_order": "顺序必须包含每个链接类型且仅一次。"
+      "invalid_link_kind_order": "顺序必须包含每个链接类型且仅一次。",
+      "invalid_cluster_mode": "模式必须是“由注册表轮询”或“集群内代理”；“在此集群中”只能用于轮询。",
+      "invalid_owners": "最多 10 位负责人，每个用户或组只能出现一次。",
+      "invalid_contacts": "请检查联系方式：最多 10 个，邮箱、http(s) 地址或电话（+ 和数字）必须有效，标签最多 100 个字符。",
+      "invalid_on_call_url": "值班链接必须是 https:// 地址。",
+      "invalid_subscription": "请检查订阅：渠道、事件、环境和语言。",
+      "too_many_subscriptions": "每个节点最多 20 个订阅。",
+      "invalid_notification_url": "密钥中必须是 http(s) 地址；Slack 需为 https://hooks.slack.com/ 地址。",
+      "recovery_without_failure": "恢复事件需要对应的故障事件：请同时选择故障类型。",
+      "invalid_dependency": "目标不是您可读取的项目，也不是有效的外部系统名称。",
+      "invalid_dependency_depth": "深度必须为 1、2 或 3。",
+      "not_group_member": "只能将此权限授予群组成员。"
     },
     "conflict": {
       "email_taken": "该邮箱已被其他用户使用。",
@@ -260,6 +283,7 @@
       "cluster_name_taken": "已存在同名集群。",
       "environment_taken": "已存在使用此键的环境。",
       "membership_managed": "该成员关系来自登录提供方，不能在此移除。",
+      "contact_editor_managed": "该联系人编辑权限来自登录提供方，不能在此移除。",
       "last_login_method": "这是你唯一的登录方式，请先设置密码。",
       "knowledge_not_synced": "只有与 forge 同步的项目才会收集文档。",
       "local_sources_disabled": "此服务器已关闭本地来源。",
@@ -269,7 +293,12 @@
       "secret_in_use": "密钥正在使用中——请先在连接、来源和集群中替换它。",
       "secret_name_taken": "此处已有同名密钥。",
       "link_kind_order_stale": "链接类型列表已变化并已重新加载，请重试。",
-      "forge_not_linked": "此项目未关联 forge 仓库。"
+      "forge_not_linked": "此项目未关联 forge 仓库。",
+      "cluster_mode_agent": "此集群的代理自行发送报告；注册表不轮询它。",
+      "cluster_mode_poll": "注册表轮询此集群：它没有代理令牌。",
+      "cluster_disabled": "集群已停用。",
+      "agent_report_in_progress": "正在处理此集群的一份报告。",
+      "dependency_exists": "该依赖已手动添加。"
     },
     "ingest": {
       "unknown_event_type": "未知的事件类型。",
@@ -296,7 +325,9 @@
       "tls_error": "集群证书不受信任：请检查 CA。",
       "unauthorized": "集群拒绝了令牌。",
       "forbidden": "令牌无权读取注册表所需的资源。",
-      "timeout": "集群未及时响应。"
+      "timeout": "集群未及时响应。",
+      "agent_silent": "代理已连续三个间隔未发送报告。",
+      "agent_never_reported": "代理尚未发送任何报告。"
     },
     "source": {
       "not_found": "目录或仓库不存在。",
@@ -309,6 +340,24 @@
       "embeddings_dimensions": "嵌入向量的维度与搜索索引不一致。",
       "engine_unavailable": "搜索引擎不可用。",
       "engine_dimensions": "搜索引擎集合中的向量维度不同。"
+    },
+    "oauth": {
+      "invalid_client": "该应用未在注册中心注册或已被删除。请在应用中重新开始连接。",
+      "invalid_redirect_uri": "该应用要求返回到未注册的地址，因此请求已停止。",
+      "client_metadata_unavailable": "无法从应用的地址加载其描述。请稍后重试或联系应用开发者。",
+      "client_metadata_invalid": "应用地址上的描述无效，因此请求已停止。",
+      "client_not_allowed": "注册中心不接受在此站点上描述的应用。"
+    },
+    "notify": {
+      "rate_limited": "不到 10 秒前刚发送过测试，请稍后重试。"
+    },
+    "api": {
+      "invalid_document": "该文件无法作为 API 描述读取。",
+      "ref_unresolved": "快照中未找到引用。",
+      "import_not_found": "快照中未找到导入。",
+      "schema_too_deep": "模式嵌套过深，已截断。",
+      "file_skipped": "收集时已跳过该文件。",
+      "too_large": "描述过大，仅显示前 5000 项。"
     }
   },
   "guard": {
@@ -335,7 +384,9 @@
       "label": "账户分区",
       "profile": "个人资料",
       "tokens": "令牌",
-      "login": "登录方式"
+      "login": "登录方式",
+      "apps": "应用",
+      "groups": "群组"
     },
     "login": {
       "title": "登录方式",
@@ -358,6 +409,15 @@
       "lead": "你通过身份提供方登录。设置密码后也可以用邮箱登录。",
       "submit": "设置密码",
       "success": "密码已设置。"
+    },
+    "groups": {
+      "title": "群组",
+      "lead": "你所在的群组及其联系方式和值班链接。拥有联系方式编辑权限的成员可以修改它们。",
+      "empty": "你不属于任何群组。",
+      "edit": "编辑联系方式",
+      "noContacts": "暂无联系方式。",
+      "contacts": "联系方式",
+      "onCall": "值班"
     }
   },
   "tokens": {
@@ -370,6 +430,7 @@
       "owner": "所有者",
       "prefix": "前缀",
       "scopes": "作用域",
+      "nodes": "节点",
       "created": "创建时间",
       "expires": "过期时间",
       "lastUsed": "最近使用",
@@ -378,6 +439,10 @@
     },
     "never": "从未使用",
     "noExpiry": "永不过期",
+    "allNodes": "整个目录",
+    "deletedNode": "已删除的节点",
+    "catalogAdmin": "目录管理员",
+    "catalogAdminHint": "由超级管理员签发：在其节点中为目录管理员，只要所有者仍是超级管理员",
     "statuses": {
       "active": "有效",
       "expired": "已过期",
@@ -405,6 +470,16 @@
       "forever": "永不过期",
       "foreverWarning": "永不过期的令牌在被吊销或你不再是超级管理员之前一直有效。",
       "adminWarning": "admin 作用域会让此令牌拥有你的超级管理员权限。",
+      "access": "目录访问范围",
+      "accessAll": "整个目录",
+      "accessNodes": "仅选定的节点",
+      "nodesSearch": "按名称或路径查找节点",
+      "nodesHint": "最多 {n} 个节点。令牌只在这些节点内生效，且不超出你自己的权限。",
+      "nodesAdmin": "admin 范围仅覆盖整个目录，限定到节点的令牌不可使用。",
+      "nodesSuperadmin": "在所选节点中，令牌以目录管理员身份操作；全局管理仍然关闭。",
+      "wholeSuperadmin": "没有 admin 时，令牌在所有节点上以目录管理员身份操作；目录顶层和全局管理需要 admin。",
+      "nodesPicked": "已选节点",
+      "removeNode": "移除 {name}",
       "submit": "创建令牌",
       "done": "令牌已创建。"
     },
@@ -421,7 +496,33 @@
       "claude": "Claude Code",
       "bridge": "仅支持 stdio 的客户端",
       "issue": "为 MCP 创建令牌",
-      "withToken": "使用此令牌的 Claude Code"
+      "withToken": "使用此令牌的 Claude Code",
+      "oauth": "Claude Code 登录连接（OAuth）",
+      "oauthHint": "客户端会打开浏览器，你在其中登录并允许访问。已连接的应用显示在“应用”标签页。",
+      "withPat": "Claude Code 使用个人令牌"
+    },
+    "apps": {
+      "title": "已连接的应用",
+      "lead": "你通过 OAuth 允许以你的身份使用注册中心的 MCP 客户端。撤销后应用立即停止工作。",
+      "empty": "还没有已连接的应用。使用 OAuth 登录连接 MCP 客户端后，应用会显示在这里。",
+      "userEmpty": "没有已连接的应用。",
+      "unnamed": "未命名应用",
+      "table": {
+        "app": "应用",
+        "access": "目录访问",
+        "granted": "授权时间",
+        "lastUsed": "最近使用",
+        "expires": "到期",
+        "status": "状态"
+      },
+      "statuses": {
+        "active": "有效",
+        "expired": "已过期",
+        "revoked": "已撤销"
+      },
+      "revokeTitle": "撤销应用访问",
+      "confirmRevoke": "撤销“{name}”的访问？应用会立即停止工作，需要重新连接。",
+      "revoked": "访问已撤销。"
     }
   },
   "admin": {
@@ -526,7 +627,10 @@
         "submit": "添加",
         "manual": "手动",
         "fromProvider": "来自 {provider}",
-        "managedHint": "由身份提供方管理：用户登录时更新。"
+        "managedHint": "由身份提供方管理：用户登录时更新。",
+        "contactEditor": "联系方式编辑者",
+        "contactEditorHint": "该成员可以在自己的账户中修改群组的联系方式和值班链接。",
+        "editorFromProvider": "由 {provider} 授予"
       },
       "lead": "用户组代表其全部成员在目录中获得角色。",
       "page": {
@@ -535,6 +639,29 @@
         "notFound": "未找到群组。",
         "lead": "成员：{n}",
         "settings": "群组"
+      },
+      "contacts": {
+        "title": "联系方式与值班",
+        "lead": "所有能读取此组所负责节点的人都能看到。",
+        "kind": "类型",
+        "kinds": {
+          "email": "邮箱",
+          "chat": "聊天",
+          "url": "链接",
+          "phone": "电话"
+        },
+        "value": "值",
+        "label": "标签",
+        "add": "添加联系方式",
+        "remove": "移除",
+        "up": "上移",
+        "down": "下移",
+        "onCall": "值班链接",
+        "onCallHint": "值班表的 https:// 地址：PagerDuty、Grafana OnCall、Opsgenie 等。",
+        "save": "保存",
+        "saved": "联系方式已保存。",
+        "empty": "没有联系方式。",
+        "onCallBadge": "值班"
       }
     },
     "tokens": {
@@ -630,7 +757,10 @@
         "rules": "匹配规则",
         "rulesHint": "每行一条：标签=项目路径模板，例如 app.kubernetes.io/name=acme/{namespace}/{label:app.kubernetes.io/name}。",
         "interval": "轮询间隔（秒）",
-        "enabled": "已启用"
+        "enabled": "已启用",
+        "mode": "模式",
+        "agentHint": "代理在集群内运行并发送报告；注册表无需访问集群。",
+        "reportInterval": "报告间隔（秒）"
       },
       "submit": "保存",
       "created": "集群已添加。",
@@ -656,6 +786,25 @@
         "project_not_found": "未找到项目",
         "invalid_service": "服务名称无效",
         "invalid_environment": "环境无效"
+      },
+      "agent": "集群内代理",
+      "neverReported": "尚无报告",
+      "newToken": "新代理令牌",
+      "revokeTokens": "吊销令牌",
+      "confirmNewToken": "为“{name}”签发新的代理令牌？当前令牌还可使用 24 小时。",
+      "confirmRevokeTokens": "吊销“{name}”的全部代理令牌？其代理将立即被拒绝。",
+      "tokensRevoked": "代理令牌已吊销。",
+      "modes": {
+        "poll": "由注册表轮询",
+        "agent": "集群内代理"
+      },
+      "tokenDialog": {
+        "title": "代理令牌",
+        "warning": "请立即复制令牌：它只显示一次，无法找回。",
+        "copy": "复制",
+        "close": "我已保存",
+        "manifest": "Secret 与代理命令",
+        "probes": "livenessProbe 与 readinessProbe 探针：端口 8081 上的 /healthz 和 /readyz（--health-addr），参见 examples/k8s/agent.yaml。"
       }
     },
     "environments": {
@@ -751,7 +900,8 @@
       "docsSettings": "文档设置",
       "settings": "设置",
       "details": "详情",
-      "releases": "发布"
+      "releases": "发布",
+      "dependencies": "依赖"
     },
     "create": {
       "title": "添加",
@@ -966,7 +1116,6 @@
       "tokenKeep": "留空则保留当前令牌。",
       "tokenRef": "引用",
       "tokenRefHint": "env:变量 或 file:/绝对/路径 —— 服务器从那里读取令牌，不存储任何内容。",
-      "credToken": "令牌 ··{fingerprint}",
       "credRef": "引用 {ref}",
       "include": "包含名称",
       "exclude": "排除名称",
@@ -1270,7 +1419,12 @@
         "override": "覆盖",
         "reset": "重置",
         "readmeRule": "只收集根目录的 README",
-        "none": "无"
+        "none": "无",
+        "apis": "API 描述",
+        "apisCollect": "收集 API 描述",
+        "apisHint": "任意目录中的 OpenAPI、Swagger 和 .proto 文件以及 apidocs/ 和 api-docs/ 下的所有内容无需“包含”模式即被收集；“排除”同样适用。",
+        "apisOn": "收集",
+        "apisOff": "不收集"
       },
       "noSource": "文档需要来源：将项目与 forge 同步，或在文档设置中设置来源。",
       "source": {
@@ -1296,8 +1450,6 @@
         "pathHint": "服务器允许的目录内的绝对路径。",
         "gitHint": "分支从提交中读取；当前分支也可以包含未提交的文件。",
         "credentials": {
-          "stored": "已保存令牌（{fingerprint}）",
-          "reference": "来自服务器引用的令牌",
           "none": "无令牌"
         },
         "check": "检查",
@@ -1339,6 +1491,62 @@
       "gitStatusHint": {
         "untracked": "不在 git 索引中 — 文件仅存在于工作副本",
         "ignored": "被 git 忽略 — 因“收集被忽略的文件”设置而被收集"
+      },
+      "api": {
+        "view": "API",
+        "tree": "树",
+        "source": "源文件",
+        "views": "视图",
+        "operations": "操作",
+        "schemas": "模式",
+        "services": "服务",
+        "messages": "消息",
+        "enums": "枚举",
+        "parameters": "参数",
+        "requestBody": "请求体",
+        "responses": "响应",
+        "untagged": "无标签",
+        "deprecated": "已弃用",
+        "stream": "流",
+        "noOperations": "没有符合筛选条件的操作",
+        "refMissing": "未找到引用",
+        "problems": "解析问题：{count}",
+        "filter": "筛选",
+        "name": "名称",
+        "place": "位置",
+        "required": "必填",
+        "type": "类型",
+        "description": "描述",
+        "number": "编号",
+        "label": "标记",
+        "value": "值",
+        "package": "包",
+        "syntax": "语法",
+        "imports": "导入",
+        "servers": "服务器",
+        "input": "输入",
+        "output": "输出",
+        "block": "API",
+        "cardOperations": "{n} 个操作",
+        "cardMethods": "{services} 个服务，{methods} 个方法",
+        "cardProblems": "{n} 个问题",
+        "skippedFile": "收集时已跳过",
+        "yes": "是",
+        "fields": "字段",
+        "values": "值",
+        "empty": "没有可显示的内容",
+        "loading": "正在加载 API 描述…",
+        "places": {
+          "query": "查询",
+          "path": "路径",
+          "header": "请求头",
+          "cookie": "cookie",
+          "formData": "表单"
+        },
+        "showVendored": "显示第三方（{n}）",
+        "hideVendored": "隐藏第三方",
+        "vendored": "第三方",
+        "definedIn": "定义于 {path}"
       }
     },
     "summary": {
@@ -1398,7 +1606,11 @@
       "truncated": "仅显示前 500 个匹配项——请细化筛选条件。",
       "noMatch": "没有符合筛选条件的项目。",
       "reset": "重置筛选",
-      "label_aria": "目录树"
+      "label_aria": "目录树",
+      "owner": "负责人",
+      "anyOwner": "任意负责人",
+      "mine": "我的",
+      "owners": "负责人"
     },
     "about": {
       "title": "描述",
@@ -1423,7 +1635,10 @@
         "connect": "发送事件",
         "forge": "Forge",
         "secrets": "密钥",
-        "scans": "扫描历史"
+        "scans": "扫描历史",
+        "owners": "负责人",
+        "notifications": "通知",
+        "dependencies": "依赖"
       }
     },
     "linkIcons": {
@@ -1451,6 +1666,86 @@
       "noSecret": "该连接没有命名密钥：新来源将没有令牌。",
       "submit": "解除关联",
       "done": "项目已与 forge 解除关联。"
+    },
+    "owners": {
+      "title": "负责人",
+      "primary": "主要",
+      "inheritedFrom": "继承自 {name}",
+      "none": "尚未指定负责人。",
+      "assign": "指定负责人",
+      "onCall": "值班",
+      "disabled": "已停用",
+      "group": "组",
+      "user": "用户",
+      "lead": "负责此节点的组和人员；第一个为主要负责人。除非下级节点有自己的负责人，否则其中的一切都会继承它们。",
+      "own": "设置自己的负责人",
+      "inherit": "继承",
+      "add": "添加负责人",
+      "addPlaceholder": "组名或用户邮箱，至少 2 个字符",
+      "up": "上移",
+      "down": "下移",
+      "remove": "移除",
+      "save": "保存",
+      "saved": "负责人已保存。",
+      "empty": "列表为空：保存后节点将继承上级的负责人。",
+      "noneAbove": "此节点及其上级都没有负责人。",
+      "readOnly": "只有此节点的编辑者可以更改负责人。",
+      "contacts": "联系方式",
+      "noOwners": "无负责人",
+      "here": "在此设置",
+      "clear": "无负责人",
+      "clearConfirm": "在此节点停止继承负责人？在下级设置自己的负责人之前，该节点及其内部所有内容都没有负责人。该节点自己的负责人将被移除。"
+    },
+    "dependencies": {
+      "dependsOn": "依赖于",
+      "dependents": "被依赖",
+      "list": "列表",
+      "graph": "图",
+      "view": "视图",
+      "depth": "深度",
+      "fit": "适应窗口",
+      "zoomIn": "放大",
+      "zoomOut": "缩小",
+      "sources": {
+        "event": "CI 事件",
+        "cluster": "集群",
+        "repository": "仓库",
+        "manual": "手动"
+      },
+      "external": "外部系统",
+      "unresolved": "注册表中未找到",
+      "hidden": "不可访问的项目",
+      "moreHidden": "另有 {count} 个不可访问的项目",
+      "hiddenEdges": "隐藏的连接：{count}",
+      "truncated": "仅显示前 500 个节点",
+      "seen": "{origin}，确认于 {when}",
+      "emptyDependsOn": "没有依赖",
+      "emptyDependents": "没有项目依赖它",
+      "emptyFolder": "此文件夹中没有依赖",
+      "howTo": "在部署事件、Kubernetes 注解或 .svc-registry.yaml 文件中报告依赖。",
+      "howToEvents": "发送事件",
+      "howToManual": "手动添加",
+      "manualTitle": "手动依赖",
+      "manualLead": "在此添加的依赖会一直保留，直到您删除；自动来源不会更改它们。",
+      "autoTitle": "自动依赖",
+      "autoLead": "它们来自部署事件、集群注解和 .svc-registry.yaml 文件，只能在那里更改。",
+      "noManual": "没有手动依赖。",
+      "noAuto": "没有自动依赖。",
+      "project": "项目",
+      "externalKind": "外部系统",
+      "target": "目标",
+      "projectPlaceholder": "查找项目",
+      "externalPlaceholder": "系统名称，例如 stripe",
+      "note": "备注",
+      "notePlaceholder": "可选备注",
+      "add": "添加",
+      "added": "已添加依赖。",
+      "remove": "删除",
+      "removeTitle": "删除依赖？",
+      "removeText": "将删除对 {name} 的依赖。",
+      "removed": "已删除依赖。",
+      "origin": "来源位置",
+      "graphLabel": "依赖图"
     }
   },
   "notFound": {
@@ -1524,7 +1819,8 @@
       "collect": "分支：{branches} · 文件：{files}",
       "skipped": "已跳过：{skipped}",
       "index": "片段：{chunks} · 文档：{documents}",
-      "series": "×{n}，从 {from} 到 {to}"
+      "series": "×{n}，从 {from} 到 {to}",
+      "apiSkipped": "其中 API：{api}"
     },
     "details": {
       "expand": "显示详情",
@@ -1545,7 +1841,9 @@
       "technical": "技术详情",
       "whatToDo": "处理建议",
       "none": "—",
-      "workingTree": "工作区"
+      "workingTree": "工作区",
+      "more": "另有 {n} 项",
+      "apiSkipped": "API"
     },
     "results": {
       "collected": "已收集",
@@ -1556,6 +1854,11 @@
       "too_large": "过大",
       "binary": "二进制",
       "limit": "超出上限"
+    },
+    "noteReasons": {
+      "too_large": "过大",
+      "binary": "二进制",
+      "limit": "超出文件数上限"
     },
     "empty": "暂无扫描记录。",
     "emptyText": "项目运行文档收集或搜索索引后，记录会显示在这里。",
@@ -1593,6 +1896,11 @@
           "title": "项目没有文档来源",
           "text": "既没有文档来源，也没有 forge 同步，因此没有可收集的内容。",
           "hint": "在“文档设置”→“来源”中设置来源，或将文件夹连接到 forge。"
+        },
+        "manifest_invalid": {
+          "title": "项目描述文件未完整读取",
+          "text": "默认分支的 .svc-registry.yaml 文件超过 64 KiB、不是有效的 YAML，或 dependencies 中含有无效引用，因此部分依赖未被采用。",
+          "hint": "在仓库中修正该文件：dependencies 必须是项目路径或 external:<名称> 引用的列表。"
         }
       },
       "source": {
@@ -1727,9 +2035,7 @@
     "none": "不使用令牌",
     "manage": "管理密钥",
     "create": "创建密钥",
-    "legacy": "内嵌令牌（已弃用）——请选择密钥",
-    "noneAvailable": "没有可用的密钥。",
-    "legacyShort": "内嵌令牌（已弃用）"
+    "noneAvailable": "没有可用的密钥。"
   },
   "docSpace": {
     "title": "文档",
@@ -1763,5 +2069,156 @@
     "structure": "结构",
     "panelHide": "收起面板",
     "panelShow": "展开面板"
+  },
+  "oauth": {
+    "title": "允许访问注册中心",
+    "loading": "正在加载请求…",
+    "unnamed": "未命名应用",
+    "unverified": "注册中心未验证此应用。",
+    "returnTo": "做出决定后你将返回到",
+    "access": "请求的访问",
+    "accessText": "以你的身份使用注册中心的 MCP 服务器：读取你能看到的项目、文档、部署和链接。",
+    "allow": "允许",
+    "deny": "拒绝",
+    "stale": "请求已过期——请在应用中重新开始连接。",
+    "publishedOn": "应用描述发布于",
+    "loopbackWarning": "响应将返回到这台计算机。在其上运行的任何程序都可能冒充此应用——仅当连接由您本人发起时才允许。"
+  },
+  "notify": {
+    "title": "通知",
+    "lead": "此节点及其下所有内容的事件发送到哪里：Webhook 或 Slack。上级设置的订阅在这里同样生效，直到被覆盖或停用。",
+    "empty": "没有订阅",
+    "emptyText": "添加 Webhook 或 Slack 频道，以便获知部署、版本偏差、失效链接和代码托管同步失败。",
+    "add": "新建订阅",
+    "columns": {
+      "key": "键",
+      "channel": "渠道",
+      "secret": "地址密钥",
+      "events": "事件",
+      "environments": "环境",
+      "locale": "语言",
+      "state": "状态",
+      "source": "设置于"
+    },
+    "channels": {
+      "webhook": "Webhook",
+      "slack": "Slack"
+    },
+    "events": {
+      "deployment.created": "部署",
+      "deployment.drift": "版本偏差",
+      "link.check_failed": "链接失效",
+      "forge.sync_failed": "代码托管同步失败",
+      "deployment.drift_resolved": "版本偏差已消除",
+      "link.check_recovered": "链接已恢复",
+      "forge.sync_recovered": "同步已恢复",
+      "test": "测试"
+    },
+    "allEnvironments": "全部",
+    "here": "此处",
+    "enabled": "已启用",
+    "disabled": "已停用",
+    "noSecret": "—",
+    "actions": {
+      "menu": "{key} 的操作",
+      "edit": "编辑",
+      "remove": "删除",
+      "test": "发送测试",
+      "override": "覆盖",
+      "disableHere": "在此停用"
+    },
+    "removeTitle": "删除订阅 {key}？",
+    "removeText": "此订阅的通知在这里不再发送。上级设置的同键订阅重新生效。",
+    "removeConfirm": "删除",
+    "dialog": {
+      "createTitle": "新建订阅",
+      "editTitle": "订阅 {key}",
+      "overrideTitle": "在此覆盖 {key}",
+      "key": "键",
+      "keyHint": "a-z、0-9 和 -，在节点上唯一",
+      "channel": "渠道",
+      "secret": "地址密钥",
+      "secretHint": "密钥中保存 Webhook 地址；Slack 使用 https://hooks.slack.com/ incoming webhook。",
+      "events": "事件",
+      "environments": "环境",
+      "environmentsHint": "留空表示所有环境。失效链接和代码托管失败没有环境，总会通过。",
+      "locale": "消息语言",
+      "disabled": "已停用",
+      "disabledHint": "停用的订阅不接收任何内容，并会关闭上级的同键订阅。",
+      "save": "保存",
+      "invalidKey": "使用 a-z、0-9 和 -，1 到 63 个字符。",
+      "invalidEnvironment": "不是环境名称。",
+      "eventsRequired": "至少选择一个事件。"
+    },
+    "signing": {
+      "title": "签名密钥",
+      "none": "没有签名密钥：请求不会签名。",
+      "fingerprint": "密钥 {fingerprint}",
+      "create": "创建签名密钥",
+      "replace": "更换密钥",
+      "once": "请立即复制密钥：之后不会再显示。接收方用它校验 webhook-signature。",
+      "created": "已创建签名密钥"
+    },
+    "test": {
+      "delivered": "已送达（HTTP {status}，{ms} 毫秒）",
+      "failed": "{text}（HTTP {status}）",
+      "failedNoStatus": "{text}",
+      "tooOften": "过于频繁，请在 {n} 秒后重试"
+    },
+    "journal": {
+      "title": "投递日志",
+      "lead": "此节点订阅的投递，最新的在前。",
+      "subscription": "订阅",
+      "subscriptionAny": "所有订阅",
+      "status": "状态",
+      "statusAny": "任意状态",
+      "reset": "重置",
+      "empty": "尚未发送任何内容",
+      "emptyFiltered": "没有符合筛选条件的投递",
+      "nextAttempt": "下次 {when}",
+      "hiddenNode": "你无权查看的节点",
+      "columns": {
+        "time": "时间",
+        "event": "事件",
+        "node": "节点",
+        "subscription": "订阅",
+        "status": "状态",
+        "attempts": "尝试次数",
+        "http": "HTTP",
+        "error": "错误"
+      }
+    },
+    "statuses": {
+      "pending": "等待中",
+      "delivered": "已送达",
+      "failed": "未送达"
+    },
+    "saved": "订阅已保存",
+    "removed": "订阅已删除",
+    "refresh": {
+      "label": "自动刷新",
+      "off": "关闭",
+      "every": "{n} 秒",
+      "now": "立即刷新"
+    },
+    "pager": {
+      "label": "分页",
+      "prev": "上一页",
+      "next": "下一页",
+      "range": "第 {from}–{to} 条，共 {total} 条"
+    },
+    "codes": {
+      "notify": {
+        "http_status": "接收方返回了错误",
+        "timeout": "接收方未及时响应",
+        "tls_error": "TLS 连接失败",
+        "dns_error": "主机名无法解析",
+        "unreachable": "无法连接接收方",
+        "blocked": "通知地址策略禁止该地址",
+        "redirect": "接收方返回了重定向",
+        "url_unavailable": "无法读取地址密钥或其中没有有效地址",
+        "subscription_disabled": "订阅已停用"
+      }
+    }
   }
 }

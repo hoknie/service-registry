@@ -6,6 +6,7 @@ import { useEffect, type ReactNode } from "react";
 
 import type { Locale } from "@/i18n/config";
 import type { Messages } from "@/i18n/messages";
+import { loginHref } from "@/lib/oauthApps";
 
 import { useSession } from "./SessionProvider";
 import { EmptyState } from "./ui/EmptyState";
@@ -25,7 +26,7 @@ export function RequireAuth({ locale, labels, superadmin = false, children }: Pr
 
   useEffect(() => {
     if (session.status === "anonymous") {
-      router.replace(`/${locale}/login?next=${encodeURIComponent(pathname)}`);
+      router.replace(loginHref(locale, pathname, window.location.search));
     }
   }, [session.status, router, locale, pathname]);
 

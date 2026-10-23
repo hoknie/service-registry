@@ -3,7 +3,7 @@ import type { Messages } from "@/i18n/messages";
 import type { NodeKind } from "@/lib/api";
 import { LEGACY_TABS, RENAMED_TABS } from "@/lib/nodeSettings";
 
-export type CatalogLabels = Messages["catalog"] & { scans: Messages["scans"] };
+export type CatalogLabels = Messages["catalog"] & { scans: Messages["scans"]; notify: Messages["notify"] };
 export type ErrorLabels = Messages["errors"];
 export type { Note } from "../ui/Message";
 

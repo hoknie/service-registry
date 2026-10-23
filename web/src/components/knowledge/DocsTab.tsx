@@ -12,6 +12,7 @@ import { when } from "@/i18n/time";
 import { apiGet, apiSend, errorCode, type CatalogNode, type Knowledge, type KnowledgeFiles } from "@/lib/api";
 import { shortCommit } from "@/lib/commit";
 import { docHref, splitPath } from "@/lib/docPath";
+import { snapshotMissing } from "@/lib/snapshotLimits";
 
 import { useUiText } from "../UiText";
 import { Badge } from "../ui/Badge";
@@ -25,6 +26,7 @@ import { SkeletonPanel } from "../ui/Skeleton";
 import { catalogHref, type CatalogLabels } from "../catalog/shared";
 import { DocsTree } from "./DocsTree";
 import { DocViewer } from "./DocViewer";
+import { LimitNotice } from "./LimitNotice";
 
 type Props = {
   node: CatalogNode;
@@ -177,7 +179,10 @@ export function DocsTab({ node, branch: branchParam, doc, locale, labels, canWri
             <p className="text-muted">{state?.pending ? t.pending : t.never}</p>
           )}
         </div>
-        {snapshot?.status === "partial" && <p className="mt-3 text-sm text-muted">{snapshot.truncated ? t.truncated : t.partialHint}</p>}
+        {snapshot && <LimitNotice className="mt-3" snapshot={snapshot} canWrite={canWrite} settingsHref={catalogHref(locale, node.id, "docs-settings")} />}
+        {snapshot?.status === "partial" && (snapshot.truncated || snapshotMissing(snapshot) === 0) && (
+          <p className="mt-3 text-sm text-muted">{snapshot.truncated ? t.truncated : t.partialHint}</p>
+        )}
         {overview.settings.include === null && (
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-surface-2 px-3 py-2 text-sm text-ink-2">
             <span>{t.onlyReadme}</span>

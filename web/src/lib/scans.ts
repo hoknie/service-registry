@@ -1,4 +1,4 @@
-import type { Scan, ScanSource } from "./api";
+import type { Scan, ScanNote, ScanSource } from "./api";
 
 export type CodeText = { title: string; text: string; hint: string; hintGit?: string };
 export type CodeBook = Record<string, Record<string, CodeText>>;
@@ -21,14 +21,21 @@ export function scanCodes(scan: Scan): string[] {
   return out;
 }
 
-export function scanTotals(scan: Scan): { branches: number; files: number; skipped: number } {
+export function scanNotes(scan: Pick<Scan, "warning_details" | "warning_counts">, code: string): { items: ScanNote[]; more: number } {
+  const items = (scan.warning_details ?? []).filter((n) => n.code === code);
+  return { items, more: Math.max((scan.warning_counts?.[code] ?? 0) - items.length, 0) };
+}
+
+export function scanTotals(scan: Scan): { branches: number; files: number; skipped: number; api: number } {
   let files = 0;
   let skipped = 0;
+  let api = 0;
   for (const b of scan.branches) {
     files += b.files;
+    api += b.api_skipped ?? 0;
     for (const n of Object.values(b.skipped)) skipped += n;
   }
-  return { branches: scan.branches.length, files, skipped };
+  return { branches: scan.branches.length, files, skipped, api };
 }
 
 export type ScanParams = { project: string; kind: string; status: string[]; trigger: string; page: number };

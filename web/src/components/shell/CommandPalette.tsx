@@ -9,9 +9,10 @@ import type { Locale } from "@/i18n/config";
 import { errorText } from "@/i18n/errors";
 import { format } from "@/i18n/format";
 import type { Messages } from "@/i18n/messages";
-import { errorCode, type CatalogNode } from "@/lib/api";
-import { useCatalogTree } from "@/lib/catalogTree";
+import { errorCode, type NodeKind } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { recentNodes, type RecentNode } from "@/lib/recentNodes";
+import { useNodeSearch } from "@/lib/useNodeSearch";
 
 import { KindIcon } from "../catalog/KindIcon";
 import { useUiText } from "../UiText";
@@ -19,9 +20,7 @@ import { Kbd } from "../ui/Kbd";
 import type { NavItem } from "./nav";
 
 type Labels = Messages["palette"];
-type Option = { id: string; href: string; label: string; detail?: string; group: "pages" | "nodes"; node?: CatalogNode; page?: NavItem };
-
-const LIMIT = 50;
+type Option = { id: string; href: string; label: string; detail?: string; group: "pages" | "recent" | "nodes"; kind?: NodeKind; page?: NavItem };
 
 export function CommandPalette({
   open,
@@ -41,9 +40,10 @@ export function CommandPalette({
   const listId = useId();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const catalog = useCatalogTree(open);
-  const nodes = catalog.tree?.nodes ?? null;
-  const error = catalog.error ? errorText(errors, errorCode(catalog.error)) : null;
+  const search = useNodeSearch(open ? query : "");
+  const [recent, setRecent] = useState<RecentNode[]>([]);
+  const searching = query.trim() !== "";
+  const error = search.error ? errorText(errors, errorCode(search.error)) : null;
   const list = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
@@ -57,19 +57,10 @@ export function CommandPalette({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onOpenChange]);
 
-  const paths = useMemo(() => {
-    const byId = new Map((nodes ?? []).map((n) => [n.id, n]));
-    const path = (n: CatalogNode): string => {
-      const names: string[] = [];
-      let parent = n.parent_id ? byId.get(n.parent_id) : undefined;
-      while (parent) {
-        names.unshift(parent.name);
-        parent = parent.parent_id ? byId.get(parent.parent_id) : undefined;
-      }
-      return names.join(" / ");
-    };
-    return new Map((nodes ?? []).map((n) => [n.id, path(n)]));
-  }, [nodes]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (open) setRecent(recentNodes());
+  }, [open]);
 
   const options = useMemo<Option[]>(() => {
     const q = query.trim().toLowerCase();
@@ -77,17 +68,17 @@ export function CommandPalette({
     const pageOptions: Option[] = pages
       .filter((p) => match(p.label))
       .map((p) => ({ id: `page-${p.key}`, href: p.href, label: p.label, group: "pages", page: p }));
-    const nodeOptions: Option[] = (nodes ?? [])
-      .filter((n) => match(n.name, n.slug))
-      .slice(0, LIMIT)
-      .map((n) => ({
-        id: `node-${n.id}`,
-        href: `/${locale}/catalog?node=${n.id}`,
-        label: n.name,
-        detail: paths.get(n.id),
-        group: "nodes",
-        node: n,
-      }));
+    const nodeOption = (n: { id: string; name: string; kind: NodeKind }, detail: string, group: "recent" | "nodes"): Option => ({
+      id: `${group}-${n.id}`,
+      href: `/${locale}/catalog?node=${n.id}`,
+      label: n.name,
+      detail: detail || undefined,
+      group,
+      kind: n.kind,
+    });
+    const nodeOptions: Option[] = q
+      ? (search.hits ?? []).map((h) => nodeOption(h.node, h.path, "nodes"))
+      : recent.map((r) => nodeOption(r, r.path, "recent"));
     const searchOptions: Option[] = q
       ? [
           {
@@ -100,7 +91,7 @@ export function CommandPalette({
         ]
       : [];
     return [...pageOptions, ...nodeOptions, ...searchOptions];
-  }, [query, pages, nodes, paths, locale, labels.searchDocs]);
+  }, [query, pages, search.hits, recent, locale, labels.searchDocs]);
 
   const current = Math.min(active, Math.max(0, options.length - 1));
 
@@ -127,7 +118,7 @@ export function CommandPalette({
     }
   };
 
-  const groupTitle = { pages: labels.pages, nodes: labels.nodes };
+  const groupTitle = { pages: labels.pages, recent: labels.recent, nodes: labels.nodes };
 
   return (
     <D.Root
@@ -188,8 +179,8 @@ export function CommandPalette({
                     i === current ? "bg-surface-3 text-ink" : "text-ink-2",
                   )}
                 >
-                  {o.node ? (
-                    <KindIcon kind={o.node.kind} />
+                  {o.kind ? (
+                    <KindIcon kind={o.kind} />
                   ) : (
                     o.page && <o.page.icon aria-hidden="true" className="size-4 shrink-0 text-muted" />
                   )}
@@ -202,9 +193,9 @@ export function CommandPalette({
               </li>
             ))}
           </ul>
-          {(options.length === 0 || (!nodes && !error) || error) && (
+          {(options.length === 0 || (searching && !search.hits) || error) && (
             <p role="status" className="px-5 pb-5 text-sm text-muted">
-              {error ?? (!nodes ? labels.loading : labels.empty)}
+              {error ?? (searching && !search.hits ? labels.searching : labels.empty)}
             </p>
           )}
           <p className="border-t border-line bg-surface-2 px-4 py-2 text-xs text-muted">{labels.hint}</p>

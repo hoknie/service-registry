@@ -22,6 +22,7 @@ import { PageHeader, Panel } from "../ui/Panel";
 import { Select } from "../ui/Select";
 import { SkeletonTable } from "../ui/Skeleton";
 import { StatusBadge } from "./UsersAdmin";
+import { UserApps } from "./UserApps";
 import { UserIdentities } from "./UserIdentities";
 import { UserTokens } from "./UserTokens";
 
@@ -187,6 +188,9 @@ export function UserPage({ locale, labels, tokenLabels }: { locale: Locale; labe
             canIssue={user.status === "active"}
             superadmin={user.is_superadmin}
           />
+        </div>
+        <div className="rounded-card border border-line bg-surface p-5 shadow-elev-1">
+          <UserApps userId={user.id} locale={locale} labels={tokenLabels} fail={fail} />
         </div>
       </div>
     </>

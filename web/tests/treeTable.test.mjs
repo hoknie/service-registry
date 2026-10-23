@@ -18,14 +18,20 @@ const branch = (rows, total = rows.length, more = {}) => ({ rows, total, loading
 
 test("filters round-trip through the address", () => {
   const f = parseFilters(new URLSearchParams("q=bill&kind=project&label=team=payments,tier&activity=failed"));
-  assert.deepEqual(f, { q: "bill", kind: "project", label: "team=payments,tier", activity: "failed" });
+  assert.deepEqual(f, { q: "bill", kind: "project", label: "team=payments,tier", activity: "failed", owner: "" });
   assert.equal(filtersQuery(f), "q=bill&kind=project&label=team%3Dpayments&label=tier&activity=failed");
   assert.equal(hasFilters(f), true);
   const bad = parseFilters(new URLSearchParams("kind=service&activity=idle"));
   assert.equal(bad.kind, "");
   assert.equal(bad.activity, "");
   assert.equal(hasFilters(bad), false);
-  assert.equal(filtersQuery({ q: "  ", kind: "", label: "", activity: "" }), "");
+  assert.equal(filtersQuery({ q: "  ", kind: "", label: "", activity: "", owner: "" }), "");
+  const id = "0190f6c1-0000-7000-8000-000000000001";
+  assert.equal(parseFilters(new URLSearchParams("owner=me")).owner, "me");
+  assert.equal(parseFilters(new URLSearchParams(`owner=group:${id}`)).owner, `group:${id}`);
+  assert.equal(parseFilters(new URLSearchParams("owner=team:42")).owner, "");
+  assert.equal(filtersQuery({ q: "", kind: "", label: "", activity: "", owner: "me" }), "owner=me");
+  assert.equal(hasFilters({ q: "", kind: "", label: "", activity: "", owner: "me" }), true);
 });
 
 test("open nodes are unique and capped", () => {

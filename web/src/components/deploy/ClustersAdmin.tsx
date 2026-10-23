@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Boxes, Pencil, Plug, Plus, RefreshCw, Server, Trash, Unlink } from "lucide-react";
+import { Activity, Ban, Boxes, KeyRound, Pencil, Plug, Plus, RefreshCw, Server, Trash, Unlink } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -9,7 +9,7 @@ import { errorText } from "@/i18n/errors";
 import { format } from "@/i18n/format";
 import type { Messages } from "@/i18n/messages";
 import { ago, when } from "@/i18n/time";
-import { apiGet, apiSend, errorCode, type Cluster, type ClusterTest, type DirectoryEnvironment, type Items } from "@/lib/api";
+import { apiGet, apiSend, errorCode, type AgentToken, type Cluster, type ClusterTest, type DirectoryEnvironment, type Items } from "@/lib/api";
 
 import { SecretPicker } from "../secrets/SecretPicker";
 import { useUiText } from "../UiText";
@@ -24,8 +24,10 @@ import { Checkbox, Field, Input, Textarea } from "../ui/Field";
 import { Message, type Note } from "../ui/Message";
 import { PageHeader } from "../ui/Panel";
 import { SkeletonTable } from "../ui/Skeleton";
+import { Select } from "../ui/Select";
 import { Table, Td, Th, Tr } from "../ui/Table";
 import { hasInvalidTags, TagInput } from "../ui/TagInput";
+import { AgentTokenDialog } from "./AgentTokenDialog";
 import { UnmatchedDialog } from "./UnmatchedDialog";
 
 type Labels = Messages["admin"]["clusters"];
@@ -33,6 +35,7 @@ type Props = { locale: Locale; labels: Labels; pager: Messages["admin"]["users"]
 
 type Draft = {
   id: string | null;
+  mode: Cluster["mode"];
   name: string;
   environment: string;
   inCluster: boolean;
@@ -40,7 +43,6 @@ type Draft = {
   ca: string;
   secret: string | null;
   current: string | null;
-  legacy: boolean;
   namespaces: string;
   rules: string;
   interval: string;
@@ -49,6 +51,7 @@ type Draft = {
 
 const blank: Draft = {
   id: null,
+  mode: "poll",
   name: "",
   environment: "production",
   inCluster: false,
@@ -56,7 +59,6 @@ const blank: Draft = {
   ca: "",
   secret: null,
   current: null,
-  legacy: false,
   namespaces: "",
   rules: "",
   interval: "60",
@@ -87,6 +89,8 @@ export function ClustersAdmin({ locale, labels: t, pager }: Props) {
   const [deleting, setDeleting] = useState<Cluster | null>(null);
   const [testing, setTesting] = useState<{ cluster: Cluster; result: ClusterTest | null } | null>(null);
   const [unmatched, setUnmatched] = useState<Cluster | null>(null);
+  const [issued, setIssued] = useState<{ cluster: string; token: AgentToken } | null>(null);
+  const [tokenAction, setTokenAction] = useState<{ cluster: Cluster; kind: "rotate" | "revoke" } | null>(null);
 
   const fail = useCallback((e: unknown) => errorText(errors, errorCode(e)), [errors]);
 
@@ -115,6 +119,7 @@ export function ClustersAdmin({ locale, labels: t, pager }: Props) {
       c
         ? {
             id: c.id,
+            mode: c.mode,
             name: c.name,
             environment: c.environment,
             inCluster: c.in_cluster,
@@ -122,7 +127,6 @@ export function ClustersAdmin({ locale, labels: t, pager }: Props) {
             ca: c.ca_pem ?? "",
             secret: c.credentials?.kind === "secret" ? c.credentials.secret.id : null,
             current: c.credentials?.kind === "secret" ? c.credentials.secret.id : null,
-            legacy: c.credentials?.kind === "legacy",
             namespaces: c.namespaces.join("\n"),
             rules: rulesText(c.rules),
             interval: String(c.interval_secs),
@@ -137,29 +141,29 @@ export function ClustersAdmin({ locale, labels: t, pager }: Props) {
     setBusy(true);
     setNote(null);
     const interval = Number(draft.interval);
+    const agent = draft.mode === "agent";
     const body: Record<string, unknown> = {
+      mode: draft.mode,
       name: draft.name,
       environment: draft.environment,
-      in_cluster: draft.inCluster,
       namespaces: draft.namespaces.split("\n").map((n) => n.trim()).filter(Boolean),
       rules: parseRules(draft.rules),
       interval_secs: Number.isInteger(interval) ? interval : 0,
       enabled: draft.enabled,
     };
-    if (!draft.inCluster) {
+    if (!agent) body.in_cluster = draft.inCluster;
+    if (!agent && !draft.inCluster) {
       body.api_url = draft.apiUrl;
       body.ca_pem = draft.ca;
       if (draft.secret && draft.secret !== draft.current) body.credentials = { secret_id: draft.secret };
       else if (!draft.id) body.credentials = { secret_id: draft.secret ?? "" };
     }
     try {
-      if (draft.id) {
-        await apiSend("PATCH", `/v1/clusters/${draft.id}`, body);
-        toast.success(t.saved);
-      } else {
-        await apiSend("POST", "/v1/clusters", body);
-        toast.success(t.created);
-      }
+      const saved = draft.id
+        ? await apiSend<Cluster>("PATCH", `/v1/clusters/${draft.id}`, body)
+        : await apiSend<Cluster>("POST", "/v1/clusters", body);
+      toast.success(draft.id ? t.saved : t.created);
+      if (saved.agent_token) setIssued({ cluster: saved.id, token: saved.agent_token });
       setDraft(null);
       void load();
     } catch (e) {
@@ -233,7 +237,16 @@ export function ClustersAdmin({ locale, labels: t, pager }: Props) {
                   {envName(c.environment)}
                 </Td>
                 <Td className="hidden max-w-64 truncate md:table-cell">
-                  {c.in_cluster ? <span className="text-ink-2">{t.inCluster}</span> : <code className="text-xs text-ink-2">{c.api_url}</code>}
+                  {c.mode === "agent" ? (
+                    <span className="text-ink-2">
+                      {t.agent}
+                      {c.agent?.version && <code className="ml-2 text-xs">{c.agent.version}</code>}
+                    </span>
+                  ) : c.in_cluster ? (
+                    <span className="text-ink-2">{t.inCluster}</span>
+                  ) : (
+                    <code className="text-xs text-ink-2">{c.api_url}</code>
+                  )}
                 </Td>
                 <Td>
                   <span className="flex flex-col gap-1">
@@ -241,7 +254,7 @@ export function ClustersAdmin({ locale, labels: t, pager }: Props) {
                       {t.status[c.status]}
                     </Badge>
                     <span className="text-xs text-muted" title={when(c.last_polled_at, locale, "")}>
-                      {c.last_polled_at ? ago(c.last_polled_at, locale, "") : t.never}
+                      {c.last_polled_at ? ago(c.last_polled_at, locale, "") : c.mode === "agent" ? t.neverReported : t.never}
                     </span>
                     {c.last_error && <span className="text-xs text-danger">{errorText(errors, c.last_error.code)}</span>}
                   </span>
@@ -260,10 +273,23 @@ export function ClustersAdmin({ locale, labels: t, pager }: Props) {
                     <Plug aria-hidden="true" />
                     {t.test}
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => void poll(c)}>
-                    <RefreshCw aria-hidden="true" />
-                    {t.poll}
-                  </Button>
+                  {c.mode === "poll" ? (
+                    <Button size="sm" variant="ghost" onClick={() => void poll(c)}>
+                      <RefreshCw aria-hidden="true" />
+                      {t.poll}
+                    </Button>
+                  ) : (
+                    <>
+                      <Button size="sm" variant="ghost" onClick={() => setTokenAction({ cluster: c, kind: "rotate" })}>
+                        <KeyRound aria-hidden="true" />
+                        {t.newToken}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setTokenAction({ cluster: c, kind: "revoke" })}>
+                        <Ban aria-hidden="true" />
+                        {t.revokeTokens}
+                      </Button>
+                    </>
+                  )}
                   <Button size="sm" variant="ghost" onClick={() => open(c)}>
                     <Pencil aria-hidden="true" />
                     {t.edit}
@@ -311,8 +337,18 @@ export function ClustersAdmin({ locale, labels: t, pager }: Props) {
                 )}
               </Field>
             </div>
-            <Checkbox label={t.fields.inCluster} checked={draft.inCluster} onChange={(e) => setDraft({ ...draft, inCluster: e.target.checked })} />
-            {!draft.inCluster && (
+            <Field label={t.fields.mode} hint={draft.mode === "agent" ? t.fields.agentHint : undefined}>
+              {(p) => (
+                <Select {...p} value={draft.mode} onChange={(e) => setDraft({ ...draft, mode: e.target.value as Cluster["mode"] })}>
+                  <option value="poll">{t.modes.poll}</option>
+                  <option value="agent">{t.modes.agent}</option>
+                </Select>
+              )}
+            </Field>
+            {draft.mode === "poll" && (
+              <Checkbox label={t.fields.inCluster} checked={draft.inCluster} onChange={(e) => setDraft({ ...draft, inCluster: e.target.checked })} />
+            )}
+            {draft.mode === "poll" && !draft.inCluster && (
               <>
                 <Field label={t.fields.apiUrl}>
                   {(p) => <Input {...p} type="url" placeholder="https://k8s.example:6443" value={draft.apiUrl} onChange={(e) => setDraft({ ...draft, apiUrl: e.target.value })} />}
@@ -326,7 +362,6 @@ export function ClustersAdmin({ locale, labels: t, pager }: Props) {
                   value={draft.secret}
                   onChange={(secret) => setDraft({ ...draft, secret })}
                   manageHref={`/${locale}/admin/secrets`}
-                  legacy={draft.legacy}
                   required={!draft.id}
                 />
               </>
@@ -347,7 +382,7 @@ export function ClustersAdmin({ locale, labels: t, pager }: Props) {
               </Field>
             </div>
             <div className="flex flex-wrap items-end gap-6">
-              <Field label={t.fields.interval} className="w-48">
+              <Field label={draft.mode === "agent" ? t.fields.reportInterval : t.fields.interval} className="w-48">
                 {(p) => <Input {...p} type="number" min={15} max={3600} value={draft.interval} onChange={(e) => setDraft({ ...draft, interval: e.target.value })} />}
               </Field>
               <Checkbox label={t.fields.enabled} checked={draft.enabled} onChange={(e) => setDraft({ ...draft, enabled: e.target.checked })} />
@@ -377,6 +412,34 @@ export function ClustersAdmin({ locale, labels: t, pager }: Props) {
             </div>
           )}
         </Dialog>
+      )}
+      {issued && (
+        <AgentTokenDialog cluster={issued.cluster} secret={issued.token.secret} labels={t.tokenDialog} onClose={() => setIssued(null)} />
+      )}
+      {tokenAction && (
+        <ConfirmDialog
+          open
+          onOpenChange={(o) => !o && setTokenAction(null)}
+          title={tokenAction.kind === "rotate" ? t.newToken : t.revokeTokens}
+          text={format(tokenAction.kind === "rotate" ? t.confirmNewToken : t.confirmRevokeTokens, { name: tokenAction.cluster.name })}
+          confirm={tokenAction.kind === "rotate" ? t.newToken : t.revokeTokens}
+          onConfirm={async () => {
+            const { cluster, kind } = tokenAction;
+            try {
+              if (kind === "rotate") {
+                const r = await apiSend<{ agent_token: AgentToken }>("POST", `/v1/clusters/${cluster.id}/agent-token`);
+                setIssued({ cluster: cluster.id, token: r.agent_token });
+              } else {
+                await apiSend("DELETE", `/v1/clusters/${cluster.id}/agent-token`);
+                toast.success(t.tokensRevoked);
+              }
+              void load();
+              return null;
+            } catch (e) {
+              return fail(e);
+            }
+          }}
+        />
       )}
       {unmatched && <UnmatchedDialog cluster={unmatched} locale={locale} labels={t} pager={pager} onClose={() => setUnmatched(null)} />}
       {deleting && (

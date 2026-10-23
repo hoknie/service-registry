@@ -25,7 +25,6 @@ export type SourceDraft = {
   apiTouched: boolean;
   secret: string | null;
   current: string | null;
-  legacy: boolean;
   noToken: boolean;
   path: string;
   workingTree: boolean;
@@ -41,7 +40,6 @@ export const emptyDraft: SourceDraft = {
   apiTouched: false,
   secret: null,
   current: null,
-  legacy: false,
   noToken: false,
   path: "",
   workingTree: true,
@@ -60,7 +58,6 @@ export function draftOf(s: KnowledgeSource | null): SourceDraft {
     apiTouched: !!s.api_url && s.api_url !== sourceApiUrl(forge, s.url ?? ""),
     secret: s.credentials.secret?.id ?? null,
     current: s.credentials.secret?.id ?? null,
-    legacy: s.credentials.mode === "legacy",
     noToken: s.credentials.mode === "none",
     path: s.path ?? "",
     workingTree: s.kind === "local_git" ? s.working_tree : true,
@@ -176,7 +173,6 @@ export function SourceFields({
         onChange={(secret) => set({ secret, noToken: secret === null })}
         manageHref={scope.parent ? catalogHref(locale as Locale, scope.parent, "settings", null, null, "secrets") : `/${locale}/admin/secrets`}
         allowNone
-        legacy={value.legacy && !value.noToken}
       />
     </>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, ChevronDown, FolderTree, GitBranch, Info, LayoutGrid, Plus, Rocket, Settings } from "lucide-react";
+import { BookOpen, ChevronDown, FolderTree, GitBranch, Info, LayoutGrid, Network, Plus, Rocket, Settings } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -12,12 +12,16 @@ import { apiGet, errorCode, type CatalogNode, type CatalogTable, type Items, typ
 import { useCatalogVersion } from "@/lib/catalogEvents";
 import { useChildrenView } from "@/lib/childrenView";
 import { resolveTab, sectionsOf, tabsOf, type NodeTab, type Section } from "@/lib/nodeSettings";
+import { forgetRecentNode, recordRecentNode } from "@/lib/recentNodes";
 
 import { ForgeTab } from "../forge/ForgeTab";
 import { DocsTab } from "../knowledge/DocsTab";
 import { DocsSettingsTab } from "../knowledge/DocsSettingsTab";
 import { LinksTab } from "../links/LinksTab";
 import { LinkIconRow } from "../links/LinkIcons";
+import { OwnersBlock } from "../owners/OwnersBlock";
+import { NotificationsSettings } from "../notifications/NotificationsSettings";
+import { OwnersSettings } from "../owners/OwnersSettings";
 import { useSession } from "../SessionProvider";
 import { Crumbs } from "../shell/crumbs";
 import { useUiText } from "../UiText";
@@ -43,6 +47,8 @@ import { IngestHowTo } from "./IngestHowTo";
 import { KindIcon } from "./KindIcon";
 import { Markdown } from "./Markdown";
 import { ProjectScans } from "../knowledge/ProjectScans";
+import { DependenciesTab } from "../dependencies/DependenciesTab";
+import { DependencySettings } from "../dependencies/DependencySettings";
 import { SecretsTable } from "../secrets/SecretsTable";
 import { NodeDetails } from "./NodeDetails";
 import { NodeSettings } from "./NodeSettings";
@@ -60,6 +66,7 @@ const PAGE = 50;
 const tabIcons = {
   overview: LayoutGrid,
   releases: Rocket,
+  dependencies: Network,
   docs: BookOpen,
   details: Info,
   settings: Settings,
@@ -97,10 +104,15 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
 
   const load = useCallback(async () => {
     try {
-      if (id) setNode(await apiGet<CatalogNode>(`/v1/catalog/nodes/${id}`));
+      if (id) {
+        const loaded = await apiGet<CatalogNode>(`/v1/catalog/nodes/${id}`);
+        setNode(loaded);
+        recordRecentNode({ ...loaded, path: (loaded.path ?? []).map((p) => p.name).join(" / ") });
+      }
       await loadChildren();
       setError(null);
     } catch (e) {
+      if (id && errorCode(e) === "not_found") forgetRecentNode(id);
       setError(fail(e));
     }
   }, [id, loadChildren, fail]);
@@ -406,6 +418,7 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
           <Markdown source={node.description} />
         </Panel>
       )}
+      {readable && <OwnersBlock node={node} locale={locale} labels={t} canWrite={canWrite} />}
       {project && readable && <ProjectSummary projectId={node.id} locale={locale} labels={t} />}
       {project && readable && <ProjectEvents projectId={node.id} locale={locale} labels={t} onConnect={() => selectTab("connect")} />}
       {!project && childrenList}
@@ -520,6 +533,11 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
               </TabsContent>
             </>
           )}
+          {tabs.includes("dependencies") && (
+            <TabsContent value="dependencies">
+              <DependenciesTab node={node} locale={locale} labels={t} canWrite={canWrite} fail={fail} />
+            </TabsContent>
+          )}
           {tabs.includes("settings") && (
             <TabsContent value="settings">
               <NodeSettings node={node} sections={sections} section={section} branch={branchParam} locale={locale} labels={t}>
@@ -539,13 +557,16 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
                     }}
                   />
                 )}
+                {section === "owners" && <OwnersSettings node={node} locale={locale} labels={t} canWrite={canWrite} fail={fail} />}
                 {section === "branches" && <BranchesTab projectId={node.id} locale={locale} labels={t} canWrite={canWrite} managed={managed} onDefault={changed} />}
                 {section === "links" && <LinksTab node={node} branch={branch} locale={locale} labels={t} canWrite={canWrite} />}
+                {section === "dependencies" && <DependencySettings node={node} locale={locale} labels={t} fail={fail} />}
                 {section === "docs" && <DocsSettingsTab node={node} locale={locale} labels={t} canWrite={canWrite} onChanged={refreshActivity} />}
                 {section === "scans" && <ProjectScans projectId={node.id} branch={branchParam} locale={locale} labels={t} />}
                 {section === "keys" && <ProjectKeys projectId={node.id} locale={locale} labels={t} />}
                 {section === "secrets" && <SecretsTable locale={locale} nodeId={node.id} canManage={can("catalog.access")} />}
                 {section === "access" && <AccessTab nodeId={node.id} labels={t} />}
+                {section === "notifications" && <NotificationsSettings node={node} locale={locale} labels={t} branch={branch} />}
                 {section === "connect" && (
                   <IngestHowTo
                     projectId={node.id}

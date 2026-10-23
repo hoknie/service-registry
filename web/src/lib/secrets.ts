@@ -35,6 +35,5 @@ export function secretBody(d: SecretDraft, editing: boolean): Record<string, str
 
 export function credentialsText(c: Credentials, t: Messages["secrets"]): string {
   if (c.kind === "secret") return c.secret.from ? `${c.secret.name} · ${c.secret.from.name}` : `${c.secret.name} · ${t.global}`;
-  if (c.kind === "legacy") return t.legacyShort;
   return t.none;
 }

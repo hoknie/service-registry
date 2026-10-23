@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, UsersRound } from "lucide-react";
+import { Plus, Siren, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
@@ -12,6 +12,7 @@ import type { Messages } from "@/i18n/messages";
 import { apiGet, apiSend, errorCode, type Group, type Page } from "@/lib/api";
 
 import { useUiText } from "../UiText";
+import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { EmptyState } from "../ui/EmptyState";
@@ -79,6 +80,12 @@ export function GroupsAdmin({ locale, labels }: { locale: Locale; labels: Labels
                     <UsersRound aria-hidden="true" className="size-4 text-muted" />
                     {g.name}
                   </Link>
+                  {g.on_call_url && (
+                    <Badge tone="cobalt" className="mt-1">
+                      <Siren aria-hidden="true" className="size-3" />
+                      {t.contacts.onCallBadge}
+                    </Badge>
+                  )}
                 </Td>
                 <Td numeric>{g.member_count}</Td>
                 <Td className="text-right">

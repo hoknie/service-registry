@@ -62,9 +62,10 @@
     "title": "Quick jump",
     "placeholder": "Search pages and the catalog…",
     "pages": "Pages",
+    "recent": "Recent",
     "nodes": "Catalog",
     "empty": "Nothing found.",
-    "loading": "Loading the catalog…",
+    "searching": "Searching…",
     "hint": "Arrows move, Enter opens, Esc closes.",
     "searchDocs": "Search the documentation for “{q}”"
   },
@@ -93,7 +94,16 @@
       "warning": "Warning",
       "caution": "Caution"
     },
-    "headingAnchor": "Link to this section"
+    "headingAnchor": "Link to this section",
+    "docLimits": {
+      "title": "Documentation is incomplete",
+      "count": "{n} files did not make it into the snapshot",
+      "reached": "Limit reached: {name} = {value}.",
+      "admin": "Raise the environment variable and restart the server; the snapshot is rebuilt with the next commit or on “Collect now”.",
+      "editor": "The files were left out by server limits. Narrow the patterns in the documentation settings or ask an administrator to raise the limit.",
+      "editorLink": "Documentation settings",
+      "reader": "Some files did not make it into the snapshot. Contact an administrator."
+    }
   },
   "home": {
     "title": "Service registry",
@@ -172,7 +182,8 @@
       "oauth_link_required": "This account must be linked by its owner in the account settings first.",
       "oauth_not_provisioned": "There is no registry account for this email. Ask an administrator.",
       "oauth_identity_taken": "This provider account is already linked to another user.",
-      "service_account": "This is a service account; it cannot sign in."
+      "service_account": "This is a service account; it cannot sign in.",
+      "invalid_agent_token": "A valid agent token for this cluster is required."
     },
     "validation": {
       "invalid_body": "The request is malformed.",
@@ -200,6 +211,7 @@
       "invalid_token_name": "The token name must be 1 to 100 characters.",
       "invalid_scopes": "Choose at least one allowed scope.",
       "invalid_token_lifetime": "Choose a lifetime within the allowed maximum.",
+      "invalid_token_nodes": "Choose 1 to 20 different nodes you can read; nodes cannot be combined with the admin scope.",
       "invalid_token_prefix": "The prefix is at most 12 characters.",
       "invalid_api_url": "Enter a valid API address: http(s) for a forge (required for Forgejo and Gitea), https for a cluster (none when the registry runs in it).",
       "invalid_owner_path": "Enter an organization, user or group path.",
@@ -239,7 +251,18 @@
       "invalid_secret": "Give a name of up to 100 characters and a value or an env:/file: reference.",
       "secret_not_available": "This secret is not available here — choose a secret of this node, its ancestors or a global one.",
       "credentials_inline_removed": "Tokens are no longer entered in the form — create a secret and choose it.",
-      "invalid_link_kind_order": "The order must list every link kind once."
+      "invalid_link_kind_order": "The order must list every link kind once.",
+      "invalid_cluster_mode": "The mode must be “polled by the registry” or “agent in the cluster”; “in this cluster” needs polling.",
+      "invalid_owners": "At most 10 owners, each user or group once.",
+      "invalid_contacts": "Check the contacts: at most 10, a valid email, http(s) address or phone number (+ and digits), a label of up to 100 characters.",
+      "invalid_on_call_url": "The on-call link must be an https:// address.",
+      "invalid_subscription": "Check the subscription: channel, events, environments and language.",
+      "too_many_subscriptions": "A node has at most 20 subscriptions.",
+      "invalid_notification_url": "The secret must hold an http(s) address; for Slack an https://hooks.slack.com/ address.",
+      "recovery_without_failure": "A recovery event needs its failure event: choose the failure type as well.",
+      "invalid_dependency": "The target is not a project you can read or a valid external system name.",
+      "invalid_dependency_depth": "Depth must be 1, 2 or 3.",
+      "not_group_member": "This right can be granted only to a member of the group."
     },
     "conflict": {
       "email_taken": "A user with this email already exists.",
@@ -260,6 +283,7 @@
       "cluster_name_taken": "A cluster with this name already exists.",
       "environment_taken": "An environment with this key already exists.",
       "membership_managed": "This membership comes from the sign-in provider and cannot be removed here.",
+      "contact_editor_managed": "This contact editor right comes from the sign-in provider and cannot be removed here.",
       "last_login_method": "This is your only way to sign in. Set a password first.",
       "knowledge_not_synced": "Documentation is collected only for projects synchronized with a forge.",
       "local_sources_disabled": "Local sources are turned off on this server.",
@@ -269,7 +293,12 @@
       "secret_in_use": "The secret is in use — replace it in connections, sources and clusters first.",
       "secret_name_taken": "A secret with this name already exists here.",
       "link_kind_order_stale": "The list of link kinds has changed; it was reloaded — try again.",
-      "forge_not_linked": "This project is not linked to a forge repository."
+      "forge_not_linked": "This project is not linked to a forge repository.",
+      "cluster_mode_agent": "The agent of this cluster sends its reports; the registry does not poll it.",
+      "cluster_mode_poll": "The registry polls this cluster: it has no agent tokens.",
+      "cluster_disabled": "The cluster is disabled.",
+      "agent_report_in_progress": "A report of this cluster is being processed.",
+      "dependency_exists": "This dependency has already been added manually."
     },
     "ingest": {
       "unknown_event_type": "Unknown event type.",
@@ -296,7 +325,9 @@
       "tls_error": "The cluster's certificate is not trusted: check the CA.",
       "unauthorized": "The cluster rejected the token.",
       "forbidden": "The token may not read what the registry needs.",
-      "timeout": "The cluster did not answer in time."
+      "timeout": "The cluster did not answer in time.",
+      "agent_silent": "The agent has not reported for three intervals.",
+      "agent_never_reported": "The agent has not sent a report yet."
     },
     "source": {
       "not_found": "The directory or repository does not exist.",
@@ -309,6 +340,24 @@
       "embeddings_dimensions": "The embeddings have a different size than the search index expects.",
       "engine_unavailable": "The search engine is unavailable.",
       "engine_dimensions": "The search engine collection stores vectors of other dimensions."
+    },
+    "oauth": {
+      "invalid_client": "The app is not registered with the registry or was removed. Start connecting in the app again.",
+      "invalid_redirect_uri": "The app asked to return to an address it did not register, so the request was stopped.",
+      "client_metadata_unavailable": "The app's description could not be loaded from its address. Try again later or ask the app's developer.",
+      "client_metadata_invalid": "The app's description at its address is not valid, so the request was stopped.",
+      "client_not_allowed": "The registry does not accept apps described on this site."
+    },
+    "notify": {
+      "rate_limited": "A test was sent less than 10 seconds ago. Try again later."
+    },
+    "api": {
+      "invalid_document": "The file cannot be read as an API description.",
+      "ref_unresolved": "A reference is not found in the snapshot.",
+      "import_not_found": "An import is not found in the snapshot.",
+      "schema_too_deep": "A schema is nested too deeply and was cut.",
+      "file_skipped": "The file was skipped during collection.",
+      "too_large": "The description is too large; only the first 5000 items are shown."
     }
   },
   "guard": {
@@ -335,7 +384,9 @@
       "label": "Account sections",
       "profile": "Profile",
       "tokens": "Tokens",
-      "login": "Sign-in methods"
+      "login": "Sign-in methods",
+      "apps": "Apps",
+      "groups": "Groups"
     },
     "login": {
       "title": "Sign-in methods",
@@ -358,6 +409,15 @@
       "lead": "You sign in through a provider. A password lets you sign in with your email too.",
       "submit": "Set password",
       "success": "Password set."
+    },
+    "groups": {
+      "title": "Groups",
+      "lead": "Groups you belong to with their contacts and on-call link. Members with the contact editor right can change them.",
+      "empty": "You are not a member of any group.",
+      "edit": "Edit contacts",
+      "noContacts": "No contacts yet.",
+      "contacts": "Contacts",
+      "onCall": "On call"
     }
   },
   "tokens": {
@@ -370,6 +430,7 @@
       "owner": "Owner",
       "prefix": "Prefix",
       "scopes": "Scopes",
+      "nodes": "Nodes",
       "created": "Created",
       "expires": "Expires",
       "lastUsed": "Last used",
@@ -378,6 +439,10 @@
     },
     "never": "Never used",
     "noExpiry": "No expiry",
+    "allNodes": "Whole catalog",
+    "deletedNode": "Deleted node",
+    "catalogAdmin": "catalog admin",
+    "catalogAdminHint": "Issued by a superadmin: catalog administrator in its nodes while the owner stays a superadmin",
     "statuses": {
       "active": "Active",
       "expired": "Expired",
@@ -405,6 +470,16 @@
       "forever": "No expiry",
       "foreverWarning": "A token without expiry stays valid until it is revoked or you stop being a superadmin.",
       "adminWarning": "The admin scope gives this token your superadmin rights.",
+      "access": "Catalog access",
+      "accessAll": "Whole catalog",
+      "accessNodes": "Selected nodes only",
+      "nodesSearch": "Find a node by name or path",
+      "nodesHint": "Up to {n} nodes. The token works only inside them and never beyond your own rights.",
+      "nodesAdmin": "The admin scope covers only the whole catalog and is unavailable for a token limited to nodes.",
+      "nodesSuperadmin": "In the selected nodes the token acts as a catalog administrator; global administration stays closed.",
+      "wholeSuperadmin": "Without admin the token acts as a catalog administrator on every node; the top level of the catalog and global administration need admin.",
+      "nodesPicked": "Selected nodes",
+      "removeNode": "Remove {name}",
       "submit": "Create token",
       "done": "Token created."
     },
@@ -421,7 +496,33 @@
       "claude": "Claude Code",
       "bridge": "Clients with stdio only",
       "issue": "New token for MCP",
-      "withToken": "Claude Code with this token"
+      "withToken": "Claude Code with this token",
+      "oauth": "Claude Code with sign-in (OAuth)",
+      "oauthHint": "The client opens a browser where you sign in and allow access. Connected apps are listed on the Apps tab.",
+      "withPat": "Claude Code with a personal token"
+    },
+    "apps": {
+      "title": "Connected apps",
+      "lead": "MCP clients you allowed to use the registry on your behalf through OAuth. Revoking stops an app at once.",
+      "empty": "No connected apps yet. An app appears here after you connect an MCP client with OAuth sign-in.",
+      "userEmpty": "No connected apps.",
+      "unnamed": "Unnamed app",
+      "table": {
+        "app": "App",
+        "access": "Catalog access",
+        "granted": "Allowed",
+        "lastUsed": "Last used",
+        "expires": "Expires",
+        "status": "Status"
+      },
+      "statuses": {
+        "active": "Active",
+        "expired": "Expired",
+        "revoked": "Revoked"
+      },
+      "revokeTitle": "Revoke app access",
+      "confirmRevoke": "Revoke access for “{name}”? The app stops working at once and has to be connected again.",
+      "revoked": "Access revoked."
     }
   },
   "admin": {
@@ -526,7 +627,10 @@
         "submit": "Add",
         "manual": "Manual",
         "fromProvider": "From {provider}",
-        "managedHint": "Managed by the provider: it changes when the user signs in."
+        "managedHint": "Managed by the provider: it changes when the user signs in.",
+        "contactEditor": "Contact editor",
+        "contactEditorHint": "The member can change the group’s contacts and on-call link from their account.",
+        "editorFromProvider": "Granted by {provider}"
       },
       "lead": "Groups receive roles in the catalog on behalf of all their members.",
       "page": {
@@ -535,6 +639,29 @@
         "notFound": "Group not found.",
         "lead": "Members: {n}",
         "settings": "Group"
+      },
+      "contacts": {
+        "title": "Contacts and on call",
+        "lead": "Shown to everyone who reads the nodes this group owns.",
+        "kind": "Kind",
+        "kinds": {
+          "email": "Email",
+          "chat": "Chat",
+          "url": "Link",
+          "phone": "Phone"
+        },
+        "value": "Value",
+        "label": "Label",
+        "add": "Add contact",
+        "remove": "Remove",
+        "up": "Move up",
+        "down": "Move down",
+        "onCall": "On-call link",
+        "onCallHint": "https:// address of the on-call schedule: PagerDuty, Grafana OnCall, Opsgenie and the like.",
+        "save": "Save",
+        "saved": "Contacts saved.",
+        "empty": "No contacts.",
+        "onCallBadge": "On call"
       }
     },
     "tokens": {
@@ -630,7 +757,10 @@
         "rules": "Matching rules",
         "rulesHint": "One per line: label=project path template, e.g. app.kubernetes.io/name=acme/{namespace}/{label:app.kubernetes.io/name}.",
         "interval": "Poll interval, seconds",
-        "enabled": "Enabled"
+        "enabled": "Enabled",
+        "mode": "Mode",
+        "agentHint": "The agent runs inside the cluster and sends reports; the registry needs no access to the cluster.",
+        "reportInterval": "Report interval, seconds"
       },
       "submit": "Save",
       "created": "Cluster added.",
@@ -656,6 +786,25 @@
         "project_not_found": "Project not found",
         "invalid_service": "Invalid service name",
         "invalid_environment": "Invalid environment"
+      },
+      "agent": "Agent in the cluster",
+      "neverReported": "No reports yet",
+      "newToken": "New agent token",
+      "revokeTokens": "Revoke tokens",
+      "confirmNewToken": "Issue a new agent token for “{name}”? The current token keeps working for 24 hours.",
+      "confirmRevokeTokens": "Revoke every agent token of “{name}”? Its agent is refused at once.",
+      "tokensRevoked": "Agent tokens revoked.",
+      "modes": {
+        "poll": "Polled by the registry",
+        "agent": "Agent in the cluster"
+      },
+      "tokenDialog": {
+        "title": "Agent token",
+        "warning": "Copy the token now: it is shown only once and cannot be recovered.",
+        "copy": "Copy",
+        "close": "I have saved it",
+        "manifest": "Secret and agent command",
+        "probes": "Liveness and readiness probes: /healthz and /readyz on port 8081 (--health-addr), as in examples/k8s/agent.yaml."
       }
     },
     "environments": {
@@ -751,7 +900,8 @@
       "docsSettings": "Documentation settings",
       "settings": "Settings",
       "details": "Details",
-      "releases": "Releases"
+      "releases": "Releases",
+      "dependencies": "Dependencies"
     },
     "create": {
       "title": "Add",
@@ -966,7 +1116,6 @@
       "tokenKeep": "Leave empty to keep the current token.",
       "tokenRef": "Reference",
       "tokenRefHint": "env:VARIABLE or file:/absolute/path — the server reads the token there; nothing is stored.",
-      "credToken": "Token ··{fingerprint}",
       "credRef": "Reference {ref}",
       "include": "Include names",
       "exclude": "Exclude names",
@@ -1270,7 +1419,12 @@
         "override": "Override",
         "reset": "Reset",
         "readmeRule": "Only the README at the root",
-        "none": "None"
+        "none": "None",
+        "apis": "API descriptions",
+        "apisCollect": "Collect API descriptions",
+        "apisHint": "OpenAPI, Swagger and .proto files in any folder and everything under apidocs/ and api-docs/ are collected without “Include” patterns; “Exclude” applies to them too.",
+        "apisOn": "Collected",
+        "apisOff": "Not collected"
       },
       "noSource": "Documentation needs a source: synchronize the project with a forge or set a source in the documentation settings.",
       "source": {
@@ -1296,8 +1450,6 @@
         "pathHint": "An absolute path inside the directories allowed by the server.",
         "gitHint": "Branches are read from commits; the checked-out branch can also include uncommitted files.",
         "credentials": {
-          "stored": "Token stored ({fingerprint})",
-          "reference": "Token from a server reference",
           "none": "No token"
         },
         "check": "Check",
@@ -1339,6 +1491,62 @@
       "gitStatusHint": {
         "untracked": "Not in the git index — the file is only in the working copy",
         "ignored": "Ignored by git — the file is collected because of the “collect ignored files” setting"
+      },
+      "api": {
+        "view": "API",
+        "tree": "Tree",
+        "source": "Source",
+        "views": "View",
+        "operations": "Operations",
+        "schemas": "Schemas",
+        "services": "Services",
+        "messages": "Messages",
+        "enums": "Enums",
+        "parameters": "Parameters",
+        "requestBody": "Request body",
+        "responses": "Responses",
+        "untagged": "No tag",
+        "deprecated": "Deprecated",
+        "stream": "stream",
+        "noOperations": "No operations match the filter",
+        "refMissing": "Reference not found",
+        "problems": "Parse problems: {count}",
+        "filter": "Filter",
+        "name": "Name",
+        "place": "In",
+        "required": "Required",
+        "type": "Type",
+        "description": "Description",
+        "number": "#",
+        "label": "Label",
+        "value": "Value",
+        "package": "Package",
+        "syntax": "Syntax",
+        "imports": "Imports",
+        "servers": "Servers",
+        "input": "Input",
+        "output": "Output",
+        "block": "API",
+        "cardOperations": "{n} operations",
+        "cardMethods": "{services} services, {methods} methods",
+        "cardProblems": "{n} problems",
+        "skippedFile": "Skipped during collection",
+        "yes": "yes",
+        "fields": "Fields",
+        "values": "Values",
+        "empty": "Nothing to show",
+        "loading": "Loading the API description…",
+        "places": {
+          "query": "query",
+          "path": "path",
+          "header": "header",
+          "cookie": "cookie",
+          "formData": "form"
+        },
+        "showVendored": "Show vendored ({n})",
+        "hideVendored": "Hide vendored",
+        "vendored": "vendored",
+        "definedIn": "Defined in {path}"
       }
     },
     "summary": {
@@ -1398,7 +1606,11 @@
       "truncated": "The first 500 matches are shown — refine the filter.",
       "noMatch": "Nothing matches the filter.",
       "reset": "Reset filters",
-      "label_aria": "Catalog tree"
+      "label_aria": "Catalog tree",
+      "owner": "Owner",
+      "anyOwner": "Any owner",
+      "mine": "Mine",
+      "owners": "Owners"
     },
     "about": {
       "title": "Description",
@@ -1423,7 +1635,10 @@
         "connect": "Sending events",
         "forge": "Forge",
         "secrets": "Secrets",
-        "scans": "Scan history"
+        "scans": "Scan history",
+        "owners": "Owners",
+        "notifications": "Notifications",
+        "dependencies": "Dependencies"
       }
     },
     "linkIcons": {
@@ -1451,6 +1666,86 @@
       "noSecret": "The connection has no named secret: the new source will have no token.",
       "submit": "Unlink",
       "done": "Project unlinked from the forge."
+    },
+    "owners": {
+      "title": "Owners",
+      "primary": "Primary",
+      "inheritedFrom": "Inherited from {name}",
+      "none": "No owners assigned.",
+      "assign": "Assign owners",
+      "onCall": "On call",
+      "disabled": "Disabled",
+      "group": "Group",
+      "user": "User",
+      "lead": "Groups and people responsible for this node; the first one is the primary owner. Everything inside inherits them unless it has its own.",
+      "own": "Set own owners",
+      "inherit": "Inherit",
+      "add": "Add owner",
+      "addPlaceholder": "Group name or user email, at least 2 characters",
+      "up": "Move up",
+      "down": "Move down",
+      "remove": "Remove",
+      "save": "Save",
+      "saved": "Owners saved.",
+      "empty": "The list is empty: save to inherit owners from above.",
+      "noneAbove": "No owners on this node or above.",
+      "readOnly": "Only editors of this node can change owners.",
+      "contacts": "Contacts",
+      "noOwners": "No owners",
+      "here": "Set here",
+      "clear": "No owners",
+      "clearConfirm": "Stop inheriting owners here? The node and everything inside it will have no owners until a set is defined below. The node’s own owners are removed."
+    },
+    "dependencies": {
+      "dependsOn": "Depends on",
+      "dependents": "Dependents",
+      "list": "List",
+      "graph": "Graph",
+      "view": "View",
+      "depth": "Depth",
+      "fit": "Fit",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out",
+      "sources": {
+        "event": "CI event",
+        "cluster": "Cluster",
+        "repository": "Repository",
+        "manual": "Manual"
+      },
+      "external": "External system",
+      "unresolved": "Not found in the registry",
+      "hidden": "Unavailable project",
+      "moreHidden": "{count} more unavailable projects",
+      "hiddenEdges": "Hidden links: {count}",
+      "truncated": "Showing the first 500 nodes",
+      "seen": "{origin}, confirmed {when}",
+      "emptyDependsOn": "No dependencies",
+      "emptyDependents": "Nobody depends on it",
+      "emptyFolder": "There are no dependencies in this folder",
+      "howTo": "Report dependencies in the deployment event, a Kubernetes annotation or the .svc-registry.yaml file.",
+      "howToEvents": "Sending events",
+      "howToManual": "Add manually",
+      "manualTitle": "Manual dependencies",
+      "manualLead": "Dependencies you add here are kept until you remove them; automatic sources never change them.",
+      "autoTitle": "Automatic dependencies",
+      "autoLead": "These come from deployment events, cluster annotations and the .svc-registry.yaml file and change only there.",
+      "noManual": "No manual dependencies.",
+      "noAuto": "No automatic dependencies.",
+      "project": "Project",
+      "externalKind": "External system",
+      "target": "Target",
+      "projectPlaceholder": "Find a project",
+      "externalPlaceholder": "System name, e.g. stripe",
+      "note": "Note",
+      "notePlaceholder": "Optional note",
+      "add": "Add",
+      "added": "Dependency added.",
+      "remove": "Remove",
+      "removeTitle": "Remove the dependency?",
+      "removeText": "The dependency on {name} will be removed.",
+      "removed": "Dependency removed.",
+      "origin": "Origin",
+      "graphLabel": "Dependency graph"
     }
   },
   "notFound": {
@@ -1524,7 +1819,8 @@
       "collect": "Branches: {branches} · files: {files}",
       "skipped": "skipped: {skipped}",
       "index": "Chunks: {chunks} · documents: {documents}",
-      "series": "×{n} from {from} to {to}"
+      "series": "×{n} from {from} to {to}",
+      "apiSkipped": "of them API: {api}"
     },
     "details": {
       "expand": "Show details",
@@ -1545,7 +1841,9 @@
       "technical": "Technical details",
       "whatToDo": "What to do",
       "none": "—",
-      "workingTree": "working copy"
+      "workingTree": "working copy",
+      "more": "and {n} more",
+      "apiSkipped": "API"
     },
     "results": {
       "collected": "Collected",
@@ -1556,6 +1854,11 @@
       "too_large": "too large",
       "binary": "binary",
       "limit": "over the limit"
+    },
+    "noteReasons": {
+      "too_large": "too large",
+      "binary": "binary",
+      "limit": "over the file limit"
     },
     "empty": "No scans yet.",
     "emptyText": "Runs appear here once documentation collection or search indexing runs for a project.",
@@ -1593,6 +1896,11 @@
           "title": "The project has no documentation source",
           "text": "There is neither a documentation source nor a forge synchronization, so there is nothing to collect.",
           "hint": "Set a source on the Documentation settings tab → Source, or connect the folder to a forge."
+        },
+        "manifest_invalid": {
+          "title": "The project description file was not read in full",
+          "text": "The .svc-registry.yaml file of the default branch is larger than 64 KiB, is not valid YAML or lists dependencies that are not valid references, so some dependencies were not taken.",
+          "hint": "Fix the file in the repository: dependencies must be a list of project paths or external:<name> references."
         }
       },
       "source": {
@@ -1727,9 +2035,7 @@
     "none": "No token",
     "manage": "Manage secrets",
     "create": "Create secret",
-    "legacy": "Inline token (deprecated) — choose a secret",
-    "noneAvailable": "No secrets available.",
-    "legacyShort": "Inline token (deprecated)"
+    "noneAvailable": "No secrets available."
   },
   "docSpace": {
     "title": "Documentation",
@@ -1763,5 +2069,156 @@
     "structure": "Structure",
     "panelHide": "Collapse the panel",
     "panelShow": "Expand the panel"
+  },
+  "oauth": {
+    "title": "Allow access to the registry",
+    "loading": "Loading the request…",
+    "unnamed": "Unnamed app",
+    "unverified": "The registry has not verified this application.",
+    "returnTo": "After your decision you will be sent to",
+    "access": "Requested access",
+    "accessText": "Use the registry's MCP server on your behalf: read projects, documentation, deployments and links that you can see.",
+    "allow": "Allow",
+    "deny": "Deny",
+    "stale": "The request is out of date — start connecting in the app again.",
+    "publishedOn": "The app's description is published on",
+    "loopbackWarning": "The answer goes back to this computer. Any program running on it could pretend to be this app — allow only if you started the connection yourself."
+  },
+  "notify": {
+    "title": "Notifications",
+    "lead": "Where events of this node and everything inside are sent: a webhook or Slack. A subscription set above applies here too until it is overridden or disabled.",
+    "empty": "No subscriptions",
+    "emptyText": "Add a webhook or a Slack channel to hear about deployments, drift, broken links and failed forge syncs.",
+    "add": "New subscription",
+    "columns": {
+      "key": "Key",
+      "channel": "Channel",
+      "secret": "Address secret",
+      "events": "Events",
+      "environments": "Environments",
+      "locale": "Language",
+      "state": "State",
+      "source": "Set on"
+    },
+    "channels": {
+      "webhook": "Webhook",
+      "slack": "Slack"
+    },
+    "events": {
+      "deployment.created": "Deployment",
+      "deployment.drift": "Drift",
+      "link.check_failed": "Broken link",
+      "forge.sync_failed": "Forge sync failed",
+      "deployment.drift_resolved": "Drift resolved",
+      "link.check_recovered": "Link restored",
+      "forge.sync_recovered": "Forge sync recovered",
+      "test": "Test"
+    },
+    "allEnvironments": "all",
+    "here": "here",
+    "enabled": "enabled",
+    "disabled": "disabled",
+    "noSecret": "—",
+    "actions": {
+      "menu": "Actions for {key}",
+      "edit": "Edit",
+      "remove": "Delete",
+      "test": "Send a test",
+      "override": "Override",
+      "disableHere": "Disable here"
+    },
+    "removeTitle": "Delete subscription {key}?",
+    "removeText": "Notifications of this subscription stop here. A subscription with the same key above takes effect again.",
+    "removeConfirm": "Delete",
+    "dialog": {
+      "createTitle": "New subscription",
+      "editTitle": "Subscription {key}",
+      "overrideTitle": "Override {key} here",
+      "key": "Key",
+      "keyHint": "a-z, 0-9 and -, unique on the node",
+      "channel": "Channel",
+      "secret": "Address secret",
+      "secretHint": "The secret holds the webhook address; for Slack an https://hooks.slack.com/ incoming webhook.",
+      "events": "Events",
+      "environments": "Environments",
+      "environmentsHint": "Empty — all environments. Broken links and forge failures have no environment and always pass.",
+      "locale": "Message language",
+      "disabled": "Disabled",
+      "disabledHint": "A disabled subscription receives nothing and switches off the one with the same key above.",
+      "save": "Save",
+      "invalidKey": "Use a-z, 0-9 and -, 1 to 63 characters.",
+      "invalidEnvironment": "Not an environment name.",
+      "eventsRequired": "Choose at least one event."
+    },
+    "signing": {
+      "title": "Signing key",
+      "none": "No signing key: requests are not signed.",
+      "fingerprint": "Key {fingerprint}",
+      "create": "Create a signing key",
+      "replace": "Replace the key",
+      "once": "Copy the key now: it is not shown again. Receivers check webhook-signature with it.",
+      "created": "Signing key created"
+    },
+    "test": {
+      "delivered": "Delivered (HTTP {status}, {ms} ms)",
+      "failed": "{text} (HTTP {status})",
+      "failedNoStatus": "{text}",
+      "tooOften": "Too often, try again in {n} s"
+    },
+    "journal": {
+      "title": "Delivery log",
+      "lead": "Deliveries of this node's subscriptions, newest first.",
+      "subscription": "Subscription",
+      "subscriptionAny": "All subscriptions",
+      "status": "Status",
+      "statusAny": "Any status",
+      "reset": "Reset",
+      "empty": "Nothing has been sent yet",
+      "emptyFiltered": "No deliveries match the filters",
+      "nextAttempt": "next {when}",
+      "hiddenNode": "a node you cannot read",
+      "columns": {
+        "time": "Time",
+        "event": "Event",
+        "node": "Node",
+        "subscription": "Subscription",
+        "status": "Status",
+        "attempts": "Attempts",
+        "http": "HTTP",
+        "error": "Error"
+      }
+    },
+    "statuses": {
+      "pending": "pending",
+      "delivered": "delivered",
+      "failed": "not delivered"
+    },
+    "saved": "Subscription saved",
+    "removed": "Subscription deleted",
+    "refresh": {
+      "label": "Auto-refresh",
+      "off": "off",
+      "every": "{n} s",
+      "now": "Refresh now"
+    },
+    "pager": {
+      "label": "Pages",
+      "prev": "Previous",
+      "next": "Next",
+      "range": "{from}–{to} of {total}"
+    },
+    "codes": {
+      "notify": {
+        "http_status": "The receiver answered with an error",
+        "timeout": "The receiver did not answer in time",
+        "tls_error": "The TLS connection failed",
+        "dns_error": "The host name does not resolve",
+        "unreachable": "The receiver is unreachable",
+        "blocked": "The address is forbidden by the notification address policy",
+        "redirect": "The receiver answered with a redirect",
+        "url_unavailable": "The address secret cannot be read or holds no valid address",
+        "subscription_disabled": "The subscription is disabled"
+      }
+    }
   }
 }

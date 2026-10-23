@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { formatDuration, readScanParams, scanAddress, scanCodeText, scanCodes, scanQuery, scanTotals, withScanAddress } from "../src/lib/scans.ts";
+import { formatDuration, readScanParams, scanAddress, scanCodeText, scanCodes, scanNotes, scanQuery, scanTotals, withScanAddress } from "../src/lib/scans.ts";
 
 const book = {
   collect: {
@@ -24,7 +24,7 @@ test("an unknown code is shown as is", () => {
 const scan = {
   error: { code: "source.not_found", detail: "" },
   branches: [
-    { name: "main", files: 3, skipped: { too_large: 2 }, error: "source.not_found" },
+    { name: "main", files: 3, skipped: { too_large: 2 }, api_skipped: 1, error: "source.not_found" },
     { name: "dev", files: 1, skipped: {}, error: null },
   ],
   warnings: ["collect.files_skipped"],
@@ -32,7 +32,7 @@ const scan = {
 
 test("codes are listed once, error first", () => {
   assert.deepEqual(scanCodes(scan), ["source.not_found", "collect.files_skipped"]);
-  assert.deepEqual(scanTotals(scan), { branches: 2, files: 4, skipped: 2 });
+  assert.deepEqual(scanTotals(scan), { branches: 2, files: 4, skipped: 2, api: 1 });
 });
 
 test("params survive the address and become the API query", () => {
@@ -62,4 +62,19 @@ test("filters join the page address, keeping the node and section", () => {
     withScanAddress("/ru/catalog?node=n1&tab=settings&section=scans", "status=failed&page=2"),
     "/ru/catalog?node=n1&tab=settings&section=scans&status=failed&page=2",
   );
+});
+
+test("notes of a code and how many more were counted", () => {
+  const s = {
+    warning_details: [
+      { code: "collect.files_skipped", branch: "main", path: "a.pdf", reason: "too_large", detail: null },
+      { code: "collect.truncated", branch: "main", path: null, reason: null, detail: null },
+    ],
+    warning_counts: { "collect.files_skipped": 23, "collect.truncated": 1 },
+  };
+  const skipped = scanNotes(s, "collect.files_skipped");
+  assert.equal(skipped.items.length, 1);
+  assert.equal(skipped.more, 22);
+  assert.equal(scanNotes(s, "collect.truncated").more, 0);
+  assert.deepEqual(scanNotes({ warning_details: [], warning_counts: {} }, "collect.no_source"), { items: [], more: 0 });
 });

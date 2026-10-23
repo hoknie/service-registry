@@ -11,7 +11,7 @@ export default async function DocPage({ params }: { params: Promise<{ locale: st
   const m = getMessages(locale);
   return (
     <RequireAuth locale={locale} labels={m.guard}>
-      <DocSpace locale={locale} labels={{ space: m.docSpace, catalog: { ...m.catalog, scans: m.scans } }} />
+      <DocSpace locale={locale} labels={{ space: m.docSpace, catalog: { ...m.catalog, scans: m.scans, notify: m.notify } }} />
     </RequireAuth>
   );
 }

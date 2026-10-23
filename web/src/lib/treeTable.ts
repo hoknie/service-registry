@@ -4,8 +4,8 @@ export const TREE_PAGE = 50;
 export const MAX_OPEN = 50;
 
 export type TreeActivity = "running" | "queued" | "failed";
-export type TreeFilters = { q: string; kind: NodeKind | ""; label: string; activity: TreeActivity | "" };
-export const NO_FILTERS: TreeFilters = { q: "", kind: "", label: "", activity: "" };
+export type TreeFilters = { q: string; kind: NodeKind | ""; label: string; activity: TreeActivity | ""; owner: string };
+export const NO_FILTERS: TreeFilters = { q: "", kind: "", label: "", activity: "", owner: "" };
 
 export type Branch = { rows: CatalogTableRow[]; total: number; loading: boolean; error: string | null };
 
@@ -15,6 +15,7 @@ export type FlatRow =
 
 const KINDS = ["organization", "folder", "project"];
 const ACTIVITIES = ["running", "queued", "failed"];
+const OWNER = /^(me|(group|user):[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 
 type Params = { get(name: string): string | null };
 
@@ -26,11 +27,12 @@ export function parseFilters(params: Params): TreeFilters {
     kind: KINDS.includes(kind) ? (kind as NodeKind) : "",
     label: params.get("label") ?? "",
     activity: ACTIVITIES.includes(activity) ? (activity as TreeActivity) : "",
+    owner: OWNER.test(params.get("owner") ?? "") ? (params.get("owner") ?? "") : "",
   };
 }
 
 export function hasFilters(f: TreeFilters): boolean {
-  return f.q.trim() !== "" || f.kind !== "" || f.label.trim() !== "" || f.activity !== "";
+  return f.q.trim() !== "" || f.kind !== "" || f.label.trim() !== "" || f.activity !== "" || f.owner !== "";
 }
 
 export function filtersQuery(f: TreeFilters): string {
@@ -39,6 +41,7 @@ export function filtersQuery(f: TreeFilters): string {
   if (f.kind) out.set("kind", f.kind);
   for (const l of f.label.split(",").map((x) => x.trim()).filter(Boolean).slice(0, 5)) out.append("label", l);
   if (f.activity) out.set("activity", f.activity);
+  if (f.owner) out.set("owner", f.owner);
   return out.toString();
 }
 

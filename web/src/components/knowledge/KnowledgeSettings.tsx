@@ -12,6 +12,7 @@ import { apiGet, apiSend, errorCode, type NodeKnowledgeSettings, type SettingsFi
 import { useUiText } from "../UiText";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
+import { Checkbox } from "../ui/Field";
 import { Message, type Note } from "../ui/Message";
 import { Panel } from "../ui/Panel";
 import { SkeletonPanel } from "../ui/Skeleton";
@@ -30,11 +31,11 @@ type Props = {
 
 const FIELDS: SettingsField[] = ["include", "exclude", "branches"];
 
-type Draft = Record<SettingsField, { set: boolean; text: string }>;
+type Draft = Record<SettingsField, { set: boolean; text: string }> & { apis: { set: boolean; on: boolean } };
 
 function draftOf(s: NodeKnowledgeSettings): Draft {
   const own = (f: SettingsField) => ({ set: f in s.own, text: (s.own[f] ?? []).join("\n") });
-  return { include: own("include"), exclude: own("exclude"), branches: own("branches") };
+  return { include: own("include"), exclude: own("exclude"), branches: own("branches"), apis: { set: "apis" in s.own, on: s.own.apis ?? s.apis } };
 }
 
 export function KnowledgeSettings({ nodeId, project, canWrite, locale, labels: t, onSaved }: Props) {
@@ -65,12 +66,13 @@ export function KnowledgeSettings({ nodeId, project, canWrite, locale, labels: t
     if (!draft) return;
     setBusy(true);
     setNote(null);
-    const body: Record<string, string[] | null> = {};
+    const body: Record<string, string[] | boolean | null> = {};
     for (const f of FIELDS) {
       if (!draft[f].set) continue;
       const lines = patternLines(draft[f].text);
       body[f] = f === "include" && lines.length === 0 ? null : lines;
     }
+    if (draft.apis.set) body.apis = draft.apis.on;
     try {
       show(await apiSend<NodeKnowledgeSettings>("PUT", url, body));
       onSaved?.();
@@ -89,6 +91,16 @@ export function KnowledgeSettings({ nodeId, project, canWrite, locale, labels: t
     if (v === null) return t.readmeRule;
     return v.length ? v.join("\n") : t.none;
   };
+  const originOf = (set: boolean, from: NodeKnowledgeSettings["from"]["apis"]) =>
+    set ? (
+      <Badge tone="signal">{t.here}</Badge>
+    ) : from ? (
+      <Link href={catalogHref(locale, from.id, "docs-settings")} className="text-xs text-ink-2 hover:underline">
+        {format(t.inherited, { name: from.name })}
+      </Link>
+    ) : (
+      <Badge tone="outline">{t.default}</Badge>
+    );
 
   return (
     <Panel id="knowledge-settings" title={t.title} description={canWrite ? (project ? t.lead : t.leadNode) : t.readOnly}>
@@ -97,16 +109,7 @@ export function KnowledgeSettings({ nodeId, project, canWrite, locale, labels: t
       ) : (
         <form className="grid max-w-2xl gap-6" onSubmit={save}>
           {FIELDS.map((f) => {
-            const from = settings.from[f];
-            const origin = draft[f].set ? (
-              <Badge tone="signal">{t.here}</Badge>
-            ) : from ? (
-              <Link href={catalogHref(locale, from.id, "docs-settings")} className="text-xs text-ink-2 hover:underline">
-                {format(t.inherited, { name: from.name })}
-              </Link>
-            ) : (
-              <Badge tone="outline">{t.default}</Badge>
-            );
+            const origin = originOf(draft[f].set, settings.from[f]);
             const toggle = canWrite && (
               <Button
                 type="button"
@@ -144,6 +147,30 @@ export function KnowledgeSettings({ nodeId, project, canWrite, locale, labels: t
               </section>
             );
           })}
+          <section className="grid gap-2" aria-label={t.apis}>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-medium text-ink">{t.apis}</h3>
+              {originOf(draft.apis.set, settings.from.apis)}
+              {canWrite && (
+                <span className="ml-auto">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setDraft({ ...draft, apis: draft.apis.set ? { set: false, on: settings.apis } : { set: true, on: settings.apis } })}
+                  >
+                    {draft.apis.set ? t.reset : t.override}
+                  </Button>
+                </span>
+              )}
+            </div>
+            {canWrite && draft.apis.set ? (
+              <Checkbox label={t.apisCollect} checked={draft.apis.on} onChange={(e) => setDraft({ ...draft, apis: { set: true, on: e.target.checked } })} />
+            ) : (
+              <p className="text-sm text-ink-2">{settings.apis ? t.apisOn : t.apisOff}</p>
+            )}
+            <p className="text-xs text-muted">{t.apisHint}</p>
+          </section>
           <Message note={note} />
           {canWrite && (
             <div>

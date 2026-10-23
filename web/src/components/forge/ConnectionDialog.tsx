@@ -219,7 +219,6 @@ export function ConnectionDialog({ nodeId, locale, connection, labels: t, fail, 
           value={secret}
           onChange={setSecret}
           manageHref={catalogHref(locale, nodeId, "settings", null, null, "secrets")}
-          legacy={connection?.credentials.kind === "legacy"}
           required={!editing}
         />
         <div className="grid gap-4 sm:grid-cols-2">

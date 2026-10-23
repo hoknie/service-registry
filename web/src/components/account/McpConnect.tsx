@@ -3,6 +3,8 @@
 import { Bot } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { claudeCommand } from "@/lib/oauthApps";
+
 import { Button } from "../ui/Button";
 import { CodeBlock } from "../ui/CodeBlock";
 import { Panel } from "../ui/Panel";
@@ -19,12 +21,21 @@ function useOrigin(): string {
   return origin;
 }
 
-export function claudeCommand(origin: string, token: string): string {
-  return `claude mcp add --transport http registry ${origin}/api/mcp \\\n  --header "Authorization: Bearer ${token}"`;
+function useOAuthEnabled(): boolean {
+  const [enabled, setEnabled] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/.well-known/oauth-protected-resource/api/mcp", { signal: controller.signal, credentials: "omit" })
+      .then((r) => setEnabled(r.ok))
+      .catch(() => setEnabled(false));
+    return () => controller.abort();
+  }, []);
+  return enabled;
 }
 
 export function McpConnect({ labels: t, onIssue }: Props) {
   const origin = useOrigin();
+  const oauth = useOAuthEnabled();
   const action = (
     <Button variant="primary" onClick={onIssue}>
       <Bot aria-hidden="true" />
@@ -35,7 +46,13 @@ export function McpConnect({ labels: t, onIssue }: Props) {
     <Panel title={t.title} description={t.lead} actions={action}>
       <div className="grid gap-4">
         <CodeBlock title={t.endpoint} code={`${origin}/api/mcp`} />
-        <CodeBlock title={t.claude} code={claudeCommand(origin, "<token>")} />
+        {oauth && (
+          <div className="grid gap-2">
+            <CodeBlock title={t.oauth} code={claudeCommand(origin, null)} />
+            <p className="text-sm text-muted">{t.oauthHint}</p>
+          </div>
+        )}
+        <CodeBlock title={oauth ? t.withPat : t.claude} code={claudeCommand(origin, "<token>")} />
         <CodeBlock title={t.bridge} code={`SVCR_TOKEN=<token> svc-registry mcp:stdio --url ${origin} --token-env SVCR_TOKEN`} />
       </div>
     </Panel>

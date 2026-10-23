@@ -105,9 +105,7 @@ export function SourcePanel({ projectId, parentId, canAccess, synced, canWrite, 
                   : t.workingTreeOff
               : source.credentials.mode === "secret" && source.credentials.secret
                 ? source.credentials.secret.name
-                : source.credentials.mode === "legacy"
-                  ? format(t.credentials.stored, { fingerprint: source.credentials.fingerprint ?? "" })
-                  : t.credentials.none
+                : t.credentials.none
           }`
         : synced
           ? t.forgeSync
