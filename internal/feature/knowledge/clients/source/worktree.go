@@ -90,7 +90,7 @@ func readWorktree(ctx context.Context, dir string, settings knowledgetypes.Setti
 			return nil
 		}
 		skipped := (ignoredDirs[path.Dir(p)] || ignored.Match(parts, false)) && !o.tracked[p]
-		if !e.Type().IsRegular() || (skipped && !o.includeIgnored) || !settings.Collects(p) {
+		if !e.Type().IsRegular() || (skipped && !o.includeIgnored) || !settings.Reads(p) {
 			return nil
 		}
 		f, err := root.Open(p)
@@ -140,7 +140,7 @@ func readWorktree(ctx context.Context, dir string, settings knowledgetypes.Setti
 func (w worktree) sameAs(commit []knowledgetypes.Entry, settings knowledgetypes.Settings) bool {
 	var kept []knowledgetypes.Entry
 	for _, e := range commit {
-		if settings.Collects(e.Path) {
+		if settings.Reads(e.Path) {
 			kept = append(kept, e)
 		}
 	}

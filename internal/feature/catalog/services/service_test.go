@@ -19,6 +19,10 @@ func (stubPorts) SecretUsage(context.Context, []uuid.UUID) (map[uuid.UUID]int64,
 	return nil, nil
 }
 
+func (stubPorts) OwnedProjects(context.Context, uuid.UUID, catalogtypes.OwnerFilter) ([]uuid.UUID, error) {
+	return nil, nil
+}
+
 func (stubPorts) ActivitySignals(context.Context, []uuid.UUID, bool, bool) (map[uuid.UUID][]catalogtypes.ProcessSignals, error) {
 	return nil, nil
 }
@@ -34,6 +38,10 @@ func TestServiceIsWiredOnlyAfterUse(t *testing.T) {
 		t.Fatal("a service without secret users must not be wired")
 	}
 	s.UseSecretUsers(stubPorts{})
+	if s.Wired() {
+		t.Fatal("a service without the owners filter must not be wired")
+	}
+	s.UseOwners(stubPorts{})
 	if !s.Wired() {
 		t.Fatal("a service with ports must be wired")
 	}

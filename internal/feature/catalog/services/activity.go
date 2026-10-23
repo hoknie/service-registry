@@ -72,7 +72,7 @@ func (s *ActivityService) activities(ctx context.Context, p accesstypes.Principa
 		ids = append(ids, id)
 		busyProcesses[id] = catalogtypes.ProcessesOf(sig)
 	}
-	within, err := s.activityRepository.Containers(ctx, p.UserID, p.IsSuperadmin, ids, containers)
+	within, err := s.activityRepository.Containers(ctx, viewerOf(p), p.IsSuperadmin, ids, containers)
 	if err != nil {
 		return nil, nil, apperr.Wrap(err)
 	}

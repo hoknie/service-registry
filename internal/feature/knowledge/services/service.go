@@ -5,6 +5,7 @@ import (
 	forgeservices "svc-registry/internal/feature/forge/services"
 	knowledgeports "svc-registry/internal/feature/knowledge/ports"
 	"svc-registry/internal/feature/knowledge/repositories"
+	topologyservices "svc-registry/internal/feature/topology/services"
 	"svc-registry/internal/platform/config"
 	"svc-registry/pkg/pgtx"
 	"svc-registry/pkg/secretbox"
@@ -20,6 +21,7 @@ type Deps struct {
 	Embedder knowledgeports.EmbedderPort
 	Readers  knowledgeports.ReaderFactoryPort
 	Secrets  *secretbox.Box
+	Topology *topologyservices.TopologyServices
 }
 
 type parts struct {
@@ -40,6 +42,7 @@ type parts struct {
 	secrets              *secretbox.Box
 	catalog              *catalogservices.CatalogServices
 	forge                *forgeservices.ForgeServices
+	topology             *topologyservices.TopologyServices
 }
 
 func newParts(d Deps) *parts {
@@ -61,6 +64,7 @@ func newParts(d Deps) *parts {
 		secrets:              d.Secrets,
 		catalog:              d.Catalog,
 		forge:                d.Forge,
+		topology:             d.Topology,
 	}
 }
 
@@ -79,8 +83,8 @@ type KnowledgeServices struct {
 func New(d Deps) *KnowledgeServices {
 	p := newParts(d)
 	f := &KnowledgeServices{
-		Collect:   &CollectService{readers: p.readers, catalog: p.catalog, cfg: p.cfg, db: p.db, forge: p.forge, scanRepository: p.scanRepository, secrets: p.secrets, collectionRepository: p.collectionRepository, snapshotRepository: p.snapshotRepository, sourceRepoRepository: p.sourceRepoRepository, sourceRepository: p.sourceRepository},
-		Documents: &DocumentsService{catalog: p.catalog, collectionRepository: p.collectionRepository, snapshotRepository: p.snapshotRepository, sourceRepository: p.sourceRepository},
+		Collect:   &CollectService{readers: p.readers, catalog: p.catalog, cfg: p.cfg, db: p.db, forge: p.forge, scanRepository: p.scanRepository, secrets: p.secrets, collectionRepository: p.collectionRepository, snapshotRepository: p.snapshotRepository, sourceRepoRepository: p.sourceRepoRepository, sourceRepository: p.sourceRepository, topology: p.topology},
+		Documents: &DocumentsService{catalog: p.catalog, cfg: p.cfg, collectionRepository: p.collectionRepository, snapshotRepository: p.snapshotRepository, sourceRepository: p.sourceRepository},
 		Index:     &IndexService{cfg: p.cfg, indexRepository: p.indexRepository, searchRepository: p.searchRepository, embedder: p.embedder, external: p.external},
 		Ports:     &PortsService{embedder: p.embedder, external: p.external, searchEngine: p.searchEngine, secrets: p.secrets, collectionRepository: p.collectionRepository, sourceRepository: p.sourceRepository},
 		Scans:     &ScansService{catalog: p.catalog, scanRepository: p.scanRepository},

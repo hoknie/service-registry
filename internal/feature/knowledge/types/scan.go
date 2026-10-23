@@ -42,14 +42,28 @@ const (
 )
 
 const (
-	WarnNoFilesMatched = "collect.no_files_matched"
-	WarnFilesSkipped   = "collect.files_skipped"
-	WarnTruncated      = "collect.truncated"
-	WarnNoBranches     = "collect.no_branches"
-	WarnNoSource       = "collect.no_source"
+	WarnNoFilesMatched  = "collect.no_files_matched"
+	WarnFilesSkipped    = "collect.files_skipped"
+	WarnTruncated       = "collect.truncated"
+	WarnNoBranches      = "collect.no_branches"
+	WarnNoSource        = "collect.no_source"
+	WarnManifestInvalid = "collect.manifest_invalid"
 )
 
-const ScanDetailLimit = 1000
+const (
+	ScanDetailLimit = 1000
+	ScanNotesLimit  = 20
+	NoteDetailLimit = 200
+	NotePathLimit   = 512
+)
+
+type ScanNote struct {
+	Code   string     `json:"code"`
+	Branch string     `json:"branch,omitempty"`
+	Path   string     `json:"path,omitempty"`
+	Reason SkipReason `json:"reason,omitempty"`
+	Detail string     `json:"detail,omitempty"`
+}
 
 type ScanBranch struct {
 	Name        string         `json:"name"`
@@ -57,6 +71,7 @@ type ScanBranch struct {
 	Result      BranchResult   `json:"result"`
 	Files       int            `json:"files"`
 	Skipped     map[string]int `json:"skipped"`
+	APISkipped  int            `json:"api_skipped"`
 	Truncated   bool           `json:"truncated"`
 	WorkingTree bool           `json:"working_tree,omitempty"`
 	Error       string         `json:"error,omitempty"`
@@ -89,6 +104,8 @@ type Scan struct {
 	Index      *ScanIndex
 	Error      *ScanError
 	Warnings   []string
+	Notes      []ScanNote
+	Counts     map[string]int
 }
 
 type ScanItem struct {
@@ -109,6 +126,8 @@ type ScanItem struct {
 	Index         *ScanIndex
 	Error         *ScanError
 	Warnings      []string
+	Notes         []ScanNote
+	Counts        map[string]int
 }
 
 type ScanTail struct {
@@ -191,12 +210,29 @@ func ValidateScanFilter(q ScanQuery) (ScanFilter, error) {
 }
 
 func (s *Scan) Warn(code string) {
-	for _, w := range s.Warnings {
-		if w == code {
-			return
-		}
+	if !slices.Contains(s.Warnings, code) {
+		s.Warnings = append(s.Warnings, code)
 	}
-	s.Warnings = append(s.Warnings, code)
+}
+
+func (s *Scan) Note(n ScanNote) {
+	s.Warn(n.Code)
+	if s.Counts == nil {
+		s.Counts = map[string]int{}
+	}
+	s.Counts[n.Code]++
+	if len(s.Notes) >= ScanNotesLimit {
+		return
+	}
+	n.Path, n.Detail = cut(n.Path, NotePathLimit), cut(RedactDetail(n.Detail), NoteDetailLimit)
+	s.Notes = append(s.Notes, n)
+}
+
+func cut(s string, limit int) string {
+	if r := []rune(s); len(r) > limit {
+		return string(r[:limit-1]) + "…"
+	}
+	return s
 }
 
 func (s *Scan) Fail(code string, err error) {
@@ -244,10 +280,7 @@ func RedactDetail(s string) string {
 	s = secretPatterns[1].ReplaceAllString(s, "$1 [redacted]")
 	s = secretPatterns[2].ReplaceAllString(s, "${1}[redacted]")
 	s = secretPatterns[3].ReplaceAllString(s, "://[redacted]@")
-	if r := []rune(s); len(r) > ScanDetailLimit {
-		s = string(r[:ScanDetailLimit-1]) + "…"
-	}
-	return s
+	return cut(s, ScanDetailLimit)
 }
 
 func IndexFailureCode(err error) string {

@@ -28,6 +28,14 @@ func (s *ScanRepository) Record(ctx context.Context, scan knowledgetypes.Scan, k
 			return postgres.Translate(err, constraints)
 		}
 	}
+	notes, err := json.Marshal(nonNil(scan.Notes))
+	if err != nil {
+		return postgres.Translate(err, constraints)
+	}
+	counts, err := json.Marshal(nonNilMap(scan.Counts))
+	if err != nil {
+		return postgres.Translate(err, constraints)
+	}
 	var code, detail *string
 	if scan.Error != nil {
 		code, detail = &scan.Error.Code, &scan.Error.Detail
@@ -53,17 +61,18 @@ func (s *ScanRepository) Record(ctx context.Context, scan knowledgetypes.Scan, k
 			if last != nil && scan.Extends(*last, maxGap) {
 				_, err := postgres.Exec(ctx, tx, constraints, `
 					UPDATE knowledge_scans
-					SET repeats = repeats + 1, finished_at = $2, last_started_at = $3, duration_ms = $4
-					WHERE id = $1`, last.ID, scan.FinishedAt, scan.StartedAt, scan.DurationMS())
+					SET repeats = repeats + 1, finished_at = $2, last_started_at = $3, duration_ms = $4,
+						warning_details = $5, warning_counts = $6
+					WHERE id = $1`, last.ID, scan.FinishedAt, scan.StartedAt, scan.DurationMS(), notes, counts)
 				return err
 			}
 		}
 		if _, err := postgres.Exec(ctx, tx, constraints, `
 			INSERT INTO knowledge_scans (id, project_id, kind, trigger, source, status, started_at, finished_at,
-				last_started_at, duration_ms, branches, index, error_code, error_detail, warnings)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $7, $9, $10, $11, $12, $13, $14)`,
+				last_started_at, duration_ms, branches, index, error_code, error_detail, warnings, warning_details, warning_counts)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $7, $9, $10, $11, $12, $13, $14, $15, $16)`,
 			scan.ID, scan.ProjectID, string(scan.Kind), string(scan.Trigger), source, string(scan.Status), scan.StartedAt,
-			scan.FinishedAt, scan.DurationMS(), branches, index, code, detail, nonNil(scan.Warnings)); err != nil {
+			scan.FinishedAt, scan.DurationMS(), branches, index, code, detail, nonNil(scan.Warnings), notes, counts); err != nil {
 			return err
 		}
 		_, err := postgres.Exec(ctx, tx, constraints, `
@@ -99,6 +108,13 @@ func nonNil[T any](list []T) []T {
 	return list
 }
 
+func nonNilMap(m map[string]int) map[string]int {
+	if m == nil {
+		return map[string]int{}
+	}
+	return m
+}
+
 func (s *ScanRepository) List(ctx context.Context, f knowledgetypes.ScanFilter, page accesstypes.PageRequest) (accesstypes.Page[knowledgetypes.ScanItem], error) {
 	var kind, trigger *string
 	if f.Kind != nil {
@@ -129,7 +145,7 @@ func (s *ScanRepository) List(ctx context.Context, f knowledgetypes.ScanFilter, 
 			FROM up
 		), k.kind, k.trigger, k.source, k.status, rfc3339(k.started_at), rfc3339(k.last_started_at), rfc3339(k.finished_at),
 			k.duration_ms::bigint, k.repeats, k.branches, k.index,
-			k.error_code, k.error_detail, k.warnings, count(*) OVER ()
+			k.error_code, k.error_detail, k.warnings, k.warning_details, k.warning_counts, count(*) OVER ()
 		FROM knowledge_scans k
 		JOIN nodes n ON n.id = k.project_id
 		WHERE ($1::uuid IS NULL OR k.project_id = $1)
@@ -162,10 +178,17 @@ func (s *ScanRepository) List(ctx context.Context, f knowledgetypes.ScanFilter, 
 func scanItem(r pgx.CollectableRow, total *int64) (knowledgetypes.ScanItem, error) {
 	var it knowledgetypes.ScanItem
 	var kindRaw, triggerRaw, statusRaw string
-	var branches, index []byte
+	var branches, index, notes, counts []byte
 	var code, detail *string
 	if err := r.Scan(&it.ID, &it.ProjectID, &it.ProjectName, &it.ProjectPath, &kindRaw, &triggerRaw, &it.Source, &statusRaw,
-		&it.StartedAt, &it.LastStartedAt, &it.FinishedAt, &it.DurationMS, &it.Repeats, &branches, &index, &code, &detail, &it.Warnings, total); err != nil {
+		&it.StartedAt, &it.LastStartedAt, &it.FinishedAt, &it.DurationMS, &it.Repeats, &branches, &index, &code, &detail, &it.Warnings,
+		&notes, &counts, total); err != nil {
+		return it, err
+	}
+	if err := json.Unmarshal(notes, &it.Notes); err != nil {
+		return it, err
+	}
+	if err := json.Unmarshal(counts, &it.Counts); err != nil {
 		return it, err
 	}
 	it.Kind, it.Trigger, it.Status = knowledgetypes.ScanKind(kindRaw), knowledgetypes.ScanTrigger(triggerRaw), knowledgetypes.ScanStatus(statusRaw)

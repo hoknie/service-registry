@@ -100,13 +100,17 @@ func (s *SecretsService) DeleteGlobalSecret(ctx context.Context, p accesstypes.P
 }
 
 func (s *SecretsService) seal(id uuid.UUID, v catalogtypes.SecretValue) (catalogtypes.StoredSecret, error) {
+	return sealSecret(s.box, id, v)
+}
+
+func sealSecret(box *secretbox.Box, id uuid.UUID, v catalogtypes.SecretValue) (catalogtypes.StoredSecret, error) {
 	if v.Ref != nil {
 		return catalogtypes.StoredSecret{Ref: v.Ref}, nil
 	}
-	if s.box == nil || !s.box.CanEncrypt() {
+	if box == nil || !box.CanEncrypt() {
 		return catalogtypes.StoredSecret{}, apperr.Wrap(catalogtypes.ConflictSecretsKeyMissing)
 	}
-	enc, err := s.box.Seal(*v.Value, secretbox.AAD(catalogtypes.SecretTable, id.String(), catalogtypes.SecretColumnValue))
+	enc, err := box.Seal(*v.Value, secretbox.AAD(catalogtypes.SecretTable, id.String(), catalogtypes.SecretColumnValue))
 	if err != nil {
 		return catalogtypes.StoredSecret{}, apperr.Internalf("encrypt: %v", err)
 	}

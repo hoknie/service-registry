@@ -17,6 +17,7 @@ import (
 	knowledgeports "svc-registry/internal/feature/knowledge/ports"
 	"svc-registry/internal/feature/knowledge/repositories"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
+	topologyservices "svc-registry/internal/feature/topology/services"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
 	"svc-registry/pkg/pgtx"
@@ -162,6 +163,7 @@ type CollectService struct {
 	sourceRepository     *repositories.SourceRepository
 	documents            *DocumentsService
 	settingsService      *SettingsService
+	topology             *topologyservices.TopologyServices
 }
 
 func (s *CollectService) CollectKnowledge(ctx context.Context, p accesstypes.Principal, id uuid.UUID) error {

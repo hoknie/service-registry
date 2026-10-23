@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 func TestValidateScanFilter(t *testing.T) {
@@ -129,5 +130,24 @@ func TestIndexFailureKeepsCodeDetailAndChain(t *testing.T) {
 	f := NewIndexFailure(err)
 	if f.Code != "search.embeddings_unavailable" || strings.Contains(f.Detail, "secret-token") || !errors.Is(f, ErrSearchUnavailable) {
 		t.Fatalf("%+v", f)
+	}
+}
+
+func TestScanNotes(t *testing.T) {
+	var s Scan
+	long := strings.Repeat("d", NotePathLimit+10)
+	for i := range ScanNotesLimit + 5 {
+		s.Note(ScanNote{Code: WarnFilesSkipped, Branch: "main", Path: long, Reason: SkipLimit, Detail: fmt.Sprintf("token=abc%d %s", i, long)})
+	}
+	s.Note(ScanNote{Code: WarnTruncated, Branch: "main"})
+	if len(s.Notes) != ScanNotesLimit || s.Counts[WarnFilesSkipped] != ScanNotesLimit+5 || s.Counts[WarnTruncated] != 1 {
+		t.Fatal(len(s.Notes), s.Counts)
+	}
+	if len(s.Warnings) != 2 || s.Warnings[0] != WarnFilesSkipped || s.Warnings[1] != WarnTruncated {
+		t.Fatal(s.Warnings)
+	}
+	n := s.Notes[0]
+	if utf8.RuneCountInString(n.Path) != NotePathLimit || utf8.RuneCountInString(n.Detail) != NoteDetailLimit || strings.Contains(n.Detail, "abc0") {
+		t.Fatal(n.Path, n.Detail)
 	}
 }

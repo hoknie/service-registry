@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	accesstypes "svc-registry/internal/feature/access/types"
+	catalogports "svc-registry/internal/feature/catalog/ports"
 	"svc-registry/internal/feature/catalog/repositories"
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	"svc-registry/internal/platform/apperr"
@@ -72,7 +73,7 @@ func (s *TableService) childrenTable(ctx context.Context, p accesstypes.Principa
 		return CatalogTablePage{}, apperr.Wrap(err)
 	}
 	items, total, err := s.nodeRepository.Table(ctx, catalogtypes.Walk{
-		UserID: p.UserID, Root: parent, RootReadable: readable, Depth: 1, Limit: page.Limit, Offset: page.Offset,
+		Viewer: viewerOf(p), Root: parent, RootReadable: readable, Depth: 1, Limit: page.Limit, Offset: page.Offset,
 	})
 	if err != nil {
 		return CatalogTablePage{}, apperr.Wrap(err)
@@ -81,11 +82,26 @@ func (s *TableService) childrenTable(ctx context.Context, p accesstypes.Principa
 }
 
 func (s *TableService) searchTable(ctx context.Context, p accesstypes.Principal, parent *uuid.UUID, readable bool, filter catalogtypes.TableFilter) (CatalogTablePage, error) {
+	only, err := s.onlyProjects(ctx, p, filter)
+	if err != nil {
+		return CatalogTablePage{}, apperr.Wrap(err)
+	}
+	items, matches, err := s.nodeRepository.Search(ctx, catalogtypes.Search{
+		Viewer: viewerOf(p), Root: parent, RootReadable: readable, Filter: filter, Only: only, Limit: catalogtypes.TableMaxMatches,
+	})
+	if err != nil {
+		return CatalogTablePage{}, apperr.Wrap(err)
+	}
+	return CatalogTablePage{Items: items, Total: uint64(len(items)), Limit: uint32(len(items)),
+		Truncated: matches > catalogtypes.TableMaxMatches}, nil
+}
+
+func (s *TableService) onlyProjects(ctx context.Context, p accesstypes.Principal, filter catalogtypes.TableFilter) ([]uuid.UUID, error) {
 	var only []uuid.UUID
 	if filter.Activity != "" {
 		busy, err := s.activityService.signals(ctx, nil, false, true)
 		if err != nil {
-			return CatalogTablePage{}, apperr.Wrap(err)
+			return nil, err
 		}
 		only = []uuid.UUID{}
 		for id, signals := range busy {
@@ -94,14 +110,27 @@ func (s *TableService) searchTable(ctx context.Context, p accesstypes.Principal,
 			}
 		}
 	}
-	items, matches, err := s.nodeRepository.Search(ctx, catalogtypes.Search{
-		UserID: p.UserID, Root: parent, RootReadable: readable, Filter: filter, Only: only, Limit: catalogtypes.TableMaxMatches,
-	})
-	if err != nil {
-		return CatalogTablePage{}, apperr.Wrap(err)
+	if filter.Owner == nil {
+		return only, nil
 	}
-	return CatalogTablePage{Items: items, Total: uint64(len(items)), Limit: uint32(len(items)),
-		Truncated: matches > catalogtypes.TableMaxMatches}, nil
+	owned, err := s.owners.OwnedProjects(ctx, p.UserID, *filter.Owner)
+	if err != nil {
+		return nil, err
+	}
+	if only == nil {
+		return append([]uuid.UUID{}, owned...), nil
+	}
+	return catalogtypes.Intersect(only, owned), nil
+}
+
+func (p CatalogTablePage) ReadableNodes() []uuid.UUID {
+	var out []uuid.UUID
+	for _, n := range p.Items {
+		if n.Readable {
+			out = append(out, n.Node.ID)
+		}
+	}
+	return out
 }
 
 func (p CatalogTablePage) ReadableProjects() []uuid.UUID {
@@ -118,6 +147,7 @@ type TableService struct {
 	nodeRepository  *repositories.NodeRepository
 	activityService *ActivityService
 	nodesService    *NodesService
+	owners          catalogports.OwnersFilterPort
 }
 
 func (s *LabelsService) SuggestLabels(ctx context.Context, p accesstypes.Principal, q catalogtypes.LabelQuery) ([]catalogtypes.LabelSuggestion, error) {
@@ -128,9 +158,9 @@ func (s *LabelsService) SuggestLabels(ctx context.Context, p accesstypes.Princip
 	prefix := catalogtypes.LikePrefix(v.Q)
 	var out []catalogtypes.LabelSuggestion
 	if v.Key != nil {
-		out, err = s.nodeRepository.LabelValues(ctx, p.UserID, p.IsSuperadmin, *v.Key, prefix)
+		out, err = s.nodeRepository.LabelValues(ctx, viewerOf(p), p.IsSuperadmin, *v.Key, prefix)
 	} else {
-		out, err = s.nodeRepository.LabelKeys(ctx, p.UserID, p.IsSuperadmin, prefix)
+		out, err = s.nodeRepository.LabelKeys(ctx, viewerOf(p), p.IsSuperadmin, prefix)
 	}
 	return out, apperr.Wrap(err)
 }

@@ -2,6 +2,7 @@ package types
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -96,5 +97,23 @@ func TestClassifyAndParse(t *testing.T) {
 	}
 	if !IsText([]byte("привет")) || IsText([]byte{0xff, 0xfe}) || IsText([]byte("a\x00b")) {
 		t.Fatal("text")
+	}
+}
+
+func TestLimitsReachedBySnapshot(t *testing.T) {
+	l := Limits{MaxFileBytes: 512, MaxFiles: 3, MaxSnapshotBytes: 4096}
+	for name, c := range map[string]struct {
+		snap Snapshot
+		want []LimitSetting
+	}{
+		"complete":  {Snapshot{Files: 3}, []LimitSetting{}},
+		"files":     {Snapshot{Files: 3, Limited: 2}, []LimitSetting{{"KNOWLEDGE_MAX_FILES", 3}}},
+		"bytes":     {Snapshot{Files: 2, Limited: 1}, []LimitSetting{{"KNOWLEDGE_MAX_SNAPSHOT_BYTES", 4096}}},
+		"too large": {Snapshot{Files: 1, TooLarge: 1}, []LimitSetting{{"KNOWLEDGE_MAX_FILE_BYTES", 512}}},
+		"both":      {Snapshot{Files: 3, Limited: 1, TooLarge: 2}, []LimitSetting{{"KNOWLEDGE_MAX_FILES", 3}, {"KNOWLEDGE_MAX_FILE_BYTES", 512}}},
+	} {
+		if got := l.Reached(c.snap); !slices.Equal(got, c.want) {
+			t.Errorf("%s: %+v", name, got)
+		}
 	}
 }

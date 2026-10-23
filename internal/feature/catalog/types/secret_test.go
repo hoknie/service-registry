@@ -61,3 +61,34 @@ func TestParseCredentials(t *testing.T) {
 		t.Fatalf("id: %v %v", id, err)
 	}
 }
+
+func TestAdoptedSecretName(t *testing.T) {
+	t.Parallel()
+	long := strings.Repeat("a", 120)
+	cases := []struct {
+		name  string
+		base  string
+		taken []string
+		want  string
+	}{
+		{"free", "forge-acme", nil, "forge-acme"},
+		{"taken", "forge-acme", []string{"forge-acme"}, "forge-acme-2"},
+		{"taken case-insensitive", "forge-acme", []string{"FORGE-ACME", "forge-acme-2"}, "forge-acme-3"},
+		{"control characters", "source-a\tb", nil, "source-a-b"},
+		{"empty", "  ", nil, "secret"},
+		{"long", long, nil, strings.Repeat("a", 100)},
+		{"long taken", long, []string{strings.Repeat("a", 100)}, strings.Repeat("a", 98) + "-2"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			taken := map[string]bool{}
+			for _, n := range c.taken {
+				taken[strings.ToLower(n)] = true
+			}
+			if got := AdoptedSecretName(c.base, taken); got != c.want {
+				t.Fatalf("AdoptedSecretName(%q) = %q, want %q", c.base, got, c.want)
+			}
+		})
+	}
+}

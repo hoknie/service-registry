@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -12,27 +13,14 @@ import (
 	knowledgeports "svc-registry/internal/feature/knowledge/ports"
 	"svc-registry/internal/feature/knowledge/repositories"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
+	topologytypes "svc-registry/internal/feature/topology/types"
 	"svc-registry/internal/platform/apperr"
-	"svc-registry/internal/platform/config"
-	"svc-registry/pkg/secretbox"
 )
 
 func (s *CollectService) sourceToken(ctx context.Context, id uuid.UUID, src *knowledgetypes.StoredSource) (string, error) {
 	switch {
 	case src.CredentialsSecretID != nil:
 		t, err := s.catalog.SecretResolver.ResolveSecret(ctx, *src.CredentialsSecretID)
-		if err != nil {
-			return "", knowledgetypes.Failure("forge.credentials_unavailable")
-		}
-		return t, nil
-	case src.CredentialsEnc != nil:
-		t, err := s.secrets.Open(*src.CredentialsEnc, secretbox.AAD(knowledgetypes.SourceTable, id.String(), knowledgetypes.SourceColumnCredentials))
-		if err != nil {
-			return "", knowledgetypes.Failure("forge.credentials_unavailable")
-		}
-		return t, nil
-	case src.CredentialsRef != nil:
-		t, err := config.ResolveSecretRef(*src.CredentialsRef)
 		if err != nil {
 			return "", knowledgetypes.Failure("forge.credentials_unavailable")
 		}
@@ -66,7 +54,40 @@ func (r *syncedReader) Read(ctx context.Context, e knowledgetypes.Entry, limit i
 	return r.client.ReadFile(ctx, r.repo, forgetypes.TreeEntry{Path: e.Path, BlobSHA: e.BlobSHA, Size: e.Size}, limit)
 }
 
-func (s *CollectService) collectBranch(ctx context.Context, p knowledgetypes.Project, reader knowledgeports.ReaderPort, h head, scan *knowledgetypes.Scan) error {
+func (s *CollectService) readManifest(ctx context.Context, id uuid.UUID, reader knowledgeports.ReaderPort, entries []knowledgetypes.Entry, scan *knowledgetypes.Scan,
+	branch string) ([]topologytypes.Ref, bool) {
+	var found *knowledgetypes.Entry
+	for _, name := range topologytypes.ManifestNames {
+		if i := slices.IndexFunc(entries, func(e knowledgetypes.Entry) bool { return e.Path == name }); i >= 0 {
+			found = &entries[i]
+			break
+		}
+	}
+	if found == nil {
+		return nil, true
+	}
+	problem := ""
+	var m topologytypes.Manifest
+	data, err := reader.Read(ctx, *found, topologytypes.MaxManifestBytes+1)
+	if err == nil {
+		m, err = topologytypes.ParseManifest(data)
+	}
+	switch {
+	case found.Size > topologytypes.MaxManifestBytes:
+		problem = "the file is larger than 64 KiB"
+	case err != nil:
+		problem = err.Error()
+	case m.Problem != "":
+		problem = m.Problem
+	}
+	if problem != "" {
+		scan.Note(knowledgetypes.ScanNote{Code: knowledgetypes.WarnManifestInvalid, Branch: branch, Path: found.Path, Detail: problem})
+		slog.Info("project manifest not fully read", "project", id, "path", found.Path, "problem", problem)
+	}
+	return m.Refs, err == nil && found.Size <= topologytypes.MaxManifestBytes
+}
+
+func (s *CollectService) collectBranch(ctx context.Context, p knowledgetypes.Project, reader knowledgeports.ReaderPort, h head, scan *knowledgetypes.Scan, isDefault bool) error {
 	cfg := s.cfg.Knowledge
 	entries, truncated, err := reader.Tree(ctx, h.name, h.sha)
 	if err != nil {
@@ -99,7 +120,20 @@ func (s *CollectService) collectBranch(ctx context.Context, p knowledgetypes.Pro
 	}
 	snap := knowledgetypes.NewSnapshot{ID: uuid.Must(uuid.NewV7()), ProjectID: p.ID, Branch: h.name, Commit: h.sha,
 		Status: knowledgetypes.SnapshotStatus(files, truncated), Truncated: truncated, Files: files, FileIDs: ids}
-	if err := s.snapshotRepository.Save(ctx, snap, cfg.Keep); err != nil {
+	var refs []topologytypes.Ref
+	manifest := false
+	if isDefault {
+		refs, manifest = s.readManifest(ctx, p.ID, reader, entries, scan, h.name)
+	}
+	if err := s.db.InTx(ctx, func(ctx context.Context) error {
+		if err := s.snapshotRepository.Save(ctx, snap, cfg.Keep); err != nil {
+			return err
+		}
+		if !manifest {
+			return nil
+		}
+		return s.topology.Records.ReplaceRepository(ctx, p.ID, h.name, refs)
+	}); err != nil {
 		slog.Warn("documentation snapshot not saved", "project", p.ID, "branch", h.name, "error", err)
 		return knowledgetypes.Failure("forge.upstream_error")
 	}
@@ -110,17 +144,22 @@ func (s *CollectService) collectBranch(ctx context.Context, p knowledgetypes.Pro
 			b.Files++
 		} else {
 			b.Skipped[string(f.Skip)]++
+			if knowledgetypes.IsAPIPath(f.Path) {
+				b.APISkipped++
+			}
 		}
 	}
 	scan.Branches = append(scan.Branches, b)
-	switch {
-	case len(files) == 0 && len(entries) > 0:
-		scan.Warn(knowledgetypes.WarnNoFilesMatched)
-	case len(b.Skipped) > 0:
-		scan.Warn(knowledgetypes.WarnFilesSkipped)
+	if len(files) == 0 && len(entries) > 0 {
+		scan.Note(knowledgetypes.ScanNote{Code: knowledgetypes.WarnNoFilesMatched, Branch: h.name})
+	}
+	for _, f := range files {
+		if f.Skip != "" {
+			scan.Note(knowledgetypes.ScanNote{Code: knowledgetypes.WarnFilesSkipped, Branch: h.name, Path: f.Path, Reason: f.Skip})
+		}
 	}
 	if truncated {
-		scan.Warn(knowledgetypes.WarnTruncated)
+		scan.Note(knowledgetypes.ScanNote{Code: knowledgetypes.WarnTruncated, Branch: h.name})
 	}
 	return nil
 }

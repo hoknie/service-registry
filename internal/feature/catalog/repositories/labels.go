@@ -3,7 +3,6 @@ package repositories
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	catalogtypes "svc-registry/internal/feature/catalog/types"
@@ -25,17 +24,11 @@ func suggestions(out []catalogtypes.LabelSuggestion, err error) ([]catalogtypes.
 	return out, nil
 }
 
-func (s *NodeRepository) LabelKeys(ctx context.Context, userID uuid.UUID, all bool, prefix string) ([]catalogtypes.LabelSuggestion, error) {
+func (s *NodeRepository) LabelKeys(ctx context.Context, v catalogtypes.Viewer, all bool, prefix string) ([]catalogtypes.LabelSuggestion, error) {
 	return suggestions(postgres.List(ctx, s.db.From(ctx), constraints, scanSuggestion, `
 		WITH RECURSIVE bound AS (
 			SELECT node_id
-			FROM role_bindings
-			WHERE user_id = $1
-			UNION ALL
-			SELECT b.node_id
-			FROM role_bindings b
-			JOIN group_members gm ON gm.group_id = b.group_id
-			WHERE gm.user_id = $1
+			FROM viewer_bindings($1, $4::uuid[], $5::boolean)
 		),
 		readable AS (
 			SELECT n.id
@@ -54,20 +47,14 @@ func (s *NodeRepository) LabelKeys(ctx context.Context, userID uuid.UUID, all bo
 		WHERE k.key ILIKE $3 ESCAPE '\'
 		GROUP BY k.key
 		ORDER BY count(*) DESC, k.key
-		LIMIT 20`, userID, all, prefix))
+		LIMIT 20`, v.UserID, all, prefix, v.Nodes, v.Admin))
 }
 
-func (s *NodeRepository) LabelValues(ctx context.Context, userID uuid.UUID, all bool, key, prefix string) ([]catalogtypes.LabelSuggestion, error) {
+func (s *NodeRepository) LabelValues(ctx context.Context, v catalogtypes.Viewer, all bool, key, prefix string) ([]catalogtypes.LabelSuggestion, error) {
 	return suggestions(postgres.List(ctx, s.db.From(ctx), constraints, scanSuggestion, `
 		WITH RECURSIVE bound AS (
 			SELECT node_id
-			FROM role_bindings
-			WHERE user_id = $1
-			UNION ALL
-			SELECT b.node_id
-			FROM role_bindings b
-			JOIN group_members gm ON gm.group_id = b.group_id
-			WHERE gm.user_id = $1
+			FROM viewer_bindings($1, $5::uuid[], $6::boolean)
 		),
 		readable AS (
 			SELECT n.id
@@ -86,5 +73,5 @@ func (s *NodeRepository) LabelValues(ctx context.Context, userID uuid.UUID, all 
 			AND (n.labels ->> $3) ILIKE $4 ESCAPE '\'
 		GROUP BY n.labels ->> $3
 		ORDER BY count(*) DESC, n.labels ->> $3
-		LIMIT 20`, userID, all, key, prefix))
+		LIMIT 20`, v.UserID, all, key, prefix, v.Nodes, v.Admin))
 }

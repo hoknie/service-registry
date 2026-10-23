@@ -13,6 +13,7 @@ import (
 	"svc-registry/internal/feature/knowledge/repositories"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/apperr"
+	"svc-registry/internal/platform/config"
 )
 
 type KnowledgeOverview struct {
@@ -105,6 +106,8 @@ func (s *DocumentsService) GetKnowledge(ctx context.Context, p accesstypes.Princ
 		if bs.Snapshot, err = s.snapshotRepository.Latest(ctx, id, b.Name); err != nil {
 			return KnowledgeOverview{}, apperr.Wrap(err)
 		}
+		s.explain(p, bs.Last)
+		s.explain(p, bs.Snapshot)
 		bs.Pending = collecting && !b.Gone && (b.HeadSHA != "" || d.Source != nil) &&
 			(kp.Force || bs.Last == nil || bs.Last.Commit != b.HeadSHA || bs.Last.Status == knowledgetypes.StatusFailed)
 		out.Branches = append(out.Branches, bs)
@@ -155,7 +158,15 @@ func (s *DocumentsService) KnowledgeFiles(ctx context.Context, p accesstypes.Pri
 		return knowledgetypes.Snapshot{}, nil, err
 	}
 	snap, files, err := s.snapshotRepository.Files(ctx, id, branch, ref)
+	s.explain(p, &snap)
 	return snap, files, apperr.Wrap(err)
+}
+
+func (s *DocumentsService) explain(p accesstypes.Principal, snap *knowledgetypes.Snapshot) {
+	if snap != nil && p.IsSuperadmin {
+		k := s.cfg.Knowledge
+		snap.Limits = knowledgetypes.Limits{MaxFileBytes: k.MaxFileBytes, MaxFiles: int(k.MaxFiles), MaxSnapshotBytes: k.MaxSnapshotBytes}.Reached(*snap)
+	}
 }
 
 func (s *DocumentsService) KnowledgeFile(ctx context.Context, p accesstypes.Principal, id uuid.UUID, r KnowledgeRef, path string) (knowledgetypes.Snapshot, knowledgetypes.FileContent, error) {
@@ -168,6 +179,7 @@ func (s *DocumentsService) KnowledgeFile(ctx context.Context, p accesstypes.Prin
 		return knowledgetypes.Snapshot{}, knowledgetypes.FileContent{}, err
 	}
 	snap, f, err := s.snapshotRepository.File(ctx, id, branch, ref, path)
+	s.explain(p, &snap)
 	return snap, f, apperr.Wrap(err)
 }
 
@@ -187,89 +199,22 @@ func (s *DocumentsService) KnowledgeTree(ctx context.Context, p accesstypes.Prin
 	return snap, level, nil
 }
 
+func (s *DocumentsService) SnapshotContents(ctx context.Context, p accesstypes.Principal, id uuid.UUID, r KnowledgeRef) (knowledgetypes.SnapshotFiles, error) {
+	snap, files, err := s.KnowledgeFiles(ctx, p, id, r)
+	if err != nil {
+		return knowledgetypes.SnapshotFiles{}, err
+	}
+	return knowledgetypes.SnapshotFiles{Snapshot: snap, Files: files, Contents: func(ctx context.Context, paths []string) (map[string]string, error) {
+		out, err := s.snapshotRepository.Contents(ctx, snap.ID, paths)
+		return out, apperr.Wrap(err)
+	}}, nil
+}
+
 type DocumentsService struct {
 	catalog              *catalogservices.CatalogServices
 	collectionRepository *repositories.CollectionRepository
 	snapshotRepository   *repositories.SnapshotRepository
 	sourceRepository     *repositories.SourceRepository
 	settingsService      *SettingsService
-}
-
-type SpecItem struct {
-	Capability, Path, Purpose string
-	Requirements              []string
-}
-
-type ChangeItem struct {
-	ID, Path  string
-	Archived  bool
-	Artifacts []string
-}
-
-type ADRItem struct {
-	Number                          int
-	Title, Status, Supersedes, Path string
-}
-
-type OpenSpec struct {
-	Specs   []SpecItem
-	Changes []ChangeItem
-	ADRs    []ADRItem
-}
-
-func (s *DocumentsService) KnowledgeOpenSpec(ctx context.Context, p accesstypes.Principal, id uuid.UUID, branch *string) (OpenSpec, error) {
-	out := OpenSpec{Specs: []SpecItem{}, Changes: []ChangeItem{}, ADRs: []ADRItem{}}
-	_, files, err := s.KnowledgeFiles(ctx, p, id, KnowledgeRef{Branch: branch})
-	if apperr.From(err) != nil && apperr.From(err).Kind == apperr.NotFound {
-		if _, err := s.knowledgeProject(ctx, p, catalogtypes.PermRead, id); err != nil {
-			return OpenSpec{}, err
-		}
-		return out, nil
-	}
-	if err != nil {
-		return OpenSpec{}, err
-	}
-	changes := map[string]*ChangeItem{}
-	var order []string
-	for _, f := range files {
-		switch f.Kind {
-		case knowledgetypes.KindSpec:
-			reqs := f.Meta.Requirements
-			if reqs == nil {
-				reqs = []string{}
-			}
-			out.Specs = append(out.Specs, SpecItem{Capability: f.Meta.Capability, Path: f.Path, Purpose: f.Meta.Purpose, Requirements: reqs})
-		case knowledgetypes.KindChange:
-			key := f.Meta.Change
-			if f.Meta.Archived {
-				key = "archive/" + key
-			}
-			c := changes[key]
-			if c == nil {
-				prefix := "openspec/changes/" + key
-				c = &ChangeItem{ID: f.Meta.Change, Path: prefix, Archived: f.Meta.Archived, Artifacts: []string{}}
-				changes[key] = c
-				order = append(order, key)
-			}
-			c.Artifacts = append(c.Artifacts, strings.TrimPrefix(f.Path, c.Path+"/"))
-		case knowledgetypes.KindADR:
-			out.ADRs = append(out.ADRs, ADRItem{Number: f.Meta.Number, Title: f.Meta.Title, Status: f.Meta.Status,
-				Supersedes: f.Meta.Supersedes, Path: f.Path})
-		}
-	}
-	slices.SortFunc(out.Specs, func(a, b SpecItem) int { return strings.Compare(a.Capability, b.Capability) })
-	for _, k := range order {
-		out.Changes = append(out.Changes, *changes[k])
-	}
-	slices.SortStableFunc(out.Changes, func(a, b ChangeItem) int {
-		switch {
-		case a.Archived != b.Archived && !a.Archived:
-			return -1
-		case a.Archived != b.Archived:
-			return 1
-		}
-		return strings.Compare(a.ID, b.ID)
-	})
-	slices.SortFunc(out.ADRs, func(a, b ADRItem) int { return a.Number - b.Number })
-	return out, nil
+	cfg                  *config.Config
 }

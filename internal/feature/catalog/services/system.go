@@ -18,7 +18,7 @@ func (s *SystemService) FindChild(ctx context.Context, parent *uuid.UUID, slug s
 }
 
 func (s *SystemService) NodeChain(ctx context.Context, id uuid.UUID) (*catalogtypes.NodeChain, error) {
-	return s.nodeRepository.Chain(ctx, uuid.Nil, id)
+	return s.nodeRepository.Chain(ctx, catalogtypes.Viewer{}, id)
 }
 
 func (s *SystemService) InsertNode(ctx context.Context, n catalogtypes.NewNode) (catalogtypes.Node, error) {

@@ -19,6 +19,7 @@ type collectRun struct {
 	project     knowledgetypes.Project
 	scan        *knowledgetypes.Scan
 	next, retry uint32
+	defBranch   string
 }
 
 func (r *collectRun) release(ctx context.Context) error {
@@ -84,6 +85,7 @@ func (r *collectRun) sourceHeads(ctx context.Context, src *knowledgetypes.Stored
 	} else if def == "" {
 		def = srcDef
 	}
+	r.defBranch = def
 	var heads []head
 	kept := map[string]string{}
 	for name, sha := range shown {
@@ -140,6 +142,10 @@ func (r *collectRun) forgeHeads(ctx context.Context) (knowledgeports.ReaderPort,
 	if len(heads) == 0 {
 		r.scan.Warn(knowledgetypes.WarnNoBranches)
 	}
+	r.defBranch = p.DefaultBranch
+	if r.defBranch == "" {
+		r.defBranch = repo.DefaultBranch
+	}
 	return &syncedReader{client: client, repo: repo}, heads, nil
 }
 
@@ -159,7 +165,7 @@ func (r *collectRun) collect(ctx context.Context, reader knowledgeports.ReaderPo
 				continue
 			}
 		}
-		if err := s.collectBranch(ctx, p, reader, h, r.scan); err != nil {
+		if err := s.collectBranch(ctx, p, reader, h, r.scan, h.name == r.defBranch); err != nil {
 			if ctx.Err() != nil {
 				return nil
 			}

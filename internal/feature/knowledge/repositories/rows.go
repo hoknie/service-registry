@@ -19,14 +19,22 @@ type snapshotRow struct {
 	Skipped     int32     `db:"skipped"`
 	Truncated   bool      `db:"truncated"`
 	CollectedAt string    `db:"collected_at"`
+	Limited     int32     `db:"limited"`
+	TooLarge    int32     `db:"too_large"`
 }
 
 func (r snapshotRow) snapshot() knowledgetypes.Snapshot {
 	return knowledgetypes.Snapshot{ID: r.ID, ProjectID: r.ProjectID, Branch: r.Branch, Commit: r.CommitSHA, Status: knowledgetypes.Status(r.Status),
-		ErrorCode: r.ErrorCode, Files: int(r.Files), Bytes: r.Bytes, Skipped: int(r.Skipped), Truncated: r.Truncated, CollectedAt: r.CollectedAt}
+		ErrorCode: r.ErrorCode, Files: int(r.Files), Bytes: r.Bytes, Skipped: int(r.Skipped), Limited: int(r.Limited), TooLarge: int(r.TooLarge),
+		Truncated: r.Truncated, CollectedAt: r.CollectedAt}
 }
 
 func Err(err error) error { return postgres.Translate(err, constraints) }
+
+type contentRow struct {
+	Path    string
+	Content string
+}
 
 type knownRow struct {
 	Git     string

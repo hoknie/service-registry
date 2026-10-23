@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -209,4 +210,83 @@ type SpaceService struct {
 	catalog            *catalogservices.CatalogServices
 	snapshotRepository *repositories.SnapshotRepository
 	documents          *DocumentsService
+}
+
+type SpecItem struct {
+	Capability, Path, Purpose string
+	Requirements              []string
+}
+
+type ChangeItem struct {
+	ID, Path  string
+	Archived  bool
+	Artifacts []string
+}
+
+type ADRItem struct {
+	Number                          int
+	Title, Status, Supersedes, Path string
+}
+
+type OpenSpec struct {
+	Specs   []SpecItem
+	Changes []ChangeItem
+	ADRs    []ADRItem
+}
+
+func (s *DocumentsService) KnowledgeOpenSpec(ctx context.Context, p accesstypes.Principal, id uuid.UUID, branch *string) (OpenSpec, error) {
+	out := OpenSpec{Specs: []SpecItem{}, Changes: []ChangeItem{}, ADRs: []ADRItem{}}
+	_, files, err := s.KnowledgeFiles(ctx, p, id, KnowledgeRef{Branch: branch})
+	if apperr.From(err) != nil && apperr.From(err).Kind == apperr.NotFound {
+		if _, err := s.knowledgeProject(ctx, p, catalogtypes.PermRead, id); err != nil {
+			return OpenSpec{}, err
+		}
+		return out, nil
+	}
+	if err != nil {
+		return OpenSpec{}, err
+	}
+	changes := map[string]*ChangeItem{}
+	var order []string
+	for _, f := range files {
+		switch f.Kind {
+		case knowledgetypes.KindSpec:
+			reqs := f.Meta.Requirements
+			if reqs == nil {
+				reqs = []string{}
+			}
+			out.Specs = append(out.Specs, SpecItem{Capability: f.Meta.Capability, Path: f.Path, Purpose: f.Meta.Purpose, Requirements: reqs})
+		case knowledgetypes.KindChange:
+			key := f.Meta.Change
+			if f.Meta.Archived {
+				key = "archive/" + key
+			}
+			c := changes[key]
+			if c == nil {
+				prefix := "openspec/changes/" + key
+				c = &ChangeItem{ID: f.Meta.Change, Path: prefix, Archived: f.Meta.Archived, Artifacts: []string{}}
+				changes[key] = c
+				order = append(order, key)
+			}
+			c.Artifacts = append(c.Artifacts, strings.TrimPrefix(f.Path, c.Path+"/"))
+		case knowledgetypes.KindADR:
+			out.ADRs = append(out.ADRs, ADRItem{Number: f.Meta.Number, Title: f.Meta.Title, Status: f.Meta.Status,
+				Supersedes: f.Meta.Supersedes, Path: f.Path})
+		}
+	}
+	slices.SortFunc(out.Specs, func(a, b SpecItem) int { return strings.Compare(a.Capability, b.Capability) })
+	for _, k := range order {
+		out.Changes = append(out.Changes, *changes[k])
+	}
+	slices.SortStableFunc(out.Changes, func(a, b ChangeItem) int {
+		switch {
+		case a.Archived != b.Archived && !a.Archived:
+			return -1
+		case a.Archived != b.Archived:
+			return 1
+		}
+		return strings.Compare(a.ID, b.ID)
+	})
+	slices.SortFunc(out.ADRs, func(a, b ADRItem) int { return a.Number - b.Number })
+	return out, nil
 }

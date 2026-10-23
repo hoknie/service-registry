@@ -65,7 +65,7 @@ func (d *localDir) Heads(ctx context.Context) (map[string]string, string, error)
 			return fs.SkipDir
 		case e.IsDir() || !e.Type().IsRegular():
 			return nil
-		case !d.settings.Collects(p):
+		case !d.settings.Reads(p):
 			return nil
 		}
 		info, err := e.Info()

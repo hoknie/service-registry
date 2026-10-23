@@ -1,6 +1,10 @@
 package types
 
-import "github.com/google/uuid"
+import (
+	"context"
+
+	"github.com/google/uuid"
+)
 
 type Snapshot struct {
 	ID          uuid.UUID
@@ -12,8 +16,11 @@ type Snapshot struct {
 	Files       int
 	Bytes       int64
 	Skipped     int
+	Limited     int
+	TooLarge    int
 	Truncated   bool
 	CollectedAt string
+	Limits      []LimitSetting
 }
 
 type NewSnapshot struct {
@@ -39,6 +46,12 @@ type FileInfo struct {
 type FileContent struct {
 	FileInfo
 	Content *string
+}
+
+type SnapshotFiles struct {
+	Snapshot Snapshot
+	Files    []FileInfo
+	Contents func(ctx context.Context, paths []string) (map[string]string, error)
 }
 
 type Ref struct {
@@ -87,5 +100,7 @@ type Hit struct {
 
 type Viewer struct {
 	UserID     uuid.UUID
+	Nodes      []uuid.UUID
 	Superadmin bool
+	Admin      bool
 }

@@ -23,7 +23,7 @@ var (
 	InvalidBranchPage           = apperr.Invalid("validation.invalid_pagination", "limit must be 1..=200 and offset a non-negative integer")
 	InvalidClusterObservation   = apperr.Invalid("validation.invalid_cluster_observation", "cluster_observation must be true or false")
 	InvalidFilter               = apperr.Invalid("validation.invalid_filter", `q must be 1 to 100 characters, kind "organization", "folder" or "project", at most 5 labels "key" or "key=value", `+
-		`activity "running", "queued" or "failed"`)
+		`activity "running", "queued" or "failed", owner "group:<id>", "user:<id>" or "me"`)
 	InvalidSecret = apperr.Invalid("validation.invalid_secret", "a secret needs a name of 1 to 100 characters, a description of at most 500 characters and exactly one of "+
 		`"value" (1 to 4096 characters without whitespace) or "ref" ("env:<NAME>" or "file:<absolute path>")`)
 	InvalidSecretNotAvailable = apperr.Invalid("validation.secret_not_available", "the secret is not defined on this node, its ancestors or globally")

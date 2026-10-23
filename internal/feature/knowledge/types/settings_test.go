@@ -18,6 +18,30 @@ func TestDefaultSettingsCollectTheRootReadme(t *testing.T) {
 	}
 }
 
+func TestDefaultSettingsCollectAPIDescriptions(t *testing.T) {
+	s := DefaultSettings()
+	for p, want := range map[string]bool{
+		"openapi.yaml": true, "api/openapi.v1.json": true, "svc/swagger.yml": true, "proto/pets/v1/pets.proto": true,
+		"apidocs/index.html": true, "docs/api-docs/v1/guide.md": true, "openapi.txt": false, "docs/api.yaml": false,
+		"apidocs.md": false, "OpenAPI.yaml": true, "ApiDocs/Users.md": true, "proto/Billing.PROTO": true, "Swagger.JSON": true,
+	} {
+		if got := s.Collects(p); got != want {
+			t.Errorf("%s: %v", p, got)
+		}
+	}
+	s.Exclude = []string{"third_party/**"}
+	if s.Collects("third_party/google/api/http.proto") {
+		t.Error("exclude applies to API descriptions")
+	}
+	s.APIs = false
+	if s.Collects("openapi.yaml") || !s.Collects("README.md") {
+		t.Error("apis off leaves only the include rule")
+	}
+	if (Settings{Include: []string{"docs/**"}, APIs: true}).Collects("README.md") {
+		t.Error("the include list still replaces the README rule")
+	}
+}
+
 func TestPatternsReplaceTheReadmeRule(t *testing.T) {
 	s := Settings{Include: []string{"openspec/**", "docs/**/*.md"}, Exclude: []string{"docs/drafts/**"}}
 	for p, want := range map[string]bool{
@@ -71,7 +95,7 @@ func TestMergeTakesEachFieldFromTheNearestNode(t *testing.T) {
 	if strings.Join(s.Include, ",") != "docs/**" || len(s.Exclude) != 0 || strings.Join(s.Branches, ",") != "release/*" {
 		t.Fatalf("merged: %+v", s)
 	}
-	if from != (From{Include: 1, Exclude: 0, Branches: 2}) {
+	if from != (From{Include: 1, Exclude: 0, Branches: 2, APIs: -1}) {
 		t.Fatalf("from: %+v", from)
 	}
 
@@ -82,10 +106,16 @@ func TestMergeTakesEachFieldFromTheNearestNode(t *testing.T) {
 	}
 
 	s, from = Merge([]ChainNode{{Name: "api"}, {Name: "acme"}})
-	if s.Include != nil || s.Exclude == nil || len(s.Exclude) != 0 || s.Branches == nil || from != (From{-1, -1, -1}) {
+	if s.Include != nil || s.Exclude == nil || len(s.Exclude) != 0 || s.Branches == nil || from != (From{-1, -1, -1, -1}) || !s.APIs {
 		t.Fatalf("defaults: %+v %+v", s, from)
 	}
-	if !(NodeSettings{}).IsEmpty() || (NodeSettings{IncludeSet: true}).IsEmpty() {
+	off := false
+	project.Own = NodeSettings{APIs: &off}
+	s, from = Merge([]ChainNode{project, folder, org})
+	if s.APIs || from.APIs != 0 {
+		t.Fatalf("apis: %+v %+v", s, from)
+	}
+	if !(NodeSettings{}).IsEmpty() || (NodeSettings{IncludeSet: true}).IsEmpty() || (NodeSettings{APIs: &off}).IsEmpty() {
 		t.Fatal("IsEmpty")
 	}
 }

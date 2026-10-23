@@ -23,6 +23,11 @@ func TestValidateTable(t *testing.T) {
 		{"empty label value", TableQuery{Labels: []string{"team="}}, true},
 		{"too many labels", TableQuery{Labels: []string{"a", "b", "c", "d", "e", "f"}}, false},
 		{"idle", TableQuery{Activity: s("idle")}, false},
+		{"owner me", TableQuery{Owner: s("me")}, true},
+		{"owner group", TableQuery{Owner: s("group:0190f6c1-0000-7000-8000-000000000001")}, true},
+		{"owner user", TableQuery{Owner: s("user:0190f6c1-0000-7000-8000-000000000001")}, true},
+		{"owner team", TableQuery{Owner: s("team:42")}, false},
+		{"owner bad id", TableQuery{Owner: s("group:42")}, false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

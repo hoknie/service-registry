@@ -1,7 +1,9 @@
 package types
 
 import (
+	"context"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -91,18 +93,30 @@ type CredentialsKind string
 
 const (
 	CredentialsSecret CredentialsKind = "secret"
-	CredentialsLegacy CredentialsKind = "legacy"
 	CredentialsNone   CredentialsKind = "none"
 )
 
 type Credentials struct {
-	Kind        CredentialsKind
-	SecretID    *uuid.UUID
-	Secret      *SecretRef
-	Storage     SecretStorage
-	Fingerprint *string
-	Ref         *string
+	Kind     CredentialsKind
+	SecretID *uuid.UUID
+	Secret   *SecretRef
 }
+
+type LegacyCredential struct {
+	RecordKind string
+	RecordID   uuid.UUID
+	Scope      *uuid.UUID
+	Name       string
+	Value      SecretValue
+}
+
+type AdoptedSecret struct {
+	ID      uuid.UUID
+	Name    string
+	Created bool
+}
+
+type AdoptFunc func(ctx context.Context, c LegacyCredential) (uuid.UUID, error)
 
 var envRef = regexp.MustCompile(`^env:[A-Za-z_][A-Za-z0-9_]{0,127}$`)
 
@@ -175,17 +189,39 @@ func ParseCredentials(in *CredentialsInput, invalid error) (uuid.UUID, error) {
 	return id, nil
 }
 
-func LegacyCredentials(enc, ref, fingerprint *string) Credentials {
-	switch {
-	case ref != nil:
-		return Credentials{Kind: CredentialsLegacy, Storage: SecretReference, Ref: ref}
-	case enc != nil:
-		return Credentials{Kind: CredentialsLegacy, Storage: SecretStored, Fingerprint: fingerprint}
-	}
-	return Credentials{Kind: CredentialsNone}
+type ScopedSecret struct {
+	ID     uuid.UUID
+	Name   string
+	Stored StoredSecret
 }
 
 type StoredSecretRow struct {
 	ID  uuid.UUID
 	Enc string
+}
+
+func AdoptedSecretName(base string, taken map[string]bool) string {
+	base = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return '-'
+		}
+		return r
+	}, strings.TrimSpace(base))
+	if base == "" {
+		base = "secret"
+	}
+	for n := 1; ; n++ {
+		suffix := ""
+		if n > 1 {
+			suffix = "-" + strconv.Itoa(n)
+		}
+		r := []rune(base)
+		if len(r)+utf8.RuneCountInString(suffix) > 100 {
+			r = r[:100-utf8.RuneCountInString(suffix)]
+		}
+		name := string(r) + suffix
+		if !taken[strings.ToLower(name)] {
+			return name
+		}
+	}
 }

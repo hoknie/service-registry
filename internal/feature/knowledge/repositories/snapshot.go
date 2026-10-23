@@ -20,7 +20,9 @@ func NewSnapshotRepository(db *pgtx.DB) *SnapshotRepository { return &SnapshotRe
 func lastSnapshot(ctx context.Context, q pgtx.Querier, projectID uuid.UUID, branch string, withFailed bool) (*knowledgetypes.Snapshot, error) {
 	return postgres.Find(ctx, q, constraints, postgres.Struct(snapshotRow.snapshot), `
 		SELECT s.id, s.project_id, s.branch, s.commit_sha, s.status, s.error_code, s.files, s.bytes,
-			s.skipped, s.truncated, rfc3339(s.collected_at) AS collected_at
+			s.skipped, s.truncated, rfc3339(s.collected_at) AS collected_at,
+			(SELECT count(*) FROM knowledge_files f WHERE f.snapshot_id = s.id AND f.skip_reason = 'limit')::int AS limited,
+			(SELECT count(*) FROM knowledge_files f WHERE f.snapshot_id = s.id AND f.skip_reason = 'too_large')::int AS too_large
 		FROM knowledge_snapshots s
 		WHERE s.project_id = $1
 			AND s.branch = $2
@@ -77,7 +79,9 @@ func (s *SnapshotRepository) resolve(ctx context.Context, projectID uuid.UUID, b
 	if ref.Commit != nil {
 		return postgres.Find(ctx, s.db.From(ctx), constraints, postgres.Struct(snapshotRow.snapshot), `
 			SELECT s.id, s.project_id, s.branch, s.commit_sha, s.status, s.error_code, s.files, s.bytes,
-				s.skipped, s.truncated, rfc3339(s.collected_at) AS collected_at
+				s.skipped, s.truncated, rfc3339(s.collected_at) AS collected_at,
+				(SELECT count(*) FROM knowledge_files f WHERE f.snapshot_id = s.id AND f.skip_reason = 'limit')::int AS limited,
+				(SELECT count(*) FROM knowledge_files f WHERE f.snapshot_id = s.id AND f.skip_reason = 'too_large')::int AS too_large
 			FROM knowledge_snapshots s
 			WHERE s.project_id = $1
 				AND s.branch = $2
@@ -152,6 +156,26 @@ func (s *SnapshotRepository) File(ctx context.Context, projectID uuid.UUID, bran
 		return knowledgetypes.Snapshot{}, knowledgetypes.FileContent{}, apperr.ErrNotFound
 	}
 	return *snap, *f, nil
+}
+
+func (s *SnapshotRepository) Contents(ctx context.Context, snapshotID uuid.UUID, paths []string) (map[string]string, error) {
+	out := map[string]string{}
+	if len(paths) == 0 {
+		return out, nil
+	}
+	rows, err := postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowToStructByPos[contentRow], `
+		SELECT f.path, b.content
+		FROM knowledge_files f
+		JOIN knowledge_blobs b ON b.sha256 = f.sha256
+		WHERE f.snapshot_id = $1
+			AND f.path = ANY($2)`, snapshotID, paths)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		out[r.Path] = r.Content
+	}
+	return out, nil
 }
 
 func (s *SnapshotRepository) PruneBlobs(ctx context.Context) (int64, error) {

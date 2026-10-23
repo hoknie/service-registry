@@ -2,16 +2,28 @@ package types
 
 import (
 	"path"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/bmatcuk/doublestar/v4"
+
+	topologytypes "svc-registry/internal/feature/topology/types"
 )
 
 type Settings struct {
 	Include  []string
 	Exclude  []string
 	Branches []string
+	APIs     bool
+}
+
+var APIPatterns = []string{
+	"**/openapi*.{yaml,yml,json}",
+	"**/swagger*.{yaml,yml,json}",
+	"**/*.proto",
+	"**/apidocs/**",
+	"**/api-docs/**",
 }
 
 const (
@@ -19,7 +31,9 @@ const (
 	maxPatternLength = 200
 )
 
-func DefaultSettings() Settings { return Settings{Exclude: []string{}, Branches: []string{}} }
+func DefaultSettings() Settings {
+	return Settings{Exclude: []string{}, Branches: []string{}, APIs: true}
+}
 
 func ValidateSettings(s Settings) (Settings, error) {
 	if s.Exclude == nil {
@@ -70,6 +84,9 @@ func (s Settings) Collects(p string) bool {
 			}
 		}
 	}
+	if !included && s.APIs {
+		included = IsAPIPath(p)
+	}
 	if !included {
 		return false
 	}
@@ -79,6 +96,20 @@ func (s Settings) Collects(p string) bool {
 		}
 	}
 	return true
+}
+
+func IsAPIPath(p string) bool {
+	p = strings.ToLower(p)
+	for _, pattern := range APIPatterns {
+		if ok, _ := doublestar.Match(pattern, p); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func (s Settings) Reads(p string) bool {
+	return s.Collects(p) || slices.Contains(topologytypes.ManifestNames, p)
 }
 
 func (s Settings) CollectsBranch(name, defaultBranch string) bool {

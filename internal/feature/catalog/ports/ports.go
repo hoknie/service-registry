@@ -30,3 +30,7 @@ type SourceFactoryPort func(projectID uuid.UUID) (ProjectSourcePort, error)
 type SecretUserPort interface {
 	SecretUsage(ctx context.Context, secrets []uuid.UUID) (map[uuid.UUID]int64, error)
 }
+
+type OwnersFilterPort interface {
+	OwnedProjects(ctx context.Context, caller uuid.UUID, f catalogtypes.OwnerFilter) ([]uuid.UUID, error)
+}

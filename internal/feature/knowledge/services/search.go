@@ -68,7 +68,7 @@ func (s *SearchService) SearchKnowledge(ctx context.Context, p accesstypes.Princ
 	} else if !offers(e, mode) {
 		mode = knowledgetypes.ModeText
 	}
-	viewer := knowledgetypes.Viewer{UserID: p.UserID, Superadmin: p.IsSuperadmin}
+	viewer := knowledgetypes.Viewer{UserID: p.UserID, Nodes: p.Nodes, Superadmin: p.IsSuperadmin, Admin: p.CatalogAdmin}
 	var hits []knowledgetypes.Hit
 	var more bool
 	switch {

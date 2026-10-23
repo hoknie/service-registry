@@ -70,8 +70,21 @@ type NodeChanges struct {
 	ClusterObservation *bool
 }
 
+type NodePath struct {
+	ID   uuid.UUID
+	Kind string
+	Name string
+	Path string
+}
+
+type Viewer struct {
+	UserID uuid.UUID
+	Nodes  []uuid.UUID
+	Admin  bool
+}
+
 type Walk struct {
-	UserID       uuid.UUID
+	Viewer       Viewer
 	Root         *uuid.UUID
 	RootReadable bool
 	Depth        uint32

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 
@@ -48,32 +49,35 @@ func (s *PortsService) SourceFor(in knowledgetypes.SourceInput) catalogports.Sou
 	}
 }
 
-func (s *PortsService) PrepareSecretRotation(ctx context.Context) (func(context.Context) error, int, error) {
-	stored, err := s.sourceRepository.Secrets(ctx)
+func (s *PortsService) AdoptLegacyCredentials(ctx context.Context, adopt catalogtypes.AdoptFunc) (int, error) {
+	rows, err := s.sourceRepository.Legacy(ctx)
 	if err != nil {
-		return nil, 0, err
+		return 0, err
 	}
-	plain := make([]string, len(stored))
-	for i, src := range stored {
-		v, err := s.secrets.Open(src.CredentialsEnc, secretbox.AAD(knowledgetypes.SourceTable, src.ProjectID.String(), knowledgetypes.SourceColumnCredentials))
-		if err != nil {
-			return nil, 0, err
-		}
-		plain[i] = v
-	}
-	apply := func(ctx context.Context) error {
-		for i, src := range stored {
-			enc, err := s.secrets.Seal(plain[i], secretbox.AAD(knowledgetypes.SourceTable, src.ProjectID.String(), knowledgetypes.SourceColumnCredentials))
+	for _, row := range rows {
+		value := catalogtypes.SecretValue{Ref: row.Ref}
+		if row.Ref == nil {
+			v, err := s.secrets.Open(*row.Enc, secretbox.AAD(knowledgetypes.SourceTable, row.ProjectID.String(), knowledgetypes.SourceColumnCredentials))
 			if err != nil {
-				return err
+				return 0, fmt.Errorf("documentation source %s: %w", row.ProjectID, err)
 			}
-			if err := s.sourceRepository.ReplaceSecret(ctx, src.ProjectID, enc); err != nil {
-				return err
-			}
+			value.Value = &v
 		}
-		return nil
+		secret, err := adopt(ctx, catalogtypes.LegacyCredential{RecordKind: "source", RecordID: row.ProjectID, Scope: row.ParentID,
+			Name: row.Slug, Value: value})
+		if err != nil {
+			return 0, fmt.Errorf("documentation source %s: %w", row.ProjectID, err)
+		}
+		if err := s.sourceRepository.AdoptSecret(ctx, row.ProjectID, secret); err != nil {
+			return 0, err
+		}
 	}
-	return apply, len(stored), nil
+	return len(rows), nil
+}
+
+func (s *PortsService) LegacyCredentialCount(ctx context.Context) (int, error) {
+	rows, err := s.sourceRepository.Legacy(ctx)
+	return len(rows), err
 }
 
 type IndexInfo struct {

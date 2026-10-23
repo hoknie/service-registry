@@ -43,6 +43,25 @@ type Limits struct {
 	MaxSnapshotBytes int64
 }
 
+type LimitSetting struct {
+	Name  string
+	Value int64
+}
+
+func (l Limits) Reached(s Snapshot) []LimitSetting {
+	out := []LimitSetting{}
+	switch {
+	case s.Limited > 0 && s.Files >= l.MaxFiles:
+		out = append(out, LimitSetting{Name: "KNOWLEDGE_MAX_FILES", Value: int64(l.MaxFiles)})
+	case s.Limited > 0:
+		out = append(out, LimitSetting{Name: "KNOWLEDGE_MAX_SNAPSHOT_BYTES", Value: l.MaxSnapshotBytes})
+	}
+	if s.TooLarge > 0 {
+		out = append(out, LimitSetting{Name: "KNOWLEDGE_MAX_FILE_BYTES", Value: l.MaxFileBytes})
+	}
+	return out
+}
+
 type File struct {
 	Path       string
 	GitBlobSHA string

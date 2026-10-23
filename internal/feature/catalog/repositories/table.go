@@ -23,13 +23,7 @@ func (s *NodeRepository) Table(ctx context.Context, w catalogtypes.Walk) ([]cata
 	return tableNodes(postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowToStructByName[tableRow], `
 		WITH RECURSIVE bound AS (
 			SELECT node_id
-			FROM role_bindings
-			WHERE user_id = $1
-			UNION ALL
-			SELECT b.node_id
-			FROM role_bindings b
-			JOIN group_members gm ON gm.group_id = b.group_id
-			WHERE gm.user_id = $1
+			FROM viewer_bindings($1, $6::uuid[], $7::boolean)
 		),
 		lineage AS (
 			SELECT n.id, n.parent_id
@@ -62,7 +56,7 @@ func (s *NodeRepository) Table(ctx context.Context, w catalogtypes.Walk) ([]cata
 			ORDER BY CASE n.kind WHEN 'organization' THEN 0 WHEN 'folder' THEN 1 ELSE 2 END, lower(n.name), n.id
 			LIMIT $4
 			OFFSET $5
-		) p ON true`, w.UserID, w.RootReadable, w.Root, int64(w.Limit), bigint(w.Offset)))
+		) p ON true`, w.Viewer.UserID, w.RootReadable, w.Root, int64(w.Limit), bigint(w.Offset), w.Viewer.Nodes, w.Viewer.Admin))
 }
 
 func (s *NodeRepository) Search(ctx context.Context, q catalogtypes.Search) ([]catalogtypes.TableNode, uint64, error) {
@@ -82,16 +76,13 @@ func (s *NodeRepository) Search(ctx context.Context, q catalogtypes.Search) ([]c
 	if err != nil {
 		return nil, 0, err
 	}
+	if q.Filter.Q != "" {
+		return s.searchNames(ctx, q, string(pairs), keys)
+	}
 	return tableNodes(postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowToStructByName[tableRow], `
 		WITH RECURSIVE bound AS (
 			SELECT node_id
-			FROM role_bindings
-			WHERE user_id = $1
-			UNION ALL
-			SELECT b.node_id
-			FROM role_bindings b
-			JOIN group_members gm ON gm.group_id = b.group_id
-			WHERE gm.user_id = $1
+			FROM viewer_bindings($1, $9::uuid[], $10::boolean)
 		),
 		lineage AS (
 			SELECT n.id, n.parent_id
@@ -132,7 +123,92 @@ func (s *NodeRepository) Search(ctx context.Context, q catalogtypes.Search) ([]c
 		hits AS (
 			SELECT v.id, v.ancestors, v.path
 			FROM visible v
-			WHERE ($4 = '' OR strpos(lower(v.name), lower($4)) > 0 OR strpos(v.slug, lower($4)) > 0)
+			WHERE ($4 = '' OR v.kind = $4)
+				AND ($5::jsonb = '{}'::jsonb OR (v.readable AND v.labels @> $5::jsonb))
+				AND (cardinality($6::text[]) = 0 OR (v.readable AND v.labels ?& $6::text[]))
+				AND ($7::uuid[] IS NULL OR (v.readable AND v.id = ANY($7)))
+		),
+		kept AS (
+			SELECT id, ancestors
+			FROM hits
+			ORDER BY path
+			LIMIT $8
+		),
+		shown AS (
+			SELECT DISTINCT unnest(ancestors) AS id
+			FROM kept
+		)
+		SELECT (SELECT count(*) FROM hits) AS total, v.depth, v.readable, v.id IN (SELECT id FROM kept) AS match,
+			(
+				SELECT count(*)
+				FROM nodes c
+				WHERE c.parent_id = v.id
+					AND (v.readable OR c.id IN (SELECT node_id FROM bound) OR c.id IN (SELECT id FROM lineage))
+			) AS children,
+			v.id, v.kind, v.parent_id, v.slug, v.name, v.description, v.labels, v.forge, v.repo_url, v.default_branch,
+			v.cluster_observation, rfc3339(v.created_at) AS created_at, rfc3339(v.updated_at) AS updated_at
+		FROM visible v
+		WHERE v.id IN (SELECT id FROM shown)
+		ORDER BY v.path`, q.Viewer.UserID, q.RootReadable, q.Root, string(q.Filter.Kind), string(pairs), keys, q.Only,
+		int64(q.Limit), q.Viewer.Nodes, q.Viewer.Admin))
+}
+
+func (s *NodeRepository) searchNames(ctx context.Context, q catalogtypes.Search, pairs string, keys []string) ([]catalogtypes.TableNode, uint64, error) {
+	return tableNodes(postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowToStructByName[tableRow], `
+		WITH RECURSIVE bound AS (
+			SELECT node_id
+			FROM viewer_bindings($1, $10::uuid[], $11::boolean)
+		),
+		lineage AS (
+			SELECT n.id, n.parent_id
+			FROM nodes n
+			WHERE n.id IN (SELECT node_id FROM bound)
+			UNION
+			SELECT p.id, p.parent_id
+			FROM nodes p
+			JOIN lineage l ON p.id = l.parent_id
+		),
+		up AS (
+			SELECT n.id, n.parent_id
+			FROM nodes n
+			WHERE lower(n.name) LIKE lower($4) ESCAPE '\' OR n.slug LIKE lower($4) ESCAPE '\'
+			UNION
+			SELECT p.id, p.parent_id
+			FROM nodes p
+			JOIN up u ON p.id = u.parent_id
+		),
+		ranked AS (
+			SELECT id, row_number() OVER (
+				PARTITION BY parent_id
+				ORDER BY CASE kind WHEN 'organization' THEN 0 WHEN 'folder' THEN 1 ELSE 2 END, lower(name), id
+			) AS rk
+			FROM nodes
+			WHERE id IN (SELECT id FROM up)
+		),
+		walk AS (
+			SELECT n.id, 1 AS depth, ($2 OR n.id IN (SELECT node_id FROM bound)) AS readable, ARRAY[n.id] AS ancestors,
+				ARRAY[r.rk] AS path
+			FROM nodes n
+			JOIN ranked r ON r.id = n.id
+			WHERE ($3::uuid IS NULL AND n.parent_id IS NULL) OR n.parent_id = $3
+			UNION ALL
+			SELECT c.id, w.depth + 1, (w.readable OR c.id IN (SELECT node_id FROM bound)), w.ancestors || c.id, w.path || r.rk
+			FROM walk w
+			JOIN nodes c ON c.parent_id = w.id
+			JOIN ranked r ON r.id = c.id
+			WHERE w.depth < 64
+				AND (w.readable OR w.id IN (SELECT id FROM lineage))
+		),
+		visible AS (
+			SELECT w.depth, w.readable, w.ancestors, w.path, n.*
+			FROM walk w
+			JOIN nodes n ON n.id = w.id
+			WHERE w.readable OR w.id IN (SELECT id FROM lineage)
+		),
+		hits AS (
+			SELECT v.id, v.ancestors, v.path
+			FROM visible v
+			WHERE (lower(v.name) LIKE lower($4) ESCAPE '\' OR v.slug LIKE lower($4) ESCAPE '\')
 				AND ($5 = '' OR v.kind = $5)
 				AND ($6::jsonb = '{}'::jsonb OR (v.readable AND v.labels @> $6::jsonb))
 				AND (cardinality($7::text[]) = 0 OR (v.readable AND v.labels ?& $7::text[]))
@@ -159,8 +235,8 @@ func (s *NodeRepository) Search(ctx context.Context, q catalogtypes.Search) ([]c
 			v.cluster_observation, rfc3339(v.created_at) AS created_at, rfc3339(v.updated_at) AS updated_at
 		FROM visible v
 		WHERE v.id IN (SELECT id FROM shown)
-		ORDER BY v.path`, q.UserID, q.RootReadable, q.Root, q.Filter.Q, string(q.Filter.Kind), string(pairs), keys, q.Only,
-		int64(q.Limit)))
+		ORDER BY v.path`, q.Viewer.UserID, q.RootReadable, q.Root, catalogtypes.LikeContains(q.Filter.Q), string(q.Filter.Kind),
+		pairs, keys, q.Only, int64(q.Limit), q.Viewer.Nodes, q.Viewer.Admin))
 }
 
 func tableNodes(found []tableRow, err error) ([]catalogtypes.TableNode, uint64, error) {

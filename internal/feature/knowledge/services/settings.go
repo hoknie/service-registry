@@ -14,9 +14,9 @@ import (
 )
 
 type KnowledgeSettings struct {
-	Settings                               knowledgetypes.Settings
-	Own                                    knowledgetypes.NodeSettings
-	IncludeFrom, ExcludeFrom, BranchesFrom *knowledgetypes.ChainNode
+	Settings                                         knowledgetypes.Settings
+	Own                                              knowledgetypes.NodeSettings
+	IncludeFrom, ExcludeFrom, BranchesFrom, APIsFrom *knowledgetypes.ChainNode
 }
 
 func (s *SettingsService) effectiveSettings(ctx context.Context, id uuid.UUID) (knowledgetypes.Settings, error) {
@@ -41,7 +41,7 @@ func (s *SettingsService) nodeSettings(ctx context.Context, id uuid.UUID) (Knowl
 		return &chain[i]
 	}
 	return KnowledgeSettings{Settings: sc, Own: chain[0].Own, IncludeFrom: origin(from.Include), ExcludeFrom: origin(from.Exclude),
-		BranchesFrom: origin(from.Branches)}, nil
+		BranchesFrom: origin(from.Branches), APIsFrom: origin(from.APIs)}, nil
 }
 
 func (s *SettingsService) GetKnowledgeSettings(ctx context.Context, p accesstypes.Principal, id uuid.UUID) (KnowledgeSettings, error) {

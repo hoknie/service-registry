@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/google/uuid"
@@ -22,6 +23,10 @@ type Scoped struct {
 	Path       []PathNode
 	Role       *catalogtypes.Role
 	Visibility catalogtypes.Visibility
+}
+
+func viewerOf(p accesstypes.Principal) catalogtypes.Viewer {
+	return catalogtypes.Viewer{UserID: p.UserID, Nodes: p.Nodes, Admin: p.CatalogAdmin}
 }
 
 func newScoped(p accesstypes.Principal, chain catalogtypes.NodeChain) (Scoped, bool) {
@@ -70,7 +75,7 @@ func (s Scoped) Permissions() []string {
 }
 
 func (s *AccessService) Scope(ctx context.Context, p accesstypes.Principal, id uuid.UUID) (Scoped, error) {
-	chain, err := s.nodeRepository.Chain(ctx, p.UserID, id)
+	chain, err := s.nodeRepository.Chain(ctx, viewerOf(p), id)
 	if err != nil {
 		return Scoped{}, apperr.Wrap(err)
 	}
@@ -97,13 +102,49 @@ func (s *AccessService) Authorize(ctx context.Context, p accesstypes.Principal, 
 
 func (s *AccessService) AuthorizeContainer(ctx context.Context, p accesstypes.Principal, parent *uuid.UUID) (*Scoped, error) {
 	if parent == nil {
-		return nil, accesstypes.RequireSuperadmin(p)
+		return nil, accesstypes.RequireCatalogRoot(p)
 	}
 	sc, err := s.Authorize(ctx, p, catalogtypes.PermWrite, *parent)
 	if err != nil {
 		return nil, err
 	}
 	return &sc, nil
+}
+
+func (s *AccessService) CheckRoots(ctx context.Context, owner accesstypes.Principal, ids []uuid.UUID) (bool, error) {
+	for _, id := range ids {
+		sc, err := s.Scope(ctx, owner, id)
+		if errors.Is(err, apperr.ErrNotFound) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		if !sc.Allows(catalogtypes.PermRead) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func (s *AccessService) DescribeRoots(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]accesstypes.NodeRef, error) {
+	paths, err := s.nodeRepository.Paths(ctx, ids)
+	if err != nil {
+		return nil, apperr.Wrap(err)
+	}
+	out := make(map[uuid.UUID]accesstypes.NodeRef, len(paths))
+	for _, p := range paths {
+		out[p.ID] = accesstypes.NodeRef{ID: p.ID, Kind: new(p.Kind), Name: new(p.Name), Path: new(p.Path)}
+	}
+	return out, nil
+}
+
+func (s *AccessService) ReadableProjects(ctx context.Context, p accesstypes.Principal, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
+	if len(ids) == 0 {
+		return map[uuid.UUID]bool{}, nil
+	}
+	out, err := s.nodeRepository.Readable(ctx, viewerOf(p), p.IsSuperadmin, ids)
+	return out, apperr.Wrap(err)
 }
 
 type AccessService struct {

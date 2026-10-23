@@ -34,8 +34,6 @@ type IndexState struct {
 type StoredSource struct {
 	Source
 	CredentialsSecretID *uuid.UUID
-	CredentialsEnc      *string
-	CredentialsRef      *string
 }
 
 type NewSource struct {
@@ -44,7 +42,10 @@ type NewSource struct {
 	Keep     bool
 }
 
-type SourceSecret struct {
-	ProjectID      uuid.UUID
-	CredentialsEnc string
+type LegacySource struct {
+	ProjectID uuid.UUID
+	ParentID  *uuid.UUID
+	Slug      string
+	Enc       *string
+	Ref       *string
 }

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -58,6 +59,53 @@ func (s *SecretResolverService) ResolveSecret(ctx context.Context, id uuid.UUID)
 		return "", catalogtypes.ConflictSecretsKeyMissing
 	}
 	return s.box.Open(*stored.Enc, secretbox.AAD(catalogtypes.SecretTable, id.String(), catalogtypes.SecretColumnValue))
+}
+
+func (s *SecretResolverService) AdoptSecret(ctx context.Context, c catalogtypes.LegacyCredential) (catalogtypes.AdoptedSecret, error) {
+	existing, err := s.secretRepository.InScope(ctx, c.Scope)
+	if err != nil {
+		return catalogtypes.AdoptedSecret{}, err
+	}
+	taken := make(map[string]bool, len(existing))
+	for _, e := range existing {
+		taken[strings.ToLower(e.Name)] = true
+		same, err := s.sameValue(e, c.Value)
+		if err != nil {
+			return catalogtypes.AdoptedSecret{}, err
+		}
+		if same {
+			return catalogtypes.AdoptedSecret{ID: e.ID, Name: e.Name}, nil
+		}
+	}
+	id := uuid.Must(uuid.NewV7())
+	stored, err := sealSecret(s.box, id, c.Value)
+	if err != nil {
+		return catalogtypes.AdoptedSecret{}, err
+	}
+	name := catalogtypes.AdoptedSecretName(c.RecordKind+"-"+c.Name, taken)
+	_, err = s.secretRepository.Insert(ctx, catalogtypes.NewSecret{ID: id, NodeID: c.Scope, Name: name,
+		Description: "Adopted from " + c.RecordKind + " " + c.RecordID.String(), Stored: stored})
+	if err != nil {
+		return catalogtypes.AdoptedSecret{}, err
+	}
+	return catalogtypes.AdoptedSecret{ID: id, Name: name, Created: true}, nil
+}
+
+func (s *SecretResolverService) sameValue(e catalogtypes.ScopedSecret, v catalogtypes.SecretValue) (bool, error) {
+	if v.Ref != nil {
+		return e.Stored.Ref != nil && *e.Stored.Ref == *v.Ref, nil
+	}
+	if e.Stored.Enc == nil {
+		return false, nil
+	}
+	if s.box == nil {
+		return false, catalogtypes.ConflictSecretsKeyMissing
+	}
+	plain, err := s.box.Open(*e.Stored.Enc, secretbox.AAD(catalogtypes.SecretTable, e.ID.String(), catalogtypes.SecretColumnValue))
+	if err != nil {
+		return false, err
+	}
+	return plain == *v.Value, nil
 }
 
 func (s *SecretResolverService) PrepareSecretRotation(ctx context.Context) (func(context.Context) error, int, error) {

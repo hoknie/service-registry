@@ -30,13 +30,7 @@ func (s *SearchRepository) Search(ctx context.Context, v knowledgetypes.Viewer, 
 	hits, err := postgres.List(ctx, s.db.From(ctx), constraints, scanHit, `
 		WITH RECURSIVE bound AS (
 			SELECT node_id
-			FROM role_bindings
-			WHERE user_id = $1
-			UNION ALL
-			SELECT b.node_id
-			FROM role_bindings b
-			JOIN group_members gm ON gm.group_id = b.group_id
-			WHERE gm.user_id = $1
+			FROM viewer_bindings($1, $13::uuid[], $14::boolean)
 		),
 		readable AS (
 			SELECT n.id
@@ -119,7 +113,7 @@ func (s *SearchRepository) Search(ctx context.Context, v knowledgetypes.Viewer, 
 		LEFT JOIN knowledge_blobs b ON b.sha256 = p.sha256, q, pref
 		ORDER BY p.in_path DESC, p.rank DESC, p.project_id, p.branch, p.path`,
 		v.UserID, v.Superadmin, q.Project, q.Branch, q.Q, like(q.Path)+"%", words,
-		q.Limit+1, q.Offset, pos, neg, knowledgetypes.ExcludedWords(q.Q))
+		q.Limit+1, q.Offset, pos, neg, knowledgetypes.ExcludedWords(q.Q), v.Nodes, v.Admin)
 	if err != nil {
 		return nil, false, err
 	}
@@ -159,13 +153,7 @@ func (s *SearchRepository) Readable(ctx context.Context, v knowledgetypes.Viewer
 	return postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowTo[uuid.UUID], `
 		WITH RECURSIVE bound AS (
 			SELECT node_id
-			FROM role_bindings
-			WHERE user_id = $1
-			UNION ALL
-			SELECT b.node_id
-			FROM role_bindings b
-			JOIN group_members gm ON gm.group_id = b.group_id
-			WHERE gm.user_id = $1
+			FROM viewer_bindings($1, $4::uuid[], $5::boolean)
 		),
 		readable AS (
 			SELECT n.id
@@ -180,7 +168,7 @@ func (s *SearchRepository) Readable(ctx context.Context, v knowledgetypes.Viewer
 		FROM nodes n
 		WHERE n.kind = 'project'
 			AND n.id IN (SELECT id FROM readable)
-			AND ($3::uuid IS NULL OR n.id = $3)`, v.UserID, v.Superadmin, project)
+			AND ($3::uuid IS NULL OR n.id = $3)`, v.UserID, v.Superadmin, project, v.Nodes, v.Admin)
 }
 
 func (s *SearchRepository) DefaultBranches(ctx context.Context, projects []uuid.UUID) (map[uuid.UUID]string, error) {

@@ -52,8 +52,12 @@ func (c *CatalogServices) UseSecretUsers(users ...catalogports.SecretUserPort) {
 	c.Secrets.secretUsers = users
 }
 
+func (c *CatalogServices) UseOwners(owners catalogports.OwnersFilterPort) {
+	c.Table.owners = owners
+}
+
 func (c *CatalogServices) Wired() bool {
-	return c.Nodes.managed != nil && len(c.Activity.sources) > 0 && len(c.Secrets.secretUsers) > 0
+	return c.Nodes.managed != nil && len(c.Activity.sources) > 0 && len(c.Secrets.secretUsers) > 0 && c.Table.owners != nil
 }
 
 type CatalogServices struct {

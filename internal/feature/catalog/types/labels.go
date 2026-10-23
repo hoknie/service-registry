@@ -30,7 +30,12 @@ func ValidateLabelQuery(q LabelQuery) (LabelQuery, error) {
 	return out, nil
 }
 
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
 func LikePrefix(q string) string {
-	r := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
-	return r.Replace(q) + "%"
+	return likeEscaper.Replace(q) + "%"
+}
+
+func LikeContains(q string) string {
+	return "%" + likeEscaper.Replace(q) + "%"
 }

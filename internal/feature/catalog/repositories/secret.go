@@ -159,6 +159,17 @@ func (s *SecretRepository) Refs(ctx context.Context, ids []uuid.UUID) (map[uuid.
 	return out, nil
 }
 
+func (s *SecretRepository) InScope(ctx context.Context, scope *uuid.UUID) ([]catalogtypes.ScopedSecret, error) {
+	return postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (catalogtypes.ScopedSecret, error) {
+		var row catalogtypes.ScopedSecret
+		return row, r.Scan(&row.ID, &row.Name, &row.Stored.Enc, &row.Stored.Ref)
+	}, `
+		SELECT id, name, value_enc, value_ref
+		FROM secrets
+		WHERE node_id IS NOT DISTINCT FROM $1
+		ORDER BY id`, scope)
+}
+
 func (s *SecretRepository) Sealed(ctx context.Context) ([]catalogtypes.StoredSecretRow, error) {
 	return postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (catalogtypes.StoredSecretRow, error) {
 		var row catalogtypes.StoredSecretRow

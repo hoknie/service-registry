@@ -19,15 +19,13 @@ func NewSourceRepository(db *pgtx.DB) *SourceRepository { return &SourceReposito
 func scanSource(row pgx.CollectableRow) (knowledgetypes.StoredSource, error) {
 	var s knowledgetypes.StoredSource
 	var kind string
-	var fp *string
-	err := row.Scan(&kind, &s.Forge, &s.URL, &s.APIURL, &s.Path, &s.CredentialsSecretID, &s.CredentialsEnc, &s.CredentialsRef, &fp,
+	err := row.Scan(&kind, &s.Forge, &s.URL, &s.APIURL, &s.Path, &s.CredentialsSecretID,
 		&s.Heads, &s.DefaultBranch,
 		&s.WorkingTree, &s.IncludeIgnored, &s.UpdatedAt)
 	s.Kind = knowledgetypes.SourceKind(kind)
+	s.Credentials = catalogtypes.Credentials{Kind: catalogtypes.CredentialsNone}
 	if s.CredentialsSecretID != nil {
 		s.Credentials = catalogtypes.Credentials{Kind: catalogtypes.CredentialsSecret, SecretID: s.CredentialsSecretID}
-	} else {
-		s.Credentials = catalogtypes.LegacyCredentials(s.CredentialsEnc, s.CredentialsRef, fp)
 	}
 	if s.Heads == nil {
 		s.Heads = map[string]string{}
@@ -38,7 +36,7 @@ func scanSource(row pgx.CollectableRow) (knowledgetypes.StoredSource, error) {
 func (s *SourceRepository) Get(ctx context.Context, projectID uuid.UUID) (*knowledgetypes.StoredSource, error) {
 	return postgres.Find(ctx, s.db.From(ctx), constraints, scanSource, `
 		SELECT s.kind, COALESCE(s.forge, ''), COALESCE(s.url, ''), COALESCE(s.api_url, ''),
-			COALESCE(s.path, ''), s.credentials_secret_id, s.credentials_enc, s.credentials_ref, s.credentials_fingerprint, s.heads,
+			COALESCE(s.path, ''), s.credentials_secret_id, s.heads,
 			COALESCE(s.default_branch, ''), s.working_tree, s.include_ignored, rfc3339(s.updated_at)
 		FROM knowledge_sources s
 		WHERE s.project_id = $1`, projectID)
@@ -60,21 +58,12 @@ func (s *SourceRepository) Put(ctx context.Context, projectID uuid.UUID, n knowl
 				credentials_secret_id = CASE
 					WHEN $8 AND s.kind = EXCLUDED.kind AND s.url IS NOT DISTINCT FROM EXCLUDED.url THEN s.credentials_secret_id
 					ELSE EXCLUDED.credentials_secret_id END,
-				credentials_enc = CASE
-					WHEN $8 AND s.kind = EXCLUDED.kind AND s.url IS NOT DISTINCT FROM EXCLUDED.url THEN s.credentials_enc
-					ELSE NULL END,
-				credentials_ref = CASE
-					WHEN $8 AND s.kind = EXCLUDED.kind AND s.url IS NOT DISTINCT FROM EXCLUDED.url THEN s.credentials_ref
-					ELSE NULL END,
-				credentials_fingerprint = CASE
-					WHEN $8 AND s.kind = EXCLUDED.kind AND s.url IS NOT DISTINCT FROM EXCLUDED.url THEN s.credentials_fingerprint
-					ELSE NULL END,
 				heads = CASE
 					WHEN s.kind = EXCLUDED.kind AND s.url IS NOT DISTINCT FROM EXCLUDED.url AND s.path IS NOT DISTINCT FROM EXCLUDED.path THEN s.heads
 					ELSE '{}' END,
 				updated_at = now()
 			RETURNING s.kind, COALESCE(s.forge, ''), COALESCE(s.url, ''), COALESCE(s.api_url, ''),
-				COALESCE(s.path, ''), s.credentials_secret_id, s.credentials_enc, s.credentials_ref, s.credentials_fingerprint, s.heads,
+				COALESCE(s.path, ''), s.credentials_secret_id, s.heads,
 				COALESCE(s.default_branch, ''), s.working_tree, s.include_ignored, rfc3339(s.updated_at)`, projectID, string(n.Kind),
 			n.Forge, n.URL, n.APIURL, n.Path, n.SecretID, n.Keep, n.WorkingTree, n.IncludeIgnored)
 		if err != nil {
@@ -108,24 +97,30 @@ func (s *SourceRepository) SetHeads(ctx context.Context, projectID uuid.UUID, he
 	return err
 }
 
-func (s *SourceRepository) Secrets(ctx context.Context) ([]knowledgetypes.SourceSecret, error) {
-	return postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (knowledgetypes.SourceSecret, error) {
-		var x knowledgetypes.SourceSecret
-		err := r.Scan(&x.ProjectID, &x.CredentialsEnc)
+func (s *SourceRepository) Legacy(ctx context.Context) ([]knowledgetypes.LegacySource, error) {
+	tx := s.db.From(ctx)
+	if ok, err := postgres.HasColumn(ctx, tx, knowledgetypes.SourceTable, knowledgetypes.SourceColumnCredentials); err != nil || !ok {
+		return nil, err
+	}
+	return postgres.List(ctx, tx, constraints, func(r pgx.CollectableRow) (knowledgetypes.LegacySource, error) {
+		var x knowledgetypes.LegacySource
+		err := r.Scan(&x.ProjectID, &x.ParentID, &x.Slug, &x.Enc, &x.Ref)
 		return x, err
 	}, `
-		SELECT project_id, credentials_enc
-		FROM knowledge_sources
-		WHERE credentials_enc IS NOT NULL
-		ORDER BY project_id`)
+		SELECT s.project_id, n.parent_id, n.slug, s.credentials_enc, s.credentials_ref
+		FROM knowledge_sources s
+		JOIN nodes n ON n.id = s.project_id
+		WHERE s.credentials_secret_id IS NULL
+			AND (s.credentials_enc IS NOT NULL OR s.credentials_ref IS NOT NULL)
+		ORDER BY s.project_id`)
 }
 
-func (s *SourceRepository) ReplaceSecret(ctx context.Context, projectID uuid.UUID, enc string) error {
-	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+func (s *SourceRepository) AdoptSecret(ctx context.Context, projectID, secret uuid.UUID) error {
+	return postgres.ExecFound(ctx, s.db.From(ctx), constraints, `
 		UPDATE knowledge_sources
-		SET credentials_enc = $2
-		WHERE project_id = $1`, projectID, enc)
-	return err
+		SET credentials_secret_id = $2, credentials_enc = NULL, credentials_ref = NULL, credentials_fingerprint = NULL,
+			updated_at = now()
+		WHERE project_id = $1`, projectID, secret)
 }
 
 func (s *SourceRepository) SecretUsage(ctx context.Context, secrets []uuid.UUID) (map[uuid.UUID]int64, error) {

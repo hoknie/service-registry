@@ -24,7 +24,7 @@ func (s *NodesService) Children(ctx context.Context, p accesstypes.Principal, pa
 		return accesstypes.Page[catalogtypes.WalkNode]{}, apperr.Wrap(err)
 	}
 	items, total, err := s.nodeRepository.Walk(ctx, catalogtypes.Walk{
-		UserID: p.UserID, Root: parent, RootReadable: readable, Depth: 1, Limit: page.Limit, Offset: page.Offset,
+		Viewer: viewerOf(p), Root: parent, RootReadable: readable, Depth: 1, Limit: page.Limit, Offset: page.Offset,
 	})
 	if err != nil {
 		return accesstypes.Page[catalogtypes.WalkNode]{}, apperr.Wrap(err)
@@ -45,7 +45,7 @@ func (s *NodesService) Tree(ctx context.Context, p accesstypes.Principal, root *
 		return nil, false, apperr.Wrap(err)
 	}
 	nodes, _, err := s.nodeRepository.Walk(ctx, catalogtypes.Walk{
-		UserID: p.UserID, Root: root, RootReadable: readable, Depth: d, Limit: TreeMaxNodes + 1,
+		Viewer: viewerOf(p), Root: root, RootReadable: readable, Depth: d, Limit: TreeMaxNodes + 1,
 	})
 	if err != nil {
 		return nil, false, apperr.Wrap(err)
