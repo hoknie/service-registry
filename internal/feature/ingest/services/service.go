@@ -2,6 +2,7 @@ package services
 
 import (
 	catalogservices "svc-registry/internal/feature/catalog/services"
+	ingestports "svc-registry/internal/feature/ingest/ports"
 	"svc-registry/internal/feature/ingest/repositories"
 	notifyservices "svc-registry/internal/feature/notify/services"
 	topologyservices "svc-registry/internal/feature/topology/services"
@@ -47,6 +48,8 @@ type IngestServices struct {
 	Accept  *AcceptService
 	Records *RecordsService
 }
+
+func (f *IngestServices) Use(docs ingestports.DocsTriggerPort) { f.Accept.docs = docs }
 
 func New(d Deps) *IngestServices {
 	p := newParts(d)

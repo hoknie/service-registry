@@ -27,6 +27,25 @@ func (s *CollectionRepository) RequestCollect(ctx context.Context, projectID uui
 	return err
 }
 
+func (s *CollectionRepository) Trigger(ctx context.Context, projectID uuid.UUID) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		INSERT INTO knowledge_settings (project_id, next_run_at, triggered_at)
+		SELECT $1, now(), clock_timestamp()
+		WHERE EXISTS (
+			SELECT 1
+			FROM forge_repositories r
+			WHERE r.project_id = $1
+				AND r.orphaned_at IS NULL
+		) OR EXISTS (
+			SELECT 1
+			FROM knowledge_sources x
+			WHERE x.project_id = $1
+		)
+		ON CONFLICT (project_id)
+		DO UPDATE SET next_run_at = now(), triggered_at = clock_timestamp()`, projectID)
+	return err
+}
+
 func (s *CollectionRepository) Claim(ctx context.Context, limit, leaseSecs int) ([]uuid.UUID, error) {
 	if _, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO knowledge_settings (project_id)
@@ -73,24 +92,32 @@ func (s *CollectionRepository) Extend(ctx context.Context, projectID uuid.UUID, 
 	return err
 }
 
-func (s *CollectionRepository) Release(ctx context.Context, projectID uuid.UUID, afterSecs uint32, clearForce bool) error {
+func (s *CollectionRepository) Release(ctx context.Context, projectID uuid.UUID, r knowledgetypes.Release) error {
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		UPDATE knowledge_settings
-		SET lease_until = NULL, next_run_at = now() + make_interval(secs => $2),
-			force = CASE WHEN $3 THEN false ELSE force END
-		WHERE project_id = $1`, projectID, float64(afterSecs), clearForce)
+		SET lease_until = NULL,
+			next_run_at = CASE
+				WHEN NOT $3 THEN now() + make_interval(secs => $2)
+				WHEN triggered_at IS DISTINCT FROM $4 THEN now()
+				ELSE NULL END,
+			triggered_at = CASE
+				WHEN $3 AND triggered_at IS DISTINCT FROM $4 THEN triggered_at
+				WHEN NOT $3 AND $5 AND triggered_at IS DISTINCT FROM $4 THEN triggered_at
+				ELSE NULL END,
+			force = false
+		WHERE project_id = $1`, projectID, float64(r.AfterSecs), r.OnEvent, r.Seen, r.Retry)
 	return err
 }
 
 func (s *CollectionRepository) Project(ctx context.Context, projectID uuid.UUID) (knowledgetypes.Project, error) {
 	p, err := postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (knowledgetypes.Project, error) {
 		var p knowledgetypes.Project
-		err := r.Scan(&p.ID, &p.DefaultBranch, &p.ConnectionID, &p.Force)
+		err := r.Scan(&p.ID, &p.DefaultBranch, &p.ConnectionID, &p.Force, &p.TriggeredAt)
 		p.Synced = p.ConnectionID != nil
 		return p, err
 	}, `
 		SELECT n.id, COALESCE(n.default_branch, r.default_branch, '') AS default_branch, r.connection_id,
-			COALESCE(s.force, false) AS force
+			COALESCE(s.force, false) AS force, s.triggered_at
 		FROM nodes n
 		LEFT JOIN forge_repositories r ON r.project_id = n.id AND r.orphaned_at IS NULL
 		LEFT JOIN knowledge_settings s ON s.project_id = n.id

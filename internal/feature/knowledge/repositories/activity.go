@@ -15,7 +15,7 @@ func (s *CollectionRepository) Signals(ctx context.Context, projects []uuid.UUID
 		WITH collect AS (
 			SELECT n.id AS project_id, 'collect'::text AS kind,
 				COALESCE(s.lease_until > now(), false) AS running,
-				COALESCE(s.next_run_at <= now(), true) AND NOT COALESCE(s.lease_until > now(), false) AS queued,
+				(s.project_id IS NULL OR COALESCE(s.next_run_at <= now(), false)) AND NOT COALESCE(s.lease_until > now(), false) AS queued,
 				COALESCE(l.status = 'failed', false) AS failed,
 				l.error_code AS code,
 				rfc3339(l.finished_at) AS last_at,

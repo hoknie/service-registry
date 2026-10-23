@@ -13,7 +13,7 @@ Russian and English words ("ветки" finds "ветка", "deploy" finds "depl
 by their beginning ("Репозит" finds "репозиторий"); without a branch it looks at each project's default
 documentation branch (`local` for a local directory). The migration that added the word forms rebuilds
 the index of every stored file. A new snapshot is taken within `KNOWLEDGE_INTERVAL_SECS` after a branch gets a new
-head (forge sync or push webhook), or at once with **Collect now**. Content is stored once per
+head (forge sync or push webhook), right after an event in the **On events** mode (see below), or at once with **Collect now**. Content is stored once per
 SHA-256; `KNOWLEDGE_KEEP` older snapshots of a branch are kept, and they go when the branch record
 goes. Limits and timing: `KNOWLEDGE_*` in
 `.env.example`.
@@ -53,6 +53,35 @@ Local paths must lie inside `KNOWLEDGE_LOCAL_ROOTS` (absolute directories; empty
 are off), checked by the real path on save and on every collection.
 
 Searching the collected documentation by words or by meaning: [search-engines.md](search-engines.md).
+
+## When documentation is refreshed
+
+The **Refresh** setting (field `refresh` of the documentation settings) picks one of two modes. Like the other
+fields, it is set on an organization, folder or project and inherited by the nearest node that sets it:
+
+- **On a timer** (`interval`, the default). Each project is checked every `KNOWLEDGE_INTERVAL_SECS`; a branch whose
+  head moved gets a new snapshot. Events do not queue anything extra.
+- **On events** (`event`). No timer. A collection is queued within seconds by:
+  - every new event accepted for the project by `POST /api/v1/ingest/projects/{id}/events` (a replay with the same
+    idempotency key is not new);
+  - a forge synchronization started by a push webhook, by **Sync now** or by `forge:sync` that moved the head of a
+    branch of the project. A scheduled synchronization does not queue one.
+
+In both modes **Collect now**, a change of the documentation settings and saving the source queue a collection. Events
+that come during a collection queue exactly one more. Without events a project in this mode is not refreshed: a local
+directory without CI is collected only by **Collect now**. Runs queued by an event are shown with the trigger
+**By event** (`trigger=event`) in the scan history.
+
+A CI step that sends the deployment also refreshes the documentation of the deployed branch:
+
+```sh
+curl -fsS -X POST "$REGISTRY_URL/api/v1/ingest/projects/$PROJECT_ID/events" \
+  -H "Authorization: Bearer $SVCR_PROJECT_KEY" -H 'Content-Type: application/json' \
+  -d '{"type":"service.deployed","version":1,"occurred_at":"'"$(date -u +%FT%TZ)"'",
+       "idempotency_key":"'"$CI_PIPELINE_ID"'",
+       "payload":{"service":"api","environment":"prod","version":"'"$VERSION"'",
+                  "branch":"'"$CI_COMMIT_BRANCH"'","commit_sha":"'"$CI_COMMIT_SHA"'"}}'
+```
 
 ## API descriptions
 

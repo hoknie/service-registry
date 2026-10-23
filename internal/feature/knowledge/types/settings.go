@@ -16,7 +16,17 @@ type Settings struct {
 	Exclude  []string
 	Branches []string
 	APIs     bool
+	Refresh  Refresh
 }
+
+type Refresh string
+
+const (
+	RefreshInterval Refresh = "interval"
+	RefreshEvent    Refresh = "event"
+)
+
+func (r Refresh) Valid() bool { return r == RefreshInterval || r == RefreshEvent }
 
 var APIPatterns = []string{
 	"**/openapi*.{yaml,yml,json}",
@@ -32,7 +42,7 @@ const (
 )
 
 func DefaultSettings() Settings {
-	return Settings{Exclude: []string{}, Branches: []string{}, APIs: true}
+	return Settings{Exclude: []string{}, Branches: []string{}, APIs: true, Refresh: RefreshInterval}
 }
 
 func ValidateSettings(s Settings) (Settings, error) {

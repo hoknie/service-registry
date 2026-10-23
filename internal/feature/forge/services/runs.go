@@ -73,4 +73,5 @@ type SyncService struct {
 	secrets              *secretbox.Box
 	connectionsService   *ConnectionsService
 	unlink               *UnlinkService
+	docs                 forgeports.DocsTriggerPort
 }

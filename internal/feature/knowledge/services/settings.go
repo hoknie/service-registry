@@ -11,12 +11,14 @@ import (
 	"svc-registry/internal/feature/knowledge/repositories"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/apperr"
+	"svc-registry/internal/platform/config"
 )
 
 type KnowledgeSettings struct {
-	Settings                                         knowledgetypes.Settings
-	Own                                              knowledgetypes.NodeSettings
-	IncludeFrom, ExcludeFrom, BranchesFrom, APIsFrom *knowledgetypes.ChainNode
+	Settings                                                      knowledgetypes.Settings
+	Own                                                           knowledgetypes.NodeSettings
+	IncludeFrom, ExcludeFrom, BranchesFrom, APIsFrom, RefreshFrom *knowledgetypes.ChainNode
+	IntervalSecs                                                  uint32
 }
 
 func (s *SettingsService) effectiveSettings(ctx context.Context, id uuid.UUID) (knowledgetypes.Settings, error) {
@@ -41,7 +43,8 @@ func (s *SettingsService) nodeSettings(ctx context.Context, id uuid.UUID) (Knowl
 		return &chain[i]
 	}
 	return KnowledgeSettings{Settings: sc, Own: chain[0].Own, IncludeFrom: origin(from.Include), ExcludeFrom: origin(from.Exclude),
-		BranchesFrom: origin(from.Branches), APIsFrom: origin(from.APIs)}, nil
+		BranchesFrom: origin(from.Branches), APIsFrom: origin(from.APIs), RefreshFrom: origin(from.Refresh),
+		IntervalSecs: s.cfg.Knowledge.IntervalSecs}, nil
 }
 
 func (s *SettingsService) GetKnowledgeSettings(ctx context.Context, p accesstypes.Principal, id uuid.UUID) (KnowledgeSettings, error) {
@@ -66,6 +69,7 @@ func (s *SettingsService) PutKnowledgeSettings(ctx context.Context, p accesstype
 }
 
 type SettingsService struct {
+	cfg               *config.Config
 	catalog           *catalogservices.CatalogServices
 	patternRepository *repositories.PatternRepository
 }

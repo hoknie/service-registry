@@ -19,7 +19,7 @@ func TestSettingsAreInheritedPerField(t *testing.T) {
 	eq(t, a.send("PUT", settingsPath(api), a.admin, obj{"exclude": []string{}}).status, 200)
 
 	got := a.get(settingsPath(api), a.admin)
-	contains(t, got.text(), `"include":["docs/**"],"exclude":[],"branches":[],"apis":true,"own":{"exclude":[]}`)
+	contains(t, got.text(), `"include":["docs/**"],"exclude":[],"branches":[],"apis":true,"refresh":"interval"`)
 	s := got.json(t)
 	eq(t, at(s, "from", "include", "id"), any(folder))
 	eq(t, at(s, "from", "include", "kind"), any("folder"))
@@ -32,12 +32,12 @@ func TestSettingsAreInheritedPerField(t *testing.T) {
 	eq(t, at(r.json(t), "from", "exclude", "name"), any("backend"))
 
 	r = a.send("PUT", settingsPath(api), a.admin, obj{})
-	contains(t, r.text(), `"include":["docs/**"],"exclude":["docs/drafts/**"],"branches":[],"apis":true,"own":{}`)
+	contains(t, r.text(), `"include":["docs/**"],"exclude":["docs/drafts/**"],"branches":[],"apis":true,"refresh":"interval"`)
 	eq(t, scalar[int64](t, a.db, "SELECT count(*) FROM knowledge_patterns WHERE node_id = $1", api), int64(0), "an empty row is deleted")
 
 	r = a.send("PUT", settingsPath(folder), a.admin, obj{"include": []string{"docs/**"}, "exclude": []string{"docs/drafts/**"}, "apis": false})
 	eq(t, r.status, 200, r.text())
-	contains(t, r.text(), `"apis":false,"own":{"apis":false,`)
+	contains(t, r.text(), `"apis":false,"refresh":"interval"`)
 	s = a.get(settingsPath(api), a.admin).json(t)
 	eq(t, s["apis"], any(false))
 	eq(t, at(s, "from", "apis", "name"), any("backend"))
@@ -89,4 +89,32 @@ func (a *testApp) fileList(project string) string {
 	a.t.Helper()
 	return scalar[string](a.t, a.db, "SELECT COALESCE(string_agg(f.path, ',' ORDER BY f.path), '') FROM knowledge_files f "+
 		"WHERE f.snapshot_id = (SELECT id FROM knowledge_snapshots WHERE project_id = $1 ORDER BY collected_at DESC, id DESC LIMIT 1)", project)
+}
+
+func TestRefreshModeIsInheritedAndChecked(t *testing.T) {
+	t.Parallel()
+	a := startSources(t)
+	folder := a.nodeID(a.admin, "folder", a.org, "backend")
+	other := a.nodeID(a.admin, "project", folder, "web")
+
+	r := a.send("PUT", settingsPath(a.org), a.admin, obj{"refresh": "event"})
+	eq(t, r.status, 200, r.text())
+	contains(t, r.text(), `"refresh":"event","interval_secs":300,"own":{"refresh":"event"}`)
+	s := a.get(settingsPath(other), a.admin).json(t)
+	eq(t, s["refresh"], any("event"))
+	eq(t, at(s, "from", "refresh", "id"), any(a.org))
+
+	r = a.send("PUT", settingsPath(a.project), a.admin, obj{"refresh": "interval"})
+	eq(t, r.status, 200, r.text())
+	eq(t, at(r.json(t), "refresh"), any("interval"))
+	eq(t, at(r.json(t), "from", "refresh"), nil)
+	eq(t, a.get(settingsPath(other), a.admin).json(t)["refresh"], any("event"))
+	eq(t, scalar[string](t, a.db, "SELECT refresh FROM knowledge_patterns WHERE node_id = $1", a.project), "interval")
+
+	for _, body := range []obj{{"refresh": "hourly"}, {"refresh": nil}} {
+		r = a.send("PUT", settingsPath(a.org), a.admin, body)
+		eq(t, r.status, 400, body)
+		eq(t, code(t, r), any("validation.invalid_knowledge_settings"))
+	}
+	contains(t, a.get(settingsPath(a.org), a.admin).text(), `"own":{"refresh":"event"}`)
 }

@@ -116,7 +116,7 @@ func (s *BranchRecordsService) SetDefaultBranchIfEmpty(ctx context.Context, proj
 	})
 }
 
-func (s *BranchRecordsService) SyncForgeBranches(ctx context.Context, projectID uuid.UUID, branches []catalogtypes.ForgeBranch, complete bool) error {
+func (s *BranchRecordsService) SyncForgeBranches(ctx context.Context, projectID uuid.UUID, branches []catalogtypes.ForgeBranch, complete bool) (bool, error) {
 	kept := make([]catalogtypes.ForgeBranch, 0, len(branches))
 	for _, b := range branches {
 		if catalogtypes.BranchFits(b.Name) {

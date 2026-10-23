@@ -42,11 +42,11 @@ export function ApiCards({ projectId, branch, labels: t, hrefOf }: Props) {
       </div>
       <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((a) => (
-          <li key={a.path}>
-            <DocLink href={hrefOf(a.path)} className="grid h-full gap-1 rounded-card border border-line bg-surface p-3 shadow-elev-1 hover:border-line-strong">
-              <span className="flex items-center gap-2">
+          <li key={a.path} className="min-w-0">
+            <DocLink href={hrefOf(a.path)} className="grid h-full grid-cols-[minmax(0,1fr)] gap-1 rounded-card border border-line bg-surface p-3 shadow-elev-1 hover:border-line-strong">
+              <span className="flex min-w-0 items-center gap-2">
                 <Badge tone="outline">{a.format}</Badge>
-                <span className="truncate font-medium text-ink">{a.title ?? a.path}</span>
+                <span className="min-w-0 truncate font-medium text-ink">{a.title ?? a.path}</span>
                 {a.version && <span className="font-mono text-xs text-muted">{a.version}</span>}
                 {a.vendored && <Badge tone="outline">{t.vendored}</Badge>}
               </span>

@@ -95,7 +95,7 @@ func TestMergeTakesEachFieldFromTheNearestNode(t *testing.T) {
 	if strings.Join(s.Include, ",") != "docs/**" || len(s.Exclude) != 0 || strings.Join(s.Branches, ",") != "release/*" {
 		t.Fatalf("merged: %+v", s)
 	}
-	if from != (From{Include: 1, Exclude: 0, Branches: 2, APIs: -1}) {
+	if from != (From{Include: 1, Exclude: 0, Branches: 2, APIs: -1, Refresh: -1}) {
 		t.Fatalf("from: %+v", from)
 	}
 
@@ -106,7 +106,7 @@ func TestMergeTakesEachFieldFromTheNearestNode(t *testing.T) {
 	}
 
 	s, from = Merge([]ChainNode{{Name: "api"}, {Name: "acme"}})
-	if s.Include != nil || s.Exclude == nil || len(s.Exclude) != 0 || s.Branches == nil || from != (From{-1, -1, -1, -1}) || !s.APIs {
+	if s.Include != nil || s.Exclude == nil || len(s.Exclude) != 0 || s.Branches == nil || from != (From{-1, -1, -1, -1, -1}) || !s.APIs || s.Refresh != RefreshInterval {
 		t.Fatalf("defaults: %+v %+v", s, from)
 	}
 	off := false
@@ -115,14 +115,28 @@ func TestMergeTakesEachFieldFromTheNearestNode(t *testing.T) {
 	if s.APIs || from.APIs != 0 {
 		t.Fatalf("apis: %+v %+v", s, from)
 	}
-	if !(NodeSettings{}).IsEmpty() || (NodeSettings{IncludeSet: true}).IsEmpty() || (NodeSettings{APIs: &off}).IsEmpty() {
+	event, interval := RefreshEvent, RefreshInterval
+	org.Own = NodeSettings{Refresh: &event}
+	project.Own = NodeSettings{}
+	s, from = Merge([]ChainNode{project, folder, org})
+	if s.Refresh != RefreshEvent || from.Refresh != 2 {
+		t.Fatalf("inherited refresh: %+v %+v", s, from)
+	}
+	project.Own = NodeSettings{Refresh: &interval}
+	s, from = Merge([]ChainNode{project, folder, org})
+	if s.Refresh != RefreshInterval || from.Refresh != 0 {
+		t.Fatalf("own refresh: %+v %+v", s, from)
+	}
+	if !(NodeSettings{}).IsEmpty() || (NodeSettings{IncludeSet: true}).IsEmpty() || (NodeSettings{APIs: &off}).IsEmpty() ||
+		(NodeSettings{Refresh: &event}).IsEmpty() {
 		t.Fatal("IsEmpty")
 	}
 }
 
 func TestValidateNodeSettingsChecksTheSetFields(t *testing.T) {
 	bad := []string{"docs/[a-"}
-	for _, n := range []NodeSettings{{IncludeSet: true, Include: bad}, {Exclude: &bad}, {Branches: &[]string{""}}} {
+	hourly := Refresh("hourly")
+	for _, n := range []NodeSettings{{IncludeSet: true, Include: bad}, {Exclude: &bad}, {Branches: &[]string{""}}, {Refresh: &hourly}} {
 		if _, err := ValidateNodeSettings(n); !errors.Is(err, InvalidSettings) {
 			t.Errorf("%+v: %v", n, err)
 		}

@@ -89,7 +89,7 @@ func New(d Deps) *KnowledgeServices {
 		Ports:     &PortsService{embedder: p.embedder, external: p.external, searchEngine: p.searchEngine, secrets: p.secrets, collectionRepository: p.collectionRepository, sourceRepository: p.sourceRepository},
 		Scans:     &ScansService{catalog: p.catalog, scanRepository: p.scanRepository},
 		Search:    &SearchService{indexRepository: p.indexRepository, searchRepository: p.searchRepository, embedder: p.embedder, searchEngine: p.searchEngine},
-		Settings:  &SettingsService{catalog: p.catalog, patternRepository: p.patternRepository},
+		Settings:  &SettingsService{cfg: p.cfg, catalog: p.catalog, patternRepository: p.patternRepository},
 		Sources:   &SourcesService{catalog: p.catalog, cfg: p.cfg, forge: p.forge, readers: p.readers, sourceRepoRepository: p.sourceRepoRepository, sourceRepository: p.sourceRepository},
 		Space:     &SpaceService{catalog: p.catalog, snapshotRepository: p.snapshotRepository},
 	}
@@ -99,6 +99,7 @@ func New(d Deps) *KnowledgeServices {
 	f.Index.collect = f.Collect
 	f.Index.search = f.Search
 	f.Ports.sourcesService = f.Sources
+	f.Ports.settingsService = f.Settings
 	f.Sources.collect = f.Collect
 	f.Sources.documents = f.Documents
 	f.Sources.settingsService = f.Settings

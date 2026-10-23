@@ -108,11 +108,22 @@ func (s *BranchRepository) SetDefault(ctx context.Context, projectID uuid.UUID, 
 	return postgres.Translate(err, constraints)
 }
 
-func (s *BranchRepository) SyncForge(ctx context.Context, projectID uuid.UUID, branches []catalogtypes.ForgeBranch, complete bool) error {
+func (s *BranchRepository) SyncForge(ctx context.Context, projectID uuid.UUID, branches []catalogtypes.ForgeBranch, complete bool) (bool, error) {
+	moved := false
 	err := s.db.InTx(ctx, func(ctx context.Context) error {
 		tx := s.db.From(ctx)
+		heads, err := postgres.Pairs[string, string](ctx, tx, constraints, `
+			SELECT name, COALESCE(head_sha, '')
+			FROM branches
+			WHERE project_id = $1`, projectID)
+		if err != nil {
+			return err
+		}
 		names := make([]string, 0, len(branches))
 		for _, b := range branches {
+			if head := branchSHA(&b.HeadSHA); head != nil && heads[b.Name] != *head {
+				moved = true
+			}
 			if err := UpsertForgeBranch(ctx, tx, projectID, b.Name, b.HeadSHA, b.Protected, b.CommittedAt); err != nil {
 				return err
 			}
@@ -121,7 +132,7 @@ func (s *BranchRepository) SyncForge(ctx context.Context, projectID uuid.UUID, b
 		if !complete {
 			return nil
 		}
-		_, err := tx.Exec(ctx, `
+		_, err = tx.Exec(ctx, `
 			UPDATE branches
 			SET gone_at = now(), updated_at = now()
 			WHERE project_id = $1
@@ -130,7 +141,7 @@ func (s *BranchRepository) SyncForge(ctx context.Context, projectID uuid.UUID, b
 				AND NOT (name = ANY($2::text[]))`, projectID, names)
 		return err
 	})
-	return postgres.Translate(err, constraints)
+	return moved, postgres.Translate(err, constraints)
 }
 
 func (s *BranchRepository) SetPinned(ctx context.Context, projectID uuid.UUID, name string, pinned bool) (*catalogtypes.Branch, error) {

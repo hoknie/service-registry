@@ -154,7 +154,7 @@ export function SearchView({ locale, labels: t, kinds }: Props) {
                 className="flex flex-wrap items-center gap-2 font-medium text-ink hover:text-signal"
               >
                 <FileText aria-hidden="true" className="size-4 text-muted" />
-                <span className="font-mono text-sm">{h.path}</span>
+                <span className="min-w-0 font-mono text-sm [overflow-wrap:anywhere]">{h.path}</span>
                 <Badge tone="outline">{kinds[h.kind]}</Badge>
               </Link>
               <p className="mt-1 text-xs text-muted">

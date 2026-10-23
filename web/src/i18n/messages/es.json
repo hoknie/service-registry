@@ -1444,7 +1444,12 @@
         "apisCollect": "Recopilar descripciones de API",
         "apisHint": "Los archivos OpenAPI, Swagger y .proto de cualquier carpeta y todo lo que está en apidocs/ y api-docs/ se recopilan sin patrones de «Incluir»; «Excluir» también se aplica a ellos.",
         "apisOn": "Se recopilan",
-        "apisOff": "No se recopilan"
+        "apisOff": "No se recopilan",
+        "refresh": "Actualización",
+        "refreshInterval": "Por temporizador",
+        "refreshEvent": "Por eventos",
+        "refreshIntervalHint": "cada {minutes} min",
+        "refreshEventHint": "tras un despliegue desde CI y un webhook del forge; sin eventos, solo «Recopilar ahora»"
       },
       "noSource": "La documentación necesita una fuente: sincroniza el proyecto con un forge o define una fuente en los ajustes de documentación.",
       "source": {
@@ -1817,7 +1822,8 @@
     },
     "triggers": {
       "schedule": "Programado",
-      "manual": "Manual"
+      "manual": "Manual",
+      "event": "Por evento"
     },
     "sources": {
       "forge": "Sincronización con forge",

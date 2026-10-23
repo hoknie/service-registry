@@ -11,6 +11,7 @@ import (
 	knowledgeports "svc-registry/internal/feature/knowledge/ports"
 	"svc-registry/internal/feature/knowledge/repositories"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
+	"svc-registry/internal/platform/apperr"
 	"svc-registry/pkg/secretbox"
 )
 
@@ -99,6 +100,14 @@ func (s *PortsService) SecretUsage(ctx context.Context, secrets []uuid.UUID) (ma
 	return s.sourceRepository.SecretUsage(ctx, secrets)
 }
 
+func (s *PortsService) TriggerCollection(ctx context.Context, projectID uuid.UUID) error {
+	settings, err := s.settingsService.effectiveSettings(ctx, projectID)
+	if err != nil || settings.Refresh != knowledgetypes.RefreshEvent {
+		return err
+	}
+	return apperr.Wrap(s.collectionRepository.Trigger(ctx, projectID))
+}
+
 type PortsService struct {
 	embedder             knowledgeports.EmbedderPort
 	external             knowledgeports.ExternalIndexPort
@@ -107,4 +116,5 @@ type PortsService struct {
 	collectionRepository *repositories.CollectionRepository
 	sourceRepository     *repositories.SourceRepository
 	sourcesService       *SourcesService
+	settingsService      *SettingsService
 }

@@ -1444,7 +1444,12 @@
         "apisCollect": "收集 API 描述",
         "apisHint": "任意目录中的 OpenAPI、Swagger 和 .proto 文件以及 apidocs/ 和 api-docs/ 下的所有内容无需“包含”模式即被收集；“排除”同样适用。",
         "apisOn": "收集",
-        "apisOff": "不收集"
+        "apisOff": "不收集",
+        "refresh": "更新方式",
+        "refreshInterval": "按定时",
+        "refreshEvent": "按事件",
+        "refreshIntervalHint": "每 {minutes} 分钟",
+        "refreshEventHint": "在 CI 部署和 forge webhook 之后；没有事件时只能“立即收集”"
       },
       "noSource": "文档需要来源：将项目与 forge 同步，或在文档设置中设置来源。",
       "source": {
@@ -1817,7 +1822,8 @@
     },
     "triggers": {
       "schedule": "定时",
-      "manual": "手动"
+      "manual": "手动",
+      "event": "按事件"
     },
     "sources": {
       "forge": "Forge 同步",

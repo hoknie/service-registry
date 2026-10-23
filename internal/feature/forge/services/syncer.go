@@ -16,6 +16,7 @@ import (
 type syncer struct {
 	svc      *SyncService
 	conn     forgetypes.Connection
+	trigger  forgetypes.Trigger
 	client   forgeports.ClientPort
 	groups   map[string]uuid.UUID
 	counts   forgetypes.Counts
@@ -198,12 +199,23 @@ func (s *syncer) branches(ctx context.Context, projectID uuid.UUID, r forgetypes
 			if truncated && len(s.problems) < forgetypes.MaxProblems {
 				s.problems = append(s.problems, forgetypes.Problem{FullPath: r.FullPath, Code: "branches.truncated"})
 			}
-			if err := s.svc.catalog.BranchRecords.SyncForgeBranches(ctx, projectID, list, !truncated); err != nil {
+			moved, err := s.svc.catalog.BranchRecords.SyncForgeBranches(ctx, projectID, list, !truncated)
+			if err != nil {
+				return err
+			}
+			if err := s.triggerDocs(ctx, projectID, moved); err != nil {
 				return err
 			}
 		}
 	}
 	return s.svc.catalog.BranchRecords.SetDefaultBranch(ctx, projectID, ptr.NonEmpty(r.DefaultBranch))
+}
+
+func (s *syncer) triggerDocs(ctx context.Context, projectID uuid.UUID, moved bool) error {
+	if !moved || s.trigger == forgetypes.TriggerSchedule || s.svc.docs == nil {
+		return nil
+	}
+	return s.svc.docs.TriggerCollection(ctx, projectID)
 }
 
 func (s *syncer) skipDetails(path string, err error) {

@@ -8,10 +8,11 @@ type NodeSettings struct {
 	Exclude    *[]string
 	Branches   *[]string
 	APIs       *bool
+	Refresh    *Refresh
 }
 
 func (n NodeSettings) IsEmpty() bool {
-	return !n.IncludeSet && n.Exclude == nil && n.Branches == nil && n.APIs == nil
+	return !n.IncludeSet && n.Exclude == nil && n.Branches == nil && n.APIs == nil && n.Refresh == nil
 }
 
 type ChainNode struct {
@@ -21,10 +22,10 @@ type ChainNode struct {
 	Own  NodeSettings
 }
 
-type From struct{ Include, Exclude, Branches, APIs int }
+type From struct{ Include, Exclude, Branches, APIs, Refresh int }
 
 func Merge(chain []ChainNode) (Settings, From) {
-	s, from := DefaultSettings(), From{Include: -1, Exclude: -1, Branches: -1, APIs: -1}
+	s, from := DefaultSettings(), From{Include: -1, Exclude: -1, Branches: -1, APIs: -1, Refresh: -1}
 	for i := len(chain) - 1; i >= 0; i-- {
 		own := chain[i].Own
 		if own.IncludeSet {
@@ -39,11 +40,17 @@ func Merge(chain []ChainNode) (Settings, From) {
 		if own.APIs != nil {
 			s.APIs, from.APIs = *own.APIs, i
 		}
+		if own.Refresh != nil {
+			s.Refresh, from.Refresh = *own.Refresh, i
+		}
 	}
 	return s, from
 }
 
 func ValidateNodeSettings(n NodeSettings) (NodeSettings, error) {
+	if n.Refresh != nil && !n.Refresh.Valid() {
+		return NodeSettings{}, InvalidSettings
+	}
 	lists := [][]string{n.Include}
 	if n.Exclude != nil {
 		lists = append(lists, *n.Exclude)

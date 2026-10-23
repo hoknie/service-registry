@@ -128,6 +128,7 @@ export function ScansTable({ locale, labels: t, url, hrefOf, projects }: Props) 
               <option value="">{t.filters.all}</option>
               <option value="schedule">{t.triggers.schedule}</option>
               <option value="manual">{t.triggers.manual}</option>
+              <option value="event">{t.triggers.event}</option>
             </Select>
           )}
         </Field>

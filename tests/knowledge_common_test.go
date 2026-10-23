@@ -59,7 +59,7 @@ func (d *docsProject) push(files map[string]string, branches ...forgefake.Branch
 func (a *testApp) collect() int {
 	a.t.Helper()
 	ctx := context.Background()
-	execSQL(a.t, a.db, "UPDATE knowledge_settings SET next_run_at = now()")
+	execSQL(a.t, a.db, "UPDATE knowledge_settings SET next_run_at = now() WHERE next_run_at IS NOT NULL")
 	claimed, err := a.services.Knowledge.Collect.ClaimKnowledge(ctx, 100, 120)
 	if err != nil {
 		a.t.Fatal(err)

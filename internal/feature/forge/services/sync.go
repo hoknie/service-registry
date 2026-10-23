@@ -77,7 +77,7 @@ func (s *SyncService) runSync(ctx context.Context, id uuid.UUID, trigger forgety
 	if err != nil || conn == nil {
 		return run, err
 	}
-	res, next := s.synchronize(ctx, *conn)
+	res, next := s.synchronize(ctx, *conn, trigger)
 	if err := s.finishRun(keep, *conn, run, res); err != nil {
 		return run, err
 	}
@@ -169,7 +169,7 @@ func (s *SyncService) remoteState(ctx context.Context, conn forgetypes.Connectio
 	return targets, orphans, nil
 }
 
-func (s *SyncService) synchronize(ctx context.Context, conn forgetypes.Connection) (forgetypes.RunResult, *time.Time) {
+func (s *SyncService) synchronize(ctx context.Context, conn forgetypes.Connection, trigger forgetypes.Trigger) (forgetypes.RunResult, *time.Time) {
 	res := forgetypes.RunResult{Status: forgetypes.RunSucceeded}
 	failed := func(res forgetypes.RunResult, err error) (forgetypes.RunResult, *time.Time) {
 		if ctx.Err() != nil {
@@ -189,7 +189,7 @@ func (s *SyncService) synchronize(ctx context.Context, conn forgetypes.Connectio
 	if err != nil {
 		return failed(res, err)
 	}
-	sc := &syncer{svc: s, conn: conn, client: client, groups: groups}
+	sc := &syncer{svc: s, conn: conn, trigger: trigger, client: client, groups: groups}
 	for _, t := range targets {
 		if err := ctx.Err(); err != nil {
 			return failed(sc.res(res), forgetypes.ErrInterrupted)

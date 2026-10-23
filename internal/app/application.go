@@ -101,7 +101,8 @@ func New(cfg config.Config, opts ...Option) (*App, error) {
 	a.Catalog.UseSecretUsers(a.Forge.Ports, a.Knowledge.Ports, a.Deploy.Ports, a.Notify.Ports)
 	a.Catalog.UseOwners(a.Ownership.Ports)
 	a.Catalog.UseTokenRoots(a.Access.Tokens)
-	a.Forge.Use(a.Knowledge.Sources)
+	a.Forge.Use(a.Knowledge.Sources, a.Knowledge.Ports)
+	a.Ingest.Use(a.Knowledge.Ports)
 	if !a.Catalog.Wired() {
 		pool.Close()
 		return nil, ErrNotWired

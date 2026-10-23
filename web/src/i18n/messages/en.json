@@ -1444,7 +1444,12 @@
         "apisCollect": "Collect API descriptions",
         "apisHint": "OpenAPI, Swagger and .proto files in any folder and everything under apidocs/ and api-docs/ are collected without “Include” patterns; “Exclude” applies to them too.",
         "apisOn": "Collected",
-        "apisOff": "Not collected"
+        "apisOff": "Not collected",
+        "refresh": "Refresh",
+        "refreshInterval": "On a timer",
+        "refreshEvent": "On events",
+        "refreshIntervalHint": "every {minutes} min",
+        "refreshEventHint": "after a deployment from CI and a forge webhook; without events only “Collect now”"
       },
       "noSource": "Documentation needs a source: synchronize the project with a forge or set a source in the documentation settings.",
       "source": {
@@ -1817,7 +1822,8 @@
     },
     "triggers": {
       "schedule": "On schedule",
-      "manual": "Manually"
+      "manual": "Manually",
+      "event": "By event"
     },
     "sources": {
       "forge": "Forge sync",

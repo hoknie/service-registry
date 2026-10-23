@@ -50,7 +50,10 @@ func newParts(d Deps) *parts {
 	}
 }
 
-func (f *ForgeServices) Use(sources forgeports.ProjectSourcesPort) { f.Unlink.sources = sources }
+func (f *ForgeServices) Use(sources forgeports.ProjectSourcesPort, docs forgeports.DocsTriggerPort) {
+	f.Unlink.sources = sources
+	f.Sync.docs = docs
+}
 
 type ForgeServices struct {
 	Connections *ConnectionsService

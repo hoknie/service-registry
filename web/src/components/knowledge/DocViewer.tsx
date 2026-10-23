@@ -128,7 +128,7 @@ export function DocViewer({ node, branch, path, paths, docHref, onOpenDoc, label
     <Panel
       title={
         <span className="flex flex-wrap items-center gap-2">
-          <span className="font-mono text-sm">{file?.path ?? path}</span>
+          <span className="min-w-0 font-mono text-sm [overflow-wrap:anywhere]">{file?.path ?? path}</span>
           {file?.git_status && (
             <Badge tone={file.git_status === "untracked" ? "amber" : "outline"} title={t.gitStatusHint[file.git_status]}>
               {t.gitStatus[file.git_status]}

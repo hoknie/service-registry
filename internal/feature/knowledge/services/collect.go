@@ -63,8 +63,11 @@ func (s *CollectService) RunKnowledgeCollect(ctx context.Context, id uuid.UUID) 
 	if err != nil {
 		return apperr.Wrap(err)
 	}
-	if p.Force {
+	switch {
+	case p.Force:
 		run.scan.Trigger = knowledgetypes.TriggerManual
+	case p.TriggeredAt != nil:
+		run.scan.Trigger = knowledgetypes.TriggerEvent
 	}
 	defer s.recordScan(ctx, run.scan)
 	if p.Settings, err = s.settingsService.effectiveSettings(ctx, id); err != nil {

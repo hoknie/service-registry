@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -85,7 +86,15 @@ type Project struct {
 	ConnectionID  *uuid.UUID
 	Settings      Settings
 	Force         bool
+	TriggeredAt   *time.Time
 	Editor        bool
+}
+
+type Release struct {
+	AfterSecs uint32
+	OnEvent   bool
+	Retry     bool
+	Seen      *time.Time
 }
 
 type Hit struct {

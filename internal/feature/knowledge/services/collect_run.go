@@ -20,16 +20,20 @@ type collectRun struct {
 	scan        *knowledgetypes.Scan
 	next, retry uint32
 	defBranch   string
+	failed      bool
 }
 
 func (r *collectRun) release(ctx context.Context) error {
 	if ctx.Err() != nil {
 		return nil
 	}
-	return apperr.Wrap(r.s.collectionRepository.Release(context.WithoutCancel(ctx), r.id, r.next, true))
+	event := r.project.Settings.Refresh == knowledgetypes.RefreshEvent
+	return apperr.Wrap(r.s.collectionRepository.Release(context.WithoutCancel(ctx), r.id, knowledgetypes.Release{
+		AfterSecs: r.next, OnEvent: event && !r.failed, Retry: event && r.failed, Seen: r.project.TriggeredAt}))
 }
 
 func (r *collectRun) delay(reset *time.Time) {
+	r.failed = true
 	if reset != nil {
 		if secs := time.Until(*reset).Seconds(); secs > 0 {
 			r.next = uint32(secs) + 1

@@ -31,3 +31,7 @@ type ProjectSourcesPort interface {
 	AdoptRemote(ctx context.Context, projectID uuid.UUID, src forgetypes.RemoteSource) error
 	DropOwn(ctx context.Context, projectID uuid.UUID) error
 }
+
+type DocsTriggerPort interface {
+	TriggerCollection(ctx context.Context, projectID uuid.UUID) error
+}

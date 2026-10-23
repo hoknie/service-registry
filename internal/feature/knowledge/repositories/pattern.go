@@ -19,7 +19,7 @@ func NewPatternRepository(db *pgtx.DB) *PatternRepository { return &PatternRepos
 func (s *PatternRepository) Chain(ctx context.Context, nodeID uuid.UUID) ([]knowledgetypes.ChainNode, error) {
 	chain, err := postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (knowledgetypes.ChainNode, error) {
 		var n knowledgetypes.ChainNode
-		err := r.Scan(&n.ID, &n.Kind, &n.Name, &n.Own.IncludeSet, &n.Own.Include, &n.Own.Exclude, &n.Own.Branches, &n.Own.APIs)
+		err := r.Scan(&n.ID, &n.Kind, &n.Name, &n.Own.IncludeSet, &n.Own.Include, &n.Own.Exclude, &n.Own.Branches, &n.Own.APIs, &n.Own.Refresh)
 		return n, err
 	}, `
 		WITH RECURSIVE up AS (
@@ -31,7 +31,7 @@ func (s *PatternRepository) Chain(ctx context.Context, nodeID uuid.UUID) ([]know
 			FROM nodes n
 			JOIN up ON n.id = up.parent_id
 		)
-		SELECT up.id, up.kind, up.name, COALESCE(p.include_set, false), p.include, p.exclude, p.branches, p.apis
+		SELECT up.id, up.kind, up.name, COALESCE(p.include_set, false), p.include, p.exclude, p.branches, p.apis, p.refresh
 		FROM up
 		LEFT JOIN knowledge_patterns p ON p.node_id = up.id
 		ORDER BY up.lvl`, nodeID)
@@ -60,11 +60,11 @@ func (s *PatternRepository) Put(ctx context.Context, nodeID uuid.UUID, in knowle
 			include = nil
 		}
 		_, err = postgres.Exec(ctx, tx, constraints, `
-			INSERT INTO knowledge_patterns (node_id, include_set, include, exclude, branches, apis)
-			VALUES ($1, $2, $3, $4, $5, $6)
+			INSERT INTO knowledge_patterns (node_id, include_set, include, exclude, branches, apis, refresh)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			ON CONFLICT (node_id)
-			DO UPDATE SET include_set = $2, include = $3, exclude = $4, branches = $5, apis = $6, updated_at = now()`,
-			nodeID, in.IncludeSet, include, in.Exclude, in.Branches, in.APIs)
+			DO UPDATE SET include_set = $2, include = $3, exclude = $4, branches = $5, apis = $6, refresh = $7, updated_at = now()`,
+			nodeID, in.IncludeSet, include, in.Exclude, in.Branches, in.APIs, in.Refresh)
 	}
 	if err != nil {
 		return err

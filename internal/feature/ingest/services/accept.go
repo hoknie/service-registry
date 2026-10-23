@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	catalogservices "svc-registry/internal/feature/catalog/services"
+	ingestports "svc-registry/internal/feature/ingest/ports"
 	"svc-registry/internal/feature/ingest/repositories"
 	ingesttypes "svc-registry/internal/feature/ingest/types"
 	notifyservices "svc-registry/internal/feature/notify/services"
@@ -60,6 +61,11 @@ func (s *AcceptService) AcceptEvent(ctx context.Context, who Authenticated, body
 		}
 		if err := s.recordBranch(ctx, who.projectID, envelope); err != nil {
 			return err
+		}
+		if s.docs != nil {
+			if err := s.docs.TriggerCollection(ctx, who.projectID); err != nil {
+				return err
+			}
 		}
 		if err := s.recordDependencies(ctx, who.projectID, envelope, accepted.Deployment); err != nil {
 			return err
@@ -136,4 +142,5 @@ type AcceptService struct {
 	limiter              *auth.IngestLimiter
 	notify               *notifyservices.NotifyServices
 	topology             *topologyservices.TopologyServices
+	docs                 ingestports.DocsTriggerPort
 }

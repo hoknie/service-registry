@@ -22,6 +22,7 @@ type ScanTrigger string
 const (
 	TriggerSchedule ScanTrigger = "schedule"
 	TriggerManual   ScanTrigger = "manual"
+	TriggerEvent    ScanTrigger = "event"
 )
 
 type ScanStatus string
@@ -191,7 +192,7 @@ func ValidateScanFilter(q ScanQuery) (ScanFilter, error) {
 	}
 	switch t := ScanTrigger(q.Trigger); t {
 	case "":
-	case TriggerSchedule, TriggerManual:
+	case TriggerSchedule, TriggerManual, TriggerEvent:
 		f.Trigger = &t
 	default:
 		return ScanFilter{}, InvalidScanFilter

@@ -7,6 +7,7 @@ type KnowledgeSettings struct {
 	Exclude  Optional[[]string] `json:"exclude"`
 	Branches Optional[[]string] `json:"branches"`
 	APIs     Optional[bool]     `json:"apis"`
+	Refresh  Optional[string]   `json:"refresh"`
 }
 
 func (r KnowledgeSettings) Settings() (knowledgetypes.NodeSettings, error) {
@@ -31,6 +32,12 @@ func (r KnowledgeSettings) Settings() (knowledgetypes.NodeSettings, error) {
 			return knowledgetypes.NodeSettings{}, knowledgetypes.InvalidSettings
 		}
 		out.APIs = r.APIs.Value
+	}
+	if r.Refresh.Present {
+		if r.Refresh.Value == nil {
+			return knowledgetypes.NodeSettings{}, knowledgetypes.InvalidSettings
+		}
+		out.Refresh = new(knowledgetypes.Refresh(*r.Refresh.Value))
 	}
 	return out, nil
 }

@@ -521,13 +521,16 @@ export type ProjectLink = {
   source: "template" | "event";
 };
 
-export type KnowledgeSettings = { include: string[] | null; exclude: string[]; branches: string[]; apis: boolean };
+export type KnowledgeRefresh = "interval" | "event";
+
+export type KnowledgeSettings = { include: string[] | null; exclude: string[]; branches: string[]; apis: boolean; refresh: KnowledgeRefresh };
 
 export type SettingsField = "include" | "exclude" | "branches";
 
 export type NodeKnowledgeSettings = KnowledgeSettings & {
+  interval_secs: number;
   own: Partial<KnowledgeSettings>;
-  from: Record<SettingsField | "apis", { id: string; kind: NodeKind; name: string } | null>;
+  from: Record<SettingsField | "apis" | "refresh", { id: string; kind: NodeKind; name: string } | null>;
 };
 
 export type Snapshot = {
@@ -678,7 +681,7 @@ export function errorCode(e: unknown): string {
 
 export type ScanStatus = "ok" | "unchanged" | "warning" | "failed";
 export type ScanKind = "collect" | "index";
-export type ScanTrigger = "schedule" | "manual";
+export type ScanTrigger = "schedule" | "manual" | "event";
 export type ScanSource = "forge" | "remote" | "local_dir" | "local_git";
 
 export type ScanBranch = {

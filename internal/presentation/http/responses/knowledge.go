@@ -13,12 +13,14 @@ type KnowledgeSettings struct {
 	Exclude  []string `json:"exclude"`
 	Branches []string `json:"branches"`
 	APIs     bool     `json:"apis"`
+	Refresh  string   `json:"refresh"`
 }
 
 type NodeSettings struct {
 	KnowledgeSettings
-	Own  map[string]any             `json:"own"`
-	From map[string]*SettingsOrigin `json:"from"`
+	IntervalSecs uint32                     `json:"interval_secs"`
+	Own          map[string]any             `json:"own"`
+	From         map[string]*SettingsOrigin `json:"from"`
 }
 
 type SettingsOrigin struct {
@@ -41,19 +43,22 @@ func NodeSettingsOf(s knowledgeservices.KnowledgeSettings) NodeSettings {
 	if s.Own.APIs != nil {
 		own["apis"] = *s.Own.APIs
 	}
+	if s.Own.Refresh != nil {
+		own["refresh"] = *s.Own.Refresh
+	}
 	origin := func(n *knowledgetypes.ChainNode) *SettingsOrigin {
 		if n == nil {
 			return nil
 		}
 		return &SettingsOrigin{ID: n.ID, Kind: n.Kind, Name: n.Name}
 	}
-	return NodeSettings{KnowledgeSettings: KnowledgeSettingsOf(s.Settings), Own: own,
+	return NodeSettings{KnowledgeSettings: KnowledgeSettingsOf(s.Settings), IntervalSecs: s.IntervalSecs, Own: own,
 		From: map[string]*SettingsOrigin{"include": origin(s.IncludeFrom), "exclude": origin(s.ExcludeFrom), "branches": origin(s.BranchesFrom),
-			"apis": origin(s.APIsFrom)}}
+			"apis": origin(s.APIsFrom), "refresh": origin(s.RefreshFrom)}}
 }
 
 func KnowledgeSettingsOf(s knowledgetypes.Settings) KnowledgeSettings {
-	out := KnowledgeSettings{Include: s.Include, Exclude: s.Exclude, Branches: s.Branches, APIs: s.APIs}
+	out := KnowledgeSettings{Include: s.Include, Exclude: s.Exclude, Branches: s.Branches, APIs: s.APIs, Refresh: string(s.Refresh)}
 	if out.Exclude == nil {
 		out.Exclude = []string{}
 	}

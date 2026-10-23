@@ -50,7 +50,7 @@ export function readScanParams(get: (name: string) => string | null): ScanParams
     project: get("project") ?? "",
     kind: get("kind") === "collect" || get("kind") === "index" ? (get("kind") as string) : "",
     status,
-    trigger: get("trigger") === "schedule" || get("trigger") === "manual" ? (get("trigger") as string) : "",
+    trigger: ["schedule", "manual", "event"].includes(get("trigger") ?? "") ? (get("trigger") as string) : "",
     page: Number.isFinite(page) && page > 0 ? page : 1,
   };
 }

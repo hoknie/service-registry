@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import type { Locale } from "@/i18n/config";
 import { errorText } from "@/i18n/errors";
 import { format } from "@/i18n/format";
-import { apiGet, apiSend, errorCode, type NodeKnowledgeSettings, type SettingsField } from "@/lib/api";
+import { apiGet, apiSend, errorCode, type KnowledgeRefresh, type NodeKnowledgeSettings, type SettingsField } from "@/lib/api";
 
 import { useUiText } from "../UiText";
 import { Badge } from "../ui/Badge";
@@ -15,6 +15,7 @@ import { Button } from "../ui/Button";
 import { Checkbox } from "../ui/Field";
 import { Message, type Note } from "../ui/Message";
 import { Panel } from "../ui/Panel";
+import { Segmented } from "../ui/Segmented";
 import { SkeletonPanel } from "../ui/Skeleton";
 import { catalogHref, type CatalogLabels } from "../catalog/shared";
 import { hasInvalidTags } from "../ui/TagInput";
@@ -31,11 +32,20 @@ type Props = {
 
 const FIELDS: SettingsField[] = ["include", "exclude", "branches"];
 
-type Draft = Record<SettingsField, { set: boolean; text: string }> & { apis: { set: boolean; on: boolean } };
+type Draft = Record<SettingsField, { set: boolean; text: string }> & {
+  apis: { set: boolean; on: boolean };
+  refresh: { set: boolean; value: KnowledgeRefresh };
+};
 
 function draftOf(s: NodeKnowledgeSettings): Draft {
   const own = (f: SettingsField) => ({ set: f in s.own, text: (s.own[f] ?? []).join("\n") });
-  return { include: own("include"), exclude: own("exclude"), branches: own("branches"), apis: { set: "apis" in s.own, on: s.own.apis ?? s.apis } };
+  return {
+    include: own("include"),
+    exclude: own("exclude"),
+    branches: own("branches"),
+    apis: { set: "apis" in s.own, on: s.own.apis ?? s.apis },
+    refresh: { set: "refresh" in s.own, value: s.own.refresh ?? s.refresh },
+  };
 }
 
 export function KnowledgeSettings({ nodeId, project, canWrite, locale, labels: t, onSaved }: Props) {
@@ -66,13 +76,14 @@ export function KnowledgeSettings({ nodeId, project, canWrite, locale, labels: t
     if (!draft) return;
     setBusy(true);
     setNote(null);
-    const body: Record<string, string[] | boolean | null> = {};
+    const body: Record<string, string[] | boolean | string | null> = {};
     for (const f of FIELDS) {
       if (!draft[f].set) continue;
       const lines = patternLines(draft[f].text);
       body[f] = f === "include" && lines.length === 0 ? null : lines;
     }
     if (draft.apis.set) body.apis = draft.apis.on;
+    if (draft.refresh.set) body.refresh = draft.refresh.value;
     try {
       show(await apiSend<NodeKnowledgeSettings>("PUT", url, body));
       onSaved?.();
@@ -170,6 +181,43 @@ export function KnowledgeSettings({ nodeId, project, canWrite, locale, labels: t
               <p className="text-sm text-ink-2">{settings.apis ? t.apisOn : t.apisOff}</p>
             )}
             <p className="text-xs text-muted">{t.apisHint}</p>
+          </section>
+          <section className="grid gap-2" aria-label={t.refresh}>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-medium text-ink">{t.refresh}</h3>
+              {originOf(draft.refresh.set, settings.from.refresh)}
+              {canWrite && (
+                <span className="ml-auto">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setDraft({ ...draft, refresh: { set: !draft.refresh.set, value: settings.refresh } })}
+                  >
+                    {draft.refresh.set ? t.reset : t.override}
+                  </Button>
+                </span>
+              )}
+            </div>
+            {canWrite && draft.refresh.set ? (
+              <Segmented
+                label={t.refresh}
+                value={draft.refresh.value}
+                options={[
+                  { value: "interval", label: t.refreshInterval },
+                  { value: "event", label: t.refreshEvent },
+                ]}
+                onChange={(v) => setDraft({ ...draft, refresh: { set: true, value: v as KnowledgeRefresh } })}
+                className="w-fit"
+              />
+            ) : (
+              <p className="text-sm text-ink-2">{settings.refresh === "event" ? t.refreshEvent : t.refreshInterval}</p>
+            )}
+            <p className="text-xs text-muted">
+              {(draft.refresh.set ? draft.refresh.value : settings.refresh) === "event"
+                ? t.refreshEventHint
+                : format(t.refreshIntervalHint, { minutes: String(Math.max(1, Math.round(settings.interval_secs / 60))) })}
+            </p>
           </section>
           <Message note={note} />
           {canWrite && (
