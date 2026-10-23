@@ -125,13 +125,14 @@ func (s *OwnerRepository) Suggest(ctx context.Context, v catalogtypes.Viewer, al
 
 func (s *OwnerRepository) Candidates(ctx context.Context, prefix string) ([]ownershiptypes.Candidate, error) {
 	return postgres.List(ctx, s.db.From(ctx), constraints, scanCandidate, `
-		SELECT c.is_group, c.id, c.name, c.email
+		SELECT c.is_group, c.id, c.name, c.email, c.members
 		FROM (
-			SELECT true AS is_group, g.id, g.name, NULL::text AS email
+			SELECT true AS is_group, g.id, g.name, NULL::text AS email,
+				(SELECT count(*) FROM group_members m WHERE m.group_id = g.id) AS members
 			FROM groups g
 			WHERE g.name ILIKE $1 ESCAPE '\'
 			UNION ALL
-			SELECT false, u.id, u.display_name, u.email
+			SELECT false, u.id, u.display_name, u.email, NULL::bigint
 			FROM users u
 			WHERE u.status = 'active'
 				AND NOT u.is_service

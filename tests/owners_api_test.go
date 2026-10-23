@@ -158,7 +158,17 @@ func TestOwnerCandidatesAndSuggestions(t *testing.T) {
 	eq(t, r.status, 200, r.text())
 	eq(t, ownerNames(t, r), "Platform,plato")
 	eq(t, at(r.json(t), "items", 1, "email"), any("plato@example.com"))
-	eq(t, code(t, o.get(ownersPath(o.backend)+"/candidates?q=p", ed)), any("validation.invalid_filter"))
+	if _, ok := at(r.json(t), "items", 0, "members").(float64); !ok {
+		t.Errorf("group members: %v", at(r.json(t), "items", 0, "members"))
+	}
+	eq(t, at(r.json(t), "items", 1, "members"), nil)
+	r = o.get(ownersPath(o.backend)+"/candidates?q=p", ed)
+	eq(t, r.status, 200, r.text())
+	eq(t, ownerNames(t, r), "Platform,plato")
+	r = o.get(ownersPath(o.backend)+"/candidates", ed)
+	eq(t, r.status, 200, r.text())
+	eq(t, at(r.json(t), "items", 0, "subject_kind"), any("group"))
+	eq(t, code(t, o.get(ownersPath(o.backend)+"/candidates?q="+strings.Repeat("x", 101), ed)), any("validation.invalid_filter"))
 	r = o.get(ownersPath(o.backend)+"/candidates?q=pla", vi)
 	eq(t, r.status, 403)
 	eq(t, code(t, r), any("auth.forbidden"))

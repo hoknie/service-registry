@@ -14,6 +14,7 @@ export function useSuggestions(draft: string, suggest: Suggest | undefined, focu
   const [items, setItems] = useState<Suggestion[]>([]);
   const [active, setActive] = useState(0);
   const [closed, setClosed] = useState(false);
+  const [settled, setSettled] = useState<string | null>(null);
 
   useEffect(() => {
     if (!suggest || !focused) return;
@@ -25,6 +26,7 @@ export function useSuggestions(draft: string, suggest: Suggest | undefined, focu
           setItems(found);
           setActive(0);
           setClosed(false);
+          setSettled(draft);
         })
         .catch(() => !abort.signal.aborted && setItems([]));
     }, 200);
@@ -35,6 +37,7 @@ export function useSuggestions(draft: string, suggest: Suggest | undefined, focu
   }, [draft, suggest, focused]);
 
   const open = !!suggest && focused && !closed && items.length > 0;
+  const empty = !!suggest && focused && !closed && settled === draft && items.length === 0;
 
   const onKey = (e: KeyboardEvent<HTMLInputElement>, choose: (s: Suggestion) => void): boolean => {
     if (!open) return false;
@@ -69,7 +72,7 @@ export function useSuggestions(draft: string, suggest: Suggest | undefined, focu
       }
     : {};
 
-  return { listId, items, active, setActive, open, onKey, inputProps, close: () => setClosed(true) };
+  return { listId, items, active, setActive, open, empty, onKey, inputProps, close: () => setClosed(true) };
 }
 
 type ListProps = {

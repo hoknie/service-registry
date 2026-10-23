@@ -39,8 +39,13 @@ func TestValidateOwners(t *testing.T) {
 
 func TestQueriesAndSets(t *testing.T) {
 	t.Parallel()
-	if _, err := ValidateCandidateQuery("p"); !errors.Is(err, catalogtypes.InvalidFilter) {
-		t.Errorf("one rune: %v", err)
+	for _, q := range []string{"", "p"} {
+		if got, err := ValidateCandidateQuery(q); err != nil || got != q {
+			t.Errorf("%q: %q %v", q, got, err)
+		}
+	}
+	if _, err := ValidateCandidateQuery(strings.Repeat("x", QueryMaxLen+1)); !errors.Is(err, catalogtypes.InvalidFilter) {
+		t.Errorf("long candidate query: %v", err)
 	}
 	if q, err := ValidateCandidateQuery(" pla "); err != nil || q != "pla" {
 		t.Errorf("pla: %q %v", q, err)

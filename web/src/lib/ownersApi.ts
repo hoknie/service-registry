@@ -14,7 +14,6 @@ export function clearOwners(nodeId: string): Promise<OwnerSet> {
 }
 
 export async function ownerCandidates(nodeId: string, q: string, signal?: AbortSignal): Promise<OwnerCandidate[]> {
-  if (q.trim().length < 2) return [];
   const path = `/v1/catalog/nodes/${nodeId}/owners/candidates?q=${encodeURIComponent(q.trim())}` as `/${string}`;
   return (await apiGet<Items<OwnerCandidate>>(path, signal)).items;
 }

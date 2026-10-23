@@ -8,6 +8,8 @@ The versions follow [Semantic Versioning](https://semver.org/).
 
 ### Features
 
+- Added renew docs by trigger ([3c63a04](https://github.com/hoknie/service-registry/commit/3c63a04edcab251e3e8c691af9eea5504b0bddfd))
+- Updated changelog ([d6bb2f1](https://github.com/hoknie/service-registry/commit/d6bb2f1c50927b6af2a854d275368bee89f07927))
 - Updated access and ui ([8c89158](https://github.com/hoknie/service-registry/commit/8c8915823767fbe00b3e89e3ca394e96a834745e))
 - Updated packaging and ci ([57e5383](https://github.com/hoknie/service-registry/commit/57e5383621529fdedfdc4216884a78d6b4e89a79))
 - Updated docs ([d106ac8](https://github.com/hoknie/service-registry/commit/d106ac853b1a8a340c1060cc2b98216085e6a399))
@@ -32,6 +34,11 @@ The versions follow [Semantic Versioning](https://semver.org/).
 - Bump the go-minor-and-patch group with 3 updates (#11) ([8759b0b](https://github.com/hoknie/service-registry/commit/8759b0b4ea751207a53ce813c2c8ff5efa9da578))
 - Bump golang from 1.27.0-alpine to 1.27.2-alpine in /env (#10) ([86e0732](https://github.com/hoknie/service-registry/commit/86e0732729dfd491f5b000c7d41ec849d124cfa7))
 - Bump the actions group with 2 updates (#13) ([113817a](https://github.com/hoknie/service-registry/commit/113817ad79b686a0c9699adb97c7e8296b9b502b))
+
+### Other
+
+- Docs update ([c016059](https://github.com/hoknie/service-registry/commit/c0160597774cb88e1aab636e711326d05289c652))
+- Updated changelog ([77c960e](https://github.com/hoknie/service-registry/commit/77c960e719cb5225e95a6a13faabdbedbccab1b0))
 
 [Full diff](https://github.com/hoknie/service-registry/compare/v0.1.1...HEAD)
 

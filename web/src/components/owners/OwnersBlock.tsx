@@ -16,9 +16,9 @@ import { Skeleton } from "../ui/Skeleton";
 import { catalogHref, type CatalogLabels } from "../catalog/shared";
 import { GroupContactsView } from "./GroupContactsView";
 
-type Props = { node: CatalogNode; locale: Locale; labels: CatalogLabels; canWrite: boolean };
+type Props = { node: CatalogNode; locale: Locale; labels: CatalogLabels };
 
-export function OwnersBlock({ node, locale, labels, canWrite }: Props) {
+export function OwnersBlock({ node, locale, labels }: Props) {
   const t = labels.owners;
   const [set, setSet] = useState<OwnerSet | null>(null);
   const version = useCatalogVersion();
@@ -38,6 +38,7 @@ export function OwnersBlock({ node, locale, labels, canWrite }: Props) {
       </Panel>
     );
   }
+  if (set.items.length === 0) return null;
   const from = set.from && !set.own ? [...(node.path ?? [])].find((p) => p.id === set.from) : undefined;
 
   return (
@@ -45,33 +46,18 @@ export function OwnersBlock({ node, locale, labels, canWrite }: Props) {
       title={t.title}
       icon={UsersRound}
       actions={
-        from ? (
+        from && (
           <Link href={catalogHref(locale, from.id)} className="text-sm text-signal hover:underline">
             {format(t.inheritedFrom, { name: from.name })}
           </Link>
-        ) : (
-          set.none && <Badge tone="signal">{t.here}</Badge>
         )
       }
     >
-      {set.none ? (
-        <p className="text-sm text-muted">{t.noOwners}</p>
-      ) : set.items.length === 0 ? (
-        <p className="flex flex-wrap items-center gap-2 text-sm text-muted">
-          {t.none}
-          {canWrite && (
-            <Link href={catalogHref(locale, node.id, "settings", null, null, "owners")} className="text-signal hover:underline">
-              {t.assign}
-            </Link>
-          )}
-        </p>
-      ) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {set.items.map((o, i) => (
-            <OwnerCard key={`${o.subject_kind}:${o.subject_id}`} owner={o} primary={i === 0} labels={labels} />
-          ))}
-        </ul>
-      )}
+      <ul className="grid gap-3 sm:grid-cols-2">
+        {set.items.map((o, i) => (
+          <OwnerCard key={`${o.subject_kind}:${o.subject_id}`} owner={o} primary={i === 0} labels={labels} />
+        ))}
+      </ul>
     </Panel>
   );
 }

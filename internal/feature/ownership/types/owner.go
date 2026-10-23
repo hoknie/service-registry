@@ -12,11 +12,10 @@ import (
 )
 
 const (
-	MaxOwners       = 10
-	MaxCandidates   = 20
-	MaxSuggestions  = 20
-	CandidateMinLen = 2
-	QueryMaxLen     = 100
+	MaxOwners      = 10
+	MaxCandidates  = 20
+	MaxSuggestions = 20
+	QueryMaxLen    = 100
 )
 
 type Owner struct {
@@ -64,6 +63,7 @@ type Candidate struct {
 	SubjectID   uuid.UUID
 	Name        string
 	Email       *string
+	Members     *int64
 }
 
 type Suggestion struct {
@@ -97,7 +97,7 @@ func ValidateOwners(in []PutOwner, none bool) ([]NewOwner, error) {
 
 func ValidateCandidateQuery(q string) (string, error) {
 	q = strings.TrimFunc(q, unicode.IsSpace)
-	if n := utf8.RuneCountInString(q); n < CandidateMinLen || n > QueryMaxLen || hasControl(q) {
+	if utf8.RuneCountInString(q) > QueryMaxLen || hasControl(q) {
 		return "", catalogtypes.InvalidFilter
 	}
 	return q, nil

@@ -95,9 +95,7 @@ export function OwnersSettings({ node, locale, labels, canWrite, fail }: Props) 
     >
       <div className="grid gap-4">
         {rows.length === 0 ? (
-          <p className="rounded-md border border-dashed border-line-strong px-4 py-5 text-center text-sm text-muted">
-            {set.none && !editing ? t.noOwners : editing ? t.empty : t.noneAbove}
-          </p>
+          set.none && !editing && <p className="text-sm text-muted">{t.noOwners}</p>
         ) : (
           <ol className="divide-y divide-line rounded-lg border border-line">
             {rows.map((o, i) => {
@@ -140,6 +138,8 @@ export function OwnersSettings({ node, locale, labels, canWrite, fail }: Props) 
               nodeId={node.id}
               label={t.add}
               placeholder={t.addPlaceholder}
+              membersLabel={t.members}
+              exclude={rows}
               disabled={rows.length >= 10}
               onPick={(o) => !rows.some((r) => sameSubject(r, o)) && setDraft([...rows, o])}
             />

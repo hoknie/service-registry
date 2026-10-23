@@ -434,7 +434,7 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
           <Markdown source={node.description} />
         </Panel>
       )}
-      {readable && <OwnersBlock node={node} locale={locale} labels={t} canWrite={canWrite} />}
+      {readable && <OwnersBlock node={node} locale={locale} labels={t} />}
       {project && readable && <ProjectSummary projectId={node.id} locale={locale} labels={t} />}
       {project && readable && <ProjectEvents projectId={node.id} locale={locale} labels={t} onConnect={() => selectTab("connect")} />}
       {!project && childrenList}

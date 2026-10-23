@@ -75,7 +75,7 @@ export type Owner = {
 };
 export type OwnerSet = { items: Owner[]; from: string | null; own: boolean; none: boolean };
 export type OwnerBadge = { subject_kind: SubjectKind; subject_id: string; name: string };
-export type OwnerCandidate = OwnerBadge & { email: string | null };
+export type OwnerCandidate = OwnerBadge & { email: string | null; members: number | null };
 export type OwnerSuggestion = OwnerBadge & { count: number };
 
 export type Member = Pick<User, "id" | "email" | "display_name" | "status"> & {

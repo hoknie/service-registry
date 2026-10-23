@@ -47,7 +47,7 @@ func scanBadge(row pgx.CollectableRow) (badgeRow, error) {
 func scanCandidate(row pgx.CollectableRow) (ownershiptypes.Candidate, error) {
 	var c ownershiptypes.Candidate
 	var isGroup bool
-	err := row.Scan(&isGroup, &c.SubjectID, &c.Name, &c.Email)
+	err := row.Scan(&isGroup, &c.SubjectID, &c.Name, &c.Email, &c.Members)
 	c.SubjectKind = kindOf(isGroup)
 	return c, err
 }

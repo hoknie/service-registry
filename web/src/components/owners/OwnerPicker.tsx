@@ -3,32 +3,49 @@
 import { User, UsersRound } from "lucide-react";
 import { useCallback, useState } from "react";
 
+import { format } from "@/i18n/format";
 import type { Suggestion } from "@/lib/labelSuggest";
-import type { DraftOwner } from "@/lib/owners";
+import { sameSubject, type DraftOwner } from "@/lib/owners";
 import { ownerCandidates } from "@/lib/ownersApi";
 
 import { Input } from "../ui/Field";
 import { SuggestionList, useSuggestions } from "../ui/Suggestions";
+import { useUiText } from "../UiText";
 
-type Props = { nodeId: string; label: string; placeholder: string; onPick: (o: DraftOwner) => void; disabled?: boolean };
+type Props = {
+  nodeId: string;
+  label: string;
+  placeholder: string;
+  membersLabel: string;
+  exclude: DraftOwner[];
+  onPick: (o: DraftOwner) => void;
+  disabled?: boolean;
+};
 
-export function OwnerPicker({ nodeId, label, placeholder, onPick, disabled }: Props) {
+function draftOfValue(s: Suggestion): DraftOwner {
+  const at = s.value.indexOf(":");
+  const kind = s.value.slice(0, at) === "group" ? "group" : "user";
+  return { subject_kind: kind, subject: s.value.slice(at + 1), name: s.label, detail: kind === "user" ? (s.detail ?? null) : null };
+}
+
+export function OwnerPicker({ nodeId, label, placeholder, membersLabel, exclude, onPick, disabled }: Props) {
+  const { common } = useUiText();
   const [draft, setDraft] = useState("");
   const [focused, setFocused] = useState(false);
   const suggest = useCallback(
     async (q: string, signal: AbortSignal): Promise<Suggestion[]> =>
-      (await ownerCandidates(nodeId, q, signal)).map((c) => ({
-        value: `${c.subject_kind}:${c.subject_kind === "group" ? c.name : (c.email ?? c.name)}`,
-        label: c.name,
-        detail: c.email ?? undefined,
-      })),
-    [nodeId],
+      (await ownerCandidates(nodeId, q, signal))
+        .map((c) => ({
+          value: `${c.subject_kind}:${c.subject_kind === "group" ? c.name : (c.email ?? c.name)}`,
+          label: c.name,
+          detail: c.subject_kind === "group" ? format(membersLabel, { n: String(c.members ?? 0) }) : (c.email ?? undefined),
+        }))
+        .filter((s) => !exclude.some((o) => sameSubject(o, draftOfValue(s)))),
+    [nodeId, membersLabel, exclude],
   );
   const hints = useSuggestions(draft, suggest, focused);
   const choose = (s: Suggestion) => {
-    const at = s.value.indexOf(":");
-    const kind = s.value.slice(0, at) === "group" ? "group" : "user";
-    onPick({ subject_kind: kind, subject: s.value.slice(at + 1), name: s.label, detail: s.detail ?? null });
+    onPick(draftOfValue(s));
     setDraft("");
     hints.close();
   };
@@ -63,6 +80,11 @@ export function OwnerPicker({ nodeId, label, placeholder, onPick, disabled }: Pr
             )
           }
         />
+      )}
+      {hints.empty && (
+        <p role="status" className="absolute top-full left-0 z-50 mt-1.5 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-muted shadow-pop">
+          {common.nothingFound}
+        </p>
       )}
     </div>
   );
