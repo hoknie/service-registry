@@ -34,6 +34,8 @@ Both are inherited with the template, so icons set on an organization show up on
 below. Projects show their link icons in the header, in cards, tables and the tree view; a link
 without an address (a variable has no value) is grey. Uploaded files are stored on the server's disk
 in `UPLOADS_DIR` (default `data/uploads` next to the working directory; `off` turns uploads off),
-named by the SHA-256 of their content, and served with a sandboxing `Content-Security-Policy`. In
+named by the SHA-256 of their content, and served with a sandboxing `Content-Security-Policy`. A file no
+template refers to is deleted once it has not been uploaded again or saved in a template for
+`UPLOADS_UNREFERENCED_TTL_SECS` (default one day, 600 seconds to 30 days). In
 Docker the image keeps them in `/data/uploads`; mount a volume there (`env/compose.yml` does).
 Specs: `openspec/specs/links/templates/`, `openspec/specs/links/icons/`.

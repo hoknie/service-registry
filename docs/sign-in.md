@@ -16,11 +16,14 @@ OAUTH_CORP_DISPLAY_NAME=Corporate SSO
 OAUTH_CORP_AUTO_PROVISION=true             # create unknown users…
 OAUTH_CORP_ALLOWED_DOMAINS=example.com     # …only for these email domains
 OAUTH_CORP_GROUP_MAP=platform-team=>Platform;*   # IdP groups → registry groups
+OAUTH_CORP_CONTACT_EDITOR_MAP=platform-leads=>Platform   # IdP groups → contact editors of registry groups
 ```
 
 The first sign-in links the provider account to an existing user with the same **verified**
 email (a superadmin links theirs by hand under **Account → Sign-in methods**). Groups named by
-`GROUP_MAP` follow the provider at every sign-in; members added by hand stay. Who may still use
+`GROUP_MAP` follow the provider at every sign-in; members added by hand stay. `CONTACT_EDITOR_MAP`
+grants the right to edit a group's contacts and on-call link the same way, only in groups the user
+belongs to (no `*`); a right granted by hand stays, one granted by the provider cannot be removed by hand. Who may still use
 a password is `AUTH_PASSWORD_LOGIN` — `all` (default), `superadmins` or `off`. All `OAUTH_*`
 variables: `.env.example`. Specs: `openspec/specs/access/oauth-login/`,
 `openspec/specs/web/oauth-login/`.

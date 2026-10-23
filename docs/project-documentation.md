@@ -1,8 +1,8 @@
 # Project documentation
 
 For every project synchronized from a forge, the registry collects documentation files straight
-from the repository through the forge's API — no clone, no CI step. By default only the README at
-the root of the default branch is collected. The **Documentation settings** tab of a project, folder or
+from the repository through the forge's API — no clone, no CI step. By default the README at
+the root of the default branch and the API descriptions (see below) are collected. The **Documentation settings** tab of a project, folder or
 organization sets glob patterns (`docs/**/*.md`), exclusions
 and extra branches (`release/*`); each field is inherited from the nearest node that sets it, so a
 folder can set the patterns for all its projects and a project can override one field. The
@@ -53,6 +53,33 @@ Local paths must lie inside `KNOWLEDGE_LOCAL_ROOTS` (absolute directories; empty
 are off), checked by the real path on save and on every collection.
 
 Searching the collected documentation by words or by meaning: [search-engines.md](search-engines.md).
+
+## API descriptions
+
+OpenAPI 3.x, Swagger 2.0 and `.proto` files are shown as an «API» view in the documentation section and through the MCP
+tools `list_apis` and `get_api`. They are collected even when the include patterns do not name them: every
+`openapi*.{yaml,yml,json}`, `swagger*.{yaml,yml,json}` and `*.proto` in any folder and everything under `apidocs/` or
+`api-docs/` at any depth, matched regardless of case (`OpenAPI.yaml`, `ApiDocs/`, `Billing.PROTO`); your own include and
+exclude patterns stay case-sensitive. Exclusions and collection limits apply to them as to any file. The **API descriptions**
+switch of the documentation settings turns this off for a node and its subtree (field `apis` of
+`PUT …/knowledge/settings`, inherited like the other fields). Existing snapshots get the files with the next commit.
+
+Vendored descriptions — under `third_party/`, `vendor/` or `node_modules/`, and `.proto` files of `google/`,
+`buf/validate/`, `validate/validate.proto`, `protoc-gen-openapiv2/` and `gogoproto/` — are collected (imports resolve
+against them) but hidden from the list: `GET …/knowledge/apis?all=1` (MCP `list_apis` with `all: true`, **Show
+vendored** in the UI) returns them with `"vendored": true`; `hidden_vendored` counts the hidden ones. A message or enum
+type of a linked `.proto` that comes from another file of the snapshot links to its definition there (`type_files`).
+
+## Collection limits
+
+A snapshot keeps at most `KNOWLEDGE_MAX_FILES` files (default 2000), `KNOWLEDGE_MAX_SNAPSHOT_BYTES` in total (16 MiB)
+and files up to `KNOWLEDGE_MAX_FILE_BYTES` (512 KiB); files beyond them are listed with `skip_reason` `limit` or
+`too_large`. Snapshots in the API count them (`skipped_limit`, `skipped_too_large`), and for superadmins `limits` names
+the variables the snapshot ran into with their current values. The **Documentation** tab and the project page of the
+documentation section warn about an incomplete snapshot: superadmins see which variable to raise, editors are advised to
+narrow the patterns or ask an administrator, other readers are told to contact an administrator. After raising a limit
+restart the server; the snapshot is rebuilt with the next commit or on **Collect now**. The scan history shows how many
+skipped files of a branch are API descriptions (`api_skipped`).
 
 ## Scan history
 
