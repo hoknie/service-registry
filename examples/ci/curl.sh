@@ -8,6 +8,7 @@
 #   SERVICE, ENVIRONMENT, VERSION   what was deployed where
 # Optional: COMMIT_SHA, BRANCH, DEPLOY_URL, DEPLOYED_BY, IDEMPOTENCY_KEY,
 #   CI_RUN_URL — sent as a deployment link (payload.links) of kind "runbook".
+#   DEPENDENCIES — a JSON array of dependencies, e.g. ["acme/backend/billing","external:redis"].
 #
 # occurred_at is computed ONCE, before the retries: a retry then resends the identical event,
 # which the registry answers with 200 and the original result instead of a duplicate.
@@ -42,7 +43,8 @@ curl --fail-with-body --silent --show-error --retry 3 --retry-all-errors -X POST
     "branch": "${BRANCH:-}",
     "url": "${DEPLOY_URL:-}",
     "deployed_by": "${DEPLOYED_BY:-}",
-    "links": $LINKS
+    "links": $LINKS,
+    "dependencies": ${DEPENDENCIES:-null}
   }
 }
 JSON

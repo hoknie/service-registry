@@ -61,7 +61,7 @@ func TestEnvironmentScopesOfTokens(t *testing.T) {
 	eq(t, app.bearer("GET", environmentsPath, app.pat(root, "read"), nil).status, 200)
 	r := app.bearer("POST", environmentsPath, app.pat(root, "read", "write"), obj{"key": "qa", "names": envNames("QA")})
 	eq(t, code(t, r), any("auth.insufficient_scope"))
-	eq(t, app.bearer("POST", environmentsPath, app.pat(root, "admin"), obj{"key": "qa", "names": envNames("QA")}).status, 201)
+	eq(t, app.bearer("POST", environmentsPath, app.pat(root, "settings"), obj{"key": "qa", "names": envNames("QA")}).status, 201)
 	r = app.call("PUT", environmentsPath+"/qa", root)
 	eq(t, r.status, 405)
 	eq(t, r.header("Allow"), "PATCH,DELETE")

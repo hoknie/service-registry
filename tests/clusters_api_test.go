@@ -107,7 +107,7 @@ func TestClustersAreForTheSuperadminOnly(t *testing.T) {
 	eq(t, code(t, app.send("POST", clustersPath, ann, obj{"name": "x"})), any("auth.forbidden"))
 	r = app.bearer("GET", clustersPath, app.pat(root, "read", "write"), nil)
 	eq(t, code(t, r), any("auth.insufficient_scope"))
-	eq(t, app.bearer("GET", clustersPath, app.pat(root, "admin"), nil).status, 200)
+	eq(t, app.bearer("GET", clustersPath, app.pat(root, "clusters"), nil).status, 200)
 }
 
 func TestClusterTokenNeedsAnEncryptionKey(t *testing.T) {

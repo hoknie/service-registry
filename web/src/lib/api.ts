@@ -224,9 +224,9 @@ export type ProjectKey = {
   secret?: string;
 };
 
-export type Scope = "read" | "write" | "admin" | "mcp";
+export type GlobalScope = "users" | "groups" | "clusters" | "settings" | "catalog.root";
 
-export const SCOPES: readonly Scope[] = ["read", "write", "admin", "mcp"];
+export type Scope = "read" | "write" | "mcp" | GlobalScope;
 
 export type TokenNode = { id: string; kind: NodeKind | null; name: string | null; path: string | null };
 

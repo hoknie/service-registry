@@ -59,7 +59,7 @@ func TestSuperadminIssuesTokensForUsers(t *testing.T) {
 	app.user("bob@example.com", false)
 	bob := app.session("bob@example.com", password)
 	eq(t, app.send("POST", "/api/v1/users/"+ci+"/tokens", bob, body).status, 403)
-	adminToken := app.pat(admin, "read", "write", "admin")
+	adminToken := app.pat(admin, "read", "write", "users")
 	r = app.bearer("POST", "/api/v1/users/"+ci+"/tokens", adminToken, body)
 	eq(t, r.status, 403)
 	eq(t, code(t, r), any("auth.session_required"))

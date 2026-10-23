@@ -4,8 +4,18 @@ import { TriangleAlert } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 import { format } from "@/i18n/format";
-import { apiSend, SCOPES, type PersonalToken, type Scope } from "@/lib/api";
-import { canSubmitNodes, scopesForAccess, tokenNodesBody, type PickedNode, type TokenAccess } from "@/lib/tokenNodes";
+import { apiSend, type PersonalToken, type Scope } from "@/lib/api";
+import {
+  BASE_SCOPES,
+  canSubmitNodes,
+  GLOBAL_SCOPES,
+  isGlobalScope,
+  SCOPES,
+  scopesForAccess,
+  tokenNodesBody,
+  type PickedNode,
+  type TokenAccess,
+} from "@/lib/tokenNodes";
 
 import { useUiText } from "../UiText";
 import { Button } from "../ui/Button";
@@ -39,6 +49,23 @@ function Warning({ children }: { children: string }) {
   );
 }
 
+type ScopeBoxProps = { scope: Scope; hint: string; checked: boolean; disabled?: boolean; onChange: (on: boolean) => void };
+
+function ScopeBox({ scope, hint, checked, disabled, onChange }: ScopeBoxProps) {
+  return (
+    <Checkbox
+      checked={checked}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.checked)}
+      label={
+        <span>
+          <code className="font-medium text-ink">{scope}</code> <span className="text-muted">— {hint}</span>
+        </span>
+      }
+    />
+  );
+}
+
 export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIssued, presetScopes, endpoint = "/v1/account/tokens" }: Props) {
   const { common } = useUiText();
   const t = labels.dialog;
@@ -52,9 +79,8 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
   const [note, setNote] = useState<Note>(null);
   const [busy, setBusy] = useState(false);
 
-  const admin = scopes.includes("admin");
+  const global = scopes.some(isGlobalScope);
   const scoped = access === "nodes";
-  const available = SCOPES.filter((s) => s !== "admin" || superadmin);
   const changeAccess = (next: TokenAccess) => {
     setAccess(next);
     setScopes((current) => scopesForAccess(next, current));
@@ -99,7 +125,7 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
       footer={
         <>
           <Button onClick={() => onOpenChange(false)}>{common.cancel}</Button>
-          <Button type="submit" form="issue-token" variant="primary" disabled={busy || scopes.length === 0 || !canSubmitNodes(access, nodes, admin)}>
+          <Button type="submit" form="issue-token" variant="primary" disabled={busy || scopes.length === 0 || !canSubmitNodes(access, nodes, global)}>
             {t.submit}
           </Button>
         </>
@@ -111,23 +137,28 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
         </Field>
         <fieldset className="grid gap-2">
           <legend className="mb-1.5 text-sm font-medium text-ink-2">{t.scopes}</legend>
-          {available.map((s) => (
-            <Checkbox
-              key={s}
-              checked={scopes.includes(s)}
-              disabled={s === "admin" && scoped}
-              onChange={(e) => toggle(s, e.target.checked)}
-              label={
-                <span>
-                  <code className="font-medium text-ink">{s}</code> <span className="text-muted">— {labels.scopeHints[s]}</span>
-                </span>
-              }
-            />
+          {BASE_SCOPES.map((s) => (
+            <ScopeBox key={s} scope={s} hint={labels.scopeHints[s]} checked={scopes.includes(s)} onChange={(on) => toggle(s, on)} />
           ))}
-          {superadmin && scoped && <p className="text-xs text-muted">{t.nodesAdmin}</p>}
-          {superadmin && !scoped && !admin && <p className="text-xs text-muted">{t.wholeSuperadmin}</p>}
+          {superadmin && !scoped && !global && <p className="text-xs text-muted">{t.wholeSuperadmin}</p>}
         </fieldset>
-        {admin && <Warning>{t.adminWarning}</Warning>}
+        {superadmin && (
+          <fieldset className="grid gap-2">
+            <legend className="mb-1.5 text-sm font-medium text-ink-2">{t.globalScopes}</legend>
+            {GLOBAL_SCOPES.map((s) => (
+              <ScopeBox
+                key={s}
+                scope={s}
+                hint={labels.scopeHints[s]}
+                checked={scopes.includes(s)}
+                disabled={scoped}
+                onChange={(on) => toggle(s, on)}
+              />
+            ))}
+            {scoped && <p className="text-xs text-muted">{t.nodesGlobal}</p>}
+          </fieldset>
+        )}
+        {global && <Warning>{t.globalWarning}</Warning>}
         <NodeScopePicker
           access={access}
           onAccess={changeAccess}

@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 // A static export (`web/out`) that the Go binary serves from disk on the same origin as the
-// API (ADR-0022): no Node at runtime. The UI never calls the API by absolute URL, only relative
+// API: no Node at runtime. The UI never calls the API by absolute URL, only relative
 // `/api/...`; locale redirects and the `NEXT_LOCALE` cookie are done by the Go server
 // (`internal/application/web/`), so no middleware/proxy here (ARCHITECTURE.md §9).
 const config: NextConfig = {

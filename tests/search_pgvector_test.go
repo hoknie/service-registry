@@ -79,7 +79,7 @@ func TestSearchModesWithTokensAndMCP(t *testing.T) {
 	eq(t, code(t, r), any("auth.insufficient_scope"))
 	eq(t, s.get("/api/v1/knowledge/search/modes", "").status, 401)
 
-	m := s.mcpSession(s.pat(s.admin, "mcp", "admin"))
+	m := s.mcpSession(s.pat(s.admin, "mcp", "settings"))
 	out, isErr := call(t, m, "search_docs", map[string]any{"query": "как откатить релиз", "mode": "semantic"})
 	eq(t, isErr, false, out)
 	contains(t, out, `"path": "docs/rollback.md"`)

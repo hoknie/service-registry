@@ -3,6 +3,11 @@
 # archive and .pkg (checked against a local Postgres), then the image ghcr.io/<owner>/<repo> for
 # linux/amd64 and linux/arm64 and the GitHub Release with SHA256SUMS and the CHANGELOG.md section
 # of the version. Nothing is published unless every check passed (ADR-0068).
+# The macOS binary and .pkg are signed with Developer ID and the .pkg notarized when the environment
+# `release` (tags v* only) holds the secrets MACOS_CERTIFICATES_P12, MACOS_CERTIFICATES_PASSWORD,
+# MACOS_SIGN_APPLICATION, MACOS_SIGN_INSTALLER, MACOS_NOTARY_KEY_P8, MACOS_NOTARY_KEY_ID,
+# MACOS_NOTARY_ISSUER_ID and the variable MACOS_TEAM_ID; without them the .pkg is unsigned and the
+# release notes say so (ADR-0080, docs/install.md).
 name: release
 
 on:
@@ -104,7 +109,12 @@ jobs:
   macos:
     needs: [gates, web]
     runs-on: macos-14
-    timeout-minutes: 30
+    timeout-minutes: 60
+    environment: release
+    outputs:
+      signed: ${{ steps.keychain.outputs.signed }}
+    env:
+      MACOS_CERTIFICATES_P12: ${{ secrets.MACOS_CERTIFICATES_P12 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -122,15 +132,61 @@ jobs:
           for _ in $(seq 1 60); do "$bin/pg_isready" -q -h 127.0.0.1 && break; sleep 1; done
           "$bin/createdb" -h 127.0.0.1 registry
           echo "CHECK_DATABASE_URL=postgres://$(id -un)@127.0.0.1:5432/registry?sslmode=disable" >> "$GITHUB_ENV"
+      - name: Signing keychain
+        id: keychain
+        env:
+          MACOS_CERTIFICATES_PASSWORD: ${{ secrets.MACOS_CERTIFICATES_PASSWORD }}
+          MACOS_NOTARY_KEY_P8: ${{ secrets.MACOS_NOTARY_KEY_P8 }}
+        run: |
+          if [ -z "$MACOS_CERTIFICATES_P12" ]; then
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "no signing secrets: the .pkg is built unsigned"
+            exit 0
+          fi
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password="$(openssl rand -base64 32)"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 3600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          umask 077
+          printf '%s' "$MACOS_CERTIFICATES_P12" | base64 --decode > "$RUNNER_TEMP/certificates.p12"
+          security import "$RUNNER_TEMP/certificates.p12" -k "$keychain" -P "$MACOS_CERTIFICATES_PASSWORD" \
+            -f pkcs12 -T /usr/bin/codesign -T /usr/bin/productbuild
+          rm -f "$RUNNER_TEMP/certificates.p12"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain" >/dev/null
+          search=("$keychain"); while IFS= read -r known; do search+=("$known"); done < <(security list-keychains -d user | tr -d '" ')
+          security list-keychains -d user -s "${search[@]}"
+          printf '%s' "$MACOS_NOTARY_KEY_P8" > "$RUNNER_TEMP/notary.p8"
+          chmod 0600 "$RUNNER_TEMP/notary.p8"
+          {
+            echo "MACOS_KEYCHAIN=$keychain"
+            echo "MACOS_NOTARY_KEY=$RUNNER_TEMP/notary.p8"
+          } >> "$GITHUB_ENV"
+          echo "signed=true" >> "$GITHUB_OUTPUT"
       - name: A universal binary (arm64 + amd64)
+        env: &signing
+          MACOS_SIGN_APPLICATION: ${{ secrets.MACOS_SIGN_APPLICATION }}
+          MACOS_SIGN_INSTALLER: ${{ secrets.MACOS_SIGN_INSTALLER }}
+          MACOS_TEAM_ID: ${{ vars.MACOS_TEAM_ID }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
         run: ./packaging/package-macos.sh binaries
       - name: The archive
         run: ./packaging/package-macos.sh archive
-      - name: The .pkg
+      - name: The .pkg, signed and notarized when the secrets are set
+        env: *signing
         run: ./packaging/package-macos.sh pkg
-      - name: The .pkg holds what it should, the service starts and admin signs in
+      - name: The .pkg holds what it should, its signature checks out, the service starts and admin signs in
         timeout-minutes: 10
+        env: *signing
         run: ./packaging/package-macos.sh check
+      - name: Remove the signing keychain and the notary key
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/signing.keychain-db" ]; then
+            security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
+          fi
+          rm -f "$RUNNER_TEMP/notary.p8" "$RUNNER_TEMP/certificates.p12"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: packages-macos
@@ -202,8 +258,13 @@ jobs:
       - name: SHA256SUMS
         run: ./packaging/release.sh checksums
       - name: Publish
+        env:
+          MACOS_SIGNED: ${{ needs.macos.outputs.signed }}
         run: |
           ./packaging/release.sh notes > "$RUNNER_TEMP/release-notes.md"
+          if [ "$MACOS_SIGNED" != true ]; then
+            printf '\nThe macOS package is not signed; see docs/install.md\n' >> "$RUNNER_TEMP/release-notes.md"
+          fi
           case "$TAG" in
           *-*) marking=(--prerelease) ;;
           *) marking=(--latest) ;;

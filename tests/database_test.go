@@ -532,8 +532,9 @@ func TestPersonalAccessTokenConstraintsHoldWithoutTheService(t *testing.T) {
 	tdb := migrated(t)
 	user := uuid.Must(uuid.NewV7())
 	execSQL(t, tdb, "INSERT INTO users (id, email, display_name, password_hash) VALUES ($1, 'a@example.com', 'A', 'h')", user)
-	execSQL(t, tdb, insertToken, uuid.Must(uuid.NewV7()), user, "{read,write,admin,mcp}")
+	execSQL(t, tdb, insertToken, uuid.Must(uuid.NewV7()), user, "{read,write,mcp,users,groups,clusters,settings,catalog.root}")
 	contains(t, execErr(t, tdb, insertToken, uuid.Must(uuid.NewV7()), user, "{deploy}"), "personal_access_tokens_scopes_check")
+	contains(t, execErr(t, tdb, insertToken, uuid.Must(uuid.NewV7()), user, "{admin}"), "personal_access_tokens_scopes_check")
 	contains(t, execErr(t, tdb, insertToken, uuid.Must(uuid.NewV7()), user, "{}"), "personal_access_tokens_scopes_check")
 	contains(t, execErr(t, tdb, "INSERT INTO personal_access_tokens (id, user_id, name, prefix, token_hash, scopes) "+
 		"VALUES ($1, $2, 't', 'svcp_0000000', '\\x00', '{read}')", uuid.Must(uuid.NewV7()), user), "personal_access_tokens_token_hash_len_check")
@@ -1024,8 +1025,7 @@ func TestPersonalAccessTokenScopesSplitTheAdminScope(t *testing.T) {
 	execSQL(t, tdb, "INSERT INTO users (id, email, display_name, is_superadmin) VALUES ($1, 'root@example.com', 'Root', true)", user)
 	insert := func(scopes string) uuid.UUID {
 		id := uuid.Must(uuid.NewV7())
-		execSQL(t, tdb, "INSERT INTO personal_access_tokens (id, user_id, name, prefix, token_hash, scopes) "+
-			"VALUES ($1, $2, 't', 'svcp_0000000', decode(md5($1::text) || md5($1::text), 'hex'), $3::text[])", id, user, scopes)
+		execSQL(t, tdb, insertToken, id, user, scopes)
 		return id
 	}
 	scopesOf := func(id uuid.UUID) string {

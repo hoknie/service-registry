@@ -4,6 +4,11 @@
 #   packaging/package-macos.sh [binaries|archive|pkg|check|all]
 # check runs the service from the payload against CHECK_DATABASE_URL, or a throwaway Postgres in
 # Docker when it is unset.
+# Signing is on when the MACOS_SIGN_* / MACOS_NOTARY_* variables are set: the binary gets
+# Developer ID Application with the hardened runtime, the .pkg Developer ID Installer, notarization
+# and a stapled ticket. With none of them set the build is unsigned; a partial set is an error.
+#   MACOS_SIGN_APPLICATION  MACOS_SIGN_INSTALLER  MACOS_TEAM_ID
+#   MACOS_NOTARY_KEY (path to the .p8)  MACOS_NOTARY_KEY_ID  MACOS_NOTARY_ISSUER_ID  [MACOS_KEYCHAIN]
 
 # verdict() evaluates its checks in single quotes, and they read the local variables set before them.
 # shellcheck disable=SC2016,SC2034
@@ -24,6 +29,51 @@ trap cleanup EXIT
 
 [ "$(uname -s)" = Darwin ] || die "lipo, pkgbuild and productbuild only exist on macOS"
 
+SIGNING=(MACOS_SIGN_APPLICATION MACOS_SIGN_INSTALLER MACOS_TEAM_ID MACOS_NOTARY_KEY MACOS_NOTARY_KEY_ID MACOS_NOTARY_ISSUER_ID)
+
+signed() {
+    local name given=() missing=()
+    for name in "${SIGNING[@]}"; do
+        if [ -n "${!name:-}" ]; then given+=("$name"); else missing+=("$name"); fi
+    done
+    [ "${#given[@]}" -gt 0 ] || return 1
+    [ "${#missing[@]}" -eq 0 ] || die "signing needs every one of ${SIGNING[*]}; missing: ${missing[*]}"
+    [ -f "$MACOS_NOTARY_KEY" ] || die "MACOS_NOTARY_KEY names $MACOS_NOTARY_KEY, which is not a file"
+}
+
+keychain() {
+    [ -z "${MACOS_KEYCHAIN:-}" ] || printf '%s\n' --keychain "$MACOS_KEYCHAIN"
+}
+
+sign_binary() {
+    if ! signed; then
+        say "the binary is not signed (no MACOS_SIGN_* set)"
+        return
+    fi
+    say "signing the universal binary with $MACOS_SIGN_APPLICATION"
+    local extra=(); while IFS= read -r arg; do extra+=("$arg"); done < <(keychain)
+    codesign --force --sign "$MACOS_SIGN_APPLICATION" --options runtime --timestamp \
+        --identifier "$IDENTIFIER" ${extra[@]+"${extra[@]}"} "$BINARY"
+    codesign --verify --strict --verbose=2 "$BINARY"
+}
+
+notarize() {
+    say "notarizing $(basename "$PKG")"
+    local answer status id
+    answer="$(xcrun notarytool submit "$PKG" --key "$MACOS_NOTARY_KEY" --key-id "$MACOS_NOTARY_KEY_ID" \
+        --issuer "$MACOS_NOTARY_ISSUER_ID" --wait --timeout 30m --output-format json)" || true
+    status="$(plutil -extract status raw -o - - <<<"$answer" 2>/dev/null || true)"
+    id="$(plutil -extract id raw -o - - <<<"$answer" 2>/dev/null || true)"
+    if [ "$status" != Accepted ]; then
+        printf '%s\n' "$answer" >&2
+        [ -z "$id" ] || xcrun notarytool log "$id" --key "$MACOS_NOTARY_KEY" --key-id "$MACOS_NOTARY_KEY_ID" \
+            --issuer "$MACOS_NOTARY_ISSUER_ID" >&2 || true
+        die "notarization of $(basename "$PKG") ended with status '${status:-none}'"
+    fi
+    say "stapling the notarization ticket"
+    xcrun stapler staple "$PKG"
+}
+
 binaries() {
     require_interface
     local arch
@@ -42,6 +92,7 @@ binaries() {
         grep -qw "$arch" <<<"$architectures" || die "$BINARY holds $architectures, not both arm64 and x86_64"
     done
     lipo -info "$BINARY"
+    sign_binary
 }
 
 built() {
@@ -90,6 +141,11 @@ pkg() {
     sed -e "s/@VERSION@/$VERSION/g" -e "s/@IDENTIFIER@/$IDENTIFIER/g" \
         "$MACOS/distribution.xml" > "$work/distribution.xml"
 
+    local signing=()
+    if signed; then
+        signing=(--sign "$MACOS_SIGN_INSTALLER" --timestamp)
+        while IFS= read -r arg; do signing+=("$arg"); done < <(keychain)
+    fi
     say "productbuild"
     mkdir -p "$RELEASE"
     rm -f "$PKG"
@@ -97,8 +153,32 @@ pkg() {
         --distribution "$work/distribution.xml" \
         --resources "$MACOS/resources" \
         --package-path "$work" \
+        ${signing[@]+"${signing[@]}"} \
         "$PKG"
+    if [ "${#signing[@]}" -gt 0 ]; then
+        notarize
+    else
+        say "the package is not signed (no MACOS_SIGN_* set)"
+    fi
     ls -l "$PKG"
+}
+
+signature() {
+    local root="$1" binary="$1/bin/svc-registry" signature details assessment
+    say "signatures"
+    signature="$(pkgutil --check-signature "$PKG" 2>&1 || true)"
+    if ! grep -q "Status: signed" <<<"$signature"; then
+        printf '  skip  signature checks (unsigned build)\n'
+        return
+    fi
+    details="$(codesign -dv --verbose=2 "$binary" 2>&1 || true)"
+    assessment="$(spctl --assess --type install -vv "$PKG" 2>&1 || true)"
+    verdict 'codesign --verify --strict --verbose=2 "$binary" 2>/dev/null' "the binary's signature is valid"
+    verdict 'grep -Eq "flags=.*runtime" <<<"$details"' "the binary has the hardened runtime"
+    verdict '[ -n "${MACOS_TEAM_ID:-}" ] && grep -qx "TeamIdentifier=$MACOS_TEAM_ID" <<<"$details"' "the binary is signed by team ${MACOS_TEAM_ID:-(MACOS_TEAM_ID unset)}"
+    verdict '[ -n "${MACOS_TEAM_ID:-}" ] && grep -q "Developer ID Installer: .*($MACOS_TEAM_ID)" <<<"$signature"' "the .pkg is signed with Developer ID Installer of the same team"
+    verdict 'xcrun stapler validate "$PKG" >/dev/null 2>&1' "the notarization ticket is stapled"
+    verdict 'grep -q "accepted" <<<"$assessment" && grep -q "Notarized Developer ID" <<<"$assessment"' "Gatekeeper accepts the .pkg as Notarized Developer ID"
 }
 
 database() {
@@ -149,6 +229,7 @@ check() {
     verdict '[ -f "$root/share/svc-registry/web/en/login.html" ]' "the interface is shipped in share/svc-registry/web"
     verdict '[ -x "$component/Scripts/postinstall" ] && sh -n "$component/Scripts/postinstall"' "postinstall is there and parses"
     verdict 'grep -q "conclusion.html" "$work/expanded/Distribution"' "the installer ends on the page that names DATABASE_URL and the password"
+    signature "$root"
 
     say "setup for a user, run from the payload against a scratch home"
     local home="$work/home"
@@ -205,6 +286,8 @@ check() {
     [ "$failed" -eq 0 ] || { cat "$work/service.log"; die "the package is not what it should be"; }
     say "the .pkg is what it should be"
 }
+
+signed || true
 
 case "${1:-all}" in
 binaries) binaries ;;

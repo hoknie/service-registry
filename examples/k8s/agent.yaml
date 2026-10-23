@@ -1,0 +1,125 @@
+# The svc-registry agent for an isolated cluster (spec deploy/agent, ADR-0076): it lists workloads,
+# their ReplicaSets, pods and jobs with its own ServiceAccount and pushes reports to the registry,
+# so the registry needs no access to this cluster. No Secrets, ConfigMaps or logs are read.
+# Create the cluster in the registry with the mode "Agent in the cluster", copy the token and the
+# cluster id from the window shown once, then replace REGISTRY_URL, CLUSTER_ID and the token below.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: svc-registry
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: svc-registry-agent
+  namespace: svc-registry
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: svc-registry-agent
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+    verbs: ["get", "list"]
+  - apiGroups: ["batch"]
+    resources: ["cronjobs", "jobs"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: ["authorization.k8s.io"]
+    resources: ["selfsubjectaccessreviews"]
+    verbs: ["create"]
+---
+# All namespaces; to observe only some, bind the ClusterRole with a RoleBinding per namespace
+# and list them in the cluster's namespaces in the registry.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: svc-registry-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: svc-registry-agent
+subjects:
+  - kind: ServiceAccount
+    name: svc-registry-agent
+    namespace: svc-registry
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: svc-registry-agent
+  namespace: svc-registry
+type: Opaque
+stringData:
+  token: svca_REPLACE_WITH_THE_AGENT_TOKEN
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: svc-registry-agent
+  namespace: svc-registry
+  labels:
+    app.kubernetes.io/name: svc-registry-agent
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: svc-registry-agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: svc-registry-agent
+    spec:
+      serviceAccountName: svc-registry-agent
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: agent
+          image: ghcr.io/hoknie/service-registry:0.1.0
+          args: ["agent", "--url", "REGISTRY_URL", "--cluster", "CLUSTER_ID", "--token-env", "SVCR_AGENT_TOKEN",
+                 "--health-addr", ":8081"]
+          ports:
+            - name: health
+              containerPort: 8081
+          # /healthz fails only when the agent loop is stuck; a registry that is down keeps it passing.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            failureThreshold: 3
+          # /readyz passes while the registry accepted a report within three intervals.
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            periodSeconds: 30
+          env:
+            - name: SVCR_AGENT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: svc-registry-agent
+                  key: token
+            - name: LOG_LEVEL
+              value: info
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 256Mi

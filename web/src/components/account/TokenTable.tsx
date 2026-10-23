@@ -6,7 +6,7 @@ import type { Locale } from "@/i18n/config";
 import type { Messages } from "@/i18n/messages";
 import { ago, when } from "@/i18n/time";
 import type { PersonalToken } from "@/lib/api";
-import { tokenNodeLabels } from "@/lib/tokenNodes";
+import { isGlobalScope, showsCatalogAdmin, tokenNodeLabels } from "@/lib/tokenNodes";
 
 import { Badge, type Tone } from "../ui/Badge";
 import { Button } from "../ui/Button";
@@ -66,11 +66,11 @@ export function TokenTable({ tokens, locale, labels, showOwner, onRevoke }: Prop
             <Td>
               <span className="flex flex-wrap gap-1">
                 {tok.scopes.map((s) => (
-                  <Badge key={s} tone={s === "admin" ? "amber" : "neutral"} title={labels.scopeHints[s]}>
+                  <Badge key={s} tone={isGlobalScope(s) ? "amber" : "neutral"} title={labels.scopeHints[s]}>
                     {s}
                   </Badge>
                 ))}
-                {tok.catalog_admin && !tok.scopes.includes("admin") && (
+                {showsCatalogAdmin(tok) && (
                   <Badge tone="amber" title={labels.catalogAdminHint}>
                     {labels.catalogAdmin}
                   </Badge>

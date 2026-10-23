@@ -3,7 +3,8 @@
 #   variable SVCR_URL         = https://registry.example.com
 #   variable SVCR_PROJECT_ID  = <project id from the catalog page>
 #   secret   SVCR_PROJECT_KEY = svcr_… (a key of that project)
-# Empty optional fields (e.g. url) are treated as unset by the registry; links are optional too.
+# Empty optional fields (e.g. url) are treated as unset by the registry; links are optional too;
+# dependencies (slug paths, project ids or external:<name>) replace those of this service and environment.
 - name: Register the deployment in svc-registry
   env:
     SVCR_URL: ${{ vars.SVCR_URL }}
@@ -32,7 +33,8 @@
         "deployed_by": "${{ github.actor }}",
         "links": [
           { "kind": "runbook", "title": "CI run", "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" }
-        ]
+        ],
+        "dependencies": ["acme/backend/billing", "external:postgres-main"]
       }
     }
     EOF
