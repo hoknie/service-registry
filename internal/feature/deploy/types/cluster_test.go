@@ -84,3 +84,41 @@ func TestNewClusterRules(t *testing.T) {
 		t.Fatal(ns, err)
 	}
 }
+
+func TestAgentClusterRules(t *testing.T) {
+	ca := testCA(t)
+	agent, creds, err := ValidateCluster(DefaultSettings(), false, ClusterInput{Mode: new("agent"), Name: new("edge-1"), Environment: new("production")})
+	if err != nil || agent.Mode != ModeAgent || agent.APIURL != nil || creds != nil {
+		t.Fatalf("%+v %v %v", agent, creds, err)
+	}
+	polled, _, err := ValidateCluster(DefaultSettings(), false, ClusterInput{Name: new("prod"), Environment: new("p"),
+		APIURL: new("https://k8s.example"), CAPEM: &ca, Credentials: &catalogtypes.CredentialsInput{SecretID: new("0199c000-0000-7000-8000-000000000001")}})
+	if err != nil || polled.Mode != ModePoll {
+		t.Fatal(polled, err)
+	}
+	switched, creds, err := ValidateCluster(polled, true, ClusterInput{Mode: new("agent")})
+	if err != nil || switched.APIURL != nil || switched.CAPEM != nil || creds != nil {
+		t.Fatalf("switch to agent: %+v %v", switched, err)
+	}
+	if _, _, err := ValidateCluster(agent, false, ClusterInput{Mode: new("poll")}); !errors.Is(err, InvalidAPIURL) {
+		t.Fatalf("back to poll without address: %v", err)
+	}
+	base := ClusterInput{Mode: new("agent"), Name: new("x"), Environment: new("p")}
+	with := func(f func(*ClusterInput)) ClusterInput { c := base; f(&c); return c }
+	for name, tt := range map[string]struct {
+		in   ClusterInput
+		want error
+	}{
+		"unknown mode": {with(func(c *ClusterInput) { c.Mode = new("push") }), InvalidClusterMode},
+		"address":      {with(func(c *ClusterInput) { c.APIURL = new("https://k8s.example:6443") }), InvalidAPIURL},
+		"in cluster":   {with(func(c *ClusterInput) { c.InCluster = new(true) }), InvalidClusterMode},
+		"ca":           {with(func(c *ClusterInput) { c.CAPEM = &ca }), InvalidCA},
+		"credentials": {with(func(c *ClusterInput) {
+			c.Credentials = &catalogtypes.CredentialsInput{SecretID: new("0199c000-0000-7000-8000-000000000001")}
+		}), forgetypes.InvalidCredentials},
+	} {
+		if _, _, err := ValidateCluster(DefaultSettings(), false, tt.in); !errors.Is(err, tt.want) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+}

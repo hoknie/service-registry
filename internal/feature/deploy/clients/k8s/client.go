@@ -32,7 +32,7 @@ type FactoryClient struct {
 	inCluster func() (*rest.Config, error)
 }
 
-func NewFactoryClient(out config.OutboundConfig, k config.K8sConfig) *FactoryClient {
+func NewFactoryClient(out config.OutboundConfig, k config.K8sClientConfig) *FactoryClient {
 	proxy := (&httpproxy.Config{HTTPSProxy: out.HTTPSProxy, HTTPProxy: out.HTTPProxy, NoProxy: out.NoProxy}).ProxyFunc()
 	return &FactoryClient{proxy: proxy, timeout: time.Duration(k.RequestTimeoutSecs) * time.Second,
 		limit: int64(k.ListLimit), inCluster: rest.InClusterConfig}
@@ -42,6 +42,9 @@ func (f *FactoryClient) Client(a deploytypes.Access) (deployports.ClusterClientP
 	var cfg *rest.Config
 	if a.InCluster {
 		c, err := f.inCluster()
+		if errors.Is(err, rest.ErrNotInCluster) {
+			return nil, deploytypes.ErrNotInCluster
+		}
 		if err != nil {
 			return nil, &deploytypes.Failure{Code: deploytypes.FailUnreachable, Message: "in-cluster config: " + err.Error()}
 		}

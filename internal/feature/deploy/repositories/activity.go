@@ -15,9 +15,10 @@ func (s *ClusterRepository) Signals(ctx context.Context, projects []uuid.UUID, b
 		WITH polled AS (
 			SELECT w.project_id, 'clusters'::text AS kind,
 				bool_or(COALESCE(c.lease_until > now(), false)) AS running,
-				bool_or(c.next_run_at <= now() AND NOT COALESCE(c.lease_until > now(), false)) AS queued,
-				bool_or(c.status = 'error') AS failed,
-				(array_agg(c.last_error ->> 'code' ORDER BY c.name) FILTER (WHERE c.status = 'error'))[1] AS code,
+				bool_or(c.mode = 'poll' AND c.next_run_at <= now() AND NOT COALESCE(c.lease_until > now(), false)) AS queued,
+				bool_or(c.status = 'error' OR q.silent) AS failed,
+				(array_agg(CASE WHEN q.silent THEN 'k8s.agent_silent' ELSE c.last_error ->> 'code' END ORDER BY c.name)
+					FILTER (WHERE c.status = 'error' OR q.silent))[1] AS code,
 				rfc3339(max(c.last_polled_at)) AS last_at,
 				NULL::bigint AS pending
 			FROM (
@@ -28,6 +29,10 @@ func (s *ClusterRepository) Signals(ctx context.Context, projects []uuid.UUID, b
 			) w
 			JOIN clusters c ON c.id = w.cluster_id
 				AND c.enabled
+			CROSS JOIN LATERAL (
+				SELECT c.mode = 'agent'
+					AND COALESCE(c.agent_reported_at, c.updated_at) < now() - make_interval(secs => 3 * c.interval_secs) AS silent
+			) q
 			GROUP BY w.project_id
 		)
 		SELECT a.project_id, a.kind, a.running, a.queued, a.failed, a.code, a.last_at, a.pending

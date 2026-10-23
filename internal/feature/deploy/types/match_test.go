@@ -107,3 +107,16 @@ func TestLongWorkloadValuesAreBounded(t *testing.T) {
 		t.Error("a 255-character version is kept")
 	}
 }
+
+func TestMatchReadsDependsOn(t *testing.T) {
+	w := deployment("api", map[string]string{AnnotationProject: "acme/backend/api", AnnotationDependsOn: "acme/backend/billing, external:kafka, external:"})
+	m, err := MatchWorkload(w, "production", nil, resolve)
+	if err != nil || len(m.DependsOn) != 2 || m.DependsOn[1].Text() != "external:kafka" {
+		t.Fatal(m.DependsOn, err)
+	}
+	w = deployment("api", map[string]string{AnnotationProject: "acme/backend/api"})
+	w.TemplateAnnotations = map[string]string{AnnotationDependsOn: "external:redis"}
+	if m, _ = MatchWorkload(w, "production", nil, resolve); len(m.DependsOn) != 1 {
+		t.Fatal(m.DependsOn)
+	}
+}

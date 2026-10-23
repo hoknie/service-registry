@@ -1,0 +1,133 @@
+package types
+
+type Messages map[string]string
+
+var dictionaries = map[string]Messages{
+	"en": {
+		"deployment.created":        "Deployment",
+		"deployment.drift":          "Drift",
+		"link.check_failed":         "Link down",
+		"forge.sync_failed":         "Forge sync failed",
+		"deployment.drift_resolved": "Drift resolved",
+		"link.check_recovered":      "Link restored",
+		"forge.sync_recovered":      "Forge sync recovered",
+		"test":                      "Test notification",
+		"open":                      "Open in the registry",
+		"owners":                    "Owners",
+		"on_call":                   "on call",
+		"service":                   "Service",
+		"environment":               "Environment",
+		"version":                   "Version",
+		"commit":                    "Commit",
+		"branch":                    "Branch",
+		"source":                    "Source",
+		"cluster":                   "Cluster",
+		"observed":                  "Observed",
+		"since":                     "Since",
+		"link":                      "Link",
+		"status":                    "Status",
+		"previous":                  "Previously",
+		"connection":                "Connection",
+		"error":                     "Error",
+		"subscription":              "Subscription",
+	},
+	"es": {
+		"deployment.created":        "Despliegue",
+		"deployment.drift":          "Desviación",
+		"link.check_failed":         "Enlace caído",
+		"forge.sync_failed":         "Falló la sincronización con la forja",
+		"deployment.drift_resolved": "Desviación resuelta",
+		"link.check_recovered":      "Enlace restablecido",
+		"forge.sync_recovered":      "Sincronización con la forja restablecida",
+		"test":                      "Notificación de prueba",
+		"open":                      "Abrir en el registro",
+		"owners":                    "Responsables",
+		"on_call":                   "guardia",
+		"service":                   "Servicio",
+		"environment":               "Entorno",
+		"version":                   "Versión",
+		"commit":                    "Commit",
+		"branch":                    "Rama",
+		"source":                    "Origen",
+		"cluster":                   "Clúster",
+		"observed":                  "Observado",
+		"since":                     "Desde",
+		"link":                      "Enlace",
+		"status":                    "Estado",
+		"previous":                  "Antes",
+		"connection":                "Conexión",
+		"error":                     "Error",
+		"subscription":              "Suscripción",
+	},
+	"ru": {
+		"deployment.created":        "Выкат",
+		"deployment.drift":          "Расхождение",
+		"link.check_failed":         "Ссылка не работает",
+		"forge.sync_failed":         "Сбой синхронизации forge",
+		"deployment.drift_resolved": "Расхождение ушло",
+		"link.check_recovered":      "Ссылка снова работает",
+		"forge.sync_recovered":      "Синхронизация forge восстановлена",
+		"test":                      "Пробное уведомление",
+		"open":                      "Открыть в реестре",
+		"owners":                    "Владельцы",
+		"on_call":                   "дежурство",
+		"service":                   "Сервис",
+		"environment":               "Окружение",
+		"version":                   "Версия",
+		"commit":                    "Коммит",
+		"branch":                    "Ветка",
+		"source":                    "Источник",
+		"cluster":                   "Кластер",
+		"observed":                  "В кластере",
+		"since":                     "С",
+		"link":                      "Ссылка",
+		"status":                    "Статус",
+		"previous":                  "Раньше",
+		"connection":                "Подключение",
+		"error":                     "Ошибка",
+		"subscription":              "Подписка",
+	},
+	"zh": {
+		"deployment.created":        "部署",
+		"deployment.drift":          "版本偏差",
+		"link.check_failed":         "链接失效",
+		"forge.sync_failed":         "代码托管同步失败",
+		"deployment.drift_resolved": "版本偏差已消除",
+		"link.check_recovered":      "链接已恢复",
+		"forge.sync_recovered":      "代码托管同步已恢复",
+		"test":                      "测试通知",
+		"open":                      "在注册表中打开",
+		"owners":                    "负责人",
+		"on_call":                   "值班",
+		"service":                   "服务",
+		"environment":               "环境",
+		"version":                   "版本",
+		"commit":                    "提交",
+		"branch":                    "分支",
+		"source":                    "来源",
+		"cluster":                   "集群",
+		"observed":                  "观测到",
+		"since":                     "开始于",
+		"link":                      "链接",
+		"status":                    "状态",
+		"previous":                  "之前",
+		"connection":                "连接",
+		"error":                     "错误",
+		"subscription":              "订阅",
+	},
+}
+
+func MessagesFor(locale string) Messages {
+	if m, ok := dictionaries[locale]; ok {
+		return m
+	}
+	return dictionaries[DefaultLocale]
+}
+
+func DictionaryLocales() []string {
+	out := make([]string, 0, len(dictionaries))
+	for l := range dictionaries {
+		out = append(out, l)
+	}
+	return out
+}

@@ -30,6 +30,7 @@ type EnvironmentChanges struct {
 }
 
 type ClusterInput struct {
+	Mode         *string
 	Name         *string
 	Environment  *string
 	InCluster    *bool

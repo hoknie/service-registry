@@ -61,7 +61,7 @@ func (s *EnvironmentStatesService) ListEnvironments(ctx context.Context, p acces
 	for _, o := range observed {
 		e := get(o.Service, o.Environment)
 		e.Observed = append(e.Observed, o)
-		if e.Current != nil && !o.Gone && o.Version != nil && *o.Version != e.Current.Version {
+		if e.Current != nil && deploytypes.Drifts(e.Current.Version, o) {
 			e.Drift = true
 		}
 	}

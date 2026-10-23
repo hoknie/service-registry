@@ -5,6 +5,7 @@ import (
 	forgeservices "svc-registry/internal/feature/forge/services"
 	knowledgeservices "svc-registry/internal/feature/knowledge/services"
 	linksservices "svc-registry/internal/feature/links/services"
+	ownershipservices "svc-registry/internal/feature/ownership/services"
 )
 
 type Deps struct {
@@ -12,6 +13,7 @@ type Deps struct {
 	Forge     *forgeservices.ForgeServices
 	Knowledge *knowledgeservices.KnowledgeServices
 	Links     *linksservices.LinksServices
+	Ownership *ownershipservices.OwnershipServices
 }
 
 type parts struct {
@@ -19,10 +21,11 @@ type parts struct {
 	forge     *forgeservices.ForgeServices
 	knowledge *knowledgeservices.KnowledgeServices
 	links     *linksservices.LinksServices
+	ownership *ownershipservices.OwnershipServices
 }
 
 func newParts(d Deps) *parts {
-	return &parts{catalog: d.Catalog, forge: d.Forge, knowledge: d.Knowledge, links: d.Links}
+	return &parts{catalog: d.Catalog, forge: d.Forge, knowledge: d.Knowledge, links: d.Links, ownership: d.Ownership}
 }
 
 type ComposeServices struct {
@@ -34,8 +37,8 @@ type ComposeServices struct {
 func New(d Deps) *ComposeServices {
 	p := newParts(d)
 	f := &ComposeServices{
-		Catalog:  &CatalogService{catalog: p.catalog, links: p.links},
-		MCP:      &MCPService{catalog: p.catalog, forge: p.forge, knowledge: p.knowledge},
+		Catalog:  &CatalogService{catalog: p.catalog, links: p.links, ownership: p.ownership},
+		MCP:      &MCPService{catalog: p.catalog, forge: p.forge, knowledge: p.knowledge, ownership: p.ownership},
 		Projects: &ProjectsService{catalog: p.catalog, forge: p.forge, knowledge: p.knowledge},
 	}
 	return f

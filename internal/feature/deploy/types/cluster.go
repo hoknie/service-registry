@@ -5,6 +5,7 @@ import (
 	"encoding/pem"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -42,6 +43,7 @@ type Rule struct {
 }
 
 type Settings struct {
+	Mode         Mode
 	Name         string
 	Environment  string
 	InCluster    bool
@@ -57,6 +59,7 @@ type Cluster struct {
 	ID uuid.UUID
 	Settings
 	Credentials  *catalogtypes.Credentials
+	Agent        *AgentState
 	Status       Status
 	LastError    *Failure
 	LastPolledAt *string
@@ -68,7 +71,7 @@ type Cluster struct {
 }
 
 func DefaultSettings() Settings {
-	return Settings{IntervalSecs: DefaultInterval, Enabled: true, Namespaces: []string{}, Rules: []Rule{}}
+	return Settings{Mode: ModePoll, IntervalSecs: DefaultInterval, Enabled: true, Namespaces: []string{}, Rules: []Rule{}}
 }
 
 var (
@@ -129,7 +132,7 @@ func ValidateNamespaces(raw []string) ([]string, error) {
 		if !namespaceRe.MatchString(n) {
 			return nil, InvalidNamespaces
 		}
-		if !contains(out, n) {
+		if !slices.Contains(out, n) {
 			out = append(out, n)
 		}
 	}
@@ -167,6 +170,14 @@ func ValidateInterval(raw int64) (int32, error) {
 func ValidateCluster(base Settings, hasCredentials bool, in ClusterInput) (Settings, *uuid.UUID, error) {
 	s := base
 	var err error
+	if in.Mode != nil {
+		if s.Mode, err = ParseMode(*in.Mode); err != nil {
+			return Settings{}, nil, err
+		}
+		if s.Mode == ModeAgent && base.Mode != ModeAgent {
+			s.InCluster, s.APIURL, s.CAPEM, hasCredentials = false, nil, nil, false
+		}
+	}
 	if in.Name != nil {
 		if s.Name, err = ValidateClusterName(*in.Name); err != nil {
 			return Settings{}, nil, err
@@ -230,6 +241,9 @@ func ValidateCluster(base Settings, hasCredentials bool, in ClusterInput) (Setti
 	if s.Environment == "" {
 		return Settings{}, nil, InvalidEnvironmentKey
 	}
+	if s.Mode == ModeAgent {
+		return s, nil, agentSettings(s, in)
+	}
 	if s.InCluster {
 		if s.APIURL != nil {
 			return Settings{}, nil, InvalidAPIURL
@@ -255,11 +269,16 @@ func ValidateCluster(base Settings, hasCredentials bool, in ClusterInput) (Setti
 	return s, &secret, nil
 }
 
-func contains(list []string, s string) bool {
-	for _, v := range list {
-		if v == s {
-			return true
-		}
+func agentSettings(s Settings, in ClusterInput) error {
+	switch {
+	case s.InCluster:
+		return InvalidClusterMode
+	case s.APIURL != nil:
+		return InvalidAPIURL
+	case s.CAPEM != nil:
+		return InvalidCA
+	case in.Credentials != nil:
+		return forgetypes.InvalidCredentials
 	}
-	return false
+	return nil
 }

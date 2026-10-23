@@ -13,6 +13,9 @@ import (
 	deploytypes "svc-registry/internal/feature/deploy/types"
 	ingestservices "svc-registry/internal/feature/ingest/services"
 	ingesttypes "svc-registry/internal/feature/ingest/types"
+	notifyservices "svc-registry/internal/feature/notify/services"
+	topologyservices "svc-registry/internal/feature/topology/services"
+	topologytypes "svc-registry/internal/feature/topology/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
 	"svc-registry/pkg/pgtx"
@@ -37,45 +40,61 @@ func (s *PollService) RunClusterPoll(ctx context.Context, id uuid.UUID) error {
 	if err != nil || c == nil {
 		return apperr.Wrap(err)
 	}
-	finish := func(f *deploytypes.Failure) error {
-		if ctx.Err() != nil {
-			return nil
-		}
-		return apperr.Wrap(s.clusterRepository.Finish(context.WithoutCancel(ctx), id, f))
-	}
 	client, err := s.clustersService.clusterClient(ctx, *c)
-	if f := asFailure(err); f != nil {
-		return finish(f)
-	} else if err != nil {
+	var f *deploytypes.Failure
+	if f = asFailure(err); f == nil && err != nil {
 		return err
 	}
-	workloads, err := client.Workloads(ctx, c.Namespaces)
-	if f := asFailure(err); f != nil {
-		return finish(f)
-	} else if err != nil {
-		return err
-	}
-	previous, err := s.workloadRepository.Previous(ctx, id)
-	if err != nil {
-		return apperr.Wrap(err)
-	}
-	run := &pollRun{poll: s, cluster: *c, client: client, previous: previous,
-		projects: map[string]*deploytypes.ProjectRef{}, currents: map[triple]*string{},
-		now:      time.Now().UTC().Truncate(time.Second),
-		confirm:  time.Duration(s.cfg.K8s.HistoryConfirmSecs) * time.Second,
-		interval: time.Duration(c.IntervalSecs) * time.Second}
-	for _, w := range workloads {
-		if err := run.observe(ctx, w); err != nil {
+	if f == nil {
+		if _, f, err = s.observeCluster(ctx, *c, client); err != nil && ctx.Err() == nil {
 			return err
 		}
 	}
 	if ctx.Err() != nil {
 		return nil
 	}
-	if err := s.saveObservations(ctx, id, run.obs, run.deployments); err != nil {
-		return apperr.Wrap(err)
+	return apperr.Wrap(s.clusterRepository.Finish(context.WithoutCancel(ctx), id, f))
+}
+
+func (s *PollService) observeCluster(ctx context.Context, c deploytypes.Cluster, client deployports.ClusterClientPort) (*pollRun, *deploytypes.Failure, error) {
+	workloads, err := client.Workloads(ctx, c.Namespaces)
+	if f := asFailure(err); f != nil {
+		return nil, f, nil
+	} else if err != nil {
+		return nil, nil, err
 	}
-	return finish(nil)
+	previous, err := s.workloadRepository.Previous(ctx, c.ID)
+	if err != nil {
+		return nil, nil, apperr.Wrap(err)
+	}
+	run := &pollRun{poll: s, cluster: c, client: client, previous: previous,
+		projects: map[string]*deploytypes.ProjectRef{}, currents: map[triple]*string{},
+		now:      time.Now().UTC().Truncate(time.Second),
+		confirm:  time.Duration(s.cfg.K8s.HistoryConfirmSecs) * time.Second,
+		interval: time.Duration(c.IntervalSecs) * time.Second}
+	for _, w := range workloads {
+		if err := run.observe(ctx, w); err != nil {
+			return nil, nil, err
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
+	}
+	if err := s.saveObservations(ctx, c.ID, run); err != nil {
+		return nil, nil, apperr.Wrap(err)
+	}
+	return run, nil, nil
+}
+
+func (r *pollRun) counts() (matched, unmatched int) {
+	for _, o := range r.obs {
+		if o.ProjectID != nil {
+			matched++
+		} else {
+			unmatched++
+		}
+	}
+	return matched, unmatched
 }
 
 type pollRun struct {
@@ -89,6 +108,7 @@ type pollRun struct {
 	confirm, interval time.Duration
 	obs               []deploytypes.Observation
 	deployments       []deploytypes.ClusterDeployment
+	dependencies      []topologyservices.ClusterRefs
 }
 
 func (r *pollRun) resolve(ctx context.Context) deploytypes.Resolver {
@@ -134,6 +154,10 @@ func (r *pollRun) observe(ctx context.Context, w deploytypes.Workload) error {
 	}
 	project := m.Project.ID
 	o.ProjectID, o.Service, o.Environment, o.Branch = &project, &m.Service, &m.Environment, m.Branch
+	if len(m.DependsOn) > 0 {
+		r.dependencies = append(r.dependencies, topologyservices.ClusterRefs{ProjectID: project,
+			Origin: topologytypes.ClusterOrigin(c.ID, w.Namespace, string(w.Kind), w.Name), Refs: m.DependsOn})
+	}
 	pods, jobs := observeDetails(ctx, r.client, w)
 	o.State, o.Images = deploytypes.ObserveState(w, pods, jobs, prev.State, now, r.interval)
 	t := triple{project, m.Service, m.Environment}
@@ -188,9 +212,13 @@ func (s *PollService) PruneWorkloads(ctx context.Context) (int64, error) {
 	return n, apperr.Wrap(err)
 }
 
-func (s *PollService) saveObservations(ctx context.Context, clusterID uuid.UUID, obs []deploytypes.Observation, deployments []deploytypes.ClusterDeployment) error {
+func (s *PollService) saveObservations(ctx context.Context, clusterID uuid.UUID, run *pollRun) error {
+	obs, deployments := run.obs, run.deployments
 	return repositories.Err(s.db.InTx(ctx, func(ctx context.Context) error {
 		if err := s.workloadRepository.Save(ctx, clusterID, obs); err != nil {
+			return err
+		}
+		if err := s.topology.Records.SyncCluster(ctx, clusterID, run.dependencies); err != nil {
 			return err
 		}
 		for _, o := range obs {
@@ -206,11 +234,14 @@ func (s *PollService) saveObservations(ctx context.Context, clusterID uuid.UUID,
 				ID: d.ID, ProjectID: d.ProjectID, Source: "cluster", Service: d.Service, Environment: d.Environment,
 				Version: d.Version, CommitSHA: d.CommitSHA, Branch: d.Branch, Cluster: &cluster, Namespace: &namespace,
 				OccurredAt: d.OccurredAt,
-			}); err != nil {
+			}, d.OccurredAt); err != nil {
 				return err
 			}
 		}
-		return nil
+		if err := s.emitDrifts(ctx, obs); err != nil {
+			return err
+		}
+		return s.resolveDrifts(ctx)
 	}))
 }
 
@@ -220,6 +251,8 @@ type PollService struct {
 	clusterRepository  *repositories.ClusterRepository
 	db                 *pgtx.DB
 	ingest             *ingestservices.IngestServices
+	notify             *notifyservices.NotifyServices
+	topology           *topologyservices.TopologyServices
 	workloadRepository *repositories.WorkloadRepository
 	clustersService    *ClustersService
 }

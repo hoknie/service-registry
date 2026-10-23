@@ -222,7 +222,7 @@ func failureCode(err error) deploytypes.FailureCode {
 
 func TestRealTransport(t *testing.T) {
 	t.Setenv("HTTPS_PROXY", "http://127.0.0.1:1")
-	f := NewFactoryClient(config.OutboundConfig{}, config.K8sConfig{RequestTimeoutSecs: 5, ListLimit: 500})
+	f := NewFactoryClient(config.OutboundConfig{}, config.K8sClientConfig{RequestTimeoutSecs: 5, ListLimit: 500})
 	srv := apiServer(t, false)
 	c, err := f.Client(deploytypes.Access{APIURL: srv.URL, CAPEM: caOf(srv), Token: "sa-token"})
 	if err != nil {
@@ -242,5 +242,9 @@ func TestRealTransport(t *testing.T) {
 	c, _ = f.Client(deploytypes.Access{APIURL: "https://127.0.0.1:1", Token: "sa-token"})
 	if _, err := c.Version(context.Background()); failureCode(err) != deploytypes.FailUnreachable {
 		t.Fatalf("%v", err)
+	}
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	if _, err := f.Client(deploytypes.Access{InCluster: true}); !errors.Is(err, deploytypes.ErrNotInCluster) {
+		t.Fatalf("outside a pod: %v", err)
 	}
 }

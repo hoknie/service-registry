@@ -5,6 +5,7 @@ import (
 	"unicode/utf8"
 
 	catalogtypes "svc-registry/internal/feature/catalog/types"
+	topologytypes "svc-registry/internal/feature/topology/types"
 )
 
 const (
@@ -13,6 +14,7 @@ const (
 	AnnotationEnvironment = "svc-registry.io/environment"
 	AnnotationBranch      = "svc-registry.io/branch"
 	AnnotationCommit      = "svc-registry.io/commit"
+	AnnotationDependsOn   = "svc-registry.io/depends-on"
 	LabelVersion          = "app.kubernetes.io/version"
 )
 
@@ -27,6 +29,7 @@ type Match struct {
 	Branch      *string
 	Commit      *string
 	Version     *string
+	DependsOn   []topologytypes.Ref
 }
 
 func MatchWorkload(w Workload, clusterEnv string, rules []Rule, resolve Resolver) (Match, error) {
@@ -47,6 +50,9 @@ func MatchWorkload(w Workload, clusterEnv string, rules []Rule, resolve Resolver
 		if c = strings.ToLower(strings.TrimSpace(c)); commitOK(c) {
 			m.Commit = &c
 		}
+	}
+	if v, ok := ann(AnnotationDependsOn); ok {
+		m.DependsOn, _ = topologytypes.ParseRefs(topologytypes.ClusterValue(v))
 	}
 	if ref, ok := ann(AnnotationProject); ok {
 		ref = strings.TrimSpace(ref)

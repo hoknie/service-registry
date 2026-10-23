@@ -91,6 +91,15 @@ type Observed struct {
 	Gone        bool
 }
 
+func Drifts(current string, o Observed) bool {
+	return !o.Gone && o.Version != nil && *o.Version != current
+}
+
+type PairObservation struct {
+	Observed     Observed
+	VersionSince time.Time
+}
+
 type Unmatched struct {
 	Namespace  string
 	Kind       Kind

@@ -11,8 +11,9 @@ import (
 	deployports "svc-registry/internal/feature/deploy/ports"
 	"svc-registry/internal/feature/deploy/repositories"
 	deploytypes "svc-registry/internal/feature/deploy/types"
+	topologyservices "svc-registry/internal/feature/topology/services"
 	"svc-registry/internal/platform/apperr"
-	"svc-registry/internal/platform/config"
+	"svc-registry/pkg/pgtx"
 	"svc-registry/pkg/secretbox"
 )
 
@@ -49,59 +50,107 @@ func (s *ClustersService) loadCluster(ctx context.Context, id uuid.UUID) (deploy
 	return *c, nil
 }
 
-func (s *ClustersService) CreateCluster(ctx context.Context, p accesstypes.Principal, in deploytypes.ClusterInput) (deploytypes.Cluster, error) {
+func (s *ClustersService) CreateCluster(ctx context.Context, p accesstypes.Principal, in deploytypes.ClusterInput) (deploytypes.Cluster, *IssuedAgentToken, error) {
 	if err := accesstypes.RequireSuperadmin(p); err != nil {
-		return deploytypes.Cluster{}, err
+		return deploytypes.Cluster{}, nil, err
 	}
 	settings, secret, err := deploytypes.ValidateCluster(deploytypes.DefaultSettings(), false, in)
 	if err != nil {
-		return deploytypes.Cluster{}, apperr.Wrap(err)
+		return deploytypes.Cluster{}, nil, apperr.Wrap(err)
 	}
 	if err := s.globalSecret(ctx, secret); err != nil {
-		return deploytypes.Cluster{}, err
+		return deploytypes.Cluster{}, nil, err
 	}
-	c, err := s.clusterRepository.Insert(ctx, deploytypes.NewCluster{ID: uuid.Must(uuid.NewV7()), Settings: settings, SecretID: secret})
+	id := uuid.Must(uuid.NewV7())
+	issued, err := s.saveCluster(ctx, deploytypes.ModePoll, settings.Mode, id, func(ctx context.Context) error {
+		_, err := s.clusterRepository.Insert(ctx, deploytypes.NewCluster{ID: id, Settings: settings, SecretID: secret})
+		return err
+	})
 	if err != nil {
-		return deploytypes.Cluster{}, apperr.Wrap(err)
+		return deploytypes.Cluster{}, nil, err
 	}
-	return s.decorate(ctx, c)
+	c, err := s.loadCluster(ctx, id)
+	if err != nil {
+		return deploytypes.Cluster{}, nil, err
+	}
+	c, err = s.decorate(ctx, c)
+	return c, issued, err
 }
 
-func (s *ClustersService) UpdateCluster(ctx context.Context, p accesstypes.Principal, id uuid.UUID, in deploytypes.ClusterInput) (deploytypes.Cluster, error) {
+func (s *ClustersService) UpdateCluster(ctx context.Context, p accesstypes.Principal, id uuid.UUID, in deploytypes.ClusterInput) (deploytypes.Cluster, *IssuedAgentToken, error) {
 	if err := accesstypes.RequireSuperadmin(p); err != nil {
-		return deploytypes.Cluster{}, err
+		return deploytypes.Cluster{}, nil, err
 	}
 	current, err := s.loadCluster(ctx, id)
 	if err != nil {
-		return deploytypes.Cluster{}, err
+		return deploytypes.Cluster{}, nil, err
 	}
 	settings, secret, err := deploytypes.ValidateCluster(current.Settings, current.Credentials != nil, in)
 	if err != nil {
-		return deploytypes.Cluster{}, apperr.Wrap(err)
+		return deploytypes.Cluster{}, nil, apperr.Wrap(err)
 	}
 	if err := s.globalSecret(ctx, secret); err != nil {
-		return deploytypes.Cluster{}, err
+		return deploytypes.Cluster{}, nil, err
 	}
-	c, err := s.clusterRepository.Update(ctx, id, deploytypes.ClusterUpdate{Settings: settings, SecretID: secret})
+	issued, err := s.saveCluster(ctx, current.Mode, settings.Mode, id, func(ctx context.Context) error {
+		c, err := s.clusterRepository.Update(ctx, id, deploytypes.ClusterUpdate{Settings: settings, SecretID: secret})
+		if err == nil && c == nil {
+			return apperr.New(apperr.NotFound)
+		}
+		return err
+	})
 	if err != nil {
-		return deploytypes.Cluster{}, apperr.Wrap(err)
+		return deploytypes.Cluster{}, nil, err
 	}
-	if c == nil {
-		return deploytypes.Cluster{}, apperr.New(apperr.NotFound)
+	c, err := s.loadCluster(ctx, id)
+	if err != nil {
+		return deploytypes.Cluster{}, nil, err
 	}
-	return s.decorate(ctx, *c)
+	c, err = s.decorate(ctx, c)
+	return c, issued, err
+}
+
+func (s *ClustersService) saveCluster(ctx context.Context, from, to deploytypes.Mode, id uuid.UUID, save func(context.Context) error) (*IssuedAgentToken, error) {
+	var issued *IssuedAgentToken
+	err := s.db.InTx(ctx, func(ctx context.Context) error {
+		if err := save(ctx); err != nil {
+			return err
+		}
+		switch {
+		case to == deploytypes.ModeAgent && from != to:
+			tok, err := s.tokens.issue(ctx, id, 0)
+			issued = &tok
+			return err
+		case to == deploytypes.ModePoll && from == deploytypes.ModeAgent:
+			return s.tokens.agentTokenRepository.RevokeAll(ctx, id)
+		}
+		return nil
+	})
+	return issued, apperr.Wrap(err)
 }
 
 func (s *ClustersService) DeleteCluster(ctx context.Context, p accesstypes.Principal, id uuid.UUID) error {
 	if err := accesstypes.RequireSuperadmin(p); err != nil {
 		return err
 	}
-	return apperr.Wrap(s.clusterRepository.Delete(ctx, id))
+	return apperr.Wrap(s.db.InTx(ctx, func(ctx context.Context) error {
+		if err := s.topology.Records.ClearCluster(ctx, id); err != nil {
+			return err
+		}
+		return s.clusterRepository.Delete(ctx, id)
+	}))
 }
 
 func (s *ClustersService) PollCluster(ctx context.Context, p accesstypes.Principal, id uuid.UUID) error {
 	if err := accesstypes.RequireSuperadmin(p); err != nil {
 		return err
+	}
+	c, err := s.loadCluster(ctx, id)
+	if err != nil {
+		return err
+	}
+	if c.Mode == deploytypes.ModeAgent {
+		return deploytypes.ConflictClusterModeAgent
 	}
 	return apperr.Wrap(s.clusterRepository.ScheduleNow(ctx, id))
 }
@@ -121,6 +170,9 @@ func (s *ClustersService) TestCluster(ctx context.Context, p accesstypes.Princip
 	if err != nil {
 		return ClusterTest{}, err
 	}
+	if c.Agent != nil {
+		return reportedTest(c.Agent.Report), nil
+	}
 	client, err := s.clusterClient(ctx, c)
 	if f := asFailure(err); f != nil {
 		return ClusterTest{Missing: []string{}, Error: f}, nil
@@ -136,6 +188,14 @@ func (s *ClustersService) TestCluster(ctx context.Context, p accesstypes.Princip
 		return ClusterTest{Version: &version, Missing: []string{}, Error: f}, nil
 	}
 	return ClusterTest{OK: true, Version: &version, Missing: missing}, nil
+}
+
+func reportedTest(r *deploytypes.ReportSummary) ClusterTest {
+	if r == nil {
+		return ClusterTest{Missing: []string{}, Error: &deploytypes.Failure{Code: deploytypes.FailAgentNeverReported,
+			Message: "the agent has not reported yet"}}
+	}
+	return ClusterTest{OK: r.Error == nil, Version: r.KubernetesVersion, Missing: r.Missing, Error: r.Error.Failure()}
 }
 
 func (s *ClustersService) UnmatchedWorkloads(ctx context.Context, p accesstypes.Principal, id uuid.UUID, q accesstypes.PageQuery) (accesstypes.Page[deploytypes.Unmatched], error) {
@@ -174,18 +234,6 @@ func (s *ClustersService) clusterClient(ctx context.Context, c deploytypes.Clust
 			token, err := s.catalog.SecretResolver.ResolveSecret(ctx, *stored.SecretID)
 			if err != nil {
 				return nil, &deploytypes.Failure{Code: deploytypes.FailUnauthorized, Message: "secret cannot be read"}
-			}
-			a.Token = token
-		case stored.Ref != nil:
-			token, err := config.ResolveSecretRef(*stored.Ref)
-			if err != nil {
-				return nil, &deploytypes.Failure{Code: deploytypes.FailUnauthorized, Message: "credentials reference: " + err.Error()}
-			}
-			a.Token = token
-		case stored.Enc != nil:
-			token, err := s.secrets.Open(*stored.Enc, secretbox.AAD(deploytypes.Table, c.ID.String(), deploytypes.ColumnCredentials))
-			if err != nil {
-				return nil, &deploytypes.Failure{Code: deploytypes.FailUnauthorized, Message: "stored token cannot be decrypted"}
 			}
 			a.Token = token
 		}
@@ -240,7 +288,10 @@ func (s *ClustersService) decorateAll(ctx context.Context, items []deploytypes.C
 type ClustersService struct {
 	catalog            *catalogservices.CatalogServices
 	clusterRepository  *repositories.ClusterRepository
+	db                 *pgtx.DB
+	tokens             *AgentTokensService
 	k8s                deployports.ClientFactoryPort
 	secrets            *secretbox.Box
+	topology           *topologyservices.TopologyServices
 	workloadRepository *repositories.WorkloadRepository
 }

@@ -4,9 +4,11 @@ import (
 	"github.com/google/uuid"
 )
 
-type StoredSecret struct {
-	ID  uuid.UUID
-	Enc string
+type LegacyCluster struct {
+	ID   uuid.UUID
+	Name string
+	Enc  *string
+	Ref  *string
 }
 
 type ProjectRef struct {
@@ -16,6 +18,18 @@ type ProjectRef struct {
 
 type StoredCredentials struct {
 	SecretID *uuid.UUID
-	Enc      *string
-	Ref      *string
+}
+
+type NewAgentToken struct {
+	ID        uuid.UUID
+	ClusterID uuid.UUID
+	Prefix    string
+	Hash      [32]byte
+}
+
+type AgentToken struct {
+	ID        uuid.UUID
+	Prefix    string
+	CreatedAt string
+	ExpiresAt *string
 }

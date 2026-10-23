@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 
@@ -15,32 +16,34 @@ func (s *PortsService) ActivitySignals(ctx context.Context, projects []uuid.UUID
 	return s.clusterRepository.Signals(ctx, projects, busy)
 }
 
-func (s *PortsService) PrepareSecretRotation(ctx context.Context) (func(context.Context) error, int, error) {
-	clusters, err := s.clusterRepository.Secrets(ctx)
+func (s *PortsService) AdoptLegacyCredentials(ctx context.Context, adopt catalogtypes.AdoptFunc) (int, error) {
+	rows, err := s.clusterRepository.Legacy(ctx)
 	if err != nil {
-		return nil, 0, err
+		return 0, err
 	}
-	plain := make([]string, len(clusters))
-	for i, c := range clusters {
-		v, err := s.secrets.Open(c.Enc, secretbox.AAD(deploytypes.Table, c.ID.String(), deploytypes.ColumnCredentials))
-		if err != nil {
-			return nil, 0, err
-		}
-		plain[i] = v
-	}
-	apply := func(ctx context.Context) error {
-		for i, c := range clusters {
-			enc, err := s.secrets.Seal(plain[i], secretbox.AAD(deploytypes.Table, c.ID.String(), deploytypes.ColumnCredentials))
+	for _, row := range rows {
+		value := catalogtypes.SecretValue{Ref: row.Ref}
+		if row.Ref == nil {
+			v, err := s.secrets.Open(*row.Enc, secretbox.AAD(deploytypes.Table, row.ID.String(), deploytypes.ColumnCredentials))
 			if err != nil {
-				return err
+				return 0, fmt.Errorf("cluster %s: %w", row.ID, err)
 			}
-			if err := s.clusterRepository.ReplaceSecret(ctx, c.ID, enc); err != nil {
-				return err
-			}
+			value.Value = &v
 		}
-		return nil
+		secret, err := adopt(ctx, catalogtypes.LegacyCredential{RecordKind: "cluster", RecordID: row.ID, Name: row.Name, Value: value})
+		if err != nil {
+			return 0, fmt.Errorf("cluster %s: %w", row.ID, err)
+		}
+		if err := s.clusterRepository.AdoptSecret(ctx, row.ID, secret); err != nil {
+			return 0, err
+		}
 	}
-	return apply, len(clusters), nil
+	return len(rows), nil
+}
+
+func (s *PortsService) LegacyCredentialCount(ctx context.Context) (int, error) {
+	rows, err := s.clusterRepository.Legacy(ctx)
+	return len(rows), err
 }
 
 func (s *PortsService) SecretUsage(ctx context.Context, secrets []uuid.UUID) (map[uuid.UUID]int64, error) {

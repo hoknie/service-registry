@@ -17,3 +17,8 @@ type ClusterClientPort interface {
 type ClientFactoryPort interface {
 	Client(a deploytypes.Access) (ClusterClientPort, error)
 }
+
+type RegistryClientPort interface {
+	Config(ctx context.Context) (deploytypes.AgentConfig, error)
+	Report(ctx context.Context, r deploytypes.Report) (deploytypes.ReportAnswer, error)
+}
