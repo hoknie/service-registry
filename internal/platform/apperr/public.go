@@ -13,6 +13,7 @@ var fixedCodes = map[Kind]string{ // #nosec G101 -- stable error codes, not cred
 	InsufficientScope:       "auth.insufficient_scope",
 	SessionRequired:         "auth.session_required",
 	InvalidWebhookSignature: "auth.invalid_webhook_signature",
+	InvalidAgentToken:       "auth.invalid_agent_token",
 }
 
 func (e *Error) Public() (code, message string) {

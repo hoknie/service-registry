@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"svc-registry/internal/platform/config"
 )
@@ -62,8 +63,8 @@ func TestDefaultsApplyWhenOnlyRequiredVarsAreSet(t *testing.T) {
 		{"pat lifetime", cfg.Pat.MaxLifetimeDays, uint32(365)},
 		{"link check", cfg.LinkCheck, config.LinkCheckConfig{IntervalSecs: 3600, TimeoutSecs: 5, Concurrency: 4,
 			AllowPrivate: true, History: 20, TargetTTLDays: 30}},
-		{"k8s", cfg.K8s, config.K8sConfig{PollConcurrency: 2, RequestTimeoutSecs: 10, ListLimit: 500,
-			HistoryConfirmSecs: 600, WorkloadRetentionDays: 7}},
+		{"k8s", cfg.K8s, config.K8sConfig{PollConcurrency: 2,
+			K8sClientConfig: config.K8sClientConfig{RequestTimeoutSecs: 10, ListLimit: 500}, HistoryConfirmSecs: 600, WorkloadRetentionDays: 7, AgentReportMaxBytes: 64 << 20}},
 		{"bootstrap", cfg.Bootstrap.Admin == nil, true},
 	}
 	for _, c := range checks {
@@ -395,13 +396,23 @@ func TestK8sSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err := config.Load[config.K8sConfig](lookup("K8S_POLL_CONCURRENCY", "0", "K8S_REQUEST_TIMEOUT_SECS", "121",
-		"K8S_LIST_LIMIT", "49", "K8S_HISTORY_CONFIRM_SECS", "86401", "K8S_WORKLOAD_RETENTION_DAYS", "0"))
-	want := []string{"K8S_HISTORY_CONFIRM_SECS", "K8S_LIST_LIMIT", "K8S_POLL_CONCURRENCY", "K8S_REQUEST_TIMEOUT_SECS", "K8S_WORKLOAD_RETENTION_DAYS"}
+		"K8S_LIST_LIMIT", "49", "K8S_HISTORY_CONFIRM_SECS", "86401", "K8S_WORKLOAD_RETENTION_DAYS", "0",
+		"K8S_AGENT_REPORT_MAX_BYTES", "1000"))
+	want := []string{"K8S_AGENT_REPORT_MAX_BYTES", "K8S_HISTORY_CONFIRM_SECS", "K8S_LIST_LIMIT", "K8S_POLL_CONCURRENCY", "K8S_REQUEST_TIMEOUT_SECS",
+		"K8S_WORKLOAD_RETENTION_DAYS"}
 	if got := vars(t, err); !reflect.DeepEqual(got, want) {
 		t.Fatalf("vars %v", got)
 	}
 	_, err = config.Load[config.Config](lookup("DATABASE_URL", dbURL, "K8S_POLL_CONCURRENCY", "0"))
 	if got := vars(t, err); !reflect.DeepEqual(got, []string{"K8S_POLL_CONCURRENCY"}) {
+		t.Fatalf("vars %v", got)
+	}
+	client, err := config.Load[config.K8sClientConfig](lookup("K8S_POLL_CONCURRENCY", "0", "K8S_LIST_LIMIT", "1000"))
+	if err != nil || client.ListLimit != 1000 || client.RequestTimeoutSecs != 10 {
+		t.Fatalf("agent slice: %+v %v", client, err)
+	}
+	_, err = config.Load[config.K8sClientConfig](lookup("K8S_LIST_LIMIT", "10"))
+	if got := vars(t, err); !reflect.DeepEqual(got, []string{"K8S_LIST_LIMIT"}) {
 		t.Fatalf("vars %v", got)
 	}
 }
@@ -455,7 +466,7 @@ func TestOAuthProviders(t *testing.T) {
 		"OAUTH_PROVIDERS", "corp, gitlab", "OAUTH_CORP_KIND", "oidc", "OAUTH_CORP_ISSUER", "https://sso.example/realms/main/",
 		"OAUTH_CORP_CLIENT_ID", "reg", "OAUTH_CORP_CLIENT_SECRET", "env:X", "OAUTH_CORP_DISPLAY_NAME", "Corporate SSO",
 		"OAUTH_CORP_AUTO_PROVISION", "true", "OAUTH_CORP_ALLOWED_DOMAINS", "Example.com, @corp.example",
-		"OAUTH_CORP_GROUP_MAP", "platform-team=>Platform; *",
+		"OAUTH_CORP_GROUP_MAP", "platform-team=>Platform; *", "OAUTH_CORP_CONTACT_EDITOR_MAP", "platform-leads=>Platform",
 		"OAUTH_GITLAB_KIND", "gitlab", "OAUTH_GITLAB_CLIENT_ID", "id", "OAUTH_GITLAB_CLIENT_SECRET", "s"))
 	if err != nil {
 		t.Fatal(err)
@@ -467,6 +478,7 @@ func TestOAuthProviders(t *testing.T) {
 	if corp.Issuer != "https://sso.example/realms/main" || corp.DisplayName != "Corporate SSO" || !corp.AutoProvision ||
 		!reflect.DeepEqual(corp.AllowedDomains, []string{"example.com", "corp.example"}) || corp.GroupsClaim != "groups" ||
 		!reflect.DeepEqual(corp.GroupMap, []config.GroupRule{{Value: "platform-team", Group: "Platform"}, {Value: "*"}}) ||
+		!reflect.DeepEqual(corp.EditorMap, []config.GroupRule{{Value: "platform-leads", Group: "Platform"}}) ||
 		!reflect.DeepEqual(corp.Scopes, []string{"openid", "profile", "email"}) {
 		t.Fatalf("%+v", corp)
 	}
@@ -481,9 +493,9 @@ func TestOAuthProviders(t *testing.T) {
 
 	_, err = config.Load[config.Config](lookup("DATABASE_URL", dbURL, "OAUTH_PROVIDERS", "corp,Bad Key",
 		"OAUTH_CORP_ISSUER", "http://sso.example", "OAUTH_CORP_SCOPES", "profile", "OAUTH_CORP_GROUP_MAP", "x=>",
-		"OAUTH_CORP_AUTO_PROVISION", "maybe", "AUTH_PASSWORD_LOGIN", "some"))
+		"OAUTH_CORP_CONTACT_EDITOR_MAP", "*", "OAUTH_CORP_AUTO_PROVISION", "maybe", "AUTH_PASSWORD_LOGIN", "some"))
 	want := []string{"AUTH_PASSWORD_LOGIN", "OAUTH_CORP_AUTO_PROVISION", "OAUTH_CORP_CLIENT_ID", "OAUTH_CORP_CLIENT_SECRET",
-		"OAUTH_CORP_GROUP_MAP", "OAUTH_CORP_ISSUER", "OAUTH_CORP_KIND", "OAUTH_CORP_SCOPES", "OAUTH_PROVIDERS", "PUBLIC_URL"}
+		"OAUTH_CORP_CONTACT_EDITOR_MAP", "OAUTH_CORP_GROUP_MAP", "OAUTH_CORP_ISSUER", "OAUTH_CORP_KIND", "OAUTH_CORP_SCOPES", "OAUTH_PROVIDERS", "PUBLIC_URL"}
 	if got := vars(t, err); !reflect.DeepEqual(got, want) {
 		t.Fatalf("vars %v", got)
 	}
@@ -546,5 +558,88 @@ func TestUploadsDir(t *testing.T) {
 	}
 	if _, err := config.Load[config.UploadsConfig](lookup("UPLOADS_DIR", "data/../../etc")); err == nil || !strings.Contains(err.Error(), "UPLOADS_DIR") {
 		t.Fatalf("dotdot %v", err)
+	}
+}
+
+func TestUploadsUnreferencedTTL(t *testing.T) {
+	cfg, err := config.Load[config.UploadsConfig](lookup())
+	if err != nil || cfg.UnreferencedTTL() != 24*time.Hour {
+		t.Fatalf("default %v %v", cfg.UnreferencedTTL(), err)
+	}
+	cfg, err = config.Load[config.UploadsConfig](lookup("UPLOADS_UNREFERENCED_TTL_SECS", "600"))
+	if err != nil || cfg.UnreferencedTTL() != 10*time.Minute {
+		t.Fatalf("short %v %v", cfg.UnreferencedTTL(), err)
+	}
+	for _, v := range []string{"599", "2592001", "0", "day"} {
+		if _, err := config.Load[config.UploadsConfig](lookup("UPLOADS_UNREFERENCED_TTL_SECS", v)); err == nil || !strings.Contains(err.Error(), "UPLOADS_UNREFERENCED_TTL_SECS") {
+			t.Fatalf("%s: %v", v, err)
+		}
+	}
+}
+
+func TestMCPOAuthSettings(t *testing.T) {
+	c, err := config.Load[config.MCPOAuthConfig](lookup())
+	if err != nil || c.Enabled || c.AccessTTLSecs != 3600 || c.RefreshDays != 30 {
+		t.Fatalf("%+v %v", c, err)
+	}
+	c, err = config.Load[config.MCPOAuthConfig](lookup("MCP_OAUTH", " on "))
+	if err != nil || !c.Enabled {
+		t.Fatalf("%+v %v", c, err)
+	}
+	_, err = config.Load[config.MCPOAuthConfig](lookup("MCP_OAUTH", "yes", "MCP_OAUTH_ACCESS_TTL_SECS", "60", "MCP_OAUTH_REFRESH_DAYS", "366"))
+	want := []string{"MCP_OAUTH", "MCP_OAUTH_ACCESS_TTL_SECS", "MCP_OAUTH_REFRESH_DAYS"}
+	if got := vars(t, err); !reflect.DeepEqual(got, want) {
+		t.Fatalf("vars %v", got)
+	}
+	_, err = config.Load[config.Config](lookup("DATABASE_URL", dbURL, "MCP_OAUTH", "on"))
+	if got := vars(t, err); !reflect.DeepEqual(got, []string{"PUBLIC_URL"}) {
+		t.Fatalf("vars %v", got)
+	}
+	full, err := config.Load[config.Config](lookup("DATABASE_URL", dbURL, "MCP_OAUTH", "on", "PUBLIC_URL", "https://registry.example"))
+	if err != nil || !full.MCPOAuth.Enabled || !full.MCPOAuth.ClientMetadata || full.MCPOAuth.ClientMetadataHosts != nil ||
+		full.MCPOAuth.ClientDocuments() || full.MCPOAuth.ClientMetadataUseProxy {
+		t.Fatalf("%+v %v", full.MCPOAuth, err)
+	}
+	c, err = config.Load[config.MCPOAuthConfig](lookup("MCP_OAUTH_CLIENT_METADATA", "off", "MCP_OAUTH_CLIENT_METADATA_HOSTS", " App.Example , *.trusted.example"))
+	if err != nil || c.ClientMetadata || c.ClientDocuments() || !reflect.DeepEqual(c.ClientMetadataHosts, []string{"app.example", "*.trusted.example"}) {
+		t.Fatalf("%+v %v", c, err)
+	}
+	c, err = config.Load[config.MCPOAuthConfig](lookup("MCP_OAUTH_CLIENT_METADATA_HOSTS", "app.example", "MCP_OAUTH_CLIENT_METADATA_USE_PROXY", "true"))
+	if err != nil || !c.ClientDocuments() || !c.ClientMetadataUseProxy {
+		t.Fatalf("%+v %v", c, err)
+	}
+	_, err = config.Load[config.MCPOAuthConfig](lookup("MCP_OAUTH_CLIENT_METADATA", "maybe", "MCP_OAUTH_CLIENT_METADATA_HOSTS", "https://app.example",
+		"MCP_OAUTH_CLIENT_METADATA_USE_PROXY", "sometimes"))
+	if got := vars(t, err); !reflect.DeepEqual(got, []string{"MCP_OAUTH_CLIENT_METADATA", "MCP_OAUTH_CLIENT_METADATA_HOSTS", "MCP_OAUTH_CLIENT_METADATA_USE_PROXY"}) {
+		t.Fatalf("vars %v", got)
+	}
+}
+
+func TestNotifySettings(t *testing.T) {
+	c, err := config.Load[config.NotifyConfig](lookup())
+	if err != nil || c.Concurrency != 4 || c.TimeoutSecs != 10 || c.MaxAttempts != 8 || c.RetentionDays != 30 ||
+		c.DriftAfterSecs != 900 || !c.AllowPrivate || c.UseProxy {
+		t.Fatalf("%+v %v", c, err)
+	}
+	c, err = config.Load[config.NotifyConfig](lookup("NOTIFY_ALLOW_HOSTS", "*.Corp.example", "NOTIFY_DENY_HOSTS", "evil.example",
+		"NOTIFY_ALLOW_PRIVATE", "false", "NOTIFY_USE_PROXY", "true"))
+	if err != nil || !c.UseProxy {
+		t.Fatal(c, err)
+	}
+	p := c.Policy()
+	if p.AllowPrivate || !reflect.DeepEqual(p.AllowHosts, []string{"*.corp.example"}) || !reflect.DeepEqual(p.DenyHosts, []string{"evil.example"}) {
+		t.Fatalf("%+v", p)
+	}
+	_, err = config.Load[config.NotifyConfig](lookup("NOTIFY_CONCURRENCY", "0", "NOTIFY_TIMEOUT_SECS", "61", "NOTIFY_MAX_ATTEMPTS", "20",
+		"NOTIFY_RETENTION_DAYS", "366", "NOTIFY_DRIFT_AFTER_SECS", "59", "NOTIFY_ALLOW_PRIVATE", "maybe",
+		"NOTIFY_ALLOW_HOSTS", "*.", "NOTIFY_DENY_HOSTS", "bad host", "NOTIFY_USE_PROXY", "sometimes"))
+	want := []string{"NOTIFY_ALLOW_HOSTS", "NOTIFY_ALLOW_PRIVATE", "NOTIFY_CONCURRENCY", "NOTIFY_DENY_HOSTS", "NOTIFY_DRIFT_AFTER_SECS",
+		"NOTIFY_MAX_ATTEMPTS", "NOTIFY_RETENTION_DAYS", "NOTIFY_TIMEOUT_SECS", "NOTIFY_USE_PROXY"}
+	if got := vars(t, err); !reflect.DeepEqual(got, want) {
+		t.Fatalf("vars %v", got)
+	}
+	_, err = config.Load[config.Config](lookup("DATABASE_URL", dbURL, "NOTIFY_MAX_ATTEMPTS", "20"))
+	if got := vars(t, err); !reflect.DeepEqual(got, []string{"NOTIFY_MAX_ATTEMPTS"}) {
+		t.Fatalf("vars %v", got)
 	}
 }

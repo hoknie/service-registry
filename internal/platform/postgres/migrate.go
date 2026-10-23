@@ -97,6 +97,59 @@ func (m Migrator) Migrate(_ context.Context, pool *pgxpool.Pool) (int, error) {
 	return after - before, err
 }
 
+func (m Migrator) MigrateUntil(ctx context.Context, pool *pgxpool.Pool, barrier uint, check func(context.Context) error) (int, error) {
+	mg, err := m.open(pool)
+	if err != nil {
+		return 0, err
+	}
+	defer mg.Close()
+	before, err := m.applied(mg)
+	if err != nil {
+		return 0, err
+	}
+	version, _, err := mg.Version()
+	if err != nil && !errors.Is(err, migrate.ErrNilVersion) {
+		return 0, err
+	}
+	if errors.Is(err, migrate.ErrNilVersion) || version < barrier {
+		if err := m.migrateBefore(mg, barrier); err != nil {
+			return 0, err
+		}
+		if err := check(ctx); err != nil {
+			after, aerr := m.applied(mg)
+			if aerr != nil {
+				return 0, aerr
+			}
+			return after - before, err
+		}
+	}
+	if err := mg.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return 0, short(err)
+	}
+	after, err := m.applied(mg)
+	return after - before, err
+}
+
+func (m Migrator) migrateBefore(mg *migrate.Migrate, barrier uint) error {
+	versions, err := m.Versions()
+	if err != nil {
+		return err
+	}
+	var prev uint
+	for _, v := range versions {
+		if v < barrier {
+			prev = v
+		}
+	}
+	if prev == 0 {
+		return nil
+	}
+	if err := mg.Migrate(prev); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return short(err)
+	}
+	return nil
+}
+
 func (m Migrator) Rollback(_ context.Context, pool *pgxpool.Pool, count int) (int, error) {
 	mg, err := m.open(pool)
 	if err != nil {

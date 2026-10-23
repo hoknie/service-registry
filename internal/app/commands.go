@@ -11,8 +11,18 @@ import (
 	"svc-registry/pkg/secretbox"
 )
 
+const legacyCredentialsBarrier = 20261022100002
+
 func Migrate(ctx context.Context, db config.DbConfig) (int, error) {
-	return postgres.Migrate(ctx, db)
+	pool, err := postgres.ConnectLazy(db)
+	if err != nil {
+		return 0, err
+	}
+	defer pool.Close()
+	tx := pgtx.New(pool)
+	return postgres.Embedded().MigrateUntil(ctx, pool, legacyCredentialsBarrier, func(ctx context.Context) error {
+		return legacyCount(ctx, tx)
+	})
 }
 
 func Rollback(ctx context.Context, db config.DbConfig, count int) (int, error) {
@@ -36,4 +46,15 @@ func OpenSecretRotation(db config.DbConfig, keys config.SecretsConfig) (func(con
 		return rotateSecretsOver(ctx, pgtx.New(pool), secretbox.New(keys.Keys))
 	}
 	return rotate, pool.Close, nil
+}
+
+func OpenLegacyAdoption(db config.DbConfig, keys config.SecretsConfig) (func(context.Context, bool) (Adoption, error), func(), error) {
+	pool, err := postgres.ConnectLazy(db)
+	if err != nil {
+		return nil, nil, err
+	}
+	adopt := func(ctx context.Context, dryRun bool) (Adoption, error) {
+		return adoptLegacy(ctx, pgtx.New(pool), secretbox.New(keys.Keys), dryRun)
+	}
+	return adopt, pool.Close, nil
 }

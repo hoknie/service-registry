@@ -48,18 +48,31 @@ func ServeUntil(ctx context.Context, cfg config.Config) error {
 	if !dist.HasExport() {
 		slog.Warn("no web UI export (404.html missing); run `just web-build` or set WEB_DIST_DIR", "web_dist", dist.Root())
 	}
+	if cfg.Notify.UseProxy {
+		slog.Warn("NOTIFY_USE_PROXY=true: notifications go through the outbound proxy; the receiver's IP behind the proxy is not checked")
+	}
+	if cfg.MCPOAuth.Enabled && cfg.MCPOAuth.ClientMetadata {
+		if !cfg.MCPOAuth.ClientDocuments() {
+			slog.Info("client metadata documents are refused: MCP_OAUTH_CLIENT_METADATA_HOSTS lists no hosts")
+		} else if cfg.MCPOAuth.ClientMetadataUseProxy {
+			slog.Warn("MCP_OAUTH_CLIENT_METADATA_USE_PROXY=true: client metadata documents are fetched through the outbound proxy; the IP behind the proxy is not checked")
+		}
+	}
 	tasks, cancelTasks := context.WithCancel(context.Background())
 	deps := registry.Jobs()
 	defer cancelTasks()
 	jobs.SpawnEventRetention(tasks, deps)
 	jobs.SpawnBranchRetention(tasks, deps)
 	jobs.SpawnKnowledgeBlobRetention(tasks, deps)
+	jobs.SpawnLinkIconRetention(tasks, deps)
 	jobs.SpawnLoginStateRetention(tasks, deps)
+	jobs.SpawnOAuthRetention(tasks, deps)
 	forgeDone := jobs.SpawnForgeSync(tasks, deps)
 	linksDone := jobs.SpawnLinkChecks(tasks, deps)
 	clustersDone := jobs.SpawnClusterPolls(tasks, deps)
 	knowledgeDone := jobs.SpawnKnowledgeCollection(tasks, deps)
 	indexDone := jobs.SpawnKnowledgeIndex(tasks, deps)
+	notifyDone := jobs.SpawnNotifyDeliveries(tasks, deps)
 	if cfg.Bootstrap.Admin != nil {
 		jobs.SpawnBootstrapAdmin(tasks, deps, *cfg.Bootstrap.Admin)
 	}
@@ -102,6 +115,11 @@ func ServeUntil(ctx context.Context, cfg config.Config) error {
 		case <-indexDone:
 		case <-shutdown.Done():
 			slog.Warn("shutdown grace period elapsed; documentation indexing still stopping")
+		}
+		select {
+		case <-notifyDone:
+		case <-shutdown.Done():
+			slog.Warn("shutdown grace period elapsed; notification deliveries still stopping")
 		}
 		if err := app.ShutdownWithContext(shutdown); err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {

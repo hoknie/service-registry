@@ -113,3 +113,31 @@ func (l *IngestLimiter) Hit(key uuid.UUID, now time.Time) (uint64, bool) {
 }
 
 func (l *IngestLimiter) Len() int { return l.b.Len() }
+
+const ClientRegistrationsPerHour = 10
+
+type RegistrationLimiter struct{ b *buckets[string] }
+
+func NewRegistrationLimiter() *RegistrationLimiter {
+	return &RegistrationLimiter{b: newBuckets[string](ClientRegistrationsPerHour, time.Hour)}
+}
+
+func (l *RegistrationLimiter) Hit(ip string, now time.Time) (uint64, bool) {
+	bucket := l.b.get(ip, now)
+	if bucket.AllowN(now, 1) {
+		return 0, true
+	}
+	return retryAfter(bucket, now), false
+}
+
+const ClientMetadataFetchesPerHour = 30
+
+type MetadataFetchLimiter struct{ b *buckets[string] }
+
+func NewMetadataFetchLimiter() *MetadataFetchLimiter {
+	return &MetadataFetchLimiter{b: newBuckets[string](ClientMetadataFetchesPerHour, time.Hour)}
+}
+
+func (l *MetadataFetchLimiter) Hit(ip string, now time.Time) bool {
+	return l.b.get(ip, now).AllowN(now, 1)
+}

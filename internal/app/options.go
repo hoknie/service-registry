@@ -1,30 +1,67 @@
 package app
 
 import (
+	"time"
+
+	"svc-registry/internal/feature/access/clients/clientmeta"
+	accessports "svc-registry/internal/feature/access/ports"
 	"svc-registry/internal/feature/deploy/clients/k8s"
 	deployports "svc-registry/internal/feature/deploy/ports"
 	linksports "svc-registry/internal/feature/links/ports"
+	"svc-registry/internal/feature/notify/clients/sender"
+	notifyports "svc-registry/internal/feature/notify/ports"
 	"svc-registry/internal/platform/config"
 )
 
 type Option func(*overrides)
 
 type overrides struct {
-	linkChecker linksports.CheckerPort
-	k8s         deployports.ClientFactoryPort
+	linkChecker    linksports.CheckerPort
+	k8s            deployports.ClientFactoryPort
+	notifySender   notifyports.SenderPort
+	clientMetadata accessports.ClientMetadataPort
 }
 
 func WithLinkChecker(c linksports.CheckerPort) Option {
 	return func(o *overrides) { o.linkChecker = c }
 }
 
+func WithNotifySender(s notifyports.SenderPort) Option {
+	return func(o *overrides) { o.notifySender = s }
+}
+
+func notifySender(o overrides, cfg config.Config) notifyports.SenderPort {
+	if o.notifySender != nil {
+		return o.notifySender
+	}
+	timeout := time.Duration(cfg.Notify.TimeoutSecs) * time.Second
+	if cfg.Notify.UseProxy {
+		return sender.NewProxied(cfg.Outbound.Options(), timeout, cfg.Notify.Policy())
+	}
+	return sender.New(cfg.Outbound.Options(), timeout, cfg.Notify.Policy())
+}
+
+func WithClientMetadata(f accessports.ClientMetadataPort) Option {
+	return func(o *overrides) { o.clientMetadata = f }
+}
+
+func clientMetadata(o overrides, cfg config.Config) accessports.ClientMetadataPort {
+	if o.clientMetadata != nil {
+		return o.clientMetadata
+	}
+	if cfg.MCPOAuth.ClientMetadataUseProxy {
+		return clientmeta.NewProxied(cfg.Outbound.Options())
+	}
+	return clientmeta.New(cfg.Outbound.Options())
+}
+
 func WithK8s(f deployports.ClientFactoryPort) Option { return func(o *overrides) { o.k8s = f } }
 
-func k8sFactory(o overrides, cfg config.Config) deployports.ClientFactoryPort {
+func k8sFactory(o overrides, out config.OutboundConfig, k config.K8sClientConfig) deployports.ClientFactoryPort {
 	if o.k8s != nil {
 		return o.k8s
 	}
-	return k8s.NewFactoryClient(cfg.Outbound, cfg.K8s)
+	return k8s.NewFactoryClient(out, k)
 }
 
 func overridesOf(opts []Option) overrides {

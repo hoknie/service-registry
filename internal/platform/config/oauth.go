@@ -31,6 +31,7 @@ type OAuthProvider struct {
 	AllowedDomains []string
 	GroupsClaim    string
 	GroupMap       []GroupRule
+	EditorMap      []GroupRule
 }
 
 type GroupRule struct {
@@ -129,6 +130,11 @@ func (c *OAuthConfig) checkEnv(vars Env) Errors {
 			errs = append(errs, &Error{Var: prefix + "GROUP_MAP", Reason: `must be rules "value=>group" separated by ';' (or "*")`})
 		}
 		p.GroupMap = rules
+		editors, ok := groupRules(get(prefix + "CONTACT_EDITOR_MAP"))
+		if !ok || slices.ContainsFunc(editors, func(r GroupRule) bool { return r.Value == "*" }) {
+			errs = append(errs, &Error{Var: prefix + "CONTACT_EDITOR_MAP", Reason: `must be rules "value=>group" separated by ';' ("*" is not allowed)`})
+		}
+		p.EditorMap = editors
 		c.Providers = append(c.Providers, p)
 	}
 	if c.PasswordLogin == "off" && len(c.Providers) == 0 && len(errs) == 0 {

@@ -2,6 +2,8 @@ package config
 
 import (
 	"strings"
+
+	"svc-registry/pkg/netguard"
 )
 
 type LinkCheckConfig struct {
@@ -27,6 +29,10 @@ func (c *LinkCheckConfig) check() Errors {
 		errs = append(errs, &Error{Var: "LINK_CHECK_DENY_HOSTS", Reason: "must be host names or *.domain separated by commas"})
 	}
 	return errs
+}
+
+func (c LinkCheckConfig) Policy() netguard.Policy {
+	return netguard.Policy{AllowPrivate: c.AllowPrivate, AllowHosts: c.AllowHosts, DenyHosts: c.DenyHosts}
 }
 
 func hostPatterns(raw string) ([]string, bool) {

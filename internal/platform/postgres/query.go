@@ -106,3 +106,14 @@ type pair[K, V any] struct {
 	key   K
 	value V
 }
+
+func HasColumn(ctx context.Context, q pgtx.Querier, table, column string) (bool, error) {
+	return One(ctx, q, nil, pgx.RowTo[bool], `
+		SELECT EXISTS (
+			SELECT 1
+			FROM information_schema.columns
+			WHERE table_schema = current_schema()
+				AND table_name = $1
+				AND column_name = $2
+		)`, table, column)
+}

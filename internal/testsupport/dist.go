@@ -6,6 +6,8 @@ import (
 	"testing"
 )
 
+const InlineScript = `document.documentElement.dataset.theme="light"`
+
 var (
 	GzBody = []byte("\x1f\x8bfake-gzip")
 	BrBody = []byte("fake-brotli")
@@ -31,10 +33,12 @@ func (d *Dist) WriteExport(t testing.TB) {
 	for _, l := range []string{"en", "es", "ru", "zh"} {
 		d.Write(t, l+".html", `<!DOCTYPE html><html lang="`+l+`"><body>`+l+` home</body></html>`)
 		d.Write(t, l+".txt", l+" home data")
-		d.Write(t, l+"/login.html", `<!DOCTYPE html><html lang="`+l+`"><body>`+l+` login</body></html>`)
+		d.Write(t, l+"/login.html", `<!DOCTYPE html><html lang="`+l+`"><head><script>`+InlineScript+`</script>`+
+			`<script src="/_next/static/chunks/app.js" async=""></script></head><body>`+l+` login</body></html>`)
 		d.Write(t, l+"/404.html", `<!DOCTYPE html><html lang="`+l+`"><body>`+l+` not found</body></html>`)
 		d.Write(t, l+"/doc.html", `<!DOCTYPE html><html lang="`+l+`"><body>`+l+` docs</body></html>`)
 	}
+	d.WriteBytes(t, "en/login.html.br", BrBody)
 	d.Write(t, "ru/catalog.html", `<!DOCTYPE html><html lang="ru"><body>ru catalog</body></html>`)
 	d.Write(t, "ru/catalog.txt", "ru catalog data")
 	d.Write(t, "ru/catalog/__next._tree.txt", "ru catalog tree")

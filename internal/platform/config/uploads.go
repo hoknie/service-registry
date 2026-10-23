@@ -4,11 +4,17 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 )
 
 type UploadsConfig struct {
-	DirRaw string `env:"UPLOADS_DIR" envDefault:"data/uploads"`
-	Dir    string `env:"-"`
+	DirRaw              string `env:"UPLOADS_DIR" envDefault:"data/uploads"`
+	Dir                 string `env:"-"`
+	UnreferencedTTLSecs uint32 `env:"UPLOADS_UNREFERENCED_TTL_SECS" envDefault:"86400" validate:"min=600,max=2592000"`
+}
+
+func (c UploadsConfig) UnreferencedTTL() time.Duration {
+	return time.Duration(c.UnreferencedTTLSecs) * time.Second
 }
 
 func (c *UploadsConfig) check() Errors {

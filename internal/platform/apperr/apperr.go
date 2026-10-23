@@ -32,6 +32,7 @@ const (
 	UpstreamRateLimited
 	BadGateway
 	InvalidWebhookSignature
+	InvalidAgentToken
 )
 
 type Field struct {
@@ -83,6 +84,8 @@ func (e *Error) Error() string {
 		return "the forge's rate limit is exceeded"
 	case InvalidWebhookSignature:
 		return "the webhook delivery is not signed by this connection"
+	case InvalidAgentToken:
+		return "a valid agent token for this cluster is required"
 	}
 	return e.Message
 }
