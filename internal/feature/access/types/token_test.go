@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -45,6 +46,41 @@ func TestTokenRules(t *testing.T) {
 			}
 			if err == nil && tt.in.ExpiresInDays == nil && got.ExpiresInDays != nil {
 				t.Error("no expiry kept")
+			}
+		})
+	}
+}
+
+func TestTokenNodeRules(t *testing.T) {
+	a, b := "0190b6f0-0000-7000-8000-000000000001", "0190b6f0-0000-7000-8000-000000000002"
+	many := make([]string, TokenMaxNodes+1)
+	for i := range many {
+		many[i] = fmt.Sprintf("0190b6f0-0000-7000-8000-%012d", i+1)
+	}
+	tests := []struct {
+		name   string
+		nodes  *[]string
+		scopes []string
+		want   error
+		count  int
+	}{
+		{"absent", nil, []string{"read"}, nil, 0},
+		{"two", &[]string{a, b}, []string{"read", "write"}, nil, 2},
+		{"twenty", new(many[:TokenMaxNodes]), []string{"mcp"}, nil, TokenMaxNodes},
+		{"empty", &[]string{}, []string{"read"}, InvalidTokenNodes, 0},
+		{"too many", &many, []string{"read"}, InvalidTokenNodes, 0},
+		{"repeated", &[]string{a, a}, []string{"read"}, InvalidTokenNodes, 0},
+		{"not an id", &[]string{"acme"}, []string{"read"}, InvalidTokenNodes, 0},
+		{"with admin", &[]string{a}, []string{"read", "admin"}, InvalidTokenNodes, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ValidateCreateToken(CreateToken{Name: "t", Scopes: tt.scopes, ExpiresInDays: new(int64(1)), Nodes: tt.nodes}, true, 365)
+			if err != tt.want {
+				t.Fatalf("got %v, want %v", err, tt.want)
+			}
+			if len(got.Nodes) != tt.count || (tt.nodes == nil && got.Nodes != nil) {
+				t.Fatalf("nodes %v", got.Nodes)
 			}
 		})
 	}

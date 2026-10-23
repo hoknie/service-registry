@@ -22,6 +22,11 @@ func TestScopesLimitOnlyTokenRequests(t *testing.T) {
 		return Principal{UserID: session.UserID, TokenID: uuid.Must(uuid.NewV7()), Scopes: scopes}
 	}
 	all := token(AllScopes...)
+	nodes := func(scopes ...Scope) Principal {
+		p := token(scopes...)
+		p.Nodes = []uuid.UUID{uuid.Must(uuid.NewV7())}
+		return p
+	}
 	tests := []struct {
 		name string
 		p    Principal
@@ -40,6 +45,11 @@ func TestScopesLimitOnlyTokenRequests(t *testing.T) {
 		{"admin administers", token(ScopeAdmin), NeedAdmin, 0},
 		{"read and write do not administer", token(ScopeRead, ScopeWrite), NeedAdmin, apperr.InsufficientScope},
 		{"mcp opens no catalog route", token(ScopeMCP), NeedRead, apperr.InsufficientScope},
+		{"whole write without nodes", token(ScopeWrite), NeedWriteWhole, 0},
+		{"whole write needs write", token(ScopeRead), NeedWriteWhole, apperr.InsufficientScope},
+		{"whole write refuses nodes", nodes(ScopeRead, ScopeWrite), NeedWriteWhole, apperr.InsufficientScope},
+		{"nodes still write the catalog", nodes(ScopeWrite), NeedWrite, 0},
+		{"session writes whole", session, NeedWriteWhole, 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -21,7 +21,10 @@ func revokeUserTokens(ctx context.Context, db pgtx.Querier, userID uuid.UUID) er
 		SET revoked_at = now()
 		WHERE user_id = $1
 			AND revoked_at IS NULL`, userID)
-	return err
+	if err != nil {
+		return err
+	}
+	return revokeUserGrants(ctx, db, userID)
 }
 
 func likePrefix(prefix string) string {
@@ -42,8 +45,10 @@ func (s *TokenRepository) Insert(ctx context.Context, nt accesstypes.NewToken) (
 	}
 	return postgres.One(ctx, s.db.From(ctx), constraints, scanToken, `
 		WITH t AS (
-			INSERT INTO personal_access_tokens (id, user_id, name, prefix, token_hash, scopes, expires_at)
-			VALUES ($1, $2, $3, $4, $5, $6, now() + make_interval(days => $7::int))
+			INSERT INTO personal_access_tokens (id, user_id, name, prefix, token_hash, scopes, expires_at, node_ids, catalog_admin)
+			SELECT $1, $2, $3, $4, $5, $6, now() + make_interval(days => $7::int), $8::uuid[], u.is_superadmin
+			FROM users u
+			WHERE u.id = $2
 			RETURNING *
 		)
 		SELECT t.id, t.user_id, u.email, t.name, t.prefix, t.scopes, rfc3339(t.created_at) AS created_at,
@@ -52,9 +57,9 @@ func (s *TokenRepository) Insert(ctx context.Context, nt accesstypes.NewToken) (
 			CASE
 				WHEN t.revoked_at IS NOT NULL THEN 'revoked'
 				WHEN t.expires_at <= now() THEN 'expired'
-				ELSE 'active' END AS status
+				ELSE 'active' END AS status, t.node_ids, t.catalog_admin
 		FROM t
-		JOIN users u ON u.id = t.user_id`, nt.ID, nt.UserID, nt.Name, nt.Prefix, nt.Hash[:], nt.Scopes.Strings(), days)
+		JOIN users u ON u.id = t.user_id`, nt.ID, nt.UserID, nt.Name, nt.Prefix, nt.Hash[:], nt.Scopes.Strings(), days, nt.Nodes)
 }
 
 func (s *TokenRepository) ListForUser(ctx context.Context, userID uuid.UUID) ([]accesstypes.Token, error) {
@@ -65,7 +70,7 @@ func (s *TokenRepository) ListForUser(ctx context.Context, userID uuid.UUID) ([]
 			CASE
 				WHEN t.revoked_at IS NOT NULL THEN 'revoked'
 				WHEN t.expires_at <= now() THEN 'expired'
-				ELSE 'active' END AS status
+				ELSE 'active' END AS status, t.node_ids, t.catalog_admin
 		FROM personal_access_tokens t
 		JOIN users u ON u.id = t.user_id
 		WHERE t.user_id = $1
@@ -81,7 +86,7 @@ func (s *TokenRepository) List(ctx context.Context, f accesstypes.TokenFilter) (
 			CASE
 				WHEN t.revoked_at IS NOT NULL THEN 'revoked'
 				WHEN t.expires_at <= now() THEN 'expired'
-				ELSE 'active' END AS status
+				ELSE 'active' END AS status, t.node_ids, t.catalog_admin
 		FROM personal_access_tokens t
 		JOIN users u ON u.id = t.user_id
 		WHERE t.prefix LIKE $1
@@ -115,13 +120,13 @@ func (s *TokenRepository) FindValid(ctx context.Context, tokenHash [32]byte) (*a
 		var t accesstypes.TokenUser
 		var scopes []string
 		var err error
-		if t.User, err = scanUserWith(r, []any{&t.TokenID, &scopes, &stale}, nil); err != nil {
+		if t.User, err = scanUserWith(r, []any{&t.TokenID, &scopes, &t.Nodes, &t.CatalogAdmin, &stale}, nil); err != nil {
 			return t, err
 		}
 		t.Scopes, err = parseScopes(scopes)
 		return t, err
 	}, `
-		SELECT t.id, t.scopes,
+		SELECT t.id, t.scopes, t.node_ids, t.catalog_admin,
 			(t.last_used_at IS NULL OR t.last_used_at < now() - interval '60 seconds') AS stale, u.id, u.email,
 			u.display_name, u.status, u.is_superadmin, u.is_service, u.password_hash IS NOT NULL AS has_password,
 			rfc3339(u.created_at) AS created_at, rfc3339(u.updated_at) AS updated_at

@@ -13,4 +13,8 @@ var constraints = postgres.Constraints{
 	"group_members_user_id_fkey":          apperr.ErrNotFound,
 	"personal_access_tokens_user_id_fkey": apperr.ErrNotFound,
 	"user_identities_subject_key":         accesstypes.RefuseIdentityTaken,
+	"oauth_authorizations_client_id_fkey": apperr.ErrNotFound,
+	"oauth_authorizations_user_id_fkey":   apperr.ErrNotFound,
+	"oauth_grants_user_id_fkey":           apperr.ErrNotFound,
+	"oauth_grants_client_id_fkey":         apperr.ErrNotFound,
 }

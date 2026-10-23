@@ -4,6 +4,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -99,6 +101,7 @@ type ValidatedToken struct {
 	Name          string
 	Scopes        Scopes
 	ExpiresInDays *uint32
+	Nodes         []uuid.UUID
 }
 
 func ValidateCreateToken(in CreateToken, superadmin bool, maxDays uint32) (ValidatedToken, error) {
@@ -134,6 +137,31 @@ func ValidateCreateToken(in CreateToken, superadmin bool, maxDays uint32) (Valid
 		days := uint32(*in.ExpiresInDays)
 		out.ExpiresInDays = &days
 	}
+	nodes, err := validateTokenNodes(in.Nodes, out.Scopes)
+	if err != nil {
+		return ValidatedToken{}, err
+	}
+	out.Nodes = nodes
+	return out, nil
+}
+
+func validateTokenNodes(raw *[]string, scopes Scopes) ([]uuid.UUID, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	if len(*raw) == 0 || len(*raw) > TokenMaxNodes || scopes.Has(ScopeAdmin) {
+		return nil, InvalidTokenNodes
+	}
+	out := make([]uuid.UUID, 0, len(*raw))
+	seen := map[uuid.UUID]bool{}
+	for _, s := range *raw {
+		id, err := uuid.Parse(s)
+		if err != nil || seen[id] {
+			return nil, InvalidTokenNodes
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
 	return out, nil
 }
 
@@ -151,4 +179,8 @@ func ValidateTokenQuery(q TokenQuery) (TokenFilter, error) {
 	}
 	f.Page = page
 	return f, nil
+}
+
+func ValidateGrantNodes(raw *[]string) ([]uuid.UUID, error) {
+	return validateTokenNodes(raw, Scopes{ScopeMCP})
 }

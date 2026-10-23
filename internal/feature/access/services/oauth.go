@@ -148,8 +148,9 @@ func (s *OAuthService) CompleteLogin(ctx context.Context, cb LoginCallback, prev
 	if user, err = s.applyOutcome(ctx, outcome, loginParties{identity: identity, user: user, byEmail: byEmail}, newIdentity, claims); err != nil {
 		return done, err
 	}
-	groups := accesstypes.GroupsFor(claims.Groups, groupRules(cfg))
-	if err := s.groupRepository.SyncManaged(ctx, user.ID, accesstypes.OAuthSource(cb.Provider), groups); err != nil {
+	groups := accesstypes.GroupsFor(claims.Groups, groupRules(cfg.GroupMap))
+	editors := accesstypes.GroupsFor(claims.Groups, groupRules(cfg.EditorMap))
+	if err := s.groupRepository.SyncManaged(ctx, user.ID, accesstypes.OAuthSource(cb.Provider), groups, editors); err != nil {
 		return done, apperr.Wrap(err)
 	}
 	signedIn, err := s.auth.openSession(ctx, *user, accesstypes.OAuthMethod(cb.Provider), previousToken)
@@ -175,9 +176,9 @@ func (s *OAuthService) linkIdentity(ctx context.Context, userID uuid.UUID, exist
 	return apperr.Wrap(err)
 }
 
-func groupRules(cfg config.OAuthProvider) []accesstypes.GroupRule {
-	out := make([]accesstypes.GroupRule, 0, len(cfg.GroupMap))
-	for _, r := range cfg.GroupMap {
+func groupRules(rules []config.GroupRule) []accesstypes.GroupRule {
+	out := make([]accesstypes.GroupRule, 0, len(rules))
+	for _, r := range rules {
 		out = append(out, accesstypes.GroupRule{Value: r.Value, Group: r.Group})
 	}
 	return out

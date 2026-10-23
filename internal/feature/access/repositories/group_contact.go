@@ -1,0 +1,160 @@
+package repositories
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
+	accesstypes "svc-registry/internal/feature/access/types"
+	"svc-registry/internal/platform/postgres"
+	"svc-registry/pkg/pgtx"
+)
+
+type GroupContactRepository struct{ db *pgtx.DB }
+
+func NewGroupContactRepository(db *pgtx.DB) *GroupContactRepository {
+	return &GroupContactRepository{db: db}
+}
+
+type groupContact struct {
+	groupID uuid.UUID
+	contact accesstypes.Contact
+}
+
+func scanGroupContact(row pgx.CollectableRow) (groupContact, error) {
+	var c groupContact
+	err := row.Scan(&c.groupID, &c.contact.Kind, &c.contact.Value, &c.contact.Label)
+	return c, err
+}
+
+func contactsOf(ctx context.Context, q pgtx.Querier, ids []uuid.UUID) (map[uuid.UUID][]accesstypes.Contact, error) {
+	out := map[uuid.UUID][]accesstypes.Contact{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := postgres.List(ctx, q, constraints, scanGroupContact, `
+		SELECT group_id, kind, value, label
+		FROM group_contacts
+		WHERE group_id = ANY($1)
+		ORDER BY group_id, position`, ids)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		out[r.groupID] = append(out[r.groupID], r.contact)
+	}
+	return out, nil
+}
+
+func withContacts(ctx context.Context, q pgtx.Querier, groups []accesstypes.Group) ([]accesstypes.Group, error) {
+	ids := make([]uuid.UUID, len(groups))
+	for i, g := range groups {
+		ids[i] = g.ID
+	}
+	contacts, err := contactsOf(ctx, q, ids)
+	if err != nil {
+		return nil, err
+	}
+	for i := range groups {
+		if c, ok := contacts[groups[i].ID]; ok {
+			groups[i].Contacts = c
+		}
+	}
+	return groups, nil
+}
+
+func (s *GroupContactRepository) Set(ctx context.Context, groupID uuid.UUID, in accesstypes.GroupContacts) error {
+	err := s.db.InTx(ctx, func(ctx context.Context) error {
+		tx := s.db.From(ctx)
+		if err := postgres.ExecFound(ctx, tx, constraints, `
+			UPDATE groups
+			SET on_call_url = $2, updated_at = now()
+			WHERE id = $1`, groupID, in.OnCallURL); err != nil {
+			return err
+		}
+		if _, err := postgres.Exec(ctx, tx, constraints, `
+			DELETE FROM group_contacts
+			WHERE group_id = $1`, groupID); err != nil {
+			return err
+		}
+		for i, c := range in.Contacts {
+			if _, err := postgres.Exec(ctx, tx, constraints, `
+				INSERT INTO group_contacts (id, group_id, kind, value, label, position)
+				VALUES ($1, $2, $3, $4, $5, $6)`, uuid.Must(uuid.NewV7()), groupID, c.Kind, c.Value, c.Label, int16(i)); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return postgres.Translate(err, constraints)
+}
+
+func (s *GroupContactRepository) Membership(ctx context.Context, groupID, userID uuid.UUID) (accesstypes.Membership, error) {
+	return postgres.One(ctx, s.db.From(ctx), constraints, scanMembership, `
+		SELECT EXISTS (SELECT 1 FROM groups WHERE id = $1),
+			EXISTS (SELECT 1 FROM users WHERE id = $2),
+			EXISTS (SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2),
+			EXISTS (
+				SELECT 1
+				FROM group_members m
+				JOIN group_contact_editors e ON e.group_id = m.group_id AND e.user_id = m.user_id
+				WHERE m.group_id = $1
+					AND m.user_id = $2
+			)`, groupID, userID)
+}
+
+func (s *GroupContactRepository) SetEditor(ctx context.Context, groupID, userID uuid.UUID, on bool) error {
+	if !on {
+		managed, err := postgres.One(ctx, s.db.From(ctx), constraints, pgx.RowTo[bool], `
+			WITH gone AS (
+				DELETE FROM group_contact_editors
+				WHERE group_id = $1
+					AND user_id = $2
+					AND source = 'manual'
+			)
+			SELECT EXISTS (
+				SELECT 1
+				FROM group_contact_editors
+				WHERE group_id = $1
+					AND user_id = $2
+					AND source <> 'manual'
+			)`, groupID, userID)
+		if err == nil && managed {
+			return accesstypes.ConflictEditorManaged
+		}
+		return err
+	}
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		INSERT INTO group_contact_editors (group_id, user_id)
+		VALUES ($1, $2)
+		ON CONFLICT (group_id, user_id)
+		DO UPDATE SET source = 'manual'`, groupID, userID)
+	return err
+}
+
+func (s *GroupContactRepository) OwnGroups(ctx context.Context, userID uuid.UUID) ([]accesstypes.OwnGroup, error) {
+	rows, err := postgres.List(ctx, s.db.From(ctx), constraints, scanOwnGroup, `
+		SELECT g.id, g.name, (SELECT count(*) FROM group_members m WHERE m.group_id = g.id) AS member_count, g.on_call_url,
+			rfc3339(g.created_at) AS created_at, rfc3339(g.updated_at) AS updated_at,
+			EXISTS (SELECT 1 FROM group_contact_editors e WHERE e.group_id = g.id AND e.user_id = $1) AS can_edit
+		FROM groups g
+		JOIN group_members gm ON gm.group_id = g.id
+		WHERE gm.user_id = $1
+		ORDER BY lower(g.name), g.id`, userID)
+	if err != nil {
+		return nil, err
+	}
+	groups := make([]accesstypes.Group, len(rows))
+	for i, r := range rows {
+		groups[i] = r.Group
+	}
+	groups, err = withContacts(ctx, s.db.From(ctx), groups)
+	if err != nil {
+		return nil, err
+	}
+	for i := range rows {
+		rows[i].Group = groups[i]
+	}
+	return rows, nil
+}

@@ -57,22 +57,36 @@ func ParseTokenStatus(s string) (TokenStatus, bool) {
 	return "", false
 }
 
+const TokenMaxNodes = 20
+
+type NodeRef struct {
+	ID   uuid.UUID
+	Kind *string
+	Name *string
+	Path *string
+}
+
 type Token struct {
-	ID         uuid.UUID
-	UserID     uuid.UUID
-	UserEmail  string
-	Name       string
-	Prefix     string
-	Scopes     Scopes
-	CreatedAt  string
-	ExpiresAt  *string
-	LastUsedAt *string
-	RevokedAt  *string
-	Status     TokenStatus
+	ID           uuid.UUID
+	UserID       uuid.UUID
+	UserEmail    string
+	Name         string
+	Prefix       string
+	Scopes       Scopes
+	NodeIDs      []uuid.UUID
+	Nodes        []NodeRef
+	CatalogAdmin bool
+	CreatedAt    string
+	ExpiresAt    *string
+	LastUsedAt   *string
+	RevokedAt    *string
+	Status       TokenStatus
 }
 
 type TokenUser struct {
-	TokenID uuid.UUID
-	Scopes  Scopes
-	User    User
+	TokenID      uuid.UUID
+	Scopes       Scopes
+	Nodes        []uuid.UUID
+	CatalogAdmin bool
+	User         User
 }

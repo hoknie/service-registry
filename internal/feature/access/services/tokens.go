@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	accessports "svc-registry/internal/feature/access/ports"
 	"svc-registry/internal/feature/access/repositories"
 	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/platform/apperr"
@@ -63,18 +64,46 @@ func (s *TokensService) issueFor(ctx context.Context, userID uuid.UUID, superadm
 	if err != nil {
 		return IssuedToken{}, apperr.Wrap(err)
 	}
+	if valid.Nodes != nil {
+		readable, err := s.roots.CheckRoots(ctx, accesstypes.Principal{UserID: userID, IsSuperadmin: superadmin}, valid.Nodes)
+		if err != nil {
+			return IssuedToken{}, apperr.Wrap(err)
+		}
+		if !readable {
+			return IssuedToken{}, apperr.Wrap(accesstypes.InvalidTokenNodes)
+		}
+	}
 	fresh, err := auth.GeneratePersonalToken()
 	if err != nil {
 		return IssuedToken{}, apperr.Internalf("no randomness: %v", err)
 	}
 	token, err := s.tokenRepository.Insert(ctx, accesstypes.NewToken{
 		ID: uuid.Must(uuid.NewV7()), UserID: userID, Name: valid.Name, Prefix: fresh.Prefix,
-		Hash: fresh.Hash, Scopes: valid.Scopes, ExpiresInDays: valid.ExpiresInDays,
+		Hash: fresh.Hash, Scopes: valid.Scopes, ExpiresInDays: valid.ExpiresInDays, Nodes: valid.Nodes,
 	})
 	if err != nil {
 		return IssuedToken{}, apperr.Wrap(err)
 	}
-	return IssuedToken{Token: token, Secret: fresh.Secret}, nil
+	described, err := s.describe(ctx, []accesstypes.Token{token})
+	if err != nil {
+		return IssuedToken{}, err
+	}
+	return IssuedToken{Token: described[0], Secret: fresh.Secret}, nil
+}
+
+func (s *TokensService) describe(ctx context.Context, tokens []accesstypes.Token) ([]accesstypes.Token, error) {
+	sets := make([][]uuid.UUID, len(tokens))
+	for i, t := range tokens {
+		sets[i] = t.NodeIDs
+	}
+	refs, err := nodeRefs(ctx, s.roots, sets)
+	if err != nil {
+		return nil, err
+	}
+	for i := range tokens {
+		tokens[i].Nodes = refs[i]
+	}
+	return tokens, nil
 }
 
 func (s *TokensService) ListOwnTokens(ctx context.Context, p accesstypes.Principal) ([]accesstypes.Token, error) {
@@ -82,7 +111,10 @@ func (s *TokensService) ListOwnTokens(ctx context.Context, p accesstypes.Princip
 		return nil, err
 	}
 	tokens, err := s.tokenRepository.ListForUser(ctx, p.UserID)
-	return tokens, apperr.Wrap(err)
+	if err != nil {
+		return nil, apperr.Wrap(err)
+	}
+	return s.describe(ctx, tokens)
 }
 
 func (s *TokensService) RevokeOwnToken(ctx context.Context, p accesstypes.Principal, id uuid.UUID) error {
@@ -104,7 +136,10 @@ func (s *TokensService) ListUserTokens(ctx context.Context, p accesstypes.Princi
 		return nil, apperr.New(apperr.NotFound)
 	}
 	tokens, err := s.tokenRepository.ListForUser(ctx, userID)
-	return tokens, apperr.Wrap(err)
+	if err != nil {
+		return nil, apperr.Wrap(err)
+	}
+	return s.describe(ctx, tokens)
 }
 
 func (s *TokensService) ListTokens(ctx context.Context, p accesstypes.Principal, q accesstypes.TokenQuery) (accesstypes.Page[accesstypes.Token], error) {
@@ -116,7 +151,11 @@ func (s *TokensService) ListTokens(ctx context.Context, p accesstypes.Principal,
 		return accesstypes.Page[accesstypes.Token]{}, apperr.Wrap(err)
 	}
 	page, err := s.tokenRepository.List(ctx, filter)
-	return page, apperr.Wrap(err)
+	if err != nil {
+		return accesstypes.Page[accesstypes.Token]{}, apperr.Wrap(err)
+	}
+	page.Items, err = s.describe(ctx, page.Items)
+	return page, err
 }
 
 func (s *TokensService) RevokeToken(ctx context.Context, p accesstypes.Principal, id uuid.UUID) error {
@@ -128,6 +167,7 @@ func (s *TokensService) RevokeToken(ctx context.Context, p accesstypes.Principal
 
 type TokensService struct {
 	cfg             *config.Config
+	roots           accessports.NodeRootsPort
 	tokenRepository *repositories.TokenRepository
 	userRepository  *repositories.UserRepository
 }

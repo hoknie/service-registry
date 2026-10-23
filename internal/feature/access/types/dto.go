@@ -81,6 +81,7 @@ type CreateToken struct {
 	Name          string
 	Scopes        []string
 	ExpiresInDays *int64
+	Nodes         *[]string
 }
 
 type NewToken struct {
@@ -91,6 +92,7 @@ type NewToken struct {
 	Hash          [32]byte
 	Scopes        Scopes
 	ExpiresInDays *uint32
+	Nodes         []uuid.UUID
 }
 
 type TokenQuery struct {

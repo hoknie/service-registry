@@ -93,7 +93,26 @@ func (s *AuthService) Authenticate(ctx context.Context, token string) (accesstyp
 	return p, found.User, nil
 }
 
+func (s *AuthService) authenticateApp(ctx context.Context, hash [32]byte) (accesstypes.Principal, accesstypes.User, error) {
+	if s.cfg == nil || !s.cfg.MCPOAuth.Enabled {
+		return accesstypes.Principal{}, accesstypes.User{}, apperr.New(apperr.InvalidToken)
+	}
+	found, err := s.grantRepository.FindValidAccess(ctx, hash)
+	if err != nil {
+		return accesstypes.Principal{}, accesstypes.User{}, apperr.Wrap(err)
+	}
+	if found == nil {
+		return accesstypes.Principal{}, accesstypes.User{}, apperr.New(apperr.InvalidToken)
+	}
+	p := accesstypes.Principal{UserID: found.User.ID, TokenID: found.GrantID, Scopes: accesstypes.Scopes{accesstypes.ScopeMCP},
+		Nodes: found.Nodes, CatalogAdmin: found.CatalogAdmin && found.User.IsSuperadmin, App: true, Method: "oauth_app"}
+	return p, found.User, nil
+}
+
 func (s *AuthService) AuthenticateToken(ctx context.Context, secret string) (accesstypes.Principal, accesstypes.User, error) {
+	if hash, ok := auth.ParseAppAccessToken(secret); ok {
+		return s.authenticateApp(ctx, hash)
+	}
 	hash, ok := auth.ParsePersonalToken(secret)
 	if !ok {
 		return accesstypes.Principal{}, accesstypes.User{}, apperr.New(apperr.InvalidToken)
@@ -105,11 +124,14 @@ func (s *AuthService) AuthenticateToken(ctx context.Context, secret string) (acc
 	if found == nil {
 		return accesstypes.Principal{}, accesstypes.User{}, apperr.New(apperr.InvalidToken)
 	}
+	superadmin := found.User.IsSuperadmin && found.Scopes.Has(accesstypes.ScopeAdmin) && found.Nodes == nil
 	p := accesstypes.Principal{
 		UserID:       found.User.ID,
 		TokenID:      found.TokenID,
 		Scopes:       found.Scopes,
-		IsSuperadmin: found.User.IsSuperadmin && found.Scopes.Has(accesstypes.ScopeAdmin),
+		Nodes:        found.Nodes,
+		IsSuperadmin: superadmin,
+		CatalogAdmin: found.CatalogAdmin && found.User.IsSuperadmin && !superadmin,
 		Method:       "token",
 	}
 	return p, found.User, nil
@@ -149,5 +171,6 @@ type AuthService struct {
 	loginLimiter      *auth.LoginLimiter
 	sessionRepository *repositories.SessionRepository
 	tokenRepository   *repositories.TokenRepository
+	grantRepository   *repositories.OAuthGrantRepository
 	userRepository    *repositories.UserRepository
 }

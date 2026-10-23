@@ -54,7 +54,7 @@ func scanToken(row pgx.CollectableRow) (accesstypes.Token, error) {
 	var scopes []string
 	var st string
 	err := row.Scan(&t.ID, &t.UserID, &t.UserEmail, &t.Name, &t.Prefix, &scopes,
-		&t.CreatedAt, &t.ExpiresAt, &t.LastUsedAt, &t.RevokedAt, &st)
+		&t.CreatedAt, &t.ExpiresAt, &t.LastUsedAt, &t.RevokedAt, &st, &t.NodeIDs, &t.CatalogAdmin)
 	if err != nil {
 		return accesstypes.Token{}, err
 	}
@@ -70,8 +70,23 @@ func scanToken(row pgx.CollectableRow) (accesstypes.Token, error) {
 
 func scanGroup(row pgx.CollectableRow) (accesstypes.Group, error) {
 	var g accesstypes.Group
-	err := row.Scan(&g.ID, &g.Name, &g.MemberCount, &g.CreatedAt, &g.UpdatedAt)
+	err := row.Scan(&g.ID, &g.Name, &g.MemberCount, &g.OnCallURL, &g.CreatedAt, &g.UpdatedAt)
+	g.Contacts = []accesstypes.Contact{}
 	return g, err
+}
+
+func scanOwnGroup(row pgx.CollectableRow) (accesstypes.OwnGroup, error) {
+	var o accesstypes.OwnGroup
+	g := &o.Group
+	err := row.Scan(&g.ID, &g.Name, &g.MemberCount, &g.OnCallURL, &g.CreatedAt, &g.UpdatedAt, &o.CanEditContacts)
+	g.Contacts = []accesstypes.Contact{}
+	return o, err
+}
+
+func scanMembership(row pgx.CollectableRow) (accesstypes.Membership, error) {
+	var m accesstypes.Membership
+	err := row.Scan(&m.GroupExists, &m.UserExists, &m.Member, &m.Editor)
+	return m, err
 }
 
 func scanIdentity(row pgx.CollectableRow) (accesstypes.Identity, error) {
@@ -106,9 +121,10 @@ func scanIdentityUser(row pgx.CollectableRow) (identityUser, error) {
 func scanMember(row pgx.CollectableRow) (accesstypes.Member, error) {
 	var m accesstypes.Member
 	var st, source string
-	if err := row.Scan(&m.User.ID, &m.User.Email, &m.User.DisplayName, &st, &source); err != nil {
+	if err := row.Scan(&m.User.ID, &m.User.Email, &m.User.DisplayName, &st, &source, &m.EditorSource); err != nil {
 		return m, err
 	}
+	m.ContactEditor = m.EditorSource != nil
 	var err error
 	m.User.Status, err = status(st)
 	m.Source = accesstypes.MembershipSource(source)

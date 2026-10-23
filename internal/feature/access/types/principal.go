@@ -11,7 +11,10 @@ type Principal struct {
 	SessionID    uuid.UUID
 	TokenID      uuid.UUID
 	Scopes       Scopes
+	Nodes        []uuid.UUID
 	IsSuperadmin bool
+	CatalogAdmin bool
+	App          bool
 	Method       string
 }
 
@@ -24,6 +27,7 @@ const (
 	NeedAny
 	NeedRead
 	NeedWrite
+	NeedWriteWhole
 	NeedAdmin
 )
 
@@ -38,6 +42,11 @@ func RequireScope(p Principal, need Need) error {
 	case NeedRead:
 		scope = ScopeRead
 	case NeedWrite:
+		scope = ScopeWrite
+	case NeedWriteWhole:
+		if p.Nodes != nil {
+			return apperr.New(apperr.InsufficientScope)
+		}
 		scope = ScopeWrite
 	case NeedAdmin:
 		scope = ScopeAdmin
