@@ -1,6 +1,8 @@
 package tests
 
 import (
+	"github.com/google/uuid"
+
 	"bufio"
 	"context"
 	"encoding/json"
@@ -325,4 +327,11 @@ func (a *testApp) restart(extra ...string) {
 		a.t.Fatal(err)
 	}
 	a.services, a.cfg, a.env, a.addr = services, cfg, env, serve(a.t, services, a.dist)
+}
+
+func refSecret(t testing.TB, tdb *testsupport.TestDB, nodeID any) string {
+	t.Helper()
+	id := uuid.NewString()
+	execSQL(t, tdb, "INSERT INTO secrets (id, node_id, name, value_ref) VALUES ($1, $2, $3, 'env:T')", id, nodeID, "s-"+id)
+	return id
 }

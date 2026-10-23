@@ -154,3 +154,48 @@ func TestCatalogTableRowsCarryLinkIcons(t *testing.T) {
 	eq(t, scalar[int64](t, a.db, "SELECT count(*) FROM link_targets"), before, "icons do not register addresses")
 	eq(t, jsonText(at(a.get(tablePath(""), a.admin).json(t), "items", 0, "links")), `[]`, "containers have no links")
 }
+
+func TestCatalogTableSearchByNameMatchesTheWalk(t *testing.T) {
+	t.Parallel()
+	a := startTable(t)
+	deep1 := a.nodeID(a.admin, "folder", a.web, "deep1")
+	deep2 := a.nodeID(a.admin, "folder", deep1, "deep2")
+	deep3 := a.nodeID(a.admin, "folder", deep2, "deep3")
+	eq(t, a.createNode(a.admin, obj{"kind": "project", "parent_id": deep3, "slug": "deep-target", "name": "Deep Target"}).status, 201)
+	execSQL(t, a.db, `INSERT INTO nodes (id, kind, parent_id, slug, name)
+		SELECT gen_random_uuid(), 'project', $1, s, n
+		FROM (VALUES ('pct', '100% ready'), ('thousand', '1000 ready'), ('snake', 'snake_case'), ('snakex', 'snakeXcase'),
+			('bs', 'back\slash')) v(s, n)`, a.web)
+	s := &sourcesApp{testApp: a.testApp, admin: a.admin, org: a.acme}
+	s.failForge(a.users, "forge.unauthorized")
+
+	for _, c := range []struct{ query, want string }{
+		{"q=" + url.QueryEscape("100%"), "(acme),(web),100% ready"},
+		{"q=e_c", "(acme),(web),snake_case"},
+		{"q=" + url.QueryEscape(`k\s`), `(acme),(web),back\slash`},
+		{"q=DEEP", "(acme),(web),deep1,deep2,deep3,Deep Target"},
+		{"q=deep&kind=project", "(acme),(web),(deep1),(deep2),(deep3),Deep Target"},
+		{"q=api&label=tier", "(acme),(backend),Billing API"},
+		{"q=api&activity=failed", "(acme),(backend),users-api"},
+		{"q=deep&parent=" + deep2, "deep3,Deep Target"},
+		{"q=" + url.QueryEscape("0 r"), "(acme),(web),1000 ready"},
+	} {
+		eq(t, names(t, a.get(tablePath(c.query), a.admin)), c.want, c.query)
+	}
+	eq(t, at(a.get(tablePath("q=target"), a.admin).json(t), "items", 5, "depth"), any(float64(6)))
+
+	a.user("member@example.com", false)
+	member := a.session("member@example.com", password)
+	memberID := a.get("/api/v1/auth/me", member).json(t)["id"].(string)
+	g := a.send("POST", "/api/v1/groups", a.admin, obj{"name": "Deep"}).json(t)
+	eq(t, a.call("PUT", "/api/v1/groups/"+idOf(g)+"/members/"+memberID, a.admin).status, 204)
+	a.grant(a.admin, deep2, "group", "deep", "viewer")
+	for _, c := range []struct{ query, want string }{
+		{"q=deep", "(acme),(web),deep1,deep2,deep3,Deep Target"},
+		{"q=deep&parent=" + deep1, "deep2,deep3,Deep Target"},
+		{"q=site", ""},
+		{"q=ready", ""},
+	} {
+		eq(t, names(t, a.get(tablePath(c.query), member)), c.want, c.query)
+	}
+}

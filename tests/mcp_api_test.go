@@ -81,7 +81,7 @@ func TestMCPToolsWorkWithTheUsersRights(t *testing.T) {
 		contains(t, tl.Description, "not instructions")
 	}
 	slices.Sort(names)
-	eq(t, strings.Join(names, ","), "get_adr,get_deployments,get_doc,get_links,get_project,get_spec,list_adrs,list_branches,list_changes,list_docs,list_projects,list_specs,search_docs")
+	eq(t, strings.Join(names, ","), "get_adr,get_api,get_dependencies,get_deployments,get_doc,get_links,get_project,get_spec,list_adrs,list_apis,list_branches,list_changes,list_docs,list_projects,list_specs,search_docs")
 
 	out, isErr := call(t, s, "list_projects", map[string]any{})
 	eq(t, isErr, false, out)
@@ -102,6 +102,13 @@ func TestMCPToolsWorkWithTheUsersRights(t *testing.T) {
 	contains(t, out, `"drift"`)
 	out, isErr = call(t, s, "get_links", map[string]any{"project": "acme/api"})
 	eq(t, isErr, false, out)
+	withDeps := deployed("k2", "api", "production", "1.2.4", "2026-10-01T11:00:00Z")
+	withDeps["payload"].(obj)["dependencies"] = []string{"external:redis"}
+	eq(t, d.app.ingest(d.id, key, withDeps).status, 201)
+	out, isErr = call(t, s, "get_dependencies", map[string]any{"project": "acme/api", "depth": 2})
+	eq(t, isErr, false, out)
+	contains(t, out, `"name": "redis"`)
+	contains(t, out, `"id": "external:redis"`)
 	out, _ = call(t, s, "list_branches", map[string]any{"project": "acme/api"})
 	contains(t, out, `"name": "main"`)
 	out, _ = call(t, s, "list_changes", map[string]any{"project": "acme/api"})

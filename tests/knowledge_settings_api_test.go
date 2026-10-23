@@ -19,7 +19,7 @@ func TestSettingsAreInheritedPerField(t *testing.T) {
 	eq(t, a.send("PUT", settingsPath(api), a.admin, obj{"exclude": []string{}}).status, 200)
 
 	got := a.get(settingsPath(api), a.admin)
-	contains(t, got.text(), `"include":["docs/**"],"exclude":[],"branches":[],"own":{"exclude":[]}`)
+	contains(t, got.text(), `"include":["docs/**"],"exclude":[],"branches":[],"apis":true,"own":{"exclude":[]}`)
 	s := got.json(t)
 	eq(t, at(s, "from", "include", "id"), any(folder))
 	eq(t, at(s, "from", "include", "kind"), any("folder"))
@@ -32,10 +32,23 @@ func TestSettingsAreInheritedPerField(t *testing.T) {
 	eq(t, at(r.json(t), "from", "exclude", "name"), any("backend"))
 
 	r = a.send("PUT", settingsPath(api), a.admin, obj{})
-	contains(t, r.text(), `"include":["docs/**"],"exclude":["docs/drafts/**"],"branches":[],"own":{}`)
+	contains(t, r.text(), `"include":["docs/**"],"exclude":["docs/drafts/**"],"branches":[],"apis":true,"own":{}`)
 	eq(t, scalar[int64](t, a.db, "SELECT count(*) FROM knowledge_patterns WHERE node_id = $1", api), int64(0), "an empty row is deleted")
 
-	for _, body := range []obj{{"exclude": nil}, {"branches": nil}, {"include": []string{"docs/[a-"}}} {
+	r = a.send("PUT", settingsPath(folder), a.admin, obj{"include": []string{"docs/**"}, "exclude": []string{"docs/drafts/**"}, "apis": false})
+	eq(t, r.status, 200, r.text())
+	contains(t, r.text(), `"apis":false,"own":{"apis":false,`)
+	s = a.get(settingsPath(api), a.admin).json(t)
+	eq(t, s["apis"], any(false))
+	eq(t, at(s, "from", "apis", "name"), any("backend"))
+	r = a.send("PUT", settingsPath(api), a.admin, obj{"apis": true})
+	eq(t, at(r.json(t), "apis"), any(true))
+	eq(t, at(r.json(t), "from", "apis"), nil)
+	eq(t, scalar[bool](t, a.db, "SELECT apis FROM knowledge_patterns WHERE node_id = $1", api), true)
+	eq(t, a.send("PUT", settingsPath(api), a.admin, obj{}).status, 200)
+	eq(t, a.send("PUT", settingsPath(folder), a.admin, obj{"include": []string{"docs/**"}, "exclude": []string{"docs/drafts/**"}}).status, 200)
+
+	for _, body := range []obj{{"exclude": nil}, {"branches": nil}, {"include": []string{"docs/[a-"}}, {"apis": nil}} {
 		r = a.send("PUT", settingsPath(folder), a.admin, body)
 		eq(t, r.status, 400, body)
 		eq(t, code(t, r), any("validation.invalid_knowledge_settings"))

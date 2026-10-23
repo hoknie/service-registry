@@ -303,7 +303,7 @@ func TestAnExportWithout404HTMLCountsAsMissingAndAppearingLaterIsServed(t *testi
 	eq(t, strings.Contains(r.text(), "en home"), true)
 }
 
-func must(t *testing.T, err error) {
+func must(t testing.TB, err error) {
 	t.Helper()
 	if err != nil {
 		t.Fatal(err)

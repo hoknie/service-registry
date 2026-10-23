@@ -131,3 +131,43 @@ func TestDeleteRemovesMembershipButNotUsers(t *testing.T) {
 	eq(t, scalar[int64](t, app.db, "SELECT count(*) FROM group_members"), int64(0))
 	eq(t, app.get("/api/v1/users/"+bob.ID.String(), admin).status, 200, "the member still exists")
 }
+
+func TestGroupContactsAndOnCall(t *testing.T) {
+	t.Parallel()
+	app := startApp(t)
+	admin := app.admin()
+	g := createGroup(t, app, admin, "Platform")
+	eq(t, jsonText(g["contacts"]), `[]`)
+	eq(t, g["on_call_url"], nil)
+	path := "/api/v1/groups/" + idOf(g) + "/contacts"
+	body := obj{"contacts": []obj{
+		{"kind": "chat", "value": "https://chat.example/platform", "label": "#platform"},
+		{"kind": "email", "value": "platform@example.com", "label": nil}},
+		"on_call_url": "https://oncall.example/platform"}
+	r := app.send("PUT", path, admin, body)
+	eq(t, r.status, 200, r.text())
+	eq(t, r.json(t)["on_call_url"], any("https://oncall.example/platform"))
+	r = app.get("/api/v1/groups/"+idOf(g), admin)
+	eq(t, jsonText(r.json(t)["contacts"]), `[{"kind":"chat","label":"#platform","value":"https://chat.example/platform"},`+
+		`{"kind":"email","label":null,"value":"platform@example.com"}]`)
+	eq(t, at(app.get("/api/v1/groups", admin).json(t), "items", 0, "on_call_url"), any("https://oncall.example/platform"))
+	bob := app.user("bob@example.com", false)
+	eq(t, app.call("PUT", "/api/v1/groups/"+idOf(g)+"/members/"+bob.ID.String(), admin).status, 204)
+	eq(t, len(list(t, at(app.get("/api/v1/users/"+bob.ID.String()+"/groups", admin).json(t), "items", 0).(obj), "contacts")), 2)
+
+	r = app.send("PUT", path, admin, obj{"contacts": []obj{}, "on_call_url": "javascript:alert(1)"})
+	eq(t, r.status, 400)
+	eq(t, code(t, r), any("validation.invalid_on_call_url"))
+	eq(t, code(t, app.send("PUT", path, admin, obj{"contacts": []obj{{"kind": "fax", "value": "1"}}})), any("validation.invalid_contacts"))
+	eq(t, len(list(t, app.get("/api/v1/groups/"+idOf(g), admin).json(t), "contacts")), 2)
+
+	plain := app.session("bob@example.com", password)
+	r = app.send("PUT", path, plain, body)
+	eq(t, r.status, 403)
+	eq(t, code(t, r), any("auth.forbidden"))
+	eq(t, code(t, app.bearer("PUT", path, app.pat(admin, "read", "write"), body)), any("auth.insufficient_scope"))
+	eq(t, app.bearer("PUT", path, app.pat(admin, "groups"), body).status, 200)
+	eq(t, app.send("PUT", "/api/v1/groups/"+uuid.Must(uuid.NewV7()).String()+"/contacts", admin, body).status, 404)
+	eq(t, app.call("DELETE", "/api/v1/groups/"+idOf(g), admin).status, 204)
+	eq(t, scalar[int64](t, app.db, "SELECT count(*) FROM group_contacts"), int64(0))
+}

@@ -91,7 +91,8 @@ func TestTokenRulesOnIssue(t *testing.T) {
 	}{
 		{"unknown scope", bob, obj{"name": "t", "scopes": []string{"read", "deploy"}, "expires_in_days": 1}, 400, "validation.invalid_scopes"},
 		{"no scopes", bob, obj{"name": "t", "scopes": []string{}, "expires_in_days": 1}, 400, "validation.invalid_scopes"},
-		{"admin of a user", bob, obj{"name": "t", "scopes": []string{"admin"}, "expires_in_days": 1}, 400, "validation.invalid_scopes"},
+		{"removed admin scope", root, obj{"name": "t", "scopes": []string{"admin"}, "expires_in_days": 1}, 400, "validation.invalid_scopes"},
+		{"global scope of a user", bob, obj{"name": "t", "scopes": []string{"users"}, "expires_in_days": 1}, 400, "validation.invalid_scopes"},
 		{"blank name", bob, obj{"name": " ", "scopes": []string{"read"}, "expires_in_days": 1}, 400, "validation.invalid_token_name"},
 		{"no lifetime of a user", bob, obj{"name": "t", "scopes": []string{"read"}}, 400, "validation.invalid_token_lifetime"},
 		{"null lifetime of a user", bob, obj{"name": "t", "scopes": []string{"read"}, "expires_in_days": nil}, 400, "validation.invalid_token_lifetime"},
@@ -111,7 +112,7 @@ func TestTokenRulesOnIssue(t *testing.T) {
 	}
 	eq(t, app.count("personal_access_tokens"), int64(1), "only the valid one is stored")
 
-	r := app.issue(root, obj{"name": "automation", "scopes": []string{"admin"}, "expires_in_days": nil})
+	r := app.issue(root, obj{"name": "automation", "scopes": []string{"users", "settings"}, "expires_in_days": nil})
 	eq(t, r.status, 201, r.text())
 	eq(t, r.json(t)["expires_at"], nil)
 	eq(t, r.json(t)["status"], any("active"))
@@ -242,7 +243,7 @@ func TestSuperadminListsSearchesAndRevokesTokens(t *testing.T) {
 	bobUser := app.user("bob@example.com", false)
 	bob := app.session("bob@example.com", password)
 	secret := app.pat(bob, "read")
-	app.pat(root, "admin")
+	app.pat(root, "users")
 
 	r := app.get("/api/v1/users/"+bobUser.ID.String()+"/tokens", root)
 	eq(t, r.status, 200, r.text())
@@ -284,7 +285,7 @@ func TestTokensNeverManageTokensOrSessions(t *testing.T) {
 	app := startApp(t)
 	root := app.admin()
 	rootUser := scalar[string](t, app.db, "SELECT id::text FROM users WHERE email = 'root@example.com'")
-	secret := app.pat(root, "read", "write", "admin", "mcp")
+	secret := app.pat(root, "read", "write", "mcp", "users", "groups", "clusters", "settings", "catalog.root")
 	calls := []struct{ method, path string }{
 		{"GET", tokensPath},
 		{"POST", tokensPath},
@@ -327,7 +328,7 @@ func TestRemovingTheSuperadminFlagRevokesTokensWithoutExpiry(t *testing.T) {
 	root := app.admin()
 	ann := app.user("ann@example.com", true)
 	annCookie := app.session("ann@example.com", password)
-	forever := app.issue(annCookie, obj{"name": "forever", "scopes": []string{"admin"}}).json(t)
+	forever := app.issue(annCookie, obj{"name": "forever", "scopes": []string{"users"}}).json(t)
 	month := app.issue(annCookie, obj{"name": "month", "scopes": []string{"read"}, "expires_in_days": 30}).json(t)
 
 	r := app.send("PATCH", "/api/v1/users/"+ann.ID.String(), root, obj{"is_superadmin": false})
@@ -337,7 +338,7 @@ func TestRemovingTheSuperadminFlagRevokesTokensWithoutExpiry(t *testing.T) {
 	eq(t, tokenByID(t, listed, idOf(month))["status"], any("active"))
 
 	rootID := scalar[string](t, app.db, "SELECT id::text FROM users WHERE email = 'root@example.com'")
-	rootForever := app.issue(root, obj{"name": "f", "scopes": []string{"admin"}}).json(t)
+	rootForever := app.issue(root, obj{"name": "f", "scopes": []string{"users"}}).json(t)
 	r = app.send("PATCH", "/api/v1/users/"+rootID, root, obj{"is_superadmin": false})
 	eq(t, code(t, r), any("conflict.last_superadmin"))
 	eq(t, tokenByID(t, app.get(tokensPath, root), idOf(rootForever))["status"], any("active"))
@@ -378,32 +379,79 @@ func TestScopesLimitTokenRequests(t *testing.T) {
 	eq(t, app.bearer("GET", "/api/v1/auth/me", mcp, nil).status, 200)
 }
 
+func (a *testApp) issuedBeforeCatalogAdmin(secret string) {
+	a.t.Helper()
+	execSQL(a.t, a.db, "UPDATE personal_access_tokens SET catalog_admin = false WHERE token_hash = sha256(convert_to($1, 'UTF8'))", secret)
+	eq(a.t, scalar[int64](a.t, a.db, "SELECT count(*) FROM personal_access_tokens WHERE NOT catalog_admin AND token_hash = sha256(convert_to($1, 'UTF8'))", secret), int64(1))
+}
+
 func TestSuperadminPowersThroughATokenNeedTheAdminScope(t *testing.T) {
 	t.Parallel()
 	app := startApp(t)
 	root := app.admin()
-	app.nodeID(root, "organization", "", "acme")
+	acme := app.nodeID(root, "organization", "", "acme")
 
 	read := app.pat(root, "read")
 	r := app.bearer("GET", "/api/v1/catalog/nodes", read, nil)
 	eq(t, r.status, 200, r.text())
-	eq(t, r.json(t)["total"], any(float64(0)), "without admin: only bindings")
+	eq(t, r.json(t)["total"], any(float64(1)), "without admin: the catalog admin role")
+	eq(t, app.bearer("GET", nodePath(acme), read, nil).json(t)["access"], any("read"))
 	eq(t, code(t, app.bearer("GET", "/api/v1/users", read, nil)), any("auth.insufficient_scope"))
 	eq(t, code(t, app.bearer("GET", "/api/v1/groups", read, nil)), any("auth.insufficient_scope"))
 
-	admin := app.pat(root, "admin")
-	eq(t, app.bearer("GET", "/api/v1/users", admin, nil).status, 200)
-	eq(t, app.bearer("GET", "/api/v1/groups", admin, nil).status, 200)
-	eq(t, code(t, app.bearer("GET", "/api/v1/catalog/nodes", admin, nil)), any("auth.insufficient_scope"))
+	people := app.pat(root, "users", "groups")
+	eq(t, app.bearer("GET", "/api/v1/users", people, nil).status, 200)
+	eq(t, app.bearer("GET", "/api/v1/groups", people, nil).status, 200)
+	eq(t, code(t, app.bearer("GET", "/api/v1/catalog/nodes", people, nil)), any("auth.insufficient_scope"))
 
-	both := app.pat(root, "read", "admin")
+	both := app.pat(root, "read", "users")
 	eq(t, app.bearer("GET", "/api/v1/catalog/nodes", both, nil).json(t)["total"], any(float64(1)))
-	rw := app.pat(root, "write", "admin")
-	r = app.bearer("POST", "/api/v1/catalog/nodes", rw, obj{"kind": "organization", "parent_id": nil, "slug": "beta", "name": "Beta"})
+	top := app.pat(root, "write", "catalog.root")
+	r = app.bearer("POST", "/api/v1/catalog/nodes", top, obj{"kind": "organization", "parent_id": nil, "slug": "beta", "name": "Beta"})
 	eq(t, r.status, 201, r.text())
+	for _, scopes := range [][]string{{"write"}, {"write", "users", "groups", "clusters", "settings"}} {
+		r = app.bearer("POST", "/api/v1/catalog/nodes", app.pat(root, scopes...), obj{"kind": "organization", "parent_id": nil, "slug": "gamma", "name": "Gamma"})
+		eq(t, code(t, r), any("auth.insufficient_scope"), "top level needs catalog.root")
+	}
 	w := app.pat(root, "write")
-	r = app.bearer("POST", "/api/v1/catalog/nodes", w, obj{"kind": "organization", "parent_id": nil, "slug": "gamma", "name": "Gamma"})
-	eq(t, code(t, r), any("auth.forbidden"), "top level needs the superadmin")
+	eq(t, app.bearer("PATCH", nodePath(acme), w, obj{"name": "Acme Corp"}).status, 200)
+	app.user("bob@example.com", false)
+	r = app.bearer("POST", nodePath(acme)+"/bindings", w, obj{"subject_kind": "user", "subject": "bob@example.com", "role": "viewer"})
+	eq(t, r.status, 200, r.text())
+	eq(t, code(t, app.bearer("GET", "/api/v1/secrets", w, nil)), any("auth.insufficient_scope"))
+	eq(t, code(t, app.bearer("GET", "/api/v1/clusters", w, nil)), any("auth.insufficient_scope"))
+}
+
+func TestSuperadminTokensIssuedBeforeTheCatalogRoleKeepOnlyBindings(t *testing.T) {
+	t.Parallel()
+	app := startApp(t)
+	tr := newTree(app)
+	app.user("chief@example.com", true)
+	chief := app.session("chief@example.com", password)
+
+	whole := app.pat(chief, "read", "write")
+	scoped := app.secretOn(chief, []string{tr.backend}, "read", "write")
+	tokens := app.get(tokensPath, chief).json(t)["items"].([]any)
+	for _, tok := range tokens {
+		eq(t, tok.(obj)["catalog_admin"], any(true))
+	}
+	app.issuedBeforeCatalogAdmin(whole)
+	app.issuedBeforeCatalogAdmin(scoped)
+
+	r := app.bearer("GET", "/api/v1/catalog/nodes", whole, nil)
+	eq(t, r.json(t)["total"], any(float64(0)), r.text())
+	eq(t, app.bearer("GET", nodePath(tr.backend), scoped, nil).status, 404)
+	eq(t, app.get(tokensPath, chief).json(t)["items"].([]any)[0].(obj)["catalog_admin"], any(false))
+
+	app.grant(tr.admin, tr.backend, "user", "chief@example.com", "viewer")
+	eq(t, app.bearer("GET", nodePath(tr.backend), scoped, nil).json(t)["access"], any("read"))
+	eq(t, app.bearer("PATCH", nodePath(tr.backend), scoped, obj{"name": "B"}).status, 403)
+
+	bob := bobSession(app)
+	eq(t, app.get(tokensPath, bob).status, 200)
+	plain := app.pat(bob, "read")
+	eq(t, app.get(tokensPath, bob).json(t)["items"].([]any)[0].(obj)["catalog_admin"], any(false))
+	eq(t, app.bearer("GET", "/api/v1/catalog/nodes", plain, nil).json(t)["total"], any(float64(0)))
 }
 
 func TestBearerRequestsSkipTheOriginCheckExceptSignIn(t *testing.T) {
@@ -411,7 +459,7 @@ func TestBearerRequestsSkipTheOriginCheckExceptSignIn(t *testing.T) {
 	app := startApp(t)
 	root := app.admin()
 	acme := app.nodeID(root, "organization", "", "acme")
-	write := app.pat(root, "write", "admin")
+	write := app.pat(root, "write")
 	r := app.bearer("PATCH", nodePath(acme), write, obj{"name": "Acme Corp"}, "sec-fetch-site", "cross-site")
 	eq(t, r.status, 200, r.text())
 	r = app.bearer("PATCH", nodePath(acme), "svcp_x", obj{"name": "x"}, "sec-fetch-site", "cross-site", "cookie", root)
@@ -438,7 +486,7 @@ func TestReadTokensReadKeysAndDeployments(t *testing.T) {
 	root := app.admin()
 	project, key := app.projectWithKey(root, "api")
 	eq(t, app.ingest(project, key, deployed("k-1", "api", "production", "1.0.0", "2026-10-08T10:00:00Z")).status, 201)
-	read := app.pat(root, "read", "admin")
+	read := app.pat(root, "read")
 	for _, sub := range []string{"keys", "deployments", "environments", "events"} {
 		r := app.bearer("GET", nodePath(project)+"/"+sub, read, nil)
 		eq(t, r.status, 200, sub+" "+r.text())

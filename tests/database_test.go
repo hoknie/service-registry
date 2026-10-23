@@ -3,10 +3,12 @@ package tests
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -14,6 +16,7 @@ import (
 
 	"svc-registry/internal/platform/postgres"
 	"svc-registry/internal/testsupport"
+	"svc-registry/migrations"
 )
 
 func fixtureMigrator(*testing.T) postgres.Migrator {
@@ -21,6 +24,43 @@ func fixtureMigrator(*testing.T) postgres.Migrator {
 }
 
 func embedded(*testing.T) postgres.Migrator { return postgres.Embedded() }
+
+func migrationVersion(t *testing.T, name string) uint64 {
+	t.Helper()
+	files, err := fs.Glob(migrations.FS, "*_"+name+".up.sql")
+	must(t, err)
+	if len(files) != 1 {
+		t.Fatalf("migration %s: %v", name, files)
+	}
+	v, err := strconv.ParseUint(strings.SplitN(files[0], "_", 2)[0], 10, 64)
+	must(t, err)
+	return v
+}
+
+func migrationsBetween(t *testing.T, m postgres.Migrator, name string, newest uint64) int {
+	t.Helper()
+	from := migrationVersion(t, name)
+	versions, err := m.Versions()
+	must(t, err)
+	count := 0
+	for _, v := range versions {
+		if uint64(v) >= from && uint64(v) <= newest {
+			count++
+		}
+	}
+	return count
+}
+
+func migrationsFrom(t *testing.T, m postgres.Migrator, name string) int {
+	t.Helper()
+	return migrationsBetween(t, m, name, ^uint64(0))
+}
+
+func rollbackThrough(t *testing.T, m postgres.Migrator, tdb *testsupport.TestDB, name string) (int, error) {
+	t.Helper()
+	current := scalar[int64](t, tdb, "SELECT version FROM "+postgres.Ledger)
+	return m.Rollback(context.Background(), tdb.Pool, migrationsBetween(t, m, name, uint64(current)))
+}
 
 func tablesAre(t *testing.T, tdb *testsupport.TestDB, want ...string) {
 	t.Helper()
@@ -85,10 +125,10 @@ func TestEmbeddedMigrationsApplyThroughTheBinary(t *testing.T) {
 	tdb := testsupport.NewTestDB(t)
 	code, out, errOut := run(t, []string{"db:migrate"}, "", "DATABASE_URL", tdb.URL)
 	eq(t, code, 0, errOut)
-	contains(t, out, "applied 60 migration(s)")
+	contains(t, out, "applied 96 migration(s)")
 	versions, err := embedded(t).Versions()
 	must(t, err)
-	eq(t, len(versions), 60)
+	eq(t, len(versions), 96)
 	_, out, _ = run(t, []string{"db:migrate"}, "", "DATABASE_URL", tdb.URL)
 	contains(t, out, "applied 0 migration(s)")
 	code, out, errOut = run(t, []string{"db:rollback", "--count=4"}, "", "DATABASE_URL", tdb.URL)
@@ -165,7 +205,7 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	m := embedded(t)
 	n, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	eq(t, n, 60)
+	eq(t, n, 96)
 	knowledge := []string{"knowledge_blobs", "knowledge_files", "knowledge_settings", "knowledge_snapshots"}
 	oauth := []string{"oauth_login_states", "user_identities"}
 	deploy := []string{"cluster_workloads", "clusters", "environments"}
@@ -194,8 +234,99 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	slices.Sort(withSecrets)
 	withExclusions := append([]string{"forge_adoptions", "forge_exclusions", "knowledge_source_repos"}, withSecrets...)
 	slices.Sort(withExclusions)
+	withAgents := append([]string{"cluster_agent_tokens"}, withExclusions...)
+	slices.Sort(withAgents)
+	withAuthServer := append([]string{"oauth_access_tokens", "oauth_authorizations", "oauth_clients", "oauth_grants"}, withAgents...)
+	slices.Sort(withAuthServer)
+	withOwners := append([]string{"group_contacts", "node_owners"}, withAuthServer...)
+	slices.Sort(withOwners)
+	withNotify := append([]string{"link_target_projects", "notification_deliveries", "notification_events",
+		"notification_subscriptions"}, withOwners...)
+	slices.Sort(withNotify)
+	withDependencies := append([]string{"service_dependencies"}, withNotify...)
+	slices.Sort(withDependencies)
+	withEditors := append([]string{"group_contact_editors", "node_owner_clears"}, withDependencies...)
+	slices.Sort(withEditors)
+	withEpisodes := append([]string{"notification_episodes"}, withEditors...)
+	slices.Sort(withEpisodes)
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withEpisodes, ","))
+	for _, name := range []string{"alter_personal_access_tokens_scopes", "alter_group_contact_editors_source", "alter_viewer_bindings_catalog_admin", "alter_oauth_grants_catalog_admin",
+		"alter_personal_access_tokens_catalog_admin"} {
+		n, err = rollbackThrough(t, m, tdb, name)
+		must(t, err)
+		eq(t, n, 1)
+	}
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withEpisodes, ","))
+	n, err = rollbackThrough(t, m, tdb, "alter_viewer_bindings_function")
+	must(t, err)
+	eq(t, n, 1)
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withEpisodes, ","))
+	n, err = rollbackThrough(t, m, tdb, "alter_knowledge_scans_warning_details")
+	must(t, err)
+	eq(t, n, 1)
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withEpisodes, ","))
+	n, err = rollbackThrough(t, m, tdb, "alter_oauth_clients_metadata_url")
+	must(t, err)
+	eq(t, n, 1)
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withEpisodes, ","))
+	n, err = rollbackThrough(t, m, tdb, "alter_knowledge_patterns_apis")
+	must(t, err)
+	eq(t, n, 1)
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withEpisodes, ","))
+	n, err = rollbackThrough(t, m, tdb, "alter_notification_subscriptions_event_types")
+	must(t, err)
+	eq(t, n, 3)
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withEditors, ","))
+	n, err = rollbackThrough(t, m, tdb, "create_node_owner_clears")
+	must(t, err)
+	eq(t, n, 2)
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withDependencies, ","))
+	n, err = rollbackThrough(t, m, tdb, "create_service_dependencies_target_triggers")
+	must(t, err)
+	eq(t, n, 1)
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withDependencies, ","), "triggers have no table")
+	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "+
+		"WHERE p.proname LIKE 'service_dependencies_%' AND n.nspname = current_schema()"), int64(0))
+	n, err = rollbackThrough(t, m, tdb, "create_service_dependencies")
+	must(t, err)
+	eq(t, n, 1)
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withNotify, ","))
+	n, err = rollbackThrough(t, m, tdb, "create_notification_subscriptions")
+	must(t, err)
+	eq(t, n, 4)
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withOwners, ","))
+	n, err = rollbackThrough(t, m, tdb, "alter_cluster_workloads_version_since")
+	must(t, err)
+	eq(t, n, 1)
+	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() "+
+		"AND table_name = 'cluster_workloads' AND column_name = 'version_since'"), int64(0))
+	n, err = rollbackThrough(t, m, tdb, "create_node_owners")
+	must(t, err)
+	eq(t, n, migrationsFrom(t, m, "create_node_owners")-migrationsFrom(t, m, "alter_cluster_workloads_version_since"))
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withAuthServer, ","))
+	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() "+
+		"AND table_name = 'groups' AND column_name = 'on_call_url'"), int64(0))
+	n, err = rollbackThrough(t, m, tdb, "create_oauth_clients")
+	must(t, err)
+	eq(t, n, migrationsFrom(t, m, "create_oauth_clients")-migrationsFrom(t, m, "create_node_owners"))
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withAgents, ","))
+	n, err = rollbackThrough(t, m, tdb, "alter_clusters_agent_mode")
+	must(t, err)
+	eq(t, n, migrationsFrom(t, m, "alter_clusters_agent_mode")-migrationsFrom(t, m, "create_oauth_clients"))
 	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withExclusions, ","))
+	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() "+
+		"AND table_name = 'clusters' AND column_name IN ('mode', 'agent_version', 'agent_reported_at', 'agent_report')"), int64(0))
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM pg_constraint WHERE conname = 'nodes_slug_check' AND connamespace = current_schema()::regnamespace"), int64(1))
+	eq(t, scalar[int64](t, tdb, trgmIndexes), int64(2))
+	n, err = m.Rollback(ctx, tdb.Pool, 3)
+	must(t, err)
+	eq(t, n, 3)
+	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() "+
+		"AND column_name IN ('credentials_enc', 'credentials_ref', 'credentials_fingerprint')"), int64(9))
+	n, err = m.Rollback(ctx, tdb.Pool, 1)
+	must(t, err)
+	eq(t, n, 1)
+	eq(t, scalar[int64](t, tdb, trgmIndexes), int64(0))
 	n, err = m.Rollback(ctx, tdb.Pool, 1)
 	must(t, err)
 	eq(t, n, 1)
@@ -318,7 +449,7 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	eq(t, len(embeddedTables(t, tdb)), 0)
 	n, err = m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	eq(t, n, 60)
+	eq(t, n, 96)
 }
 
 func execErr(t *testing.T, tdb *testsupport.TestDB, query string, args ...any) string {
@@ -416,12 +547,12 @@ func TestForgeConstraintsHoldWithoutTheService(t *testing.T) {
 	org, project, conn := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, slug, name) VALUES ($1, 'organization', 'o', 'O')", org)
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, parent_id, slug, name, forge) VALUES ($1, 'project', $2, 'p', 'P', 'gitea')", project, org)
-	insertConn := "INSERT INTO forge_connections (id, node_id, kind, api_url, owner_path, interval_secs, credentials_enc, credentials_ref) " +
-		"VALUES ($1, $2, 'github', 'https://api.github.com', $3, 900, $4, $5)"
-	contains(t, execErr(t, tdb, insertConn, conn, org, "acme", "v1.k.x", "env:X"), "forge_connections_credentials_check")
-	contains(t, execErr(t, tdb, insertConn, conn, org, "acme", nil, nil), "forge_connections_credentials_check")
-	execSQL(t, tdb, insertConn, conn, org, "acme", nil, "env:X")
-	contains(t, execErr(t, tdb, insertConn, uuid.Must(uuid.NewV7()), org, "ACME", nil, "env:Y"), "forge_connections_owner_key")
+	secret := refSecret(t, tdb, org)
+	insertConn := "INSERT INTO forge_connections (id, node_id, kind, api_url, owner_path, interval_secs, credentials_secret_id) " +
+		"VALUES ($1, $2, 'github', 'https://api.github.com', $3, 900, $4)"
+	contains(t, execErr(t, tdb, insertConn, conn, org, "acme", nil), "forge_connections_credentials_check")
+	execSQL(t, tdb, insertConn, conn, org, "acme", secret)
+	contains(t, execErr(t, tdb, insertConn, uuid.Must(uuid.NewV7()), org, "ACME", secret), "forge_connections_owner_key")
 	execSQL(t, tdb, "INSERT INTO forge_repositories (project_id, connection_id, external_id, full_path, web_url, visibility) "+
 		"VALUES ($1, $2, '1', 'acme/p', 'https://github.com/acme/p', 'public')", project, conn)
 	execSQL(t, tdb, "INSERT INTO forge_sync_runs (id, connection_id, trigger, status) VALUES ($1, $2, 'manual', 'running')", uuid.Must(uuid.NewV7()), conn)
@@ -439,7 +570,7 @@ func TestBranchesTableHoldsItsRulesAndBackfillsDefaults(t *testing.T) {
 	m := embedded(t)
 	_, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	_, err = m.Rollback(ctx, tdb.Pool, 44)
+	_, err = rollbackThrough(t, m, tdb, "create_branches")
 	must(t, err)
 	org, project, other := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, slug, name) VALUES ($1, 'organization', 'o', 'O')", org)
@@ -447,7 +578,7 @@ func TestBranchesTableHoldsItsRulesAndBackfillsDefaults(t *testing.T) {
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, parent_id, slug, name) VALUES ($1, 'project', $2, 'q', 'Q')", other, org)
 	n, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	eq(t, n, 44)
+	eq(t, n, migrationsFrom(t, m, "create_branches"))
 	eq(t, scalar[string](t, tdb, "SELECT name FROM branches WHERE project_id = $1 AND is_default", project), "main")
 	eq(t, scalar[string](t, tdb, "SELECT substr(id::text, 15, 1) FROM branches"), "7", "UUID v7")
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM branches"), int64(1))
@@ -510,21 +641,20 @@ func TestLinkTablesHoldTheirRulesWithoutTheService(t *testing.T) {
 
 func TestClusterTablesHoldTheirRulesWithoutTheService(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
 	tdb := migrated(t)
 	eq(t, scalar[string](t, tdb, "SELECT string_agg(key, ',' ORDER BY position) FROM environments"), "production,staging,development")
 	eq(t, scalar[string](t, tdb, "SELECT names->>'ru' FROM environments WHERE key = 'production'"), "Продакшн")
 	contains(t, execErr(t, tdb, "INSERT INTO environments (id, key, names) VALUES ($1, 'qa', '{\"en\":\"QA\"}')", uuid.Must(uuid.NewV7())), "environments_names_check")
 
-	insertCluster := "INSERT INTO clusters (id, name, environment, in_cluster, api_url, credentials_enc, credentials_ref, interval_secs) " +
-		"VALUES ($1, $2, 'production', $3, $4, $5, $6, $7)"
-	cluster := uuid.Must(uuid.NewV7())
-	contains(t, execErr(t, tdb, insertCluster, cluster, "a", true, "https://k8s", nil, nil, 60), "clusters_credentials_check")
-	contains(t, execErr(t, tdb, insertCluster, cluster, "a", false, "https://k8s", "v1.k.x", "env:X", 60), "clusters_credentials_check")
-	contains(t, execErr(t, tdb, insertCluster, cluster, "a", false, "https://k8s", nil, nil, 60), "clusters_credentials_check")
-	contains(t, execErr(t, tdb, insertCluster, cluster, "a", false, "https://k8s", nil, "env:X", 14), "clusters_interval_check")
-	execSQL(t, tdb, insertCluster, cluster, "Prod", false, "https://k8s", nil, "env:X", 60)
-	contains(t, execErr(t, tdb, insertCluster, uuid.Must(uuid.NewV7()), "prod", true, nil, nil, nil, 60), "clusters_name_key")
+	insertCluster := "INSERT INTO clusters (id, name, environment, in_cluster, api_url, credentials_secret_id, interval_secs) " +
+		"VALUES ($1, $2, 'production', $3, $4, $5, $6)"
+	cluster, secret := uuid.Must(uuid.NewV7()), refSecret(t, tdb, nil)
+	contains(t, execErr(t, tdb, insertCluster, cluster, "a", true, "https://k8s", nil, 60), "clusters_credentials_check")
+	contains(t, execErr(t, tdb, insertCluster, cluster, "a", true, nil, secret, 60), "clusters_credentials_check")
+	contains(t, execErr(t, tdb, insertCluster, cluster, "a", false, "https://k8s", nil, 60), "clusters_credentials_check")
+	contains(t, execErr(t, tdb, insertCluster, cluster, "a", false, "https://k8s", secret, 14), "clusters_interval_check")
+	execSQL(t, tdb, insertCluster, cluster, "Prod", false, "https://k8s", secret, 60)
+	contains(t, execErr(t, tdb, insertCluster, uuid.Must(uuid.NewV7()), "prod", true, nil, nil, 60), "clusters_name_key")
 
 	org, project := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, slug, name) VALUES ($1, 'organization', 'o', 'O')", org)
@@ -549,21 +679,20 @@ func TestClusterTablesHoldTheirRulesWithoutTheService(t *testing.T) {
 		"VALUES ($1, $2, 'api', 'production', '1.0.0', now(), 'manual')", uuid.Must(uuid.NewV7()), project), "service_deployments_source_check")
 	execSQL(t, tdb, "INSERT INTO branches (id, project_id, name, sources) VALUES ($1, $2, 'main', '{cluster}')", uuid.Must(uuid.NewV7()), project)
 	m := embedded(t)
-	if _, err := m.Rollback(ctx, tdb.Pool, 32); err == nil {
+	if _, err := rollbackThrough(t, m, tdb, "alter_branches_cluster_source"); err == nil {
 		t.Fatal("branches rollback with a cluster source succeeded")
 	}
 }
 
 func TestDeploymentsFromClustersBlockTheSourceRollback(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
 	tdb := migrated(t)
 	org, project := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, slug, name) VALUES ($1, 'organization', 'o', 'O')", org)
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, parent_id, slug, name) VALUES ($1, 'project', $2, 'p', 'P')", project, org)
 	execSQL(t, tdb, "INSERT INTO service_deployments (id, project_id, service, environment, version, occurred_at, source) "+
 		"VALUES ($1, $2, 'api', 'production', '1.0.0', now(), 'cluster')", uuid.Must(uuid.NewV7()), project)
-	if _, err := embedded(t).Rollback(ctx, tdb.Pool, 33); err == nil {
+	if _, err := rollbackThrough(t, embedded(t), tdb, "alter_service_deployments_source"); err == nil {
 		t.Fatal("rollback of service_deployments.source succeeded")
 	}
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM service_deployments WHERE source = 'cluster'"), int64(1), "nothing lost")
@@ -588,7 +717,7 @@ func TestProviderLoginTablesHoldTheirRules(t *testing.T) {
 	contains(t, execErr(t, tdb, "INSERT INTO group_members (id, group_id, user_id, source) VALUES ($1, $2, $3, 'idp')",
 		uuid.Must(uuid.NewV7()), group, user), "group_members_source_check")
 	execSQL(t, tdb, "INSERT INTO group_members (id, group_id, user_id, source) VALUES ($1, $2, $3, 'oauth:corp')", uuid.Must(uuid.NewV7()), group, user)
-	if _, err := embedded(t).Rollback(context.Background(), tdb.Pool, 28); err == nil {
+	if _, err := rollbackThrough(t, embedded(t), tdb, "alter_group_members_source"); err == nil {
 		t.Fatal("rollback with managed memberships succeeded")
 	}
 }
@@ -597,7 +726,7 @@ func TestUsersWithoutPasswordBlockTheRollback(t *testing.T) {
 	t.Parallel()
 	tdb := migrated(t)
 	execSQL(t, tdb, "INSERT INTO users (id, email, display_name, password_hash) VALUES ($1, 'a@example.com', 'A', NULL)", uuid.Must(uuid.NewV7()))
-	if _, err := embedded(t).Rollback(context.Background(), tdb.Pool, 29); err == nil {
+	if _, err := rollbackThrough(t, embedded(t), tdb, "alter_users_password_nullable"); err == nil {
 		t.Fatal("rollback with users without a password succeeded")
 	}
 }
@@ -653,7 +782,7 @@ func TestKnowledgePatternsMoveAndHoldTheirRules(t *testing.T) {
 	m := embedded(t)
 	_, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	_, err = m.Rollback(ctx, tdb.Pool, 21)
+	_, err = rollbackThrough(t, m, tdb, "create_knowledge_patterns")
 	must(t, err)
 	org, docs, plain := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, slug, name) VALUES ($1, 'organization', 'o', 'O')", org)
@@ -669,7 +798,7 @@ func TestKnowledgePatternsMoveAndHoldTheirRules(t *testing.T) {
 		"AND table_name = 'knowledge_settings' AND column_name IN ('include', 'exclude', 'branches')"), int64(0))
 	contains(t, execErr(t, tdb, "INSERT INTO knowledge_patterns (node_id, include_set, include) VALUES ($1, false, '{x}')", org), "knowledge_patterns_include_check")
 	execSQL(t, tdb, "INSERT INTO knowledge_patterns (node_id, exclude) VALUES ($1, '{tmp/**}')", org)
-	_, err = m.Rollback(ctx, tdb.Pool, 21)
+	_, err = rollbackThrough(t, m, tdb, "create_knowledge_patterns")
 	must(t, err)
 	eq(t, scalar[bool](t, tdb, "SELECT include = '{docs/**}' AND exclude = '{}' AND branches = '{release/*}' FROM knowledge_settings WHERE project_id = $1", docs), true)
 	eq(t, scalar[bool](t, tdb, "SELECT include IS NULL AND exclude = '{}' FROM knowledge_settings WHERE project_id = $1", plain), true)
@@ -686,7 +815,7 @@ func TestKnowledgeIndexHoldsStemsAndExactForms(t *testing.T) {
 	m := embedded(t)
 	_, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	_, err = m.Rollback(ctx, tdb.Pool, 20)
+	_, err = rollbackThrough(t, m, tdb, "knowledge_blobs_morphology")
 	must(t, err)
 	execSQL(t, tdb, "INSERT INTO knowledge_blobs (sha256, content, bytes) VALUES (sha256('a'::bytea), 'deployments', 11)")
 	eq(t, scalar[bool](t, tdb, "SELECT tsv @@ to_tsquery('russian', 'deploy') FROM knowledge_blobs"), false, "exact forms only")
@@ -697,7 +826,7 @@ func TestKnowledgeIndexHoldsStemsAndExactForms(t *testing.T) {
 	branch := "SELECT tsv @@ to_tsquery($1::regconfig, $2) FROM knowledge_blobs WHERE content LIKE 'ветка%'"
 	eq(t, scalar[bool](t, tdb, branch, "russian", "ветки"), true, "stem")
 	eq(t, scalar[bool](t, tdb, branch, "simple", "по"), true, "exact stop word")
-	_, err = m.Rollback(ctx, tdb.Pool, 20)
+	_, err = rollbackThrough(t, m, tdb, "knowledge_blobs_morphology")
 	must(t, err)
 	eq(t, scalar[bool](t, tdb, branch, "russian", "ветки"), false, "rolled back")
 	eq(t, scalar[bool](t, tdb, branch, "simple", "ветка"), true)
@@ -732,9 +861,9 @@ func TestRFC3339FunctionFormatsInUTC(t *testing.T) {
 	eq(t, scalar[string](t, tdb, "SELECT rfc3339('2025-06-01 12:00:00.75+03'::timestamptz)"), "2025-06-01T09:00:00Z")
 	eq(t, scalar[bool](t, tdb, "SELECT rfc3339(NULL::timestamptz) IS NULL"), true)
 	eq(t, scalar[bool](t, tdb, "SELECT rfc3339(now()) = to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"')"), true)
-	n, err := m.Rollback(ctx, tdb.Pool, 18)
+	n, err := rollbackThrough(t, m, tdb, "create_rfc3339_function")
 	must(t, err)
-	eq(t, n, 18)
+	eq(t, n, migrationsFrom(t, m, "create_rfc3339_function"))
 	contains(t, execErr(t, tdb, "SELECT rfc3339(now())"), "rfc3339")
 }
 
@@ -754,9 +883,9 @@ func TestKnowledgeScansTableHoldsItsRules(t *testing.T) {
 	contains(t, execErr(t, tdb, insert, uuid.Must(uuid.NewV7()), project, "broken"), "knowledge_scans_status_check")
 	execSQL(t, tdb, "DELETE FROM nodes WHERE id = $1", project)
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM knowledge_scans"), int64(0), "cascade")
-	n, err := m.Rollback(ctx, tdb.Pool, 17)
+	n, err := rollbackThrough(t, m, tdb, "create_knowledge_scans")
 	must(t, err)
-	eq(t, n, 17)
+	eq(t, n, migrationsFrom(t, m, "create_knowledge_scans"))
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'knowledge_scans'"), int64(0))
 	eq(t, scalar[string](t, tdb, "SELECT rfc3339('2025-06-01 12:00:00+00'::timestamptz)"), "2025-06-01T12:00:00Z")
 }
@@ -768,7 +897,7 @@ func TestKnowledgeSourcesWorkingTreeColumn(t *testing.T) {
 	m := embedded(t)
 	_, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	_, err = m.Rollback(ctx, tdb.Pool, 16)
+	_, err = rollbackThrough(t, m, tdb, "alter_knowledge_sources_working_tree")
 	must(t, err)
 	org, project := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, slug, name) VALUES ($1, 'organization', 'o', 'O')", org)
@@ -777,9 +906,9 @@ func TestKnowledgeSourcesWorkingTreeColumn(t *testing.T) {
 	_, err = m.Migrate(ctx, tdb.Pool)
 	must(t, err)
 	eq(t, scalar[bool](t, tdb, "SELECT working_tree FROM knowledge_sources WHERE project_id = $1", project), true)
-	n, err := m.Rollback(ctx, tdb.Pool, 16)
+	n, err := rollbackThrough(t, m, tdb, "alter_knowledge_sources_working_tree")
 	must(t, err)
-	eq(t, n, 16)
+	eq(t, n, migrationsFrom(t, m, "alter_knowledge_sources_working_tree"))
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() "+
 		"AND table_name = 'knowledge_sources' AND column_name = 'working_tree'"), int64(0))
 }
@@ -791,7 +920,7 @@ func TestKnowledgeSourcesIncludeIgnoredColumn(t *testing.T) {
 	m := embedded(t)
 	_, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	_, err = m.Rollback(ctx, tdb.Pool, 15)
+	_, err = rollbackThrough(t, m, tdb, "alter_knowledge_sources_include_ignored")
 	must(t, err)
 	org, project, dir := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, slug, name) VALUES ($1, 'organization', 'o', 'O')", org)
@@ -805,11 +934,116 @@ func TestKnowledgeSourcesIncludeIgnoredColumn(t *testing.T) {
 	execSQL(t, tdb, "UPDATE knowledge_sources SET include_ignored = true WHERE project_id = $1", project)
 	contains(t, execErr(t, tdb, "UPDATE knowledge_sources SET working_tree = false WHERE project_id = $1", project), "check")
 	contains(t, execErr(t, tdb, "UPDATE knowledge_sources SET include_ignored = true WHERE project_id = $1", dir), "check")
-	n, err := m.Rollback(ctx, tdb.Pool, 15)
+	n, err := rollbackThrough(t, m, tdb, "alter_knowledge_sources_include_ignored")
 	must(t, err)
-	eq(t, n, 15)
+	eq(t, n, migrationsFrom(t, m, "alter_knowledge_sources_include_ignored"))
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() "+
 		"AND table_name = 'knowledge_sources' AND column_name IN ('include_ignored', 'working_tree')"), int64(1))
+}
+
+func TestKnowledgePatternsAPIsColumn(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	tdb := testsupport.NewTestDB(t)
+	m := embedded(t)
+	_, err := m.Migrate(ctx, tdb.Pool)
+	must(t, err)
+	org, folder := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
+	execSQL(t, tdb, "INSERT INTO nodes (id, kind, slug, name) VALUES ($1, 'organization', 'o', 'O')", org)
+	execSQL(t, tdb, "INSERT INTO nodes (id, kind, parent_id, slug, name) VALUES ($1, 'folder', $2, 'f', 'F')", folder, org)
+	execSQL(t, tdb, "INSERT INTO knowledge_patterns (node_id, apis) VALUES ($1, false)", org)
+	execSQL(t, tdb, "INSERT INTO knowledge_patterns (node_id, exclude, apis) VALUES ($1, '{tmp/**}', false)", folder)
+	n, err := rollbackThrough(t, m, tdb, "alter_knowledge_patterns_apis")
+	must(t, err)
+	eq(t, n, migrationsFrom(t, m, "alter_knowledge_patterns_apis"))
+	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM knowledge_patterns"), int64(1), "a row holding only apis is dropped")
+	eq(t, scalar[bool](t, tdb, "SELECT exclude = '{tmp/**}' FROM knowledge_patterns WHERE node_id = $1", folder), true)
+}
+
+func TestKnowledgeScansWarningDetailsColumns(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	tdb := testsupport.NewTestDB(t)
+	m := embedded(t)
+	_, err := m.Migrate(ctx, tdb.Pool)
+	must(t, err)
+	org, project := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
+	execSQL(t, tdb, "INSERT INTO nodes (id, kind, slug, name) VALUES ($1, 'organization', 'o', 'O')", org)
+	execSQL(t, tdb, "INSERT INTO nodes (id, kind, parent_id, slug, name) VALUES ($1, 'project', $2, 'p', 'P')", project, org)
+	insert := "INSERT INTO knowledge_scans (id, project_id, kind, trigger, status, started_at, finished_at, last_started_at, warning_details, warning_counts) " +
+		"VALUES ($1, $2, 'collect', 'schedule', 'warning', now(), now(), now(), $3::jsonb, $4::jsonb)"
+	scan := uuid.Must(uuid.NewV7())
+	execSQL(t, tdb, insert, scan, project, `[{"code":"collect.files_skipped","path":"a.pdf"}]`, `{"collect.files_skipped":3}`)
+	contains(t, execErr(t, tdb, insert, uuid.Must(uuid.NewV7()), project, `{}`, `{}`), "knowledge_scans_warning_details_check")
+	contains(t, execErr(t, tdb, insert, uuid.Must(uuid.NewV7()), project, `[]`, `[]`), "knowledge_scans_warning_counts_check")
+	many := "[" + strings.TrimSuffix(strings.Repeat(`{"code":"collect.files_skipped"},`, 21), ",") + "]"
+	contains(t, execErr(t, tdb, insert, uuid.Must(uuid.NewV7()), project, many, `{}`), "knowledge_scans_warning_details_check")
+	n, err := rollbackThrough(t, m, tdb, "alter_knowledge_scans_warning_details")
+	must(t, err)
+	eq(t, n, migrationsFrom(t, m, "alter_knowledge_scans_warning_details"))
+	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM knowledge_scans WHERE id = $1", scan), int64(1))
+	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() "+
+		"AND table_name = 'knowledge_scans' AND column_name IN ('warning_details', 'warning_counts')"), int64(0))
+}
+
+func TestGroupContactEditorsSource(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	tdb := testsupport.NewTestDB(t)
+	m := embedded(t)
+	_, err := m.Migrate(ctx, tdb.Pool)
+	must(t, err)
+	group, alice, bob := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
+	execSQL(t, tdb, "INSERT INTO groups (id, name) VALUES ($1, 'Platform')", group)
+	for i, id := range []uuid.UUID{alice, bob} {
+		execSQL(t, tdb, "INSERT INTO users (id, email, display_name) VALUES ($1, $2, 'U')", id, fmt.Sprintf("u%d@example.com", i))
+	}
+	execSQL(t, tdb, "INSERT INTO group_contact_editors (group_id, user_id) VALUES ($1, $2)", group, alice)
+	execSQL(t, tdb, "INSERT INTO group_contact_editors (group_id, user_id, source) VALUES ($1, $2, 'oauth:corp')", group, bob)
+	eq(t, scalar[string](t, tdb, "SELECT source FROM group_contact_editors WHERE user_id = $1", alice), "manual")
+	contains(t, execErr(t, tdb, "UPDATE group_contact_editors SET source = 'ldap' WHERE user_id = $1", alice), "group_contact_editors_source_check")
+	n, err := rollbackThrough(t, m, tdb, "alter_group_contact_editors_source")
+	must(t, err)
+	eq(t, n, migrationsFrom(t, m, "alter_group_contact_editors_source"))
+	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM group_contact_editors"), int64(1))
+	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() "+
+		"AND table_name = 'group_contact_editors' AND column_name = 'source'"), int64(0))
+}
+
+func TestPersonalAccessTokenScopesSplitTheAdminScope(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	tdb := testsupport.NewTestDB(t)
+	m := embedded(t)
+	_, err := m.Migrate(ctx, tdb.Pool)
+	must(t, err)
+	n, err := rollbackThrough(t, m, tdb, "alter_personal_access_tokens_scopes")
+	must(t, err)
+	eq(t, n, migrationsFrom(t, m, "alter_personal_access_tokens_scopes"))
+	user := uuid.Must(uuid.NewV7())
+	execSQL(t, tdb, "INSERT INTO users (id, email, display_name, is_superadmin) VALUES ($1, 'root@example.com', 'Root', true)", user)
+	insert := func(scopes string) uuid.UUID {
+		id := uuid.Must(uuid.NewV7())
+		execSQL(t, tdb, "INSERT INTO personal_access_tokens (id, user_id, name, prefix, token_hash, scopes) "+
+			"VALUES ($1, $2, 't', 'svcp_0000000', decode(md5($1::text) || md5($1::text), 'hex'), $3::text[])", id, user, scopes)
+		return id
+	}
+	scopesOf := func(id uuid.UUID) string {
+		return scalar[string](t, tdb, "SELECT array_to_string(scopes, ',') FROM personal_access_tokens WHERE id = $1", id)
+	}
+	admin, mixed, plain := insert("{admin}"), insert("{read,admin,mcp}"), insert("{read,write}")
+	_, err = m.Migrate(ctx, tdb.Pool)
+	must(t, err)
+	eq(t, scopesOf(admin), "users,groups,clusters,settings,catalog.root")
+	eq(t, scopesOf(mixed), "read,mcp,users,groups,clusters,settings,catalog.root")
+	eq(t, scopesOf(plain), "read,write")
+	contains(t, execErr(t, tdb, "UPDATE personal_access_tokens SET scopes = '{admin}' WHERE id = $1", plain), "personal_access_tokens_scopes_check")
+	execSQL(t, tdb, "UPDATE personal_access_tokens SET scopes = '{write,clusters}' WHERE id = $1", plain)
+	_, err = rollbackThrough(t, m, tdb, "alter_personal_access_tokens_scopes")
+	must(t, err)
+	eq(t, scopesOf(admin), "admin")
+	eq(t, scopesOf(mixed), "read,admin,mcp")
+	eq(t, scopesOf(plain), "write,admin")
 }
 
 func TestBranchesAcceptTheRepositorySource(t *testing.T) {
@@ -824,7 +1058,7 @@ func TestBranchesAcceptTheRepositorySource(t *testing.T) {
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, parent_id, slug, name) VALUES ($1, 'project', $2, 'p', 'P')", project, org)
 	execSQL(t, tdb, "INSERT INTO branches (id, project_id, name, sources) VALUES ($1, $2, 'main', '{repository}')", uuid.Must(uuid.NewV7()), project)
 	contains(t, execErr(t, tdb, "INSERT INTO branches (id, project_id, name, sources) VALUES ($1, $2, 'x', '{bogus}')", uuid.Must(uuid.NewV7()), project), "check")
-	if _, err := m.Rollback(ctx, tdb.Pool, 14); err == nil {
+	if _, err := rollbackThrough(t, m, tdb, "alter_branches_repository_source"); err == nil {
 		t.Fatal("rollback with repository branches succeeded")
 	}
 }
@@ -853,15 +1087,15 @@ func TestLastThreeMigrationsRollBackTogether(t *testing.T) {
 	m := embedded(t)
 	_, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	_, err = m.Rollback(ctx, tdb.Pool, 12)
+	_, err = rollbackThrough(t, m, tdb, "alter_users_is_service")
 	must(t, err)
 	execSQL(t, tdb, "INSERT INTO users (id, email, display_name, password_hash) VALUES ($1, 'ann@example.com', 'Ann', 'x')", uuid.Must(uuid.NewV7()))
 	_, err = m.Migrate(ctx, tdb.Pool)
 	must(t, err)
 	eq(t, scalar[bool](t, tdb, "SELECT is_service FROM users WHERE email = 'ann@example.com'"), false)
-	n, err := m.Rollback(ctx, tdb.Pool, 14)
+	n, err := rollbackThrough(t, m, tdb, "alter_branches_repository_source")
 	must(t, err)
-	eq(t, n, 14)
+	eq(t, n, migrationsFrom(t, m, "alter_branches_repository_source"))
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() "+
 		"AND ((table_name = 'users' AND column_name = 'is_service') OR (table_name = 'link_templates' AND column_name IN ('title', 'icon_url', 'icon_file')))"), int64(0))
 	contains(t, scalar[string](t, tdb, "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'branches_sources_check' "+
@@ -875,7 +1109,7 @@ func TestKnowledgeScansDurationColumns(t *testing.T) {
 	m := embedded(t)
 	_, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	_, err = m.Rollback(ctx, tdb.Pool, 11)
+	_, err = rollbackThrough(t, m, tdb, "alter_knowledge_scans_duration")
 	must(t, err)
 	org, project := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, slug, name) VALUES ($1, 'organization', 'o', 'O')", org)
@@ -891,9 +1125,9 @@ func TestKnowledgeScansDurationColumns(t *testing.T) {
 	eq(t, scalar[bool](t, tdb, "SELECT last_started_at = started_at FROM knowledge_scans WHERE id = $1", single), true)
 	eq(t, scalar[bool](t, tdb, "SELECT duration_ms IS NULL AND last_started_at = finished_at FROM knowledge_scans WHERE id = $1", series), true)
 	contains(t, execErr(t, tdb, "UPDATE knowledge_scans SET duration_ms = -1 WHERE id = $1", single), "check")
-	n, err := m.Rollback(ctx, tdb.Pool, 11)
+	n, err := rollbackThrough(t, m, tdb, "alter_knowledge_scans_duration")
 	must(t, err)
-	eq(t, n, 11)
+	eq(t, n, migrationsFrom(t, m, "alter_knowledge_scans_duration"))
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() "+
 		"AND table_name = 'knowledge_scans' AND column_name IN ('last_started_at', 'duration_ms')"), int64(0))
 }
@@ -920,19 +1154,20 @@ func TestSecretsSchemaHoldsItsRules(t *testing.T) {
 	conn := uuid.Must(uuid.NewV7())
 	execSQL(t, tdb, "INSERT INTO forge_connections (id, node_id, kind, api_url, owner_path, interval_secs, credentials_secret_id) "+
 		"VALUES ($1, $2, 'github', 'https://api.github.com', 'acme', 900, $3)", conn, org, secret)
-	contains(t, execErr(t, tdb, "UPDATE forge_connections SET credentials_ref = 'env:X' WHERE id = $1", conn), "forge_connections_credentials_check")
+	contains(t, execErr(t, tdb, "UPDATE forge_connections SET credentials_secret_id = NULL WHERE id = $1", conn), "forge_connections_credentials_check")
 	contains(t, execErr(t, tdb, "DELETE FROM secrets WHERE id = $1", secret), "forge_connections_credentials_secret_id_fkey")
 	execSQL(t, tdb, "INSERT INTO knowledge_sources (project_id, kind, forge, url, api_url, credentials_secret_id) "+
 		"VALUES ($1, 'remote', 'gitlab', 'https://gitlab.example/a/p', 'https://gitlab.example/api/v4', $2)", project, secret)
-	contains(t, execErr(t, tdb, "UPDATE knowledge_sources SET credentials_ref = 'env:X' WHERE project_id = $1", project), "knowledge_sources_credentials_check")
+	contains(t, execErr(t, tdb, "UPDATE knowledge_sources SET kind = 'local_dir', path = '/docs', forge = NULL, url = NULL, api_url = NULL "+
+		"WHERE project_id = $1", project), "knowledge_sources_local_secret_check")
 	execSQL(t, tdb, "UPDATE knowledge_sources SET credentials_secret_id = NULL WHERE project_id = $1", project)
 	for _, id := range []uuid.UUID{project, folder, org} {
 		execSQL(t, tdb, "DELETE FROM nodes WHERE id = $1", id)
 	}
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM secrets WHERE node_id IS NOT NULL"), int64(0), "node secrets go with the subtree")
-	n, err := m.Rollback(ctx, tdb.Pool, 10)
+	n, err := rollbackThrough(t, m, tdb, "create_secrets")
 	must(t, err)
-	eq(t, n, 10)
+	eq(t, n, migrationsFrom(t, m, "create_secrets"))
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() "+
 		"AND (table_name = 'secrets' OR column_name = 'credentials_secret_id')"), int64(0))
 }
@@ -946,7 +1181,7 @@ func TestSourcesReferringToSecretsBlockTheRollback(t *testing.T) {
 	execSQL(t, tdb, "INSERT INTO secrets (id, node_id, name, value_ref) VALUES ($1, $2, 'gitlab', 'env:X')", secret, org)
 	execSQL(t, tdb, "INSERT INTO knowledge_sources (project_id, kind, forge, url, api_url, credentials_secret_id) "+
 		"VALUES ($1, 'remote', 'gitlab', 'https://gitlab.example/a/p', 'https://gitlab.example/api/v4', $2)", project, secret)
-	if _, err := embedded(t).Rollback(context.Background(), tdb.Pool, 8); err == nil {
+	if _, err := rollbackThrough(t, embedded(t), tdb, "alter_knowledge_sources_secret"); err == nil {
 		t.Fatal("rolling back the source column must fail while a source refers to a secret")
 	}
 }
@@ -958,7 +1193,7 @@ func TestTextChecksAlignOldExternalValues(t *testing.T) {
 	m := embedded(t)
 	_, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	_, err = m.Rollback(ctx, tdb.Pool, 1)
+	_, err = rollbackThrough(t, m, tdb, "alter_schema_text_checks")
 	must(t, err)
 	long := strings.Repeat("x", 300)
 	org, project, user := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
@@ -970,8 +1205,8 @@ func TestTextChecksAlignOldExternalValues(t *testing.T) {
 		uuid.Must(uuid.NewV7()), project, long, uuid.Must(uuid.NewV7()))
 	execSQL(t, tdb, "INSERT INTO knowledge_snapshots (id, project_id, branch, commit_sha, status) VALUES ($1, $2, $3, 'abc', 'ok'), ($4, $2, 'main', 'abc', 'ok')",
 		uuid.Must(uuid.NewV7()), project, long, uuid.Must(uuid.NewV7()))
-	execSQL(t, tdb, "INSERT INTO forge_connections (id, node_id, kind, api_url, owner_path, interval_secs, credentials_ref) "+
-		"VALUES ($1, $2, 'github', 'https://api.github.example', 'acme', 600, 'env:T')", conn, org)
+	execSQL(t, tdb, "INSERT INTO forge_connections (id, node_id, kind, api_url, owner_path, interval_secs, credentials_secret_id) "+
+		"VALUES ($1, $2, 'github', 'https://api.github.example', 'acme', 600, $3)", conn, org, refSecret(t, tdb, org))
 	execSQL(t, tdb, "INSERT INTO forge_repositories (project_id, connection_id, external_id, full_path, web_url, visibility, default_branch, license) "+
 		"VALUES ($1, $2, '1', $3, 'https://github.example/x', 'public', 'main', $4)", project, conn, "acme/"+strings.Repeat("p", 1100), long)
 	execSQL(t, tdb, "INSERT INTO service_deployments (id, project_id, service, environment, version, occurred_at, source) "+
@@ -987,7 +1222,7 @@ func TestTextChecksAlignOldExternalValues(t *testing.T) {
 
 	n, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	eq(t, n, 1)
+	eq(t, n, migrationsFrom(t, m, "alter_schema_text_checks"))
 	eq(t, scalar[string](t, tdb, "SELECT string_agg(name, ',') FROM branches"), "main")
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM knowledge_snapshots"), int64(1))
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM forge_repositories"), int64(0))
@@ -996,4 +1231,54 @@ func TestTextChecksAlignOldExternalValues(t *testing.T) {
 	eq(t, scalar[bool](t, tdb, "SELECT char_length(annotation) = 1024 AND version IS NULL FROM cluster_workloads"), true)
 	eq(t, scalar[string](t, tdb, "SELECT string_agg(subject || ':' || COALESCE(email, '-'), ',') FROM user_identities"), "ok:-")
 	contains(t, execErr(t, tdb, "UPDATE nodes SET slug = $1 WHERE id = $2", strings.Repeat("s", 64), project), "nodes_slug_check")
+}
+
+func TestNotificationRecoveryTypesRollBack(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	tdb := testsupport.NewTestDB(t)
+	m := embedded(t)
+	_, err := m.Migrate(ctx, tdb.Pool)
+	must(t, err)
+	org := uuid.Must(uuid.NewV7())
+	execSQL(t, tdb, "INSERT INTO nodes (id, kind, slug, name) VALUES ($1, 'organization', 'o', 'O')", org)
+	insert := "INSERT INTO notification_subscriptions (id, node_id, key, channel, event_types, disabled) " +
+		"VALUES ($1, $2, $3, 'webhook', $4, true)"
+	execSQL(t, tdb, insert, uuid.Must(uuid.NewV7()), org, "both", []string{"deployment.drift", "deployment.drift_resolved"})
+	execSQL(t, tdb, insert, uuid.Must(uuid.NewV7()), org, "only", []string{"link.check_recovered"})
+	contains(t, execErr(t, tdb, insert, uuid.Must(uuid.NewV7()), org, "bad", []string{"link.recovered"}), "check")
+	ev := uuid.Must(uuid.NewV7())
+	execSQL(t, tdb, "INSERT INTO notification_events (id, type, node_id, payload, dedupe_key, occurred_at) "+
+		"VALUES ($1, 'deployment.drift', $2, '{}', 'k', now())", ev, org)
+	execSQL(t, tdb, "INSERT INTO notification_episodes (key, id, type, node_id, signature, event_id) "+
+		"VALUES ('drift:x', $1, 'deployment.drift', $2, 's', $3)", uuid.Must(uuid.NewV7()), org, ev)
+	execSQL(t, tdb, "DELETE FROM notification_events WHERE id = $1", ev)
+	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM notification_episodes"), int64(0))
+	_, err = rollbackThrough(t, m, tdb, "alter_notification_subscriptions_event_types")
+	must(t, err)
+	eq(t, scalar[string](t, tdb, "SELECT array_to_string(event_types, ',') FROM notification_subscriptions WHERE key = 'both'"),
+		"deployment.drift")
+	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM notification_subscriptions WHERE key = 'only'"), int64(0))
+}
+
+func TestOAuthClientMetadataColumns(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	tdb := testsupport.NewTestDB(t)
+	m := embedded(t)
+	_, err := m.Migrate(ctx, tdb.Pool)
+	must(t, err)
+	registered, fetched := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
+	execSQL(t, tdb, "INSERT INTO oauth_clients (id, redirect_uris) VALUES ($1, '{http://localhost/cb}')", registered)
+	execSQL(t, tdb, `INSERT INTO oauth_clients (id, redirect_uris, metadata_url, metadata_expires_at)
+		VALUES ($1, '{http://localhost/cb}', 'https://app.example/client.json', now())`, fetched)
+	contains(t, execErr(t, tdb, "INSERT INTO oauth_clients (id, redirect_uris, metadata_expires_at) VALUES ($1, '{http://localhost/cb}', now())",
+		uuid.Must(uuid.NewV7())), "oauth_clients_metadata_expires_at_check")
+	contains(t, execErr(t, tdb, `INSERT INTO oauth_clients (id, redirect_uris, metadata_url, metadata_expires_at)
+		VALUES ($1, '{http://localhost/cb}', 'https://app.example/client.json', now())`, uuid.Must(uuid.NewV7())), "oauth_clients_metadata_url_key")
+	n, err := rollbackThrough(t, m, tdb, "alter_oauth_clients_metadata_url")
+	must(t, err)
+	eq(t, n, migrationsFrom(t, m, "alter_oauth_clients_metadata_url"))
+	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM oauth_clients"), int64(1), "clients of documents are dropped")
+	eq(t, scalar[bool](t, tdb, "SELECT EXISTS (SELECT 1 FROM oauth_clients WHERE id = $1)", registered), true)
 }

@@ -45,9 +45,16 @@ func lacks(t *testing.T, s, sub string) {
 func TestNoCommandPrintsHelp(t *testing.T) {
 	code, out, _ := run(t, nil, "")
 	eq(t, code, 0)
-	for _, cmd := range []string{"serve", "db:migrate", "db:rollback", "user:create"} {
+	for _, cmd := range []string{"serve", "db:migrate", "db:rollback", "user:create", "forge:sync", "mcp:stdio", "agent", "secrets:rotate", "secrets:adopt-legacy"} {
 		contains(t, out, cmd)
 	}
+}
+
+func TestAdoptLegacyHelpAnnouncesRemoval(t *testing.T) {
+	code, out, _ := run(t, []string{"secrets:adopt-legacy", "--help"}, "")
+	eq(t, code, 0)
+	contains(t, out, "removed in 1.0.0")
+	contains(t, out, "through a 0.x release")
 }
 
 func TestVersionPrintsThePackageVersion(t *testing.T) {

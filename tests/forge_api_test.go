@@ -4,8 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/uuid"
-
 	"svc-registry/pkg/testing/forgefake"
 )
 
@@ -28,7 +26,6 @@ func TestConnectionDefaultsAndSecretHandling(t *testing.T) {
 	eq(t, c["webhook"], nil)
 	eq(t, c["last_run"], nil)
 	lacks(t, r.text(), "ghp_supersecret")
-	eq(t, scalar[int64](t, app.db, "SELECT count(*) FROM forge_connections WHERE credentials_enc IS NOT NULL"), int64(0))
 	enc := scalar[string](t, app.db, "SELECT value_enc FROM secrets WHERE id = $1", secret)
 	eq(t, strings.HasPrefix(enc, "v1.k1."), true, enc)
 	lacks(t, app.get(connectionPath(acme, idOf(c)), root).text(), "ghp_")
@@ -53,13 +50,6 @@ func TestConnectionDefaultsAndSecretHandling(t *testing.T) {
 	eq(t, foreign.status, 400)
 	eq(t, code(t, foreign), any("validation.secret_not_available"))
 
-	legacy := uuid.Must(uuid.NewV7())
-	execSQL(t, app.db, "INSERT INTO forge_connections (id, node_id, kind, api_url, owner_path, interval_secs, credentials_ref) "+
-		"VALUES ($1, $2, 'github', 'https://api.github.com', 'legacy', 900, 'env:OLD_TOKEN')", legacy, other)
-	old := app.get(connectionPath(other, legacy.String()), root).json(t)
-	eq(t, at(old, "credentials", "kind"), any("legacy"))
-	eq(t, at(old, "credentials", "storage"), any("reference"))
-	eq(t, at(old, "credentials", "ref"), any("env:OLD_TOKEN"))
 	eq(t, code(t, app.call("DELETE", secretsPath(acme)+"/"+secret, root)), any("conflict.secret_in_use"))
 }
 

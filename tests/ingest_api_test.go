@@ -166,6 +166,16 @@ func TestBodiesThatAreNotJSONObjectsOrTooLargeAreRefused(t *testing.T) {
 
 func announceHuge(t *testing.T, addr, project, authorization string) (int, string, http.Header) {
 	t.Helper()
+	return announceHugeAt(t, addr, ingestPath(project), authorization)
+}
+
+func announceHugeAt(t *testing.T, addr, path, authorization string) (int, string, http.Header) {
+	t.Helper()
+	return announceAt(t, addr, path, authorization, 3<<20)
+}
+
+func announceAt(t *testing.T, addr, path, authorization string, size int) (int, string, http.Header) {
+	t.Helper()
 	conn, err := net.Dial("tcp", addr)
 	must(t, err)
 	defer conn.Close()
@@ -174,7 +184,7 @@ func announceHuge(t *testing.T, addr, project, authorization string) (int, strin
 		auth = "authorization: " + authorization + "\r\n"
 	}
 	fmt.Fprintf(conn, "POST %s HTTP/1.1\r\nhost: x\r\ncontent-type: application/json\r\n%scontent-length: %d\r\n\r\n",
-		ingestPath(project), auth, 3<<20)
+		path, auth, size)
 	resp, err := http.ReadResponse(bufio.NewReader(conn), nil)
 	must(t, err)
 	defer resp.Body.Close()

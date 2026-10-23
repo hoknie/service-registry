@@ -27,7 +27,6 @@ func TestSourceAPIForms(t *testing.T) {
 	eq(t, at(src, "credentials", "secret", "name"), any("gitlab"))
 	eq(t, at(src, "credentials", "secret", "from", "name"), any("acme"))
 	lacks(t, a.get(sourcePath(a.project), a.admin).text(), "glpat-123")
-	eq(t, scalar[int64](t, a.db, "SELECT count(*) FROM knowledge_sources WHERE credentials_enc IS NOT NULL"), int64(0))
 
 	delete(body, "credentials")
 	eq(t, at(a.send("PUT", sourcePath(a.project), a.admin, body).json(t), "credentials", "secret", "id"), any(secret))

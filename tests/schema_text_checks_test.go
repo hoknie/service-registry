@@ -13,8 +13,6 @@ import (
 
 var freeTextColumns = []string{
 	"clusters.ca_pem",
-	"clusters.credentials_enc",
-	"forge_connections.credentials_enc",
 	"forge_connections.webhook_secret_enc",
 	"forge_repositories.description",
 	"forge_repositories.readme_md",
@@ -24,7 +22,8 @@ var freeTextColumns = []string{
 	"knowledge_index_state.engine",
 	"knowledge_source_repos.description",
 	"knowledge_source_repos.readme_md",
-	"knowledge_sources.credentials_enc",
+	"notification_deliveries.last_error_message",
+	"notification_subscriptions.signing_secret_enc",
 	"secrets.value_enc",
 }
 
