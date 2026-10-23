@@ -8,10 +8,27 @@ The versions follow [Semantic Versioning](https://semver.org/).
 
 ### Features
 
+- Updated access and ui ([8c89158](https://github.com/hoknie/service-registry/commit/8c8915823767fbe00b3e89e3ca394e96a834745e))
+- Updated packaging and ci ([57e5383](https://github.com/hoknie/service-registry/commit/57e5383621529fdedfdc4216884a78d6b4e89a79))
+- Updated docs ([d106ac8](https://github.com/hoknie/service-registry/commit/d106ac853b1a8a340c1060cc2b98216085e6a399))
+- Added ui for new features ([4dd656b](https://github.com/hoknie/service-registry/commit/4dd656ba1ae591fefc2410b0017905b599f889d6))
+- Updated tests ([42d855e](https://github.com/hoknie/service-registry/commit/42d855eb24ebca2115cc7128783fcd6884818f4e))
+- Added netguard ([bcef100](https://github.com/hoknie/service-registry/commit/bcef100ca22b9f21d0059a79790b6787cf3e017e))
+- Normalized internal flow ([5105803](https://github.com/hoknie/service-registry/commit/510580358d940449efdb43b63c9bacb7bcd73e62))
+- Added agent, added handlers for new features ([79f0b83](https://github.com/hoknie/service-registry/commit/79f0b8315f6312b559ce1d7ea7c51a84a0789fb3))
+- Updated ingest and forge ([e8a8dca](https://github.com/hoknie/service-registry/commit/e8a8dca64ef5d73e95f3db5d299461b8adac5e59))
+- Updated docs collect for knowledge ([ca2f2da](https://github.com/hoknie/service-registry/commit/ca2f2daf97530582d44d9be6a2c68003bdaa7e0d))
+- Added proto api support ([b49d16c](https://github.com/hoknie/service-registry/commit/b49d16c0c9c664138d0b13fbaa2f428dc01996ce))
+- Updated access ([5e72877](https://github.com/hoknie/service-registry/commit/5e72877b533c9b6a8b52c3d49def449c6fdf0bf3))
+- Updated deploy and notify ([fb7d1b4](https://github.com/hoknie/service-registry/commit/fb7d1b4a0e7da6e016b211bc196bd9ebf3778910))
+- Added ownership and topology ([06f4878](https://github.com/hoknie/service-registry/commit/06f4878ea8c9c4b5616768251fcb22e2a93eeb13))
+- Removed non dry code ([bc5d900](https://github.com/hoknie/service-registry/commit/bc5d900ea2c2aae3396230935081ac1947dfab45))
+- Move some pkg from internal to pkg ([796fbb8](https://github.com/hoknie/service-registry/commit/796fbb80e26974bda1ea09122b6d99d710ce2dfd))
 - Updated org struct ([1e69f77](https://github.com/hoknie/service-registry/commit/1e69f77dcbb2bec503a5ba077572c83cf5938ace))
 
 ### Dependencies
 
+- Bump the npm-minor-and-patch group across 1 directory with 7 updates (#14) ([407fec1](https://github.com/hoknie/service-registry/commit/407fec1ba0ab7723801cc7161377e93f473f2d3a))
 - Bump the go-minor-and-patch group with 3 updates (#11) ([8759b0b](https://github.com/hoknie/service-registry/commit/8759b0b4ea751207a53ce813c2c8ff5efa9da578))
 - Bump golang from 1.27.0-alpine to 1.27.2-alpine in /env (#10) ([86e0732](https://github.com/hoknie/service-registry/commit/86e0732729dfd491f5b000c7d41ec849d124cfa7))
 - Bump the actions group with 2 updates (#13) ([113817a](https://github.com/hoknie/service-registry/commit/113817ad79b686a0c9699adb97c7e8296b9b502b))
