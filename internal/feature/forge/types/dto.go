@@ -76,8 +76,7 @@ type RepoRecord struct {
 
 type SecretRow struct {
 	ID               uuid.UUID
-	CredentialsEnc   *string
-	WebhookSecretEnc *string
+	WebhookSecretEnc string
 }
 
 type Lease struct {

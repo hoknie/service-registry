@@ -14,12 +14,11 @@ import (
 func scanConnection(row pgx.CollectableRow) (forgetypes.Connection, error) {
 	var c forgetypes.Connection
 	var kind string
-	var ref, fingerprint, webhook *string
+	var webhook *string
 	var secret *uuid.UUID
-	var hasEnc bool
 	var run nullRun
 	err := row.Scan(&c.ID, &c.NodeID, &kind, &c.APIURL, &c.OwnerPath, &c.MirrorSubgroups, &c.IncludeArchived,
-		&c.IncludeForks, &c.NameInclude, &c.NameExclude, &c.BranchInclude, &c.IntervalSecs, &secret, &hasEnc, &ref, &fingerprint, &webhook,
+		&c.IncludeForks, &c.NameInclude, &c.NameExclude, &c.BranchInclude, &c.IntervalSecs, &secret, &webhook,
 		&c.NextRunAt, &c.CreatedAt, &c.UpdatedAt,
 		&run.id, &run.connID, &run.trigger, &run.status, &run.started, &run.finished, &run.created, &run.updated,
 		&run.orphaned, &run.skipped, &run.code, &run.message, &run.problems)
@@ -30,7 +29,7 @@ func scanConnection(row pgx.CollectableRow) (forgetypes.Connection, error) {
 	if c.Kind, ok = forgetypes.ParseKind(kind); !ok {
 		return forgetypes.Connection{}, apperr.UnknownValue("forge kind", kind)
 	}
-	c.Credentials = credentialsOf(secret, hasEnc, ref, fingerprint)
+	c.Credentials = credentialsOf(secret)
 	if webhook != nil {
 		m, ok := forgetypes.ParseWebhookMode(*webhook)
 		if !ok {
@@ -87,13 +86,9 @@ func scanRun(row pgx.CollectableRow) (forgetypes.Run, error) {
 	return finishRun(r, trigger, status, problems)
 }
 
-func credentialsOf(secret *uuid.UUID, hasEnc bool, ref, fingerprint *string) catalogtypes.Credentials {
-	if secret != nil {
-		return catalogtypes.Credentials{Kind: catalogtypes.CredentialsSecret, SecretID: secret}
+func credentialsOf(secret *uuid.UUID) catalogtypes.Credentials {
+	if secret == nil {
+		return catalogtypes.Credentials{Kind: catalogtypes.CredentialsNone}
 	}
-	var enc *string
-	if hasEnc {
-		enc = new(string)
-	}
-	return catalogtypes.LegacyCredentials(enc, ref, fingerprint)
+	return catalogtypes.Credentials{Kind: catalogtypes.CredentialsSecret, SecretID: secret}
 }

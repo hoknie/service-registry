@@ -49,7 +49,7 @@ func (s *ConnectionRepository) List(ctx context.Context, nodeID uuid.UUID) ([]fo
 	return postgres.List(ctx, s.db.From(ctx), constraints, scanConnection, `
 		SELECT c.id, c.node_id, c.kind, c.api_url, c.owner_path, c.mirror_subgroups, c.include_archived,
 			c.include_forks, c.name_include, c.name_exclude, c.branch_include, c.interval_secs,
-			c.credentials_secret_id, c.credentials_enc IS NOT NULL, c.credentials_ref, c.credentials_fingerprint, c.webhook_mode, rfc3339(c.next_run_at),
+			c.credentials_secret_id, c.webhook_mode, rfc3339(c.next_run_at),
 			rfc3339(c.created_at), rfc3339(c.updated_at), lr.id, lr.connection_id, lr.trigger, lr.status,
 			rfc3339(lr.started_at), rfc3339(lr.finished_at), lr.created, lr.updated, lr.orphaned, lr.skipped,
 			lr.error_code, lr.error_message, lr.problems
@@ -69,7 +69,7 @@ func (s *ConnectionRepository) Find(ctx context.Context, id uuid.UUID) (*forgety
 	return postgres.Find(ctx, s.db.From(ctx), constraints, scanConnection, `
 		SELECT c.id, c.node_id, c.kind, c.api_url, c.owner_path, c.mirror_subgroups, c.include_archived,
 			c.include_forks, c.name_include, c.name_exclude, c.branch_include, c.interval_secs,
-			c.credentials_secret_id, c.credentials_enc IS NOT NULL, c.credentials_ref, c.credentials_fingerprint, c.webhook_mode, rfc3339(c.next_run_at),
+			c.credentials_secret_id, c.webhook_mode, rfc3339(c.next_run_at),
 			rfc3339(c.created_at), rfc3339(c.updated_at), lr.id, lr.connection_id, lr.trigger, lr.status,
 			rfc3339(lr.started_at), rfc3339(lr.finished_at), lr.created, lr.updated, lr.orphaned, lr.skipped,
 			lr.error_code, lr.error_message, lr.problems
@@ -87,10 +87,10 @@ func (s *ConnectionRepository) Find(ctx context.Context, id uuid.UUID) (*forgety
 func (s *ConnectionRepository) Secrets(ctx context.Context, id uuid.UUID) (*forgetypes.Secrets, error) {
 	return postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (forgetypes.Secrets, error) {
 		var sec forgetypes.Secrets
-		err := r.Scan(&sec.CredentialsSecretID, &sec.CredentialsEnc, &sec.CredentialsRef, &sec.WebhookSecretEnc, &sec.WebhookID)
+		err := r.Scan(&sec.CredentialsSecretID, &sec.WebhookSecretEnc, &sec.WebhookID)
 		return sec, err
 	}, `
-		SELECT credentials_secret_id, credentials_enc, credentials_ref, webhook_secret_enc, webhook_id
+		SELECT credentials_secret_id, webhook_secret_enc, webhook_id
 		FROM forge_connections
 		WHERE id = $1`, id)
 }
@@ -110,8 +110,7 @@ func (s *ConnectionRepository) Update(ctx context.Context, id uuid.UUID, st forg
 		if secret != nil {
 			_, err = postgres.Exec(ctx, tx, constraints, `
 				UPDATE forge_connections
-				SET credentials_secret_id = $2, credentials_enc = NULL, credentials_ref = NULL, credentials_fingerprint = NULL,
-					updated_at = now()
+				SET credentials_secret_id = $2, updated_at = now()
 				WHERE id = $1`, id, *secret)
 		}
 		return err

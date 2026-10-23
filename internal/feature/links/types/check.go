@@ -1,5 +1,7 @@
 package types
 
+import "github.com/google/uuid"
+
 type Status string
 
 const (
@@ -20,6 +22,18 @@ type Result struct {
 	Status     Status
 	HTTPStatus *int
 	DurationMS int
+}
+
+type Recorded struct {
+	Check    Check
+	TargetID uuid.UUID
+	CheckID  uuid.UUID
+	Previous *Status
+}
+
+type TargetProject struct {
+	ProjectID uuid.UUID
+	LinkKey   string
 }
 
 type Check struct {

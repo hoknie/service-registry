@@ -28,7 +28,10 @@ const (
 	NeedRead
 	NeedWrite
 	NeedWriteWhole
-	NeedAdmin
+	NeedUsers
+	NeedGroups
+	NeedClusters
+	NeedSettings
 )
 
 func RequireScope(p Principal, need Need) error {
@@ -48,8 +51,14 @@ func RequireScope(p Principal, need Need) error {
 			return apperr.New(apperr.InsufficientScope)
 		}
 		scope = ScopeWrite
-	case NeedAdmin:
-		scope = ScopeAdmin
+	case NeedUsers:
+		scope = ScopeUsers
+	case NeedGroups:
+		scope = ScopeGroups
+	case NeedClusters:
+		scope = ScopeClusters
+	case NeedSettings:
+		scope = ScopeSettings
 	default:
 		return apperr.New(apperr.SessionRequired)
 	}
@@ -64,4 +73,11 @@ func RequireSuperadmin(p Principal) error {
 		return nil
 	}
 	return apperr.New(apperr.Forbidden)
+}
+
+func RequireCatalogRoot(p Principal) error {
+	if p.ByToken() && !p.Scopes.Has(ScopeCatalogRoot) {
+		return apperr.New(apperr.InsufficientScope)
+	}
+	return RequireSuperadmin(p)
 }

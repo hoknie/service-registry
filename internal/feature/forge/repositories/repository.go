@@ -184,21 +184,18 @@ func (s *RepoRepository) Link(ctx context.Context, projectID uuid.UUID) (*forget
 		var l forgetypes.ProjectLink
 		var kind string
 		var secret *uuid.UUID
-		var hasEnc bool
-		var ref, fingerprint *string
-		if err := row.Scan(&l.ConnectionID, &l.NodeID, &l.Owner, &kind, &l.WebURL, &l.APIURL, &secret, &hasEnc, &ref,
-			&fingerprint, &l.SyncedAt); err != nil {
+		if err := row.Scan(&l.ConnectionID, &l.NodeID, &l.Owner, &kind, &l.WebURL, &l.APIURL, &secret, &l.SyncedAt); err != nil {
 			return l, err
 		}
 		var ok bool
 		if l.Kind, ok = forgetypes.ParseKind(kind); !ok {
 			return l, apperr.UnknownValue("forge kind", kind)
 		}
-		l.Credentials = credentialsOf(secret, hasEnc, ref, fingerprint)
+		l.Credentials = credentialsOf(secret)
 		return l, nil
 	}, `
 		SELECT f.connection_id, c.node_id, c.owner_path, c.kind, f.web_url, c.api_url, c.credentials_secret_id,
-			c.credentials_enc IS NOT NULL, c.credentials_ref, c.credentials_fingerprint, rfc3339(f.synced_at)
+			rfc3339(f.synced_at)
 		FROM forge_repositories f
 		JOIN forge_connections c ON c.id = f.connection_id
 		WHERE f.project_id = $1

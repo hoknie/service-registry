@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 var png, _ = base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")
@@ -62,7 +63,7 @@ func TestPutIsContentAddressed(t *testing.T) {
 	}
 	got, _ := io.ReadAll(f)
 	f.Close()
-	if !bytes.Equal(got, png) || ContentType(id) != "image/png" || !s.Exists(id) {
+	if !bytes.Equal(got, png) || ContentType(id) != "image/png" || !s.Touch(id) {
 		t.Fatal("round trip")
 	}
 }
@@ -80,5 +81,88 @@ func TestLimitsAndPaths(t *testing.T) {
 	}
 	if _, err := New("").Put(png); !errors.Is(err, ErrDisabled) {
 		t.Fatal(err)
+	}
+}
+
+func TestListAndRemove(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	s := New(dir)
+	id, err := s.Put(png)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"README.txt", ".upload-123"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Mkdir(filepath.Join(dir, "backup"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(dir, strings.Repeat("b", 64)+".png"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	files, err := s.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := map[string]bool{}
+	for _, f := range files {
+		names[f.Name] = f.Upload
+	}
+	if len(names) != 2 || names[id] || !names[".upload-123"] {
+		t.Fatalf("%v", names)
+	}
+	for _, name := range []string{"README.txt", "../x", "backup"} {
+		if err := s.Remove(name); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("%s: %v", name, err)
+		}
+	}
+	if err := s.Remove(id); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Remove(id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "README.txt")); err != nil {
+		t.Fatal(err)
+	}
+	if files, err := New(filepath.Join(dir, "missing")).List(); err != nil || len(files) != 0 {
+		t.Fatalf("%v %v", files, err)
+	}
+}
+
+func TestPutAndTouchRefreshTime(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	s := New(dir)
+	id, err := s.Put(png)
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := time.Now().Add(-48 * time.Hour)
+	path := filepath.Join(dir, id)
+	age := func() time.Duration {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return time.Since(info.ModTime())
+	}
+	if err := os.Chtimes(path, old, old); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Put(png); err != nil || age() > time.Hour {
+		t.Fatalf("put did not refresh: %v", err)
+	}
+	if err := os.Chtimes(path, old, old); err != nil {
+		t.Fatal(err)
+	}
+	if !s.Touch(id) || age() > time.Hour {
+		t.Fatal("touch did not refresh")
+	}
+	if s.Touch(strings.Repeat("c", 64) + ".png") {
+		t.Fatal("touch of a missing file")
 	}
 }

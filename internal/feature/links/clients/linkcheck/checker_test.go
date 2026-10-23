@@ -12,6 +12,7 @@ import (
 
 	linkstypes "svc-registry/internal/feature/links/types"
 	"svc-registry/internal/platform/config"
+	"svc-registry/pkg/netguard"
 )
 
 type anyIP struct{}
@@ -151,7 +152,7 @@ func TestPolicyIsAppliedAtConnectionTime(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { hits.Add(1) }))
 	defer srv.Close()
 	_, port, _ := net.SplitHostPort(srv.Listener.Addr().String())
-	c := NewWithPolicy(config.OutboundConfig{}, 2*time.Second, linkstypes.Policy{AllowPrivate: true})
+	c := NewWithPolicy(config.OutboundConfig{}, 2*time.Second, netguard.Policy{AllowPrivate: true})
 	for _, u := range []string{
 		"http://localhost:" + port + "/",
 		"http://127.0.0.1:" + port + "/",

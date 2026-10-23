@@ -31,7 +31,7 @@ func (s *TemplatesService) PutLinkTemplate(ctx context.Context, p accesstypes.Pr
 	if err != nil {
 		return linkstypes.Template{}, apperr.Wrap(err)
 	}
-	if t.IconFile != nil && (s.icons == nil || !s.icons.Exists(*t.IconFile)) {
+	if t.IconFile != nil && (s.icons == nil || !s.icons.Touch(*t.IconFile)) {
 		return linkstypes.Template{}, apperr.Wrap(linkstypes.InvalidTemplateIcon)
 	}
 	saved, err := s.templateRepository.Put(ctx, t)

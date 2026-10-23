@@ -20,7 +20,7 @@ func (s *ProjectsService) ProjectLinks(ctx context.Context, p accesstypes.Princi
 	if err != nil {
 		return nil, err
 	}
-	if err := s.targetRepository.Seen(ctx, linkstypes.URLs(out)); err != nil {
+	if err := s.targetRepository.Seen(ctx, id, out); err != nil {
 		return nil, apperr.Wrap(err)
 	}
 	return out, s.attachChecks(ctx, out)
@@ -69,8 +69,7 @@ func (s *ProjectsService) checkNow(ctx context.Context, url string) (linkstypes.
 	if fresh != nil {
 		return *fresh, nil
 	}
-	cfg := s.cfg.LinkCheck
-	return s.targetRepository.Record(ctx, url, s.checker.Check(ctx, url), cfg.IntervalSecs, cfg.History)
+	return s.record(ctx, url, s.checker.Check(ctx, url))
 }
 
 func (s *ProjectsService) LinkChecks(ctx context.Context, p accesstypes.Principal, id uuid.UUID, linkKey string, q linkstypes.LinkQuery) ([]linkstypes.Check, error) {

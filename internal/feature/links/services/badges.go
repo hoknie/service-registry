@@ -9,8 +9,10 @@ import (
 	linksports "svc-registry/internal/feature/links/ports"
 	"svc-registry/internal/feature/links/repositories"
 	linkstypes "svc-registry/internal/feature/links/types"
+	notifyservices "svc-registry/internal/feature/notify/services"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
+	"svc-registry/pkg/pgtx"
 )
 
 func (s *ProjectsService) ProjectBadges(ctx context.Context, projects []uuid.UUID) (map[uuid.UUID][]linkstypes.Badge, error) {
@@ -30,6 +32,8 @@ type ProjectsService struct {
 	catalog            *catalogservices.CatalogServices
 	cfg                *config.Config
 	checker            linksports.CheckerPort
+	db                 *pgtx.DB
+	notify             *notifyservices.NotifyServices
 	targetRepository   *repositories.TargetRepository
 	templateRepository *repositories.TemplateRepository
 }

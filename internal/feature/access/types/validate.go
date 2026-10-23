@@ -115,7 +115,7 @@ func ValidateCreateToken(in CreateToken, superadmin bool, maxDays uint32) (Valid
 	seen := map[Scope]bool{}
 	for _, raw := range in.Scopes {
 		sc, ok := ParseScope(raw)
-		if !ok || seen[sc] || (sc == ScopeAdmin && !superadmin) {
+		if !ok || seen[sc] || (sc.Global() && !superadmin) {
 			return ValidatedToken{}, InvalidScopes
 		}
 		seen[sc] = true
@@ -149,7 +149,7 @@ func validateTokenNodes(raw *[]string, scopes Scopes) ([]uuid.UUID, error) {
 	if raw == nil {
 		return nil, nil
 	}
-	if len(*raw) == 0 || len(*raw) > TokenMaxNodes || scopes.Has(ScopeAdmin) {
+	if len(*raw) == 0 || len(*raw) > TokenMaxNodes || scopes.AnyGlobal() {
 		return nil, InvalidTokenNodes
 	}
 	out := make([]uuid.UUID, 0, len(*raw))

@@ -14,8 +14,6 @@ import (
 	forgeports "svc-registry/internal/feature/forge/ports"
 	forgetypes "svc-registry/internal/feature/forge/types"
 	"svc-registry/internal/platform/apperr"
-	"svc-registry/internal/platform/config"
-	"svc-registry/pkg/secretbox"
 )
 
 const syncLeaseSecs = 120
@@ -80,7 +78,7 @@ func (s *SyncService) runSync(ctx context.Context, id uuid.UUID, trigger forgety
 		return run, err
 	}
 	res, next := s.synchronize(ctx, *conn)
-	if err := s.runRepository.Finish(keep, run.ID, res, int(s.cfg.Jobs.ForgeRunsKept)); err != nil {
+	if err := s.finishRun(keep, *conn, run, res); err != nil {
 		return run, err
 	}
 	if err := s.connectionRepository.Release(keep, id, next); err != nil {
@@ -126,10 +124,6 @@ func (s *SyncService) clientFor(ctx context.Context, conn forgetypes.Connection)
 	switch {
 	case sec.CredentialsSecretID != nil:
 		token, err = s.catalog.SecretResolver.ResolveSecret(ctx, *sec.CredentialsSecretID)
-	case sec.CredentialsRef != nil:
-		token, err = config.ResolveSecretRef(*sec.CredentialsRef)
-	case sec.CredentialsEnc != nil:
-		token, err = s.secrets.Open(*sec.CredentialsEnc, secretbox.AAD(forgetypes.Table, conn.ID.String(), forgetypes.ColumnCredentials))
 	default:
 		err = errors.New("no credentials")
 	}

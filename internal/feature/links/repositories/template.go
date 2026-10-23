@@ -213,6 +213,13 @@ func (s *TemplateRepository) Projects(ctx context.Context, after uuid.UUID, limi
 		LIMIT $2`, after, limit)
 }
 
+func (s *TemplateRepository) ReferencedIcons(ctx context.Context, ids []string) ([]string, error) {
+	return postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowTo[string], `
+		SELECT DISTINCT icon_file
+		FROM link_templates
+		WHERE icon_file = ANY($1)`, ids)
+}
+
 func kindInfos(ctx context.Context, q pgtx.Querier) (map[string]linkstypes.KindInfo, error) {
 	items, err := postgres.List(ctx, q, constraints, pgx.RowToStructByName[kindInfoRow], `
 		SELECT key, position, icon, icon_url

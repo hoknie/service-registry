@@ -6,7 +6,6 @@ import (
 	"github.com/google/uuid"
 
 	catalogservices "svc-registry/internal/feature/catalog/services"
-	catalogtypes "svc-registry/internal/feature/catalog/types"
 	linksports "svc-registry/internal/feature/links/ports"
 	"svc-registry/internal/feature/links/repositories"
 	linkstypes "svc-registry/internal/feature/links/types"
@@ -30,9 +29,8 @@ func (s *ChecksService) RunLinkCheck(ctx context.Context, t linkstypes.Target) e
 	if ctx.Err() != nil {
 		return nil
 	}
-	cfg := s.cfg.LinkCheck
-	_, err := s.targetRepository.Record(ctx, t.URL, r, cfg.IntervalSecs, cfg.History)
-	return apperr.Wrap(err)
+	_, err := s.projects.record(ctx, t.URL, r)
+	return err
 }
 
 func (s *ChecksService) RefreshLinkTargets(ctx context.Context) (int, error) {
@@ -44,39 +42,20 @@ func (s *ChecksService) RefreshLinkTargets(ctx context.Context) (int, error) {
 			return seen, apperr.Wrap(err)
 		}
 		for _, id := range ids {
-			urls, err := s.projectURLs(ctx, id)
+			links, err := s.projects.systemLinks(ctx, id)
 			if err != nil {
 				return seen, err
 			}
-			if err := s.targetRepository.Seen(ctx, urls); err != nil {
+			if err := s.targetRepository.Seen(ctx, id, links); err != nil {
 				return seen, apperr.Wrap(err)
 			}
-			seen += len(urls)
+			seen += len(linkstypes.URLs(links))
 		}
 		if len(ids) < projectPageSize {
 			return seen, nil
 		}
 		after = ids[len(ids)-1]
 	}
-}
-
-func (s *ChecksService) projectURLs(ctx context.Context, id uuid.UUID) ([]string, error) {
-	chain, err := s.catalog.System.NodeChain(ctx, id)
-	if err != nil {
-		return nil, apperr.Wrap(err)
-	}
-	if chain == nil || len(chain.Nodes) == 0 {
-		return nil, nil
-	}
-	ancestors := make([]catalogtypes.Node, 0, len(chain.Nodes)-1)
-	for i := len(chain.Nodes) - 1; i >= 1; i-- {
-		ancestors = append(ancestors, chain.Nodes[i].Node)
-	}
-	c, templates, err := s.projects.loadContext(ctx, chain.Nodes[0].Node, ancestors)
-	if err != nil {
-		return nil, err
-	}
-	return linkstypes.URLs(linkstypes.ExpandProject(c, templates, "")), nil
 }
 
 func (s *ChecksService) PruneLinkTargets(ctx context.Context) (int64, error) {

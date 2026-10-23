@@ -14,6 +14,7 @@ import (
 
 	linkstypes "svc-registry/internal/feature/links/types"
 	"svc-registry/internal/platform/config"
+	"svc-registry/pkg/netguard"
 )
 
 const (
@@ -32,14 +33,13 @@ type CheckerClient struct {
 }
 
 func New(out config.OutboundConfig, lc config.LinkCheckConfig) *CheckerClient {
-	policy := linkstypes.Policy{AllowPrivate: lc.AllowPrivate, AllowHosts: lc.AllowHosts, DenyHosts: lc.DenyHosts}
-	return NewWithPolicy(out, time.Duration(lc.TimeoutSecs)*time.Second, policy)
+	return NewWithPolicy(out, time.Duration(lc.TimeoutSecs)*time.Second, lc.Policy())
 }
 
-func NewWithPolicy(out config.OutboundConfig, timeout time.Duration, policy Policy) *CheckerClient {
+func NewWithPolicy(out config.OutboundConfig, timeout time.Duration, policy netguard.Allower) *CheckerClient {
 	return &CheckerClient{
 		client: &http.Client{
-			Transport:     newTransport(out, policy, net.DefaultResolver),
+			Transport:     netguard.NewTransport(out.Options(), policy, net.DefaultResolver),
 			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 		},
 		timeout: timeout,
@@ -142,7 +142,7 @@ func isLoginPath(path string) bool {
 }
 
 func classify(err error) linkstypes.Status {
-	if errors.Is(err, errBlocked) {
+	if errors.Is(err, netguard.ErrBlocked) {
 		return linkstypes.StatusBlocked
 	}
 	if netErr, ok := errors.AsType[net.Error](err); errors.Is(err, context.DeadlineExceeded) || ok && netErr.Timeout() {

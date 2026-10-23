@@ -66,6 +66,21 @@ func (s *RunRepository) Finish(ctx context.Context, id uuid.UUID, res forgetypes
 	return postgres.Translate(err, constraints)
 }
 
+func (s *RunRepository) PreviousStatus(ctx context.Context, connID, runID uuid.UUID) (*forgetypes.RunStatus, error) {
+	return postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (forgetypes.RunStatus, error) {
+		var status string
+		err := r.Scan(&status)
+		return forgetypes.RunStatus(status), err
+	}, `
+		SELECT status
+		FROM forge_sync_runs
+		WHERE connection_id = $1
+			AND id <> $2
+			AND finished_at IS NOT NULL
+		ORDER BY started_at DESC, id DESC
+		LIMIT 1`, connID, runID)
+}
+
 func (s *RunRepository) List(ctx context.Context, connID uuid.UUID, limit int) ([]forgetypes.Run, error) {
 	return postgres.List(ctx, s.db.From(ctx), constraints, scanRun, `
 		SELECT r.id, r.connection_id, r.trigger, r.status, rfc3339(r.started_at), rfc3339(r.finished_at),

@@ -5,13 +5,21 @@ import "github.com/google/uuid"
 type Scope string
 
 const (
-	ScopeRead  Scope = "read"
-	ScopeWrite Scope = "write"
-	ScopeAdmin Scope = "admin"
-	ScopeMCP   Scope = "mcp"
+	ScopeRead        Scope = "read"
+	ScopeWrite       Scope = "write"
+	ScopeMCP         Scope = "mcp"
+	ScopeUsers       Scope = "users"
+	ScopeGroups      Scope = "groups"
+	ScopeClusters    Scope = "clusters"
+	ScopeSettings    Scope = "settings"
+	ScopeCatalogRoot Scope = "catalog.root"
 )
 
-var AllScopes = []Scope{ScopeRead, ScopeWrite, ScopeAdmin, ScopeMCP}
+var AllScopes = []Scope{ScopeRead, ScopeWrite, ScopeMCP, ScopeUsers, ScopeGroups, ScopeClusters, ScopeSettings, ScopeCatalogRoot}
+
+var GlobalScopes = Scopes{ScopeUsers, ScopeGroups, ScopeClusters, ScopeSettings, ScopeCatalogRoot}
+
+func (sc Scope) Global() bool { return GlobalScopes.Has(sc) }
 
 func ParseScope(s string) (Scope, bool) {
 	for _, sc := range AllScopes {
@@ -27,6 +35,15 @@ type Scopes []Scope
 func (s Scopes) Has(scope Scope) bool {
 	for _, sc := range s {
 		if sc == scope {
+			return true
+		}
+	}
+	return false
+}
+
+func (s Scopes) AnyGlobal() bool {
+	for _, sc := range s {
+		if sc.Global() {
 			return true
 		}
 	}

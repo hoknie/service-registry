@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	topologytypes "svc-registry/internal/feature/topology/types"
 )
 
 const (
@@ -25,6 +27,7 @@ type ServiceDeployedV1 struct {
 	DeployedBy  Field[string]         `json:"deployed_by"`
 	Metadata    Field[map[string]any] `json:"metadata"`
 	Links       Field[[]any]          `json:"links"`
+	DependsOn   Field[[]any]          `json:"dependencies"`
 }
 
 var (
@@ -54,7 +57,41 @@ func (p ServiceDeployedV1) parse(errs *fields) ServiceDeployed {
 		DeployedBy:  errs.optional("payload.deployed_by", p.DeployedBy, deployedByRule),
 		Metadata:    p.metadata(errs),
 		Links:       p.links(errs),
+		DependsOn:   p.dependencies(errs),
 	}
+}
+
+func (p ServiceDeployedV1) dependencies(errs *fields) *[]topologytypes.Ref {
+	switch p.DependsOn.State {
+	case Absent, Null:
+		return nil
+	case WrongType:
+		errs.add("payload.dependencies", FieldInvalidType)
+		return nil
+	}
+	if len(p.DependsOn.Value) > topologytypes.MaxRefs {
+		errs.add("payload.dependencies", FieldInvalidValue)
+		return nil
+	}
+	var texts []string
+	for i, raw := range p.DependsOn.Value {
+		path := "payload.dependencies." + strconv.Itoa(i)
+		s, ok := raw.(string)
+		if !ok {
+			errs.add(path, FieldInvalidType)
+			continue
+		}
+		if _, err := topologytypes.ParseRef(s); err != nil {
+			errs.add(path, FieldInvalidValue)
+			continue
+		}
+		texts = append(texts, s)
+	}
+	refs, _ := topologytypes.ParseRefs(texts)
+	if refs == nil {
+		refs = []topologytypes.Ref{}
+	}
+	return &refs
 }
 
 func (p ServiceDeployedV1) links(errs *fields) []DeploymentLink {

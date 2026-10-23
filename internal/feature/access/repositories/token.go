@@ -57,7 +57,7 @@ func (s *TokenRepository) Insert(ctx context.Context, nt accesstypes.NewToken) (
 			CASE
 				WHEN t.revoked_at IS NOT NULL THEN 'revoked'
 				WHEN t.expires_at <= now() THEN 'expired'
-				ELSE 'active' END AS status, t.node_ids, t.catalog_admin
+				ELSE 'active' END AS status, t.node_ids, t.catalog_admin AND u.is_superadmin AS catalog_admin
 		FROM t
 		JOIN users u ON u.id = t.user_id`, nt.ID, nt.UserID, nt.Name, nt.Prefix, nt.Hash[:], nt.Scopes.Strings(), days, nt.Nodes)
 }
@@ -70,7 +70,7 @@ func (s *TokenRepository) ListForUser(ctx context.Context, userID uuid.UUID) ([]
 			CASE
 				WHEN t.revoked_at IS NOT NULL THEN 'revoked'
 				WHEN t.expires_at <= now() THEN 'expired'
-				ELSE 'active' END AS status, t.node_ids, t.catalog_admin
+				ELSE 'active' END AS status, t.node_ids, t.catalog_admin AND u.is_superadmin AS catalog_admin
 		FROM personal_access_tokens t
 		JOIN users u ON u.id = t.user_id
 		WHERE t.user_id = $1
@@ -86,7 +86,7 @@ func (s *TokenRepository) List(ctx context.Context, f accesstypes.TokenFilter) (
 			CASE
 				WHEN t.revoked_at IS NOT NULL THEN 'revoked'
 				WHEN t.expires_at <= now() THEN 'expired'
-				ELSE 'active' END AS status, t.node_ids, t.catalog_admin
+				ELSE 'active' END AS status, t.node_ids, t.catalog_admin AND u.is_superadmin AS catalog_admin
 		FROM personal_access_tokens t
 		JOIN users u ON u.id = t.user_id
 		WHERE t.prefix LIKE $1

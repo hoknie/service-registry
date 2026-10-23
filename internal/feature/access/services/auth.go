@@ -124,7 +124,7 @@ func (s *AuthService) AuthenticateToken(ctx context.Context, secret string) (acc
 	if found == nil {
 		return accesstypes.Principal{}, accesstypes.User{}, apperr.New(apperr.InvalidToken)
 	}
-	superadmin := found.User.IsSuperadmin && found.Scopes.Has(accesstypes.ScopeAdmin) && found.Nodes == nil
+	superadmin := found.User.IsSuperadmin && found.Scopes.AnyGlobal() && found.Nodes == nil
 	p := accesstypes.Principal{
 		UserID:       found.User.ID,
 		TokenID:      found.TokenID,

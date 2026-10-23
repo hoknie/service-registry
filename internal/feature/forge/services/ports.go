@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 
@@ -28,53 +29,62 @@ func (s *PortsService) SecretUsage(ctx context.Context, secrets []uuid.UUID) (ma
 }
 
 func (s *PortsService) PrepareSecretRotation(ctx context.Context) (func(context.Context) error, int, error) {
-	rows, err := s.connectionRepository.AllSecrets(ctx)
+	rows, err := s.connectionRepository.WebhookSecrets(ctx)
 	if err != nil {
 		return nil, 0, err
 	}
-	type column struct {
-		value *string
-		name  string
-	}
-	plain := make([][2]*string, len(rows))
-	n := 0
+	plain := make([]string, len(rows))
 	for i, row := range rows {
-		for j, c := range []column{{row.CredentialsEnc, forgetypes.ColumnCredentials}, {row.WebhookSecretEnc, forgetypes.ColumnWebhookSecret}} {
-			if c.value == nil {
-				continue
-			}
-			v, err := s.secrets.Open(*c.value, secretbox.AAD(forgetypes.Table, row.ID.String(), c.name))
-			if err != nil {
-				return nil, 0, err
-			}
-			plain[i][j] = &v
-			n++
+		v, err := s.secrets.Open(row.WebhookSecretEnc, secretbox.AAD(forgetypes.Table, row.ID.String(), forgetypes.ColumnWebhookSecret))
+		if err != nil {
+			return nil, 0, err
 		}
+		plain[i] = v
 	}
 	apply := func(ctx context.Context) error {
 		for i, row := range rows {
-			next := forgetypes.SecretRow{ID: row.ID}
-			for j, name := range []string{forgetypes.ColumnCredentials, forgetypes.ColumnWebhookSecret} {
-				if plain[i][j] == nil {
-					continue
-				}
-				enc, err := s.secrets.Seal(*plain[i][j], secretbox.AAD(forgetypes.Table, row.ID.String(), name))
-				if err != nil {
-					return err
-				}
-				if j == 0 {
-					next.CredentialsEnc = &enc
-				} else {
-					next.WebhookSecretEnc = &enc
-				}
+			enc, err := s.secrets.Seal(plain[i], secretbox.AAD(forgetypes.Table, row.ID.String(), forgetypes.ColumnWebhookSecret))
+			if err != nil {
+				return err
 			}
-			if err := s.connectionRepository.ReplaceSecrets(ctx, next); err != nil {
+			if err := s.connectionRepository.ReplaceWebhookSecret(ctx, forgetypes.SecretRow{ID: row.ID, WebhookSecretEnc: enc}); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
-	return apply, n, nil
+	return apply, len(rows), nil
+}
+
+func (s *PortsService) AdoptLegacyCredentials(ctx context.Context, adopt catalogtypes.AdoptFunc) (int, error) {
+	rows, err := s.connectionRepository.Legacy(ctx)
+	if err != nil {
+		return 0, err
+	}
+	for _, row := range rows {
+		value := catalogtypes.SecretValue{Ref: row.Ref}
+		if row.Ref == nil {
+			v, err := s.secrets.Open(*row.Enc, secretbox.AAD(forgetypes.Table, row.ID.String(), forgetypes.ColumnCredentials))
+			if err != nil {
+				return 0, fmt.Errorf("forge connection %s: %w", row.ID, err)
+			}
+			value.Value = &v
+		}
+		secret, err := adopt(ctx, catalogtypes.LegacyCredential{RecordKind: "forge", RecordID: row.ID, Scope: &row.NodeID,
+			Name: row.OwnerPath, Value: value})
+		if err != nil {
+			return 0, fmt.Errorf("forge connection %s: %w", row.ID, err)
+		}
+		if err := s.connectionRepository.AdoptSecret(ctx, row.ID, secret); err != nil {
+			return 0, err
+		}
+	}
+	return len(rows), nil
+}
+
+func (s *PortsService) LegacyCredentialCount(ctx context.Context) (int, error) {
+	rows, err := s.connectionRepository.Legacy(ctx)
+	return len(rows), err
 }
 
 type PortsService struct {

@@ -10,7 +10,9 @@ import (
 type IconFilesPort interface {
 	Put(data []byte) (string, error)
 	Open(id string) (io.ReadCloser, int64, error)
-	Exists(id string) bool
+	Touch(id string) bool
+	List() ([]linkstypes.IconFile, error)
+	Remove(name string) error
 	ContentType(id string) string
 }
 

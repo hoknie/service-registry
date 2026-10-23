@@ -73,10 +73,16 @@ type Connection struct {
 
 type Secrets struct {
 	CredentialsSecretID *uuid.UUID
-	CredentialsEnc      *string
-	CredentialsRef      *string
 	WebhookSecretEnc    *string
 	WebhookID           *string
+}
+
+type LegacyConnection struct {
+	ID        uuid.UUID
+	NodeID    uuid.UUID
+	OwnerPath string
+	Enc       *string
+	Ref       *string
 }
 
 const (

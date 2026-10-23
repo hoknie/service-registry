@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+
+	topologytypes "svc-registry/internal/feature/topology/types"
 )
 
 type EventType string
@@ -45,6 +47,7 @@ type ServiceDeployed struct {
 	DeployedBy  *string
 	Metadata    map[string]string
 	Links       []DeploymentLink
+	DependsOn   *[]topologytypes.Ref
 }
 
 type DeploymentLink struct {

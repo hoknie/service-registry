@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	linkstypes "svc-registry/internal/feature/links/types"
 	"svc-registry/internal/platform/apperr"
@@ -90,7 +91,8 @@ func (s *FilesClient) Put(data []byte) (string, error) {
 	}
 	defer root.Close()
 	if _, err := root.Stat(id); err == nil {
-		return id, nil
+		now := time.Now()
+		return id, root.Chtimes(id, now, now)
 	}
 	tmp, err := os.CreateTemp(s.root, ".upload-*")
 	if err != nil {
@@ -136,11 +138,63 @@ func (s *FilesClient) Open(id string) (io.ReadCloser, int64, error) {
 
 func (s *FilesClient) ContentType(id string) string { return ContentType(id) }
 
-func (s *FilesClient) Exists(id string) bool {
+func (s *FilesClient) Touch(id string) bool {
 	f, _, err := s.Open(id)
 	if err != nil {
 		return false
 	}
 	_ = f.Close()
-	return true
+	root, err := os.OpenRoot(s.root)
+	if err != nil {
+		return false
+	}
+	defer root.Close()
+	now := time.Now()
+	return root.Chtimes(id, now, now) == nil
+}
+
+func (s *FilesClient) List() ([]linkstypes.IconFile, error) {
+	if !s.Enabled() {
+		return nil, nil
+	}
+	root, err := os.OpenRoot(s.root)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close()
+	entries, err := fs.ReadDir(root.FS(), ".")
+	if err != nil {
+		return nil, err
+	}
+	out := make([]linkstypes.IconFile, 0, len(entries))
+	for _, e := range entries {
+		upload := strings.HasPrefix(e.Name(), ".upload-")
+		if !e.Type().IsRegular() || (!upload && !ValidID(e.Name())) {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		out = append(out, linkstypes.IconFile{Name: e.Name(), Upload: upload, Modified: info.ModTime()})
+	}
+	return out, nil
+}
+
+func (s *FilesClient) Remove(name string) error {
+	if !s.Enabled() || (!ValidID(name) && !strings.HasPrefix(name, ".upload-")) {
+		return ErrNotFound
+	}
+	root, err := os.OpenRoot(s.root)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	if err := root.Remove(name); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	return nil
 }
