@@ -1,10 +1,12 @@
 package http
 
 import (
+	"net/url"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
 
+	"svc-registry/internal/platform/config"
 	"svc-registry/internal/presentation/http/handlers"
 	"svc-registry/internal/presentation/http/middleware"
 	"svc-registry/internal/presentation/http/webui"
@@ -45,17 +47,31 @@ func NewRouter(d Deps, dist webui.Dist) *fiber.App {
 	r.add("/api/v1/clusters/:id/test", true, post(api.TestCluster))
 	r.add("/api/v1/clusters/:id/poll", true, post(api.PollCluster))
 	r.add("/api/v1/clusters/:id/unmatched", true, get(api.UnmatchedWorkloads))
+	r.add("/api/v1/clusters/:id/agent-token", true, post(api.RotateAgentToken), del(api.RevokeAgentTokens))
 	r.add("/api/v1/environments", true, get(api.ListEnvironmentsDirectory), post(api.CreateEnvironment))
 	r.add("/api/v1/environments/:key", true, patch(api.UpdateEnvironment), del(api.DeleteEnvironment))
 	r.add("/api/v1/groups", true, get(api.ListGroups), post(api.CreateGroup))
 	r.add("/api/v1/groups/:id", true, get(api.GetGroup), patch(api.RenameGroup), del(api.DeleteGroup))
 	r.add("/api/v1/groups/:id/members/:user_id", true, put(api.AddMember), del(api.RemoveMember))
+	r.add("/api/v1/groups/:id/contacts", true, put(api.SetGroupContacts))
+	r.add("/api/v1/groups/:id/contact-editors/:user_id", true, put(api.GrantContactEditor), del(api.RevokeContactEditor))
 	r.add("/api/v1/catalog/tree", true, get(api.Tree))
 	r.add("/api/v1/catalog/nodes", true, get(api.ListNodes), post(api.CreateNode))
 	r.add("/api/v1/catalog/nodes/:id", true, get(api.GetNode), patch(api.UpdateNode), del(api.DeleteNode))
 	r.add("/api/v1/catalog/nodes/:id/activity", true, get(api.NodeActivity))
 	r.add("/api/v1/catalog/labels", true, get(api.CatalogLabels))
 	r.add("/api/v1/catalog/table", true, get(api.CatalogTable))
+	r.add("/api/v1/catalog/owners", true, get(api.SuggestOwners))
+	r.add("/api/v1/catalog/nodes/:id/owners", true, get(api.NodeOwners), put(api.PutNodeOwners))
+	r.add("/api/v1/catalog/nodes/:id/owners/candidates", true, get(api.OwnerCandidates))
+	r.add("/api/v1/catalog/nodes/:id/dependencies", true, get(api.ListDependencies), post(api.AddDependency))
+	r.add("/api/v1/catalog/nodes/:id/dependencies/graph", true, get(api.DependencyGraph))
+	r.add("/api/v1/catalog/nodes/:id/dependencies/:dependency_id", true, del(api.DeleteDependency))
+	r.add("/api/v1/catalog/nodes/:id/notification-subscriptions", true, get(api.ListSubscriptions))
+	r.add("/api/v1/catalog/nodes/:id/notification-subscriptions/:key", true, put(api.PutSubscription), del(api.DeleteSubscription))
+	r.add("/api/v1/catalog/nodes/:id/notification-subscriptions/:key/test", true, post(api.TestSubscription))
+	r.add("/api/v1/catalog/nodes/:id/notification-subscriptions/:key/signing-secret", true, post(api.RotateSigningSecret))
+	r.add("/api/v1/catalog/nodes/:id/notification-deliveries", true, get(api.ListDeliveries))
 	r.add("/api/v1/catalog/nodes/:id/link-icons", true, post(api.UploadLinkIcon))
 	r.add("/api/v1/link-icons/:id", true, get(api.LinkIcon))
 	r.add("/api/v1/catalog/nodes/:id/move", true, post(api.MoveNode))
@@ -80,6 +96,8 @@ func NewRouter(d Deps, dist webui.Dist) *fiber.App {
 	r.add("/api/v1/catalog/nodes/:id/knowledge/files", true, get(api.KnowledgeFiles))
 	r.add("/api/v1/catalog/nodes/:id/knowledge/tree", true, get(api.KnowledgeTree))
 	r.add("/api/v1/catalog/nodes/:id/knowledge/file", true, get(api.KnowledgeFile))
+	r.add("/api/v1/catalog/nodes/:id/knowledge/apis", true, get(api.KnowledgeAPIs))
+	r.add("/api/v1/catalog/nodes/:id/knowledge/api", true, get(api.KnowledgeAPI))
 	r.add("/api/v1/catalog/nodes/:id/knowledge/specs", true, get(api.KnowledgeSpecs))
 	r.add("/api/v1/catalog/nodes/:id/knowledge/changes", true, get(api.KnowledgeChanges))
 	r.add("/api/v1/catalog/nodes/:id/knowledge/adrs", true, get(api.KnowledgeADRs))
@@ -91,6 +109,25 @@ func NewRouter(d Deps, dist webui.Dist) *fiber.App {
 	r.add("/api/v1/knowledge/search/modes", true, get(api.KnowledgeSearchModes))
 	r.add("/api/v1/knowledge/scans", true, get(api.ListKnowledgeScans))
 	r.add("/api/mcp", false, post(api.MCP))
+	r.add("/.well-known/oauth-protected-resource", false, get(api.ProtectedResourceMetadata))
+	r.add("/.well-known/oauth-protected-resource/api/mcp", false, get(api.ProtectedResourceMetadata))
+	r.add("/.well-known/oauth-authorization-server", false, get(api.AuthorizationServerMetadata))
+	if suffix := publicPath(d.Config); suffix != "" {
+		r.add("/.well-known/oauth-authorization-server"+suffix, false, get(api.AuthorizationServerMetadata))
+	}
+	r.add("/api/oauth/register", false, post(api.RegisterOAuthClient))
+	r.add("/api/oauth/authorize", false, get(api.OAuthAuthorize))
+	r.add("/api/oauth/token", false, post(api.OAuthToken))
+	r.add("/api/oauth/revoke", false, post(api.OAuthRevoke))
+	r.add("/api/v1/oauth/requests/:id", true, get(api.OAuthRequest))
+	r.add("/api/v1/oauth/requests/:id/approve", true, post(api.ApproveOAuthRequest))
+	r.add("/api/v1/oauth/requests/:id/deny", true, post(api.DenyOAuthRequest))
+	r.add("/api/v1/account/apps", true, get(api.ListOwnApps))
+	r.add("/api/v1/account/groups", true, get(api.OwnGroups))
+	r.add("/api/v1/account/groups/:id/contacts", true, put(api.SetOwnGroupContacts))
+	r.add("/api/v1/account/apps/:id", true, del(api.RevokeOwnApp))
+	r.add("/api/v1/users/:id/apps", true, get(api.ListUserApps))
+	r.add("/api/v1/users/:id/apps/:gid", true, del(api.RevokeUserApp))
 	r.add("/api/v1/catalog/nodes/:id/link-templates", true, get(api.ListLinkTemplates))
 	r.add("/api/v1/catalog/nodes/:id/link-templates/preview", true, post(api.PreviewLinkTemplate))
 	r.add("/api/v1/catalog/nodes/:id/link-templates/:link_key", true, put(api.PutLinkTemplate), del(api.DeleteLinkTemplate))
@@ -110,12 +147,25 @@ func NewRouter(d Deps, dist webui.Dist) *fiber.App {
 	r.add("/api/v1/catalog/nodes/:id/forge/connections/:cid/exclusions/:external_id", true, del(api.DeleteExclusion))
 	r.add("/api/v1/catalog/nodes/:id/forge/unlink", true, post(api.UnlinkProject))
 	r.add("/api/v1/ingest/projects/:project_id/events", false, post(api.IngestEvent))
+	r.add("/api/v1/ingest/clusters/:id/config", false, get(api.AgentConfig))
+	r.add("/api/v1/ingest/clusters/:id/reports", false, post(api.AgentReport))
 	r.add("/api/v1/forge/hooks/:connection_id", false, post(api.ForgeHook))
 
 	app.All("/api", handlers.APINotFound)
 	app.All("/api/*", handlers.APINotFound)
 	app.Use(webui.Serve(dist))
 	return app
+}
+
+func publicPath(cfg *config.Config) string {
+	if cfg == nil {
+		return ""
+	}
+	u, err := url.Parse(cfg.Web.PublicURL)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSuffix(u.EscapedPath(), "/")
 }
 
 type route struct {

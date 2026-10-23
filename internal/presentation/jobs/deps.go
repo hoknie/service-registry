@@ -8,6 +8,7 @@ import (
 	ingestservices "svc-registry/internal/feature/ingest/services"
 	knowledgeservices "svc-registry/internal/feature/knowledge/services"
 	linksservices "svc-registry/internal/feature/links/services"
+	notifyservices "svc-registry/internal/feature/notify/services"
 	"svc-registry/internal/platform/config"
 )
 
@@ -20,4 +21,5 @@ type Deps struct {
 	Forge     *forgeservices.ForgeServices
 	Deploy    *deployservices.DeployServices
 	Knowledge *knowledgeservices.KnowledgeServices
+	Notify    *notifyservices.NotifyServices
 }

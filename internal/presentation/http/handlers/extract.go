@@ -30,6 +30,9 @@ func (a *Handlers) currentUser(c fiber.Ctx) (accesstypes.Principal, accesstypes.
 	if err != nil {
 		return accesstypes.Principal{}, accesstypes.User{}, err
 	}
+	if p.App {
+		return accesstypes.Principal{}, accesstypes.User{}, apperr.New(apperr.InvalidToken)
+	}
 	if err := accesstypes.RequireScope(p, routeNeed(c.Method(), c.Route().Path)); err != nil {
 		return accesstypes.Principal{}, accesstypes.User{}, err
 	}
@@ -62,27 +65,31 @@ func routeNeed(method, route string) accesstypes.Need {
 	case route == "/api/mcp":
 		return accesstypes.NeedAny
 	case route == "/api/v1/knowledge/search", route == "/api/v1/knowledge/search/modes", route == "/api/v1/link-icons/:id",
-		route == "/api/v1/docs/space":
+		route == "/api/v1/docs/space", route == "/api/v1/account/groups":
 		return accesstypes.NeedRead
+	case route == "/api/v1/account/groups/:id/contacts":
+		return accesstypes.NeedWriteWhole
 	case strings.HasPrefix(route, "/api/v1/catalog/"):
 		if method == fiber.MethodGet || method == fiber.MethodHead {
 			return accesstypes.NeedRead
 		}
 		return accesstypes.NeedWrite
-	case route == "/api/v1/users/:id/tokens":
+	case route == "/api/v1/users/:id/tokens", route == "/api/v1/users/:id/apps", route == "/api/v1/users/:id/apps/:gid":
 		return accesstypes.NeedSession
-	case route == "/api/v1/users", strings.HasPrefix(route, "/api/v1/users/"),
-		route == "/api/v1/groups", strings.HasPrefix(route, "/api/v1/groups/"),
-		route == "/api/v1/clusters", strings.HasPrefix(route, "/api/v1/clusters/"),
-		route == "/api/v1/secrets", strings.HasPrefix(route, "/api/v1/secrets/"),
-		route == "/api/v1/knowledge/scans":
-		return accesstypes.NeedAdmin
+	case route == "/api/v1/users", strings.HasPrefix(route, "/api/v1/users/"):
+		return accesstypes.NeedUsers
+	case route == "/api/v1/groups", strings.HasPrefix(route, "/api/v1/groups/"):
+		return accesstypes.NeedGroups
+	case route == "/api/v1/clusters", strings.HasPrefix(route, "/api/v1/clusters/"):
+		return accesstypes.NeedClusters
+	case route == "/api/v1/secrets", strings.HasPrefix(route, "/api/v1/secrets/"), route == "/api/v1/knowledge/scans":
+		return accesstypes.NeedSettings
 	case route == "/api/v1/link-kinds", strings.HasPrefix(route, "/api/v1/link-kinds/"),
 		route == "/api/v1/environments", strings.HasPrefix(route, "/api/v1/environments/"):
 		if method == fiber.MethodGet || method == fiber.MethodHead {
 			return accesstypes.NeedRead
 		}
-		return accesstypes.NeedAdmin
+		return accesstypes.NeedSettings
 	}
 	return accesstypes.NeedSession
 }

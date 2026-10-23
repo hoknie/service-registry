@@ -45,8 +45,9 @@ type CatalogTable struct {
 	Kind     *string    `query:"kind"`
 	Label    []string   `query:"label"`
 	Activity *string    `query:"activity"`
+	Owner    *string    `query:"owner"`
 }
 
 func (q CatalogTable) Filter() catalogtypes.TableQuery {
-	return catalogtypes.TableQuery{Q: q.Q, Kind: q.Kind, Labels: q.Label, Activity: q.Activity}
+	return catalogtypes.TableQuery{Q: q.Q, Kind: q.Kind, Labels: q.Label, Activity: q.Activity, Owner: q.Owner}
 }

@@ -87,15 +87,7 @@ func Serve(dist Dist) fiber.Handler {
 		if res.page == nil {
 			return sendBareNotFound(c, locale)
 		}
-		c.Set(fiber.HeaderContentType, "text/html; charset=utf-8")
-		c.Set(fiber.HeaderCacheControl, "no-cache")
-		c.Set(fiber.HeaderXContentTypeOptions, "nosniff")
-		c.Status(http.StatusNotFound)
-		if head {
-			c.Response().Header.SetContentLength(len(res.page))
-			return nil
-		}
-		return c.Send(res.page)
+		return sendNotFoundPage(c, res.page, head)
 	}
 }
 
@@ -135,6 +127,10 @@ func sendFile(c fiber.Ctx, f *found, cache string, head bool) error {
 	c.Status(status)
 	c.Set(fiber.HeaderContentType, f.contentType)
 	c.Set(fiber.HeaderXContentTypeOptions, "nosniff")
+	if strings.HasPrefix(f.contentType, "text/html") {
+		c.Set(fiber.HeaderContentSecurityPolicy, policyForFile(f.source))
+		c.Set(fiber.HeaderXFrameOptions, "DENY")
+	}
 	if f.encoding != "" {
 		c.Set(fiber.HeaderContentEncoding, f.encoding)
 	}

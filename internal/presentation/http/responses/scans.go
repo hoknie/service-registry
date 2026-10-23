@@ -4,6 +4,7 @@ import (
 	"github.com/google/uuid"
 
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
+	"svc-registry/pkg/ptr"
 )
 
 type ScanProject struct {
@@ -18,9 +19,18 @@ type ScanBranch struct {
 	Result      string         `json:"result"`
 	Files       int            `json:"files"`
 	Skipped     map[string]int `json:"skipped"`
+	APISkipped  int            `json:"api_skipped"`
 	Truncated   bool           `json:"truncated"`
 	WorkingTree bool           `json:"working_tree"`
 	Error       *string        `json:"error"`
+}
+
+type ScanNote struct {
+	Code   string  `json:"code"`
+	Branch *string `json:"branch"`
+	Path   *string `json:"path"`
+	Reason *string `json:"reason"`
+	Detail *string `json:"detail"`
 }
 
 type ScanIndex struct {
@@ -37,27 +47,29 @@ type ScanError struct {
 }
 
 type Scan struct {
-	ID            uuid.UUID    `json:"id"`
-	Project       ScanProject  `json:"project"`
-	Kind          string       `json:"kind"`
-	Trigger       string       `json:"trigger"`
-	Source        *string      `json:"source"`
-	Status        string       `json:"status"`
-	StartedAt     string       `json:"started_at"`
-	FinishedAt    string       `json:"finished_at"`
-	LastStartedAt string       `json:"last_started_at"`
-	DurationMS    *int64       `json:"duration_ms"`
-	Repeats       int          `json:"repeats"`
-	Branches      []ScanBranch `json:"branches"`
-	Index         *ScanIndex   `json:"index"`
-	Error         *ScanError   `json:"error"`
-	Warnings      []string     `json:"warnings"`
+	ID            uuid.UUID      `json:"id"`
+	Project       ScanProject    `json:"project"`
+	Kind          string         `json:"kind"`
+	Trigger       string         `json:"trigger"`
+	Source        *string        `json:"source"`
+	Status        string         `json:"status"`
+	StartedAt     string         `json:"started_at"`
+	FinishedAt    string         `json:"finished_at"`
+	LastStartedAt string         `json:"last_started_at"`
+	DurationMS    *int64         `json:"duration_ms"`
+	Repeats       int            `json:"repeats"`
+	Branches      []ScanBranch   `json:"branches"`
+	Index         *ScanIndex     `json:"index"`
+	Error         *ScanError     `json:"error"`
+	Warnings      []string       `json:"warnings"`
+	Details       []ScanNote     `json:"warning_details"`
+	Counts        map[string]int `json:"warning_counts"`
 }
 
 func ScanOf(s knowledgetypes.ScanItem) Scan {
 	branches := make([]ScanBranch, 0, len(s.Branches))
 	for _, b := range s.Branches {
-		out := ScanBranch{Name: b.Name, Commit: b.Commit, Result: string(b.Result), Files: b.Files, Skipped: b.Skipped, Truncated: b.Truncated,
+		out := ScanBranch{Name: b.Name, Commit: b.Commit, Result: string(b.Result), Files: b.Files, Skipped: b.Skipped, APISkipped: b.APISkipped, Truncated: b.Truncated,
 			WorkingTree: b.WorkingTree}
 		if out.Skipped == nil {
 			out.Skipped = map[string]int{}
@@ -80,7 +92,17 @@ func ScanOf(s knowledgetypes.ScanItem) Scan {
 	if warnings == nil {
 		warnings = []string{}
 	}
+	notes := make([]ScanNote, 0, len(s.Notes))
+	for _, n := range s.Notes {
+		notes = append(notes, ScanNote{Code: n.Code, Branch: ptr.NonEmpty(n.Branch), Path: ptr.NonEmpty(n.Path), Reason: ptr.NonEmpty(string(n.Reason)),
+			Detail: ptr.NonEmpty(n.Detail)})
+	}
+	counts := s.Counts
+	if counts == nil {
+		counts = map[string]int{}
+	}
 	return Scan{ID: s.ID, Project: ScanProject{ID: s.ProjectID, Path: s.ProjectPath, Name: s.ProjectName}, Kind: string(s.Kind),
 		Trigger: string(s.Trigger), Source: s.Source, Status: string(s.Status), StartedAt: s.StartedAt, FinishedAt: s.FinishedAt,
-		LastStartedAt: s.LastStartedAt, DurationMS: s.DurationMS, Repeats: s.Repeats, Branches: branches, Index: index, Error: scanErr, Warnings: warnings}
+		LastStartedAt: s.LastStartedAt, DurationMS: s.DurationMS, Repeats: s.Repeats, Branches: branches, Index: index, Error: scanErr, Warnings: warnings,
+		Details: notes, Counts: counts}
 }

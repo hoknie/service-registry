@@ -48,7 +48,7 @@ func newRoot(stdio IO) *cobra.Command {
 	root.SetIn(stdio.Stdin)
 	root.SetOut(stdio.Stdout)
 	root.SetErr(stdio.Stderr)
-	root.AddCommand(serveCmd(), dbMigrateCmd(), dbRollbackCmd(), userCreateCmd(), forgeSyncCmd(), mcpStdioCmd(), secretsRotateCmd(), versionCmd())
+	root.AddCommand(serveCmd(), dbMigrateCmd(), dbRollbackCmd(), userCreateCmd(), forgeSyncCmd(), mcpStdioCmd(), agentCmd(), secretsRotateCmd(), secretsAdoptLegacyCmd(), versionCmd())
 	return root
 }
 

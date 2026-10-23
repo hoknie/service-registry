@@ -18,11 +18,8 @@ type SecretRef struct {
 }
 
 type Credentials struct {
-	Kind        string     `json:"kind"`
-	Secret      *SecretRef `json:"secret,omitempty"`
-	Storage     *string    `json:"storage,omitempty"`
-	Fingerprint *string    `json:"fingerprint,omitempty"`
-	Ref         *string    `json:"ref,omitempty"`
+	Kind   string     `json:"kind"`
+	Secret *SecretRef `json:"secret,omitempty"`
 }
 
 func nodeRefOf(n *catalogtypes.NodeRef) *NodeRef {
@@ -43,9 +40,6 @@ func CredentialsOf(c catalogtypes.Credentials) Credentials {
 	out := Credentials{Kind: string(c.Kind), Secret: SecretRefOf(c.Secret)}
 	if c.Kind == catalogtypes.CredentialsSecret && out.Secret == nil && c.SecretID != nil {
 		out.Secret = &SecretRef{ID: *c.SecretID}
-	}
-	if c.Kind == catalogtypes.CredentialsLegacy {
-		out.Storage, out.Fingerprint, out.Ref = new(string(c.Storage)), c.Fingerprint, c.Ref
 	}
 	return out
 }

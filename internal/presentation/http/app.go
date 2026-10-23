@@ -6,7 +6,9 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/valyala/fasthttp"
 
+	deploytypes "svc-registry/internal/feature/deploy/types"
 	"svc-registry/internal/presentation/http/handlers"
 	"svc-registry/internal/presentation/http/responses"
 )
@@ -14,7 +16,7 @@ import (
 const BodyLimit = 2 << 20
 
 func newApp(api *handlers.Handlers) *fiber.App {
-	return fiber.New(fiber.Config{
+	app := fiber.New(fiber.Config{
 		StrictRouting:             true,
 		CaseSensitive:             true,
 		Immutable:                 true,
@@ -23,6 +25,16 @@ func newApp(api *handlers.Handlers) *fiber.App {
 		StructValidator:           handlers.NewStructValidator(),
 		ErrorHandler:              func(c fiber.Ctx, err error) error { return errorHandler(api, c, err) },
 	})
+	app.Server().HeaderReceived = routeBodyLimit
+	return app
+}
+
+func routeBodyLimit(header *fasthttp.RequestHeader) fasthttp.RequestConfig {
+	path, _, _ := strings.Cut(string(header.RequestURI()), "?")
+	if _, ok := agentReport(string(header.Method()), path); ok {
+		return fasthttp.RequestConfig{MaxRequestBodySize: deploytypes.ReportWireLimit}
+	}
+	return fasthttp.RequestConfig{}
 }
 
 func errorHandler(api *handlers.Handlers, c fiber.Ctx, err error) error {
@@ -42,6 +54,12 @@ func errorHandler(api *handlers.Handlers, c fiber.Ctx, err error) error {
 		if segment, ok := ingestProject(c.Method(), path); ok {
 			return api.IngestBodyTooLarge(c, segment)
 		}
+		if segment, ok := agentReport(c.Method(), path); ok {
+			return api.AgentReportTooLarge(c, segment)
+		}
+		if strings.HasPrefix(path, "/api/oauth/") {
+			return handlers.OAuthBodyTooLarge(c)
+		}
 		return handlers.InvalidBody("length limit exceeded").Send(c)
 	case nethttp.StatusNotFound:
 		return handlers.APINotFound(c)
@@ -52,6 +70,15 @@ func errorHandler(api *handlers.Handlers, c fiber.Ctx, err error) error {
 		return responses.NewAPIError(status, "validation.invalid_body", fe.Message).Send(c)
 	}
 	return responses.Fail(c, err)
+}
+
+func agentReport(method, path string) (string, bool) {
+	rest, ok := strings.CutPrefix(path, "/api/v1/ingest/clusters/")
+	if !ok || method != fiber.MethodPost {
+		return "", false
+	}
+	segment, ok := strings.CutSuffix(rest, "/reports")
+	return segment, ok && segment != "" && !strings.Contains(segment, "/")
 }
 
 func ingestProject(method, path string) (string, bool) {

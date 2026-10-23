@@ -13,6 +13,7 @@ type want struct {
 
 type found struct {
 	path         string
+	source       string
 	contentType  string
 	etag         string
 	size         int64
@@ -86,7 +87,7 @@ func inside(root, candidate string) (string, bool) {
 
 func respond(root, path string, w want) (*found, bool) {
 	name := filepath.Base(path)
-	f := &found{contentType: ContentType(name), notFoundPage: name == ExportMarker}
+	f := &found{source: path, contentType: ContentType(name), notFoundPage: name == ExportMarker}
 
 	file := path
 	for _, v := range []struct {

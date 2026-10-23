@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"net/http"
 
 	"github.com/gofiber/fiber/v3"
@@ -32,11 +33,11 @@ func (a *Handlers) CreateCluster(c fiber.Ctx) error {
 	if err := bindJSON(c, &in); err != nil {
 		return responses.Fail(c, err)
 	}
-	cl, err := a.Deploy.Clusters.CreateCluster(c.Context(), p, in.Input())
+	cl, issued, err := a.Deploy.Clusters.CreateCluster(c.Context(), p, in.Input())
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	return c.Status(http.StatusCreated).JSON(responses.ClusterOf(cl))
+	return c.Status(http.StatusCreated).JSON(responses.ClusterWithToken(cl, issued))
 }
 
 func (a *Handlers) GetCluster(c fiber.Ctx) error {
@@ -49,8 +50,8 @@ func (a *Handlers) GetCluster(c fiber.Ctx) error {
 func (a *Handlers) UpdateCluster(c fiber.Ctx) error {
 	var in requests.Cluster
 	return a.clusterCall(c, &in, func(p accesstypes.Principal, id uuid.UUID) (any, error) {
-		cl, err := a.Deploy.Clusters.UpdateCluster(c.Context(), p, id, in.Input())
-		return responses.ClusterOf(cl), err
+		cl, issued, err := a.Deploy.Clusters.UpdateCluster(c.Context(), p, id, in.Input())
+		return responses.ClusterWithToken(cl, issued), err
 	})
 }
 
@@ -80,6 +81,34 @@ func (a *Handlers) PollCluster(c fiber.Ctx) error {
 		return responses.Fail(c, err)
 	}
 	return c.SendStatus(http.StatusAccepted)
+}
+
+func (a *Handlers) RotateAgentToken(c fiber.Ctx) error {
+	p, _, err := a.currentUser(c)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	id, err := parseID(c, "id")
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	var in requests.RotateKey
+	if len(bytes.TrimSpace(c.Body())) > 0 {
+		if err := c.Bind().JSON(&in); err != nil {
+			return responses.Fail(c, InvalidBody(describe(err)))
+		}
+	}
+	issued, err := a.Deploy.AgentTokens.RotateAgentToken(c.Context(), p, id, in.GraceSecs)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	return c.Status(http.StatusCreated).JSON(responses.IssuedAgentToken{AgentToken: responses.AgentTokenOf(issued)})
+}
+
+func (a *Handlers) RevokeAgentTokens(c fiber.Ctx) error {
+	return a.clusterCall(c, nil, func(p accesstypes.Principal, id uuid.UUID) (any, error) {
+		return nil, a.Deploy.AgentTokens.RevokeAgentTokens(c.Context(), p, id)
+	})
 }
 
 func (a *Handlers) UnmatchedWorkloads(c fiber.Ctx) error {

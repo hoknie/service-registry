@@ -8,10 +8,11 @@ import (
 
 type CatalogTableRow struct {
 	Node
-	Children int64       `json:"children"`
-	Match    bool        `json:"match"`
-	Activity any         `json:"activity"`
-	Links    []LinkBadge `json:"links"`
+	Children int64        `json:"children"`
+	Match    bool         `json:"match"`
+	Activity any          `json:"activity"`
+	Links    []LinkBadge  `json:"links"`
+	Owners   []OwnerBadge `json:"owners"`
 }
 
 type LinkBadge struct {
@@ -53,7 +54,8 @@ func CatalogTableOf(table composeservices.CatalogTable) CatalogTable {
 		for _, b := range links[n.Node.ID] {
 			badges = append(badges, LinkBadge{LinkKey: b.LinkKey, KindKey: b.KindKey, Title: b.Title, Icon: LinkIconOf(b.Icon), URL: b.URL})
 		}
-		rows = append(rows, CatalogTableRow{Node: nodes[i], Children: n.Children, Match: n.Match, Activity: activity, Links: badges})
+		rows = append(rows, CatalogTableRow{Node: nodes[i], Children: n.Children, Match: n.Match, Activity: activity, Links: badges,
+			Owners: OwnerBadgesOf(table.Owners[n.Node.ID])})
 	}
 	return CatalogTable{Items: rows, Total: page.Total, Limit: page.Limit, Offset: page.Offset, Truncated: page.Truncated}
 }

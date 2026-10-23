@@ -98,6 +98,7 @@ func (t *tools) register(s *sdk.Server) {
 	sdk.AddTool(s, tool("list_branches", "Branches of a project with head commits, sources and activity."), t.listBranches)
 	sdk.AddTool(s, tool("get_deployments", "Current version of every service in every environment of a project, with what Kubernetes clusters observe and drift."), t.getDeployments)
 	sdk.AddTool(s, tool("get_links", "Observability links of a project (logs, dashboards, alerts) per environment, with their last availability check."), t.getLinks)
+	sdk.AddTool(s, tool("get_dependencies", "Dependencies of a project: what it depends on, which projects depend on it, with sources, and the graph around it."), t.getDependencies)
 	sdk.AddTool(s, tool("list_docs", "Files of the documentation snapshot of a project's branch."), t.listDocs)
 	sdk.AddTool(s, tool("get_doc", "Content of a documentation file of a project, with the commit of its snapshot."), t.getDoc)
 	sdk.AddTool(s, tool("search_docs", "Search the documentation of the projects you can read by words or by meaning, with matching fragments."), t.searchDocs)
@@ -106,6 +107,8 @@ func (t *tools) register(s *sdk.Server) {
 	sdk.AddTool(s, tool("list_changes", "OpenSpec changes of a project — active and archived — with their artifacts."), t.listChanges)
 	sdk.AddTool(s, tool("list_adrs", "Architecture decision records of a project (OpenSpec decisions) with status and supersession."), t.listADRs)
 	sdk.AddTool(s, tool("get_adr", "One architecture decision record of a project by number."), t.getADR)
+	sdk.AddTool(s, tool("list_apis", "API descriptions (OpenAPI, Swagger, protobuf) in the documentation snapshot of a project, with a summary of each."), t.listAPIs)
+	sdk.AddTool(s, tool("get_api", "An API description of a project in Markdown: overview and list of operations, or one operation, proto service or message with the schemas it uses."), t.getAPI)
 }
 
 type projectSummary struct {
@@ -203,7 +206,8 @@ func (t *tools) getProject(ctx context.Context, _ *sdk.CallToolRequest, in proje
 	project := responses.ScopedNode(s)
 	project.Managed = nil
 	return jsonResult(map[string]any{"project": project, "path": pathOf(s),
-		"repository": responses.RepositoryOf(overview.Repository), "documentation": responses.KnowledgeOf(overview.Documentation)}, t.max)
+		"repository": responses.RepositoryOf(overview.Repository), "documentation": responses.KnowledgeOf(overview.Documentation),
+		"owners": responses.OwnerSetOf(overview.Owners)}, t.max)
 }
 
 func (t *tools) listBranches(ctx context.Context, _ *sdk.CallToolRequest, in branchesIn) (*sdk.CallToolResult, any, error) {

@@ -55,6 +55,7 @@ var statuses = map[apperr.Kind]int{
 	apperr.UpstreamRateLimited:     http.StatusTooManyRequests,
 	apperr.BadGateway:              http.StatusBadGateway,
 	apperr.InvalidWebhookSignature: http.StatusUnauthorized,
+	apperr.InvalidAgentToken:       http.StatusUnauthorized,
 	apperr.Unprocessable:           http.StatusUnprocessableEntity,
 }
 
@@ -69,7 +70,7 @@ func FromApp(e *apperr.Error) *APIError {
 	switch e.Kind {
 	case apperr.RateLimited, apperr.IngestRateLimited, apperr.UpstreamRateLimited:
 		api.RetryAfter = e.RetryAfterSecs
-	case apperr.InvalidProjectKey, apperr.InvalidToken:
+	case apperr.InvalidProjectKey, apperr.InvalidToken, apperr.InvalidAgentToken:
 		api.Challenge = "Bearer"
 	case apperr.Unprocessable:
 		api.Fields = e.Fields

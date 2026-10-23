@@ -50,45 +50,6 @@ func UserOf(u accesstypes.User) User {
 	}
 }
 
-type Group struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	MemberCount int64     `json:"member_count"`
-	CreatedAt   string    `json:"created_at"`
-	UpdatedAt   string    `json:"updated_at"`
-}
-
-func GroupOf(g accesstypes.Group) Group {
-	return Group{ID: g.ID, Name: g.Name, MemberCount: g.MemberCount, CreatedAt: g.CreatedAt, UpdatedAt: g.UpdatedAt}
-}
-
-type Member struct {
-	ID          uuid.UUID `json:"id"`
-	Email       string    `json:"email"`
-	DisplayName string    `json:"display_name"`
-	Status      string    `json:"status"`
-	Source      string    `json:"source"`
-}
-
-type GroupDetails struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	MemberCount int64     `json:"member_count"`
-	CreatedAt   string    `json:"created_at"`
-	UpdatedAt   string    `json:"updated_at"`
-	Members     []Member  `json:"members"`
-}
-
-func GroupDetailsOf(d accesstypes.GroupDetails) GroupDetails {
-	members := make([]Member, 0, len(d.Members))
-	for _, m := range d.Members {
-		members = append(members, Member{ID: m.User.ID, Email: m.User.Email, DisplayName: m.User.DisplayName,
-			Status: string(m.User.Status), Source: string(m.Source)})
-	}
-	g := d.Group
-	return GroupDetails{ID: g.ID, Name: g.Name, MemberCount: g.MemberCount, CreatedAt: g.CreatedAt, UpdatedAt: g.UpdatedAt, Members: members}
-}
-
 type Provider struct {
 	Key         string `json:"key"`
 	DisplayName string `json:"display_name"`

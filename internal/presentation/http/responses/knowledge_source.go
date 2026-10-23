@@ -8,18 +8,14 @@ import (
 )
 
 type SourceCredentials struct {
-	Mode        string     `json:"mode"`
-	Secret      *SecretRef `json:"secret"`
-	Fingerprint *string    `json:"fingerprint"`
+	Mode   string     `json:"mode"`
+	Secret *SecretRef `json:"secret"`
 }
 
 func sourceCredentialsOf(c catalogtypes.Credentials) SourceCredentials {
 	out := SourceCredentials{Mode: string(c.Kind), Secret: SecretRefOf(c.Secret)}
 	if c.Kind == catalogtypes.CredentialsSecret && out.Secret == nil && c.SecretID != nil {
 		out.Secret = &SecretRef{ID: *c.SecretID}
-	}
-	if c.Kind == catalogtypes.CredentialsLegacy {
-		out.Fingerprint = c.Fingerprint
 	}
 	return out
 }

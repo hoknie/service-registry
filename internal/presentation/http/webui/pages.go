@@ -40,5 +40,21 @@ func sendBadPath(c fiber.Ctx) error {
 func sendHTML(c fiber.Ctx, status int, cache, body string) error {
 	c.Set(fiber.HeaderContentType, "text/html; charset=utf-8")
 	c.Set(fiber.HeaderCacheControl, cache)
+	c.Set(fiber.HeaderContentSecurityPolicy, policyFor([]byte(body)))
+	c.Set(fiber.HeaderXFrameOptions, "DENY")
 	return c.Status(status).SendString(body)
+}
+
+func sendNotFoundPage(c fiber.Ctx, page []byte, head bool) error {
+	c.Set(fiber.HeaderContentType, "text/html; charset=utf-8")
+	c.Set(fiber.HeaderCacheControl, "no-cache")
+	c.Set(fiber.HeaderXContentTypeOptions, "nosniff")
+	c.Set(fiber.HeaderContentSecurityPolicy, policyFor(page))
+	c.Set(fiber.HeaderXFrameOptions, "DENY")
+	c.Status(http.StatusNotFound)
+	if head {
+		c.Response().Header.SetContentLength(len(page))
+		return nil
+	}
+	return c.Send(page)
 }

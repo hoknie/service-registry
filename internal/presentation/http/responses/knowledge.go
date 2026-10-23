@@ -12,6 +12,7 @@ type KnowledgeSettings struct {
 	Include  []string `json:"include"`
 	Exclude  []string `json:"exclude"`
 	Branches []string `json:"branches"`
+	APIs     bool     `json:"apis"`
 }
 
 type NodeSettings struct {
@@ -37,6 +38,9 @@ func NodeSettingsOf(s knowledgeservices.KnowledgeSettings) NodeSettings {
 	if s.Own.Branches != nil {
 		own["branches"] = *s.Own.Branches
 	}
+	if s.Own.APIs != nil {
+		own["apis"] = *s.Own.APIs
+	}
 	origin := func(n *knowledgetypes.ChainNode) *SettingsOrigin {
 		if n == nil {
 			return nil
@@ -44,11 +48,12 @@ func NodeSettingsOf(s knowledgeservices.KnowledgeSettings) NodeSettings {
 		return &SettingsOrigin{ID: n.ID, Kind: n.Kind, Name: n.Name}
 	}
 	return NodeSettings{KnowledgeSettings: KnowledgeSettingsOf(s.Settings), Own: own,
-		From: map[string]*SettingsOrigin{"include": origin(s.IncludeFrom), "exclude": origin(s.ExcludeFrom), "branches": origin(s.BranchesFrom)}}
+		From: map[string]*SettingsOrigin{"include": origin(s.IncludeFrom), "exclude": origin(s.ExcludeFrom), "branches": origin(s.BranchesFrom),
+			"apis": origin(s.APIsFrom)}}
 }
 
 func KnowledgeSettingsOf(s knowledgetypes.Settings) KnowledgeSettings {
-	out := KnowledgeSettings{Include: s.Include, Exclude: s.Exclude, Branches: s.Branches}
+	out := KnowledgeSettings{Include: s.Include, Exclude: s.Exclude, Branches: s.Branches, APIs: s.APIs}
 	if out.Exclude == nil {
 		out.Exclude = []string{}
 	}
@@ -67,7 +72,10 @@ type Snapshot struct {
 	Files       int       `json:"files"`
 	Bytes       int64     `json:"bytes"`
 	Skipped     int       `json:"skipped"`
+	Limited     int       `json:"skipped_limit"`
+	TooLarge    int       `json:"skipped_too_large"`
 	Truncated   bool      `json:"truncated"`
+	Limits      []Limit   `json:"limits"`
 	CollectedAt string    `json:"collected_at"`
 }
 
@@ -76,7 +84,8 @@ func SnapshotOf(s *knowledgetypes.Snapshot) *Snapshot {
 		return nil
 	}
 	return &Snapshot{ID: s.ID, Branch: s.Branch, Commit: s.Commit, Status: string(s.Status), ErrorCode: s.ErrorCode,
-		Files: s.Files, Bytes: s.Bytes, Skipped: s.Skipped, Truncated: s.Truncated, CollectedAt: s.CollectedAt}
+		Files: s.Files, Bytes: s.Bytes, Skipped: s.Skipped, Limited: s.Limited, TooLarge: s.TooLarge, Truncated: s.Truncated,
+		Limits: limitsOf(s.Limits), CollectedAt: s.CollectedAt}
 }
 
 type KnowledgeBranch struct {

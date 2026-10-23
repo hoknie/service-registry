@@ -2,6 +2,7 @@ package console
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -20,6 +21,10 @@ func dbMigrateCmd() *cobra.Command {
 				return err
 			}
 			applied, err := app.Migrate(context.Background(), cfg)
+			if barrier, ok := errors.AsType[app.LegacyCredentialsError](err); ok {
+				fmt.Fprintf(cmd.OutOrStdout(), "applied %d migration(s)\n", applied)
+				return failed(barrier)
+			}
 			if err != nil {
 				return failed(fmt.Errorf("migration failed: %w", err))
 			}

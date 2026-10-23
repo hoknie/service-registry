@@ -1,7 +1,6 @@
 package webui
 
 import (
-	"net/http"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -31,13 +30,5 @@ func serveDocs(c fiber.Ctx, dist Dist, locale string, w want, head bool) error {
 	if res.page == nil {
 		return sendBareNotFound(c, locale)
 	}
-	c.Set(fiber.HeaderContentType, "text/html; charset=utf-8")
-	c.Set(fiber.HeaderCacheControl, "no-cache")
-	c.Set(fiber.HeaderXContentTypeOptions, "nosniff")
-	c.Status(http.StatusNotFound)
-	if head {
-		c.Response().Header.SetContentLength(len(res.page))
-		return nil
-	}
-	return c.Send(res.page)
+	return sendNotFoundPage(c, res.page, head)
 }

@@ -24,21 +24,22 @@ func (a *Handlers) MCP(c fiber.Ctx) error {
 	header, ok := authorization(c)
 	if !ok {
 		return (&responses.APIError{Status: http.StatusUnauthorized, Code: "auth.unauthenticated", Message: "a bearer token is required",
-			Challenge: "Bearer"}).Send(c)
+			Challenge: a.mcpChallenge("")}).Send(c)
 	}
 	secret, isBearer := bearer(header)
 	if !isBearer {
-		return invalidMCPToken(c)
+		return a.invalidMCPToken(c)
 	}
 	p, _, err := a.Access.Auth.AuthenticateToken(c.Context(), secret)
 	if err != nil {
 		if e := apperr.From(err); e != nil && e.Kind == apperr.InvalidToken {
-			return invalidMCPToken(c)
+			return a.invalidMCPToken(c)
 		}
 		return responses.Fail(c, err)
 	}
 	if !p.Scopes.Has(accesstypes.ScopeMCP) {
-		return responses.Fail(c, apperr.New(apperr.InsufficientScope))
+		return (&responses.APIError{Status: http.StatusForbidden, Code: "auth.insufficient_scope",
+			Message: "the token's scopes do not allow this request", Challenge: `Bearer error="insufficient_scope", scope="mcp"`}).Send(c)
 	}
 	if len(c.Body()) > MCPBodyLimit {
 		return responses.NewAPIError(http.StatusRequestEntityTooLarge, "validation.invalid_body", "the MCP message is larger than 1 MiB").Send(c)
@@ -51,9 +52,20 @@ func (a *Handlers) MCP(c fiber.Ctx) error {
 	return a.mcpHandler(c)
 }
 
-func invalidMCPToken(c fiber.Ctx) error {
+func (a *Handlers) invalidMCPToken(c fiber.Ctx) error {
 	return (&responses.APIError{Status: http.StatusUnauthorized, Code: "auth.invalid_token", Message: "the bearer token is not valid",
-		Challenge: "Bearer"}).Send(c)
+		Challenge: a.mcpChallenge("invalid_token")}).Send(c)
+}
+
+func (a *Handlers) mcpChallenge(errorCode string) string {
+	if !a.Config.MCPOAuth.Enabled {
+		return "Bearer"
+	}
+	challenge := `Bearer resource_metadata="` + a.Config.Web.PublicURL + `/.well-known/oauth-protected-resource/api/mcp", scope="mcp"`
+	if errorCode != "" {
+		challenge += `, error="` + errorCode + `"`
+	}
+	return challenge
 }
 
 func sameHostOrigin(c fiber.Ctx) bool {
@@ -111,6 +123,6 @@ func mcpPrecheck(body []byte) *mcpError {
 }
 
 func (a *Handlers) mcpDeps() mcp.Deps {
-	return mcp.Deps{Catalog: a.Catalog, Deploy: a.Deploy, Knowledge: a.Knowledge, Links: a.Links, Compose: a.Compose,
+	return mcp.Deps{Catalog: a.Catalog, Deploy: a.Deploy, Knowledge: a.Knowledge, Links: a.Links, Compose: a.Compose, Topology: a.Topology, Apis: a.Apis,
 		MaxResultBytes: a.Config.Knowledge.MCPMaxResultBytes}
 }
