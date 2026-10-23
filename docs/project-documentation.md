@@ -13,7 +13,7 @@ Russian and English words ("ветки" finds "ветка", "deploy" finds "depl
 by their beginning ("Репозит" finds "репозиторий"); without a branch it looks at each project's default
 documentation branch (`local` for a local directory). The migration that added the word forms rebuilds
 the index of every stored file. A new snapshot is taken within `KNOWLEDGE_INTERVAL_SECS` after a branch gets a new
-head (forge sync or push webhook), right after an event in the **On events** mode (see below), or at once with **Collect now**. Content is stored once per
+head in the **On a timer** mode, right after an event in the **On events** mode ([below](#when-documentation-is-refreshed)), or at once with **Collect now**. Content is stored once per
 SHA-256; `KNOWLEDGE_KEEP` older snapshots of a branch are kept, and they go when the branch record
 goes. Limits and timing: `KNOWLEDGE_*` in
 `.env.example`.
@@ -27,9 +27,7 @@ project's repository link:
   forge's API with a [secret](forge-sync.md#secrets) of the project's folder, organization, an
   ancestor or a global one (`"credentials": {"secret_id": "<id>"}`), or anonymously for public
   repositories (`"credentials": null`; anonymous requests hit low API rate limits). Inline tokens
-  are refused (`validation.credentials_inline_removed`); a token saved earlier keeps working as
-  `legacy`.
-  SSH keys are not supported.
+  are refused (`validation.credentials_inline_removed`). SSH keys are not supported.
 - **Local directory** — files as they are on disk; one branch `local`, a new snapshot when the
   content changes.
 - **Local git repository** — a working copy or a bare repository read without the network.
@@ -124,11 +122,15 @@ has:
   - `collect.no_files_matched` — nothing fits the include patterns; a local git source with
     "Include uncommitted files" off reads only committed files, and without "Collect files hidden
     by .gitignore" skips files git ignores;
-  - `collect.files_skipped`, `collect.truncated`, `collect.no_branches`, `collect.no_source`.
+  - `collect.files_skipped`, `collect.truncated`, `collect.no_branches`, `collect.no_source`;
+  - with details for up to 20 of them — the branch, the file path, the skip reason and a short explanation — and a
+    count per warning code.
 
-Filters (project, kind, result, how it started) live in the page address. Repeated runs without
+Editors of a project (`catalog.write`) see its own history under **Settings → Scan history** of the project
+(`section=scans`, `GET /api/v1/catalog/nodes/{id}/knowledge/scans`). Both tables can refresh themselves every 10, 30
+or 60 seconds. Filters (project, kind, result, how it started: on schedule, by hand, by event) live in the page address. Repeated runs without
 changes collapse into one row with a counter. The last `KNOWLEDGE_SCAN_HISTORY` (20) runs are kept
-per project for collection and for indexing. Spec: `openspec/specs/knowledge/scan-history/`.
+per project for collection and for indexing.
 
 ## Activity indicators
 
@@ -145,4 +147,4 @@ job is:
 Organizations and folders show how many readable projects below them are running, queued or failed.
 The page refreshes this every 5 seconds while something runs or waits, otherwise every minute, and
 not while the browser tab is hidden. API: `GET /api/v1/catalog/nodes/{id}/activity`; the catalog table
-view uses `GET /api/v1/catalog/table`. Spec: `openspec/specs/catalog/activity/`.
+view uses `GET /api/v1/catalog/table`.

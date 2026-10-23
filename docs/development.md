@@ -94,7 +94,7 @@ Ports: `QDRANT_PORT` (gRPC, 6334), `QDRANT_HTTP_PORT` (6333, dashboard), `MEILIS
   web UI files), `console/` (CLI commands), `jobs/` (background jobs).
 - `internal/app/` — builds the application from all of the above.
 
-Features import each other only along the graph in `ARCHITECTURE.md` §2; `just layout` checks it.
+Features import each other only along a fixed dependency graph; `just layout` checks it.
 
 ## Quality gates
 
@@ -151,9 +151,3 @@ deb and rpm checks, the image `ghcr.io/hoknie/service-registry` (`linux/amd64`, 
 the GitHub Release with `SHA256SUMS` and the version's CHANGELOG section. A tag with a suffix is a
 pre-release and does not move `latest`. After the first release make the GHCR package public once
 (GitHub → Packages → service-registry → Package settings).
-
-## Where to read more
-
-- `ARCHITECTURE.md` — code layout and rules (Russian).
-- `CLAUDE.md` — a concise guide for AI coding agents.
-- `openspec/specs/` — behavior specs; `openspec/decisions/` — architecture decision records.

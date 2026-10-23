@@ -20,8 +20,6 @@ marks its project *orphaned*; nothing is deleted.
 - **Network** — outgoing HTTPS trusts the image's roots plus `HTTP_CA_FILE`; `HTTPS_PROXY` /
   `NO_PROXY` are honoured.
 
-Spec: `openspec/specs/catalog/forge-sync/`.
-
 ## Secrets
 
 A secret has a name, a description (visible to every reader of the node) and a value: stored
@@ -38,11 +36,9 @@ database. The API never returns a value — only the storage kind and a fingerpr
 - **Change once** — replacing the value (`PATCH …/secrets/<sid>`) affects every record using it. A
   secret in use cannot be deleted: `409 conflict.secret_in_use`; `used_by` counts its users.
 - **BREAKING** — inline `token` / `token_ref` in `credentials` are refused with
-  `400 validation.credentials_inline_removed`; create a secret first. Records saved earlier keep
-  their inline token and are shown as `{"kind": "legacy"}` until a secret is picked;
-  `secrets:rotate` re-encrypts both.
-
-Spec: `openspec/specs/catalog/secrets/`.
+  `400 validation.credentials_inline_removed`; create a secret first. Inline tokens saved by older
+  versions are moved into secrets by `secrets:adopt-legacy` before the upgrade migrates
+  ([install.md](install.md#upgrading-from-a-version-with-inline-tokens)).
 
 ## Branches
 
@@ -53,5 +49,4 @@ branch on the project page (`&branch=` in the address, the Deployments tab follo
 them on the **Branches** tab: pin a branch to keep it forever, delete a stale record. Branches gone
 from the forge are deleted after `BRANCH_RETENTION_DAYS` (30); branches seen only in CI after
 `BRANCH_RETENTION_DAYS + BRANCH_STALE_DAYS` (120) without activity; a branch is *stale* after
-`BRANCH_STALE_DAYS` (90). Deployment history is never deleted with a branch. Spec:
-`openspec/specs/catalog/branches/`.
+`BRANCH_STALE_DAYS` (90). Deployment history is never deleted with a branch.

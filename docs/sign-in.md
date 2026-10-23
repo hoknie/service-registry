@@ -25,5 +25,4 @@ email (a superadmin links theirs by hand under **Account → Sign-in methods**).
 grants the right to edit a group's contacts and on-call link the same way, only in groups the user
 belongs to (no `*`); a right granted by hand stays, one granted by the provider cannot be removed by hand. Who may still use
 a password is `AUTH_PASSWORD_LOGIN` — `all` (default), `superadmins` or `off`. All `OAUTH_*`
-variables: `.env.example`. Specs: `openspec/specs/access/oauth-login/`,
-`openspec/specs/web/oauth-login/`.
+variables: `.env.example`.

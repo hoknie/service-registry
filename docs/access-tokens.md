@@ -35,15 +35,13 @@ curl -H "Authorization: Bearer $SVCR_TOKEN" "$SVCR_URL/api/v1/catalog/nodes"
 
 Any bad token — malformed, revoked, expired, a disabled user's, a project key — is
 `401 auth.invalid_token`; a missing scope is `403 auth.insufficient_scope`. Superadmins find
-leaked tokens by prefix under **Administration → Tokens**. Spec:
-`openspec/specs/access/personal-access-tokens/`.
+leaked tokens by prefix under **Administration → Tokens**.
 
 **Service accounts.** For integrations, create a user with "Service account" (password optional)
 under **Administration → Users**, or turn it on for an existing user. A service account cannot sign
 in with a password or through a login provider (turning it on closes its sessions); it works only
 with tokens, which a superadmin issues on the user's page (**Issue token**, `POST
-/api/v1/users/{id}/tokens`, shown once). Its rights are its roles and groups, like any user. Spec:
-`openspec/specs/access/service-users/`.
+/api/v1/users/{id}/tokens`, shown once). Its rights are its roles and groups, like any user.
 
 **Tokens for selected nodes.** Under **Catalog access** pick **Selected nodes only** and find up to
 20 organizations, folders or projects (`"nodes": ["<id>", …]` in the request body). Such a token works
@@ -61,5 +59,4 @@ global superadmin power; it loses that as soon as the superadmin flag is removed
 `write` and a token without nodes, since a group is not part of the catalog. A moved node keeps limiting its subtree; a deleted one leaves the
 token's nodes (and the nodes of MCP app grants), so it no longer takes one of the 20 places. When every node of a token
 is deleted, the first one stays listed as a node that no longer exists: it opens nothing, and the token never becomes
-unrestricted. To change the nodes, issue a new token. Spec:
-`openspec/specs/access/authorization/` («Узлы токена»).
+unrestricted. To change the nodes, issue a new token.

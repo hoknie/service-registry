@@ -1,4 +1,4 @@
-# A job to add to .gitlab-ci.yml after your deploy job (spec ingest/events).
+# A job to add to .gitlab-ci.yml after your deploy job.
 # Settings → CI/CD → Variables:
 #   SVCR_URL         = https://registry.example.com
 #   SVCR_PROJECT_ID  = <project id from the catalog page>

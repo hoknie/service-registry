@@ -20,13 +20,17 @@ of each environment `{service}`, `{environment}`, `{version}`, `{commit}`, `{clu
 percent-encoded unless `|raw`; `|lower` lowers the case; `{{`/`}}` are literal braces. A link whose
 variable has no value is shown as "missing: …", not broken.
 
+CI may also send links with a rollout (`payload.links` of `service.deployed`, see
+[ci-events.md](ci-events.md#links-and-dependencies)). While that deployment is current they are shown with
+`"source": "event"` and replace the template link with the same key for that service and environment.
+
 Links are **checked** in the background (`HEAD`, then `GET` for `405/501`; statuses `ok`,
 `auth_required`, `not_found`, `server_error`, `timeout`, `blocked`, …) every
 `LINK_CHECK_INTERVAL_SECS` (3600) and on demand ("Check", at most once per 30 s per address).
 Checks never use the proxy variables and never connect to loopback, link-local (cloud metadata),
 multicast or unspecified addresses; private networks are allowed unless
 `LINK_CHECK_ALLOW_PRIVATE=false` (then only `LINK_CHECK_ALLOW_HOSTS`); `LINK_CHECK_DENY_HOSTS` are
-never checked. See `.env.example` for `LINK_CHECK_*`. Specs: `openspec/specs/links/`.
+never checked. See `.env.example` for `LINK_CHECK_*`.
 
 **Title and icon.** A template may carry a title (shown instead of the kind name) and an icon: the
 kind's built-in icon, an `https://` address, or an uploaded PNG, WebP, ICO or SVG file up to 64 KiB.
@@ -38,4 +42,3 @@ named by the SHA-256 of their content, and served with a sandboxing `Content-Sec
 template refers to is deleted once it has not been uploaded again or saved in a template for
 `UPLOADS_UNREFERENCED_TTL_SECS` (default one day, 600 seconds to 30 days). In
 Docker the image keeps them in `/data/uploads`; mount a volume there (`env/compose.yml` does).
-Specs: `openspec/specs/links/templates/`, `openspec/specs/links/icons/`.

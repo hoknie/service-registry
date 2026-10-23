@@ -4,7 +4,9 @@ A project's dependencies are edges "project → target". A target is another pro
 (slug path such as `acme/backend/billing`, compared case-insensitively, or its UUID) or an external
 system named `external:<name>` (`external:postgres-main`; 1–63 characters `a-z`, `0-9`, `.`, `_`, `-`).
 A path that does not match a project is kept as an unresolved reference and resolved again on the next
-report of the same source.
+report of the same source. A resolved target is kept by id: moving or renaming it (or a folder above it) keeps the
+edge and updates its path; deleting it turns the edge back into an unresolved reference with the path it had, merged
+with an equal unresolved one if the project already has it (a manual note survives).
 
 The project page has a **Dependencies** tab (list and graph, depth 1–3); organizations and folders show
 the graph of their subtree. People see only projects they can read: other projects appear as

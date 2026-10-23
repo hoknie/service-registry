@@ -1,7 +1,7 @@
 # Observing Kubernetes clusters
 
 The registry polls the clusters a superadmin adds (Administration → Clusters) and shows what
-really runs next to the deployments CI reports (`service.deployed`). Specs: `openspec/specs/deploy/`.
+really runs next to the deployments CI reports (`service.deployed`).
 
 1. Apply `rbac.yaml` (adjust the namespaces): a ServiceAccount with `get`/`list` on
    Deployments, StatefulSets, DaemonSets, ReplicaSets, CronJobs, Jobs and Pods, and its token.
@@ -34,7 +34,7 @@ for a single project in its settings ("Observe in clusters").
 ## Agent mode for isolated clusters
 
 When the registry cannot reach a cluster's API server (a separate network, no inbound access),
-run the agent inside the cluster instead (spec `deploy/agent`, ADR-0076). The agent is the same
+run the agent inside the cluster instead. The agent is the same
 binary and image: `svc-registry agent` lists workloads with its own ServiceAccount and pushes a
 compressed report to `POST /api/v1/ingest/clusters/<id>/reports` every interval; matching,
 state and deployments are computed by the registry exactly as for a polled cluster.
@@ -56,7 +56,7 @@ state and deployments are computed by the registry exactly as for a polled clust
 `svc-registry agent --url <registry> --cluster <id> --token-env SVCR_AGENT_TOKEN --once` sends one
 report and exits with `0` when the registry accepted it.
 
-Health checks (ADR-0091): with `--health-addr :8081` (used by `agent.yaml`, off by default, not with
+Health checks: with `--health-addr :8081` (used by `agent.yaml`, off by default, not with
 `--once`) the agent answers `GET /healthz` — `200 {"status":"ok"}` while its loop keeps stepping (at most
 `max(3 × period, 10 min)` between steps, the period being `max(interval, report gap)`; a registry that is down does not fail it, so the pod is not
 restarted in a loop) — and `GET /readyz` — `200` while the registry accepted a report (or answered that
@@ -64,6 +64,7 @@ the cluster is disabled) within three periods, `503 {"status":"unavailable"}` ot
 
 Report size: the agent streams the report gzip-compressed. The registry accepts up to 16 MiB as sent on
 this route (other routes keep the 2 MiB server limit) and up to `K8S_AGENT_REPORT_MAX_BYTES` (64 MiB by
-default) after decompression; a larger report is refused with `413 ingest.payload_too_large`. The agent reads only `LOG_LEVEL`, the
+default) after decompression; a larger report is refused with `413 ingest.payload_too_large`. A report lists at
+most 100 000 workloads; more are refused with `400 validation.invalid_body`. The agent reads only `LOG_LEVEL`, the
 outgoing proxy and CA variables, `K8S_REQUEST_TIMEOUT_SECS`, `K8S_LIST_LIMIT` and the token
 variable — no database.

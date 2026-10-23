@@ -2,9 +2,10 @@
 
 The registry is an MCP server at `/api/mcp` (Streamable HTTP, JSON answers, no sessions). An agent
 sees exactly what its user can read: projects, branches, current deployments with cluster drift,
-observability links and the collected documentation — 13 read-only tools (`list_projects`,
-`get_project`, `list_branches`, `get_deployments`, `get_links`, `list_docs`, `get_doc`,
-`search_docs`, `list_specs`, `get_spec`, `list_changes`, `list_adrs`, `get_adr`) and documentation
+observability links, dependencies, API descriptions and the collected documentation — 16 read-only tools
+(`list_projects`, `get_project` with owners, `list_branches`, `get_deployments`, `get_links`, `get_dependencies`,
+`list_docs`, `get_doc`, `search_docs`, `list_specs`, `get_spec`, `list_changes`, `list_adrs`, `get_adr`, `list_apis`,
+`get_api`) and documentation
 files as resources `svcr://projects/{project}/docs/{path}`. Issue a personal access token with the
 scope `mcp` (**Account → Tokens → Connect an MCP client**), then:
 
@@ -62,4 +63,4 @@ more than you can read, and only through `/api/mcp`; the REST API refuses its to
 - Clients without any grant are deleted after 30 days; a client of a document is fetched again on its next use.
 - Turning `MCP_OAUTH` off stops app tokens at once; personal tokens keep working.
 
-Tool results are capped at `KNOWLEDGE_MCP_MAX_RESULT_BYTES`. Spec: `openspec/specs/knowledge/mcp-server/`.
+Tool results are capped at `KNOWLEDGE_MCP_MAX_RESULT_BYTES`.

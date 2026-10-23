@@ -1,4 +1,4 @@
-# A step to append to your deploy job in .github/workflows/*.yml (spec ingest/events).
+# A step to append to your deploy job in .github/workflows/*.yml.
 # Settings → Secrets and variables → Actions:
 #   variable SVCR_URL         = https://registry.example.com
 #   variable SVCR_PROJECT_ID  = <project id from the catalog page>

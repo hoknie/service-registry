@@ -1,4 +1,4 @@
-# Read-only access of svc-registry to a Kubernetes cluster (spec deploy/clusters, ADR-0040).
+# Read-only access of svc-registry to a Kubernetes cluster.
 # The registry only lists workloads, their ReplicaSets, pods and jobs — no Secrets, ConfigMaps or
 # logs. Bind the ClusterRole in the namespaces you want observed (RoleBinding, below) or in all of
 # them (replace the RoleBinding with a ClusterRoleBinding).

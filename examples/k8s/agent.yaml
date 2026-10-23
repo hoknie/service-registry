@@ -1,4 +1,4 @@
-# The svc-registry agent for an isolated cluster (spec deploy/agent, ADR-0076): it lists workloads,
+# The svc-registry agent for an isolated cluster: it lists workloads,
 # their ReplicaSets, pods and jobs with its own ServiceAccount and pushes reports to the registry,
 # so the registry needs no access to this cluster. No Secrets, ConfigMaps or logs are read.
 # Create the cluster in the registry with the mode "Agent in the cluster", copy the token and the

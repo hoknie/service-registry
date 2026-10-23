@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Report a deployment to svc-registry (spec ingest/events, ingest/service-deployed).
+# Report a deployment to svc-registry.
 #
 # Required environment:
 #   SVCR_URL           registry address, e.g. https://registry.example.com
