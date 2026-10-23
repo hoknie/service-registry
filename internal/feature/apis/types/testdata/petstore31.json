@@ -1,0 +1,1 @@
+{"openapi":"3.1.0","info":{"title":"Pets 3.1","version":"2"},"paths":{"/orders":{"get":{"operationId":"listOrders","responses":{"200":{"description":"ok","content":{"application/json":{"schema":{"type":["string","null"]}}}}}}}}}

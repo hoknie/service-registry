@@ -1,0 +1,4 @@
+syntax = "proto3";
+package shop.v1;
+import "common/v1/money.proto";
+message Item { common.v1.Money price = 1; }

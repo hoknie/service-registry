@@ -1,0 +1,66 @@
+openapi: 3.0.3
+info:
+  title: Petstore
+  version: 1.0.0
+  description: Pets **API**
+servers:
+  - url: https://api.example/v1
+tags:
+  - name: pets
+paths:
+  /pets:
+    get:
+      tags: [pets]
+      operationId: listPets
+      summary: List pets
+      parameters:
+        - name: limit
+          in: query
+          schema: {type: integer, format: int32}
+      responses:
+        "200":
+          description: A list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Pet'}
+    post:
+      tags: [pets, store]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Pet'}
+      responses:
+        "201": {description: Created}
+  /pets/{id}:
+    parameters:
+      - {name: id, in: path, required: true, schema: {type: string}}
+    get:
+      deprecated: true
+      responses:
+        "200":
+          description: One
+          content:
+            application/json:
+              schema: {$ref: './schemas/pet.yaml#/Pet'}
+        "404":
+          description: Missing
+          content:
+            application/json:
+              schema: {$ref: 'https://example.com/common.yaml#/Error'}
+        default:
+          description: Error
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Missing'}
+components:
+  schemas:
+    Pet:
+      type: object
+      required: [name]
+      properties:
+        name: {type: string, description: Name}
+        tag: {type: string, enum: [a, b]}
+        parent: {$ref: '#/components/schemas/Pet'}

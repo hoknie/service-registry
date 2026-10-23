@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package pets.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "example.com/pets/v1;petsv1";
+
+// Pets service.
+service PetService {
+  // Gets a pet.
+  rpc GetPet(GetPetRequest) returns (Pet) {
+    option (google.api.http) = { get: "/v1/pets/{id}" };
+  }
+  rpc CreatePet(Pet) returns (Pet) {
+    option (google.api.http) = { post: "/v1/pets" body: "*" };
+  }
+  rpc Watch(WatchRequest) returns (stream Event);
+}
+
+// A pet.
+message Pet {
+  // Identifier.
+  string id = 1;
+  repeated string tags = 2;
+  map<string, int32> counts = 3;
+  optional string nick = 4;
+  oneof kind {
+    string dog = 5;
+    string cat = 6;
+  }
+  google.protobuf.Timestamp born = 7;
+  Status status = 8;
+  message Toy { string name = 1; }
+  Toy toy = 9;
+}
+
+enum Status {
+  // Unknown.
+  STATUS_UNSPECIFIED = 0;
+  STATUS_OK = 1;
+}
+
+message GetPetRequest { string id = 1; }
+message WatchRequest {}
+message Event { Pet pet = 1; }
