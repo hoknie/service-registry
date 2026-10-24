@@ -8,6 +8,10 @@ The versions follow [Semantic Versioning](https://semver.org/).
 
 ### Features
 
+- Sec update ([e79bd0b](https://github.com/hoknie/service-registry/commit/e79bd0bcc7c4ff1e9bcf1dac5b6b75a6488574e8))
+- Updated org groups ([b3a903b](https://github.com/hoknie/service-registry/commit/b3a903b3d297e2c131f9ea3a2bde311c3c424ac3))
+- Added org groups ([3c34d5f](https://github.com/hoknie/service-registry/commit/3c34d5f11fec234562e6ab18a91a27e3998a68af))
+- Added autocomplete for owners ([97289dc](https://github.com/hoknie/service-registry/commit/97289dc772a82b4aa880a458acb33fc9a0ef058d))
 - Added renew docs by trigger ([3c63a04](https://github.com/hoknie/service-registry/commit/3c63a04edcab251e3e8c691af9eea5504b0bddfd))
 - Updated changelog ([d6bb2f1](https://github.com/hoknie/service-registry/commit/d6bb2f1c50927b6af2a854d275368bee89f07927))
 - Updated access and ui ([8c89158](https://github.com/hoknie/service-registry/commit/8c8915823767fbe00b3e89e3ca394e96a834745e))
@@ -37,6 +41,7 @@ The versions follow [Semantic Versioning](https://semver.org/).
 
 ### Other
 
+- Renew docs ([1ca13c3](https://github.com/hoknie/service-registry/commit/1ca13c3cb78b4078a336b515d1ed8801a4be5a06))
 - Docs update ([c016059](https://github.com/hoknie/service-registry/commit/c0160597774cb88e1aab636e711326d05289c652))
 - Updated changelog ([77c960e](https://github.com/hoknie/service-registry/commit/77c960e719cb5225e95a6a13faabdbedbccab1b0))
 
