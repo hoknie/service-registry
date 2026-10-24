@@ -1744,9 +1744,7 @@
       "disabled": "Desactivado",
       "group": "Grupo",
       "user": "Usuario",
-      "lead": "Grupos y personas responsables de este nodo; el primero es el responsable principal. Todo lo que contiene los hereda salvo que tenga los suyos.",
-      "own": "Definir responsables propios",
-      "inherit": "Heredar",
+      "lead": "Grupos y personas responsables de este nodo; el primero es el propietario principal. Los propietarios definidos más arriba también se aplican aquí y no se pueden quitar aquí: solo puede añadir los suyos.",
       "add": "Añadir responsable",
       "addPlaceholder": "Empieza a escribir el nombre de un grupo o usuario, o elige de la lista",
       "members": "Miembros: {n}",
@@ -1757,10 +1755,7 @@
       "saved": "Responsables guardados.",
       "readOnly": "Solo los editores del nodo pueden cambiar los responsables.",
       "contacts": "Contactos",
-      "noOwners": "Sin responsables",
       "here": "Definido aquí",
-      "clear": "Sin responsables",
-      "clearConfirm": "¿Dejar de heredar responsables aquí? El nodo y todo lo que contiene no tendrán responsables hasta que se defina un conjunto más abajo. Se eliminan los responsables propios del nodo.",
       "orgGroup": "grupo de la organización"
     },
     "dependencies": {

@@ -4,21 +4,38 @@ Every organization, folder and project can say who is responsible for it: its **
 or people; the first one is the primary owner. They are shown on the node's **Overview** with their contacts and
 on-call link, sent with notifications, and given to AI agents through MCP.
 
+Whoever creates an organization becomes its owner right away. Folders and projects created inside show the
+organization's owners as inherited.
+
+Owners add up down the tree. A folder or project has the owners of every node above it plus its own. Owners set above
+cannot be removed or replaced lower down: lower nodes can only add more.
+
+## What owners can do
+
+Owners are editors of the node where their set is given and of everything below it. They see these nodes, create
+folders and projects, change, move and delete them, and manage project keys. They do not give roles: that still
+needs the admin role.
+
+- An owner group gives this to each of its members, for as long as they are members.
+- Owners added lower in the tree become editors there too. Owners above keep their rights.
+- A token limited to some nodes acts as an owner only inside those nodes.
+
 ## Setting owners
 
-1. Open the node, **Settings → Owners** (editors of the node).
-2. Choose one of three options:
-   - **Inherit** — the node shows the owners of the nearest node above it that has its own.
-   - **Set own owners** — replaces the inherited owners for this node and everything below it that has no owners of its
-     own.
-   - **No owners** — says "nobody owns this" and stops inheritance, even though nodes above have owners.
-3. For your own set, start typing in the field or just click it. It suggests groups (with their member count) and
-   people (with their email), and narrows the list from the first letter. Reorder with **Move up** and **Move down**; the
-   first one is the primary owner.
+1. Open the node, **Settings → Owners** (editors and owners of the node).
+2. The inherited owners come first, each marked **Inherited from** the node that set it. They cannot be removed or
+   moved here; change them on that node.
+3. Add owners of this node: start typing in the field or just click it. It suggests groups (with their member count)
+   and people (with their email), and narrows the list from the first letter. Reorder your own owners with **Move up**
+   and **Move down**, or remove them.
 4. Save.
 
-Owners are inherited as a whole set. The nearest node with its own set wins; sets of different nodes are never
-merged. A node without owners shows no owners block at all.
+Up to 10 owners can be set on each node. Someone who is already an owner above is not added again. The first owner in
+the list — the first one set on the highest node — is the primary owner. A node without owners shows no owners block
+at all.
+
+Earlier versions let a node replace its inherited owners or say "no owners". After the upgrade such nodes show the
+owners above them again, next to their own.
 
 ## Contacts and on-call
 

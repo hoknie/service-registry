@@ -7,14 +7,13 @@ import { toast } from "sonner";
 
 import type { Locale } from "@/i18n/config";
 import { format } from "@/i18n/format";
-import type { CatalogNode, OwnerSet } from "@/lib/api";
+import type { CatalogNode, Owner, OwnerSet } from "@/lib/api";
 import { catalogChanged } from "@/lib/catalogEvents";
 import { draftOf, moveItem, sameSubject, type DraftOwner } from "@/lib/owners";
-import { clearOwners, getOwners, putOwners } from "@/lib/ownersApi";
+import { getOwners, putOwners } from "@/lib/ownersApi";
 
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
-import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { Message, type Note } from "../ui/Message";
 import { Panel } from "../ui/Panel";
 import { SkeletonRows } from "../ui/Skeleton";
@@ -24,80 +23,60 @@ import { OwnerPicker } from "./OwnerPicker";
 
 type Props = { node: CatalogNode; locale: Locale; labels: CatalogLabels; canWrite: boolean; fail: (e: unknown) => string };
 
+const ownOf = (set: OwnerSet): DraftOwner[] => set.items.filter((o) => !o.inherited).map(draftOf);
+
 export function OwnersSettings({ node, locale, labels, canWrite, fail }: Props) {
   const t = labels.owners;
   const { common } = useUiText();
   const [set, setSet] = useState<OwnerSet | null>(null);
-  const [draft, setDraft] = useState<DraftOwner[] | null>(null);
+  const [draft, setDraft] = useState<DraftOwner[]>([]);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<Note>(null);
-  const [confirming, setConfirming] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const loaded = await getOwners(node.id);
       setSet(loaded);
-      setDraft(canWrite && loaded.own && !loaded.none ? loaded.items.map(draftOf) : null);
+      setDraft(ownOf(loaded));
     } catch (e) {
       setNote({ kind: "error", text: fail(e) });
     }
-  }, [node.id, canWrite, fail]);
+  }, [node.id, fail]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
-  const apply = async (send: () => Promise<OwnerSet>): Promise<string | null> => {
+  const save = async () => {
     setBusy(true);
     try {
-      const saved = await send();
+      const saved = await putOwners(node.id, draft);
       setSet(saved);
-      setDraft(saved.own && !saved.none ? saved.items.map(draftOf) : null);
+      setDraft(ownOf(saved));
       setNote(null);
       toast.success(t.saved);
       catalogChanged();
-      return null;
     } catch (e) {
-      const text = fail(e);
-      setNote({ kind: "error", text });
-      return text;
+      setNote({ kind: "error", text: fail(e) });
     } finally {
       setBusy(false);
     }
   };
-  const save = (next: DraftOwner[]) => void apply(() => putOwners(node.id, next));
 
   if (!set) return note ? <Message note={note} /> : <SkeletonRows rows={3} label={common.loading} />;
-  const from = set.from && !set.own ? (node.path ?? []).find((p) => p.id === set.from) : undefined;
-  const editing = canWrite && draft !== null;
-  const rows: DraftOwner[] = editing ? draft : set.items.map(draftOf);
-  const canClear = canWrite && !(set.own && set.none) && (set.from !== null || rows.length > 0);
-  const clearButton = canClear && (
-    <Button variant="danger-ghost" busy={busy} onClick={() => setConfirming(true)}>
-      {t.clear}
-    </Button>
-  );
+  const inherited = set.items.filter((o) => o.inherited);
+  const rows: DraftOwner[] = canWrite ? draft : ownOf(set);
+  const taken = [...inherited.map(draftOf), ...rows];
 
   return (
-    <Panel
-      title={t.title}
-      description={t.lead}
-      actions={
-        from ? (
-          <Link href={catalogHref(locale, from.id)} className="text-sm text-signal hover:underline">
-            {format(t.inheritedFrom, { name: from.name })}
-          </Link>
-        ) : (
-          set.own && <Badge tone="signal">{t.here}</Badge>
-        )
-      }
-    >
+    <Panel title={t.title} description={t.lead}>
       <div className="grid gap-4">
-        {rows.length === 0 ? (
-          set.none && !editing && <p className="text-sm text-muted">{t.noOwners}</p>
-        ) : (
+        {inherited.length + rows.length > 0 && (
           <ol className="divide-y divide-line rounded-lg border border-line">
+            {inherited.map((o, i) => (
+              <InheritedRow key={`${o.subject_kind}:${o.subject_id}`} owner={o} primary={i === 0} node={node} locale={locale} labels={labels} />
+            ))}
             {rows.map((o, i) => {
               const Icon = o.subject_kind === "group" ? UsersRound : User;
               return (
@@ -107,8 +86,9 @@ export function OwnersSettings({ node, locale, labels, canWrite, fail }: Props) 
                     <span className="block truncate text-sm font-medium text-ink">{o.name}</span>
                     {o.detail && <span className="block truncate text-xs text-muted">{o.detail}</span>}
                   </span>
-                  {i === 0 && <Badge tone="signal">{t.primary}</Badge>}
-                  {editing && (
+                  {inherited.length === 0 && i === 0 && <Badge tone="signal">{t.primary}</Badge>}
+                  <Badge tone="outline">{t.here}</Badge>
+                  {canWrite && (
                     <span className="flex items-center gap-1">
                       <Button size="icon" variant="ghost" aria-label={`${t.up}: ${o.name}`} disabled={i === 0} onClick={() => setDraft(moveItem(rows, i, -1))}>
                         <ArrowUp aria-hidden="true" />
@@ -132,7 +112,7 @@ export function OwnersSettings({ node, locale, labels, canWrite, fail }: Props) 
             })}
           </ol>
         )}
-        {editing ? (
+        {canWrite ? (
           <>
             <OwnerPicker
               nodeId={node.id}
@@ -140,45 +120,44 @@ export function OwnersSettings({ node, locale, labels, canWrite, fail }: Props) 
               placeholder={t.addPlaceholder}
               membersLabel={t.members}
               orgLabel={t.orgGroup}
-              exclude={rows}
+              exclude={taken}
               disabled={rows.length >= 10}
-              onPick={(o) => !rows.some((r) => sameSubject(r, o)) && setDraft([...rows, o])}
+              onPick={(o) => !taken.some((r) => sameSubject(r, o)) && setDraft([...rows, o])}
             />
             <div className="flex flex-wrap gap-2">
-              <Button variant="primary" busy={busy} onClick={() => save(rows)}>
+              <Button variant="primary" busy={busy} onClick={() => void save()}>
                 {t.save}
               </Button>
-              {set.own && (
-                <Button busy={busy} onClick={() => save([])}>
-                  {t.inherit}
-                </Button>
-              )}
-              {clearButton}
             </div>
           </>
-        ) : canWrite ? (
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => setDraft(set.items.map(draftOf))}>{t.own}</Button>
-            {set.own && (
-              <Button busy={busy} onClick={() => save([])}>
-                {t.inherit}
-              </Button>
-            )}
-            {clearButton}
-          </div>
         ) : (
           <p className="text-sm text-muted">{t.readOnly}</p>
         )}
         <Message note={note} />
       </div>
-      <ConfirmDialog
-        open={confirming}
-        onOpenChange={setConfirming}
-        title={t.clear}
-        text={t.clearConfirm}
-        confirm={t.clear}
-        onConfirm={() => apply(() => clearOwners(node.id))}
-      />
     </Panel>
+  );
+}
+
+type RowProps = { owner: Owner; primary: boolean; node: CatalogNode; locale: Locale; labels: CatalogLabels };
+
+function InheritedRow({ owner, primary, node, locale, labels }: RowProps) {
+  const t = labels.owners;
+  const Icon = owner.subject_kind === "group" ? UsersRound : User;
+  const source = (node.path ?? []).find((p) => p.id === owner.node_id);
+  return (
+    <li className="flex flex-wrap items-center gap-3 px-3 py-2">
+      <Icon aria-label={owner.subject_kind === "group" ? t.group : t.user} className="size-4 shrink-0 text-muted" />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium text-ink">{owner.name}</span>
+        {owner.email && <span className="block truncate text-xs text-muted">{owner.email}</span>}
+      </span>
+      {primary && <Badge tone="signal">{t.primary}</Badge>}
+      {source && (
+        <Link href={catalogHref(locale, source.id)} className="text-xs text-signal hover:underline">
+          {format(t.inheritedFrom, { name: source.name })}
+        </Link>
+      )}
+    </li>
   );
 }

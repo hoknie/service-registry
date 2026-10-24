@@ -127,10 +127,10 @@ func TestEmbeddedMigrationsApplyThroughTheBinary(t *testing.T) {
 	tdb := testsupport.NewTestDB(t)
 	code, out, errOut := run(t, []string{"db:migrate"}, "", "DATABASE_URL", tdb.URL)
 	eq(t, code, 0, errOut)
-	contains(t, out, "applied 68 migration(s)")
+	contains(t, out, "applied 70 migration(s)")
 	versions, err := embedded(t).Versions()
 	must(t, err)
-	eq(t, len(versions), 68)
+	eq(t, len(versions), 70)
 	_, out, _ = run(t, []string{"db:migrate"}, "", "DATABASE_URL", tdb.URL)
 	contains(t, out, "applied 0 migration(s)")
 	code, out, errOut = run(t, []string{"db:rollback", "--count=4"}, "", "DATABASE_URL", tdb.URL)
@@ -207,7 +207,7 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	m := embedded(t)
 	n, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	eq(t, n, 68)
+	eq(t, n, 70)
 	knowledge := []string{"knowledge_blobs", "knowledge_files", "knowledge_settings", "knowledge_snapshots"}
 	oauth := []string{"oauth_login_states", "user_identities"}
 	deploy := []string{"cluster_workloads", "clusters", "environments"}
@@ -253,7 +253,8 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	slices.Sort(withEpisodes)
 	withPermissions := append([]string{"group_permissions"}, withEpisodes...)
 	slices.Sort(withPermissions)
-	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withPermissions, ","))
+	withoutClears := slices.DeleteFunc(slices.Clone(withPermissions), func(s string) bool { return s == "node_owner_clears" })
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withoutClears, ","))
 	n, err = rollbackThrough(t, m, tdb, "create_group_permissions")
 	must(t, err)
 	eq(t, n, migrationsFrom(t, m, "create_group_permissions"))
@@ -394,7 +395,7 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	eq(t, len(embeddedTables(t, tdb)), 0)
 	n, err = m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	eq(t, n, 68)
+	eq(t, n, 70)
 }
 
 func execErr(t *testing.T, tdb *testsupport.TestDB, query string, args ...any) string {

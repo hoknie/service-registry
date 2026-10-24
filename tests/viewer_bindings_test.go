@@ -197,3 +197,28 @@ func TestRepositoriesReadBindingsOnlyThroughFunction(t *testing.T) {
 		})
 	}
 }
+
+func TestViewerBindingsGiveOwnersEditor(t *testing.T) {
+	t.Parallel()
+	w := newBindingWorld(t)
+	w.bind(t, w.api, "admin")
+	execSQL(t, w.tdb, "INSERT INTO node_owners (id, node_id, user_id, position) VALUES ($1, $2, $3, 0)", uuid.New(), w.acme, w.bob)
+	group := uuid.New()
+	execSQL(t, w.tdb, "INSERT INTO groups (id, name) VALUES ($1, 'platform')", group)
+	execSQL(t, w.tdb, "INSERT INTO group_members (id, group_id, user_id) VALUES ($1, $2, $3)", uuid.New(), group, w.bob)
+	execSQL(t, w.tdb, "INSERT INTO node_owners (id, node_id, group_id, position) VALUES ($1, $2, $3, 0)", uuid.New(), w.globex, group)
+	tests := []struct {
+		name  string
+		roots []uuid.UUID
+		want  string
+	}{
+		{"own and group sets", nil, "acme:editor,api:admin,globex:editor"},
+		{"owner role lands on the root", []uuid.UUID{w.backend}, "api:admin,backend:editor"},
+		{"other roots stay out", []uuid.UUID{w.globex}, "globex:editor"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			eq(t, w.bindings(t, tt.roots), tt.want)
+		})
+	}
+}

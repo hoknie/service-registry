@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"slices"
 
 	"github.com/google/uuid"
 
@@ -18,12 +19,29 @@ func (s *PortsService) OwnedProjects(ctx context.Context, caller uuid.UUID, f ca
 }
 
 func (s *PortsService) EffectiveOwners(ctx context.Context, id uuid.UUID) ([]ownershiptypes.Owner, error) {
-	_, out, err := s.ownerRepository.Effective(ctx, id)
+	out, err := s.ownerRepository.Effective(ctx, id)
 	return out, apperr.Wrap(err)
 }
 
 func (s *PortsService) GroupNodes(ctx context.Context, groupIDs []uuid.UUID) (map[uuid.UUID][]uuid.UUID, error) {
-	return s.catalog.Bindings.GroupNodes(ctx, groupIDs)
+	out, err := s.catalog.Bindings.GroupNodes(ctx, groupIDs)
+	if err != nil {
+		return nil, err
+	}
+	owned, err := s.ownerRepository.GroupOwned(ctx, groupIDs)
+	if err != nil {
+		return nil, apperr.Wrap(err)
+	}
+	for _, pair := range owned {
+		if !slices.Contains(out[pair[0]], pair[1]) {
+			out[pair[0]] = append(out[pair[0]], pair[1])
+		}
+	}
+	return out, nil
+}
+
+func (s *PortsService) AddCreatorOwner(ctx context.Context, nodeID, userID uuid.UUID) error {
+	return apperr.Wrap(s.ownerRepository.AddUser(ctx, nodeID, userID))
 }
 
 func (s *PortsService) OwnedAmong(ctx context.Context, userID uuid.UUID, nodeIDs []uuid.UUID) ([]uuid.UUID, error) {

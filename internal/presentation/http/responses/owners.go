@@ -19,10 +19,8 @@ type Owner struct {
 }
 
 type OwnerSet struct {
-	Items []Owner    `json:"items"`
-	From  *uuid.UUID `json:"from"`
-	Own   bool       `json:"own"`
-	None  bool       `json:"none"`
+	Items []Owner `json:"items"`
+	Own   bool    `json:"own"`
 }
 
 func OwnerSetOf(s ownershiptypes.OwnerSet) OwnerSet {
@@ -31,7 +29,7 @@ func OwnerSetOf(s ownershiptypes.OwnerSet) OwnerSet {
 		items = append(items, Owner{SubjectKind: string(o.SubjectKind), SubjectID: o.SubjectID, Name: o.Name, Email: o.Email,
 			Status: o.Status, Contacts: ContactsOf(o.Contacts), OnCallURL: o.OnCallURL, NodeID: o.NodeID, Inherited: o.Inherited})
 	}
-	return OwnerSet{Items: items, From: s.From, Own: s.Own, None: s.None}
+	return OwnerSet{Items: items, Own: s.Own}
 }
 
 type OwnerBadge struct {

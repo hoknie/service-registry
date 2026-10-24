@@ -22,7 +22,7 @@ func TestValidateOwners(t *testing.T) {
 		want error
 	}{
 		"empty":           {nil, false, nil},
-		"none":            {nil, true, nil},
+		"none":            {nil, true, InvalidOwners},
 		"none and owners": {[]PutOwner{{"group", "Platform"}}, true, InvalidOwners},
 		"two":             {[]PutOwner{{"group", "Platform"}, {"user", "bob@example.com"}}, false, nil},
 		"same name":       {[]PutOwner{{"group", "Platform"}, {"group", " platform "}}, false, InvalidOwners},
@@ -53,17 +53,13 @@ func TestQueriesAndSets(t *testing.T) {
 	if _, err := ValidateSuggestQuery(strings.Repeat("x", QueryMaxLen+1)); !errors.Is(err, catalogtypes.InvalidFilter) {
 		t.Errorf("long: %v", err)
 	}
-	node, parent := uuid.New(), uuid.New()
-	if s := SetOf(node, nil, nil); s.From != nil || s.Own || s.None || len(s.Items) != 0 {
+	if s := SetOf(nil); s.Own || s.Items == nil || len(s.Items) != 0 {
 		t.Errorf("empty set %+v", s)
 	}
-	if s := SetOf(node, &Source{NodeID: parent}, []Owner{{NodeID: parent}}); *s.From != parent || s.Own {
+	if s := SetOf([]Owner{{NodeID: uuid.New(), Inherited: true}}); s.Own {
 		t.Errorf("inherited set %+v", s)
 	}
-	if s := SetOf(node, &Source{NodeID: node}, []Owner{{NodeID: node}}); !s.Own {
+	if s := SetOf([]Owner{{Inherited: true}, {}}); !s.Own {
 		t.Errorf("own set %+v", s)
-	}
-	if s := SetOf(node, &Source{NodeID: parent, None: true}, nil); !s.None || s.Own || *s.From != parent || s.Items == nil {
-		t.Errorf("inherited none %+v", s)
 	}
 }

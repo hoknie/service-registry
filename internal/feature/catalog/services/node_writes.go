@@ -188,7 +188,7 @@ func (s *NodesService) DeleteNode(ctx context.Context, p accesstypes.Principal, 
 func (s *NodesService) insert(ctx context.Context, p accesstypes.Principal, row catalogtypes.NewNode) (catalogtypes.Node, error) {
 	top := row.ParentID == nil
 	creatorAdmin := top && !p.IsSuperadmin && !p.CatalogAdmin
-	if !top || (!p.AddsRoots() && !creatorAdmin) {
+	if !top {
 		node, err := s.nodeRepository.Insert(ctx, row)
 		return node, apperr.Wrap(err)
 	}
@@ -199,6 +199,9 @@ func (s *NodesService) insert(ctx context.Context, p accesstypes.Principal, row 
 	err := s.db.InTx(ctx, func(ctx context.Context) error {
 		var err error
 		if node, err = s.nodeRepository.Insert(ctx, row); err != nil {
+			return err
+		}
+		if err := s.creatorOwners.AddCreatorOwner(ctx, node.ID, p.UserID); err != nil {
 			return err
 		}
 		if creatorAdmin {

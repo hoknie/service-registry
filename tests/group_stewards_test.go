@@ -68,8 +68,10 @@ func TestGroupWithCatalogRolesIsManagedByNodeOwners(t *testing.T) {
 	f.app.user("erin@example.com", false)
 	r = f.app.send("PUT", ownersPath(f.backend), f.admin, obj{"owners": []obj{{"subject_kind": "user", "subject": "erin@example.com"}}})
 	eq(t, r.status, 200, r.text())
-	eq(t, f.app.call("PUT", "/api/v1/account/managed-groups/"+f.team+"/members/"+f.carolID, f.dana).status, 403)
-	eq(t, f.app.call("PUT", "/api/v1/groups/"+f.team+"/members/"+f.carolID, f.admin).status, 204)
+	eq(t, f.app.call("PUT", "/api/v1/account/managed-groups/"+f.team+"/members/"+f.carolID, f.dana).status, 204)
+	erin := f.app.session("erin@example.com", password)
+	eq(t, f.app.call("DELETE", "/api/v1/account/managed-groups/"+f.team+"/members/"+f.carolID, erin).status, 403)
+	eq(t, f.app.call("DELETE", "/api/v1/groups/"+f.team+"/members/"+f.carolID, f.admin).status, 204)
 }
 
 func TestOwnerGroupMembersManageGroupsAndCandidates(t *testing.T) {
@@ -82,9 +84,11 @@ func TestOwnerGroupMembersManageGroupsAndCandidates(t *testing.T) {
 	f.app.grant(f.admin, f.acme, "group", "Ops", "viewer")
 
 	list := f.app.get("/api/v1/account/managed-groups", f.dana).json(t)["items"].([]any)
-	eq(t, len(list), 1)
+	eq(t, len(list), 2)
 	eq(t, at(list[0], "name"), any("Backend"))
 	eq(t, len(at(list[0], "nodes").([]any)), 2)
+	eq(t, at(list[1], "name"), any("Leads"))
+	eq(t, at(list[1], "nodes", 0, "id"), any(f.acme))
 	eq(t, len(f.app.get("/api/v1/account/managed-groups", f.bob).json(t)["items"].([]any)), 0)
 
 	detail := f.app.get("/api/v1/account/managed-groups/"+f.team, f.dana)
@@ -96,7 +100,8 @@ func TestOwnerGroupMembersManageGroupsAndCandidates(t *testing.T) {
 	for _, path := range []string{"/api/v1/account/managed-groups/" + f.group, "/api/v1/account/managed-groups/" + f.group + "/candidates"} {
 		eq(t, f.app.get(path, f.dana).status, 404, path)
 	}
-	eq(t, len(f.app.get("/api/v1/account/managed-groups/"+leads+"/candidates", f.bob).json(t)["items"].([]any)) > 0, true)
+	eq(t, f.app.get("/api/v1/account/managed-groups/"+leads+"/candidates", f.bob).status, 404)
+	eq(t, len(f.app.get("/api/v1/account/managed-groups/"+leads+"/candidates", f.dana).json(t)["items"].([]any)) > 0, true)
 }
 
 func TestCatalogRightOpensTheTopLevel(t *testing.T) {

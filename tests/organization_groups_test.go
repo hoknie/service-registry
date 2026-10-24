@@ -103,7 +103,8 @@ func TestOrganizationGroupNamesAndSubjects(t *testing.T) {
 
 	owners := app.send("PUT", nodePath(w.backend)+"/owners", admin, obj{"owners": []obj{{"subject_kind": "group", "subject": "Backend"}}})
 	eq(t, owners.status, 200, owners.text())
-	eq(t, at(owners.json(t), "items", 0, "subject_id"), any(acmeBackend))
+	eq(t, at(owners.json(t), "items", 0, "inherited"), any(true))
+	eq(t, at(owners.json(t), "items", 1, "subject_id"), any(acmeBackend))
 	r = app.send("PUT", nodePath(w.backend)+"/owners", admin, obj{"owners": []obj{{"subject_kind": "group", "subject": "Sre"}}})
 	eq(t, r.status, 400, r.text())
 	cands := app.get(nodePath(w.backend)+"/owners/candidates?q=back", admin)

@@ -1744,9 +1744,7 @@
       "disabled": "Disabled",
       "group": "Group",
       "user": "User",
-      "lead": "Groups and people responsible for this node; the first one is the primary owner. Everything inside inherits them unless it has its own.",
-      "own": "Set own owners",
-      "inherit": "Inherit",
+      "lead": "Groups and people responsible for this node; the first one is the primary owner. Owners set above apply here too and cannot be removed here — you can only add your own.",
       "add": "Add owner",
       "addPlaceholder": "Start typing a group or user name, or pick from the list",
       "members": "Members: {n}",
@@ -1757,10 +1755,7 @@
       "saved": "Owners saved.",
       "readOnly": "Only editors of this node can change owners.",
       "contacts": "Contacts",
-      "noOwners": "No owners",
       "here": "Set here",
-      "clear": "No owners",
-      "clearConfirm": "Stop inheriting owners here? The node and everything inside it will have no owners until a set is defined below. The node’s own owners are removed.",
       "orgGroup": "organization group"
     },
     "dependencies": {

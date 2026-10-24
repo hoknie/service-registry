@@ -24,7 +24,8 @@ An organization or folder has **Overview**, **Details** and **Settings**.
 3. A project may get its repository and documentation source right here; see
    [project-documentation.md](project-documentation.md#sources).
 
-New organizations are created by a superadmin. Editing, moving and deleting a node live in **Settings → General**.
+New organizations are created by a superadmin or by people allowed to; whoever creates one becomes its owner, and
+owners create folders and projects inside ([owners.md](owners.md#what-owners-can-do)). Editing, moving and deleting a node live in **Settings → General**.
 Moving and deleting are in its danger zone. Projects imported from a forge are moved and renamed by the
 synchronization only ([forge-sync.md](forge-sync.md)).
 
@@ -40,6 +41,8 @@ everything below it.
 | admin | everything an editor can, plus give roles, change node secrets and manage notifications |
 
 - Give roles under **Settings → Access** of a node (admins of the node).
+- Owners of a node are its editors, see [owners.md](owners.md#what-owners-can-do). Owners add up down the tree: an
+  owner set on an organization stays an owner of everything inside it, and lower nodes can only add more.
 - Someone with a role deep in the tree also sees the folders above it, but only as a path to get there.
 - A superadmin can do everything everywhere. Who administers the registry itself is described in
   [access.md](access.md).

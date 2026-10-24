@@ -26,18 +26,17 @@ func (s *OwnerRepository) Badges(ctx context.Context, ids []uuid.UUID) (map[uuid
 			FROM nodes p
 			JOIN up ON p.id = up.parent_id
 		),
-		src AS (
-			SELECT DISTINCT ON (up.start) up.start, up.id
+		chain AS (
+			SELECT DISTINCT ON (up.start, COALESCE(o.group_id, o.user_id)) up.start, up.lvl, o.position, o.group_id, o.user_id
 			FROM up
-			WHERE (EXISTS (SELECT 1 FROM node_owners o WHERE o.node_id = up.id) OR EXISTS (SELECT 1 FROM node_owner_clears x WHERE x.node_id = up.id))
-			ORDER BY up.start, up.lvl
+			JOIN node_owners o ON o.node_id = up.id
+			ORDER BY up.start, COALESCE(o.group_id, o.user_id), up.lvl DESC
 		)
-		SELECT src.start, o.group_id IS NOT NULL, COALESCE(o.group_id, o.user_id), COALESCE(g.name, u.display_name)
-		FROM src
-		JOIN node_owners o ON o.node_id = src.id
-		LEFT JOIN groups g ON g.id = o.group_id
-		LEFT JOIN users u ON u.id = o.user_id
-		ORDER BY src.start, o.position`, ids)
+		SELECT c.start, c.group_id IS NOT NULL, COALESCE(c.group_id, c.user_id), COALESCE(g.name, u.display_name)
+		FROM chain c
+		LEFT JOIN groups g ON g.id = c.group_id
+		LEFT JOIN users u ON u.id = c.user_id
+		ORDER BY c.start, c.lvl DESC, c.position`, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -58,29 +57,23 @@ func (s *OwnerRepository) OwnedProjects(ctx context.Context, caller uuid.UUID, f
 		user = &f.ID
 	}
 	return postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowTo[uuid.UUID], `
-		WITH RECURSIVE down AS (
-			SELECT n.id, n.kind,
-				CASE WHEN (EXISTS (SELECT 1 FROM node_owners o WHERE o.node_id = n.id) OR EXISTS (SELECT 1 FROM node_owner_clears x WHERE x.node_id = n.id)) THEN n.id END AS src
-			FROM nodes n
-			WHERE n.parent_id IS NULL
-			UNION ALL
-			SELECT c.id, c.kind,
-				CASE WHEN (EXISTS (SELECT 1 FROM node_owners o WHERE o.node_id = c.id) OR EXISTS (SELECT 1 FROM node_owner_clears x WHERE x.node_id = c.id)) THEN c.id ELSE d.src END
+		WITH RECURSIVE owned AS (
+			SELECT o.node_id AS id
+			FROM node_owners o
+			WHERE o.group_id = $1
+				OR o.user_id = $2
+				OR o.user_id = $3
+				OR o.group_id IN (SELECT m.group_id FROM group_members m WHERE m.user_id = $3)
+			UNION
+			SELECT c.id
 			FROM nodes c
-			JOIN down d ON c.parent_id = d.id
+			JOIN owned w ON c.parent_id = w.id
 		)
-		SELECT d.id
-		FROM down d
-		WHERE d.kind = 'project'
-			AND EXISTS (
-				SELECT 1
-				FROM node_owners o
-				WHERE o.node_id = d.src
-					AND (o.group_id = $1
-						OR o.user_id = $2
-						OR o.user_id = $3
-						OR o.group_id IN (SELECT m.group_id FROM group_members m WHERE m.user_id = $3))
-			)`, group, user, me)
+		SELECT n.id
+		FROM owned w
+		JOIN nodes n ON n.id = w.id
+		WHERE n.kind = 'project'
+		ORDER BY n.id`, group, user, me)
 }
 
 func (s *OwnerRepository) Suggest(ctx context.Context, v catalogtypes.Viewer, all bool, prefix string) ([]ownershiptypes.Suggestion, error) {
@@ -99,27 +92,24 @@ func (s *OwnerRepository) Suggest(ctx context.Context, v catalogtypes.Viewer, al
 			FROM nodes c
 			JOIN readable r ON c.parent_id = r.id
 		),
-		down AS (
-			SELECT n.id, n.kind,
-				CASE WHEN (EXISTS (SELECT 1 FROM node_owners o WHERE o.node_id = n.id) OR EXISTS (SELECT 1 FROM node_owner_clears x WHERE x.node_id = n.id)) THEN n.id END AS src
+		up AS (
+			SELECT n.id AS project, n.id, n.parent_id
 			FROM nodes n
-			WHERE n.parent_id IS NULL
+			JOIN readable r ON r.id = n.id
+			WHERE n.kind = 'project'
 			UNION ALL
-			SELECT c.id, c.kind,
-				CASE WHEN (EXISTS (SELECT 1 FROM node_owners o WHERE o.node_id = c.id) OR EXISTS (SELECT 1 FROM node_owner_clears x WHERE x.node_id = c.id)) THEN c.id ELSE d.src END
-			FROM nodes c
-			JOIN down d ON c.parent_id = d.id
+			SELECT up.project, p.id, p.parent_id
+			FROM nodes p
+			JOIN up ON p.id = up.parent_id
 		)
-		SELECT o.group_id IS NOT NULL, COALESCE(o.group_id, o.user_id), COALESCE(g.name, u.display_name) AS name, count(*)
-		FROM down d
-		JOIN readable r ON r.id = d.id
-		JOIN node_owners o ON o.node_id = d.src
+		SELECT o.group_id IS NOT NULL, COALESCE(o.group_id, o.user_id), COALESCE(g.name, u.display_name) AS name, count(DISTINCT up.project)
+		FROM up
+		JOIN node_owners o ON o.node_id = up.id
 		LEFT JOIN groups g ON g.id = o.group_id
 		LEFT JOIN users u ON u.id = o.user_id
-		WHERE d.kind = 'project'
-			AND (COALESCE(g.name, u.display_name) ILIKE $3 ESCAPE '\' OR u.email ILIKE $3 ESCAPE '\')
+		WHERE COALESCE(g.name, u.display_name) ILIKE $3 ESCAPE '\' OR u.email ILIKE $3 ESCAPE '\'
 		GROUP BY 1, 2, 3
-		ORDER BY count(*) DESC, lower(COALESCE(g.name, u.display_name)), 2
+		ORDER BY count(DISTINCT up.project) DESC, lower(COALESCE(g.name, u.display_name)), 2
 		LIMIT 20`, v.UserID, all, prefix, v.Nodes, v.Admin)
 }
 
@@ -144,32 +134,38 @@ func (s *OwnerRepository) Candidates(ctx context.Context, nodeID uuid.UUID, pref
 		LIMIT 20`, prefix, nodeID)
 }
 
+func (s *OwnerRepository) GroupOwned(ctx context.Context, groupIDs []uuid.UUID) ([][2]uuid.UUID, error) {
+	return postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) ([2]uuid.UUID, error) {
+		var pair [2]uuid.UUID
+		err := r.Scan(&pair[0], &pair[1])
+		return pair, err
+	}, `
+		SELECT group_id, node_id
+		FROM node_owners
+		WHERE group_id IS NOT NULL
+			AND ($1::uuid[] IS NULL OR group_id = ANY($1))
+		ORDER BY group_id, node_id`, groupIDs)
+}
+
 func (s *OwnerRepository) OwnedAmong(ctx context.Context, userID uuid.UUID, nodeIDs []uuid.UUID) ([]uuid.UUID, error) {
 	return postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowTo[uuid.UUID], `
 		WITH RECURSIVE up AS (
-			SELECT n.id AS target, n.id, n.parent_id, 0 AS lvl
+			SELECT n.id AS target, n.id, n.parent_id
 			FROM nodes n
 			WHERE n.id = ANY($2)
 			UNION ALL
-			SELECT up.target, p.id, p.parent_id, up.lvl + 1
+			SELECT up.target, p.id, p.parent_id
 			FROM nodes p
 			JOIN up ON p.id = up.parent_id
-		),
-		src AS (
-			SELECT DISTINCT ON (up.target) up.target, up.id
-			FROM up
-			WHERE EXISTS (SELECT 1 FROM node_owners o WHERE o.node_id = up.id)
-				OR EXISTS (SELECT 1 FROM node_owner_clears x WHERE x.node_id = up.id)
-			ORDER BY up.target, up.lvl
 		)
-		SELECT src.target
-		FROM src
+		SELECT DISTINCT up.target
+		FROM up
 		WHERE EXISTS (
 			SELECT 1
 			FROM node_owners o
-			WHERE o.node_id = src.id
+			WHERE o.node_id = up.id
 				AND (o.user_id = $1
 					OR o.group_id IN (SELECT m.group_id FROM group_members m WHERE m.user_id = $1))
 		)
-		ORDER BY src.target`, userID, nodeIDs)
+		ORDER BY up.target`, userID, nodeIDs)
 }

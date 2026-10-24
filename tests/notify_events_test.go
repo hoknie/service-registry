@@ -89,9 +89,10 @@ func TestDeploymentNotificationsReachSubscriptionsAbove(t *testing.T) {
 	eq(t, at(p, "data", "commit_sha"), any("abcdef1"))
 	eq(t, at(p, "data", "source"), any("event"))
 	eq(t, at(p, "data", "current"), any(true))
-	eq(t, at(p, "owners", 0, "name"), any("Platform"))
-	eq(t, at(p, "owners", 0, "on_call_url"), any("https://oncall.example/platform"))
-	eq(t, has(at(p, "owners", 0).(obj), "node_id"), false)
+	eq(t, at(p, "owners", 0, "name"), any("root"))
+	eq(t, at(p, "owners", 1, "name"), any("Platform"))
+	eq(t, at(p, "owners", 1, "on_call_url"), any("https://oncall.example/platform"))
+	eq(t, has(at(p, "owners", 1).(obj), "node_id"), false)
 }
 
 func TestRolledBackFactLeavesNoNotification(t *testing.T) {

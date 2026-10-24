@@ -37,14 +37,15 @@ rights on **Groups**, manage them under **Administration → Access → Groups**
 
 ### Groups with roles in the catalog
 
-Once a group has a role on any node, its members decide who gets into those nodes. So the members of such a group are
-changed only by:
+Once a group has a role on any node or owns one (owners are editors, [owners.md](owners.md#what-owners-can-do)), its
+members decide who gets into those nodes. So the members of such a group are changed only by:
 - a superadmin;
-- the owners of **every** node where the group has a role ([owners.md](owners.md)) — owners in person or through an
-  owner group they belong to.
+- the owners of **every** node where the group has a role or is an owner — owners in person or through an owner group
+  they belong to. Owners add up down the tree, so the owner of an organization is an owner of every node in it. The
+  members of an owner group are owners of its nodes themselves, so they can bring in colleagues.
 
 The right to update groups is not enough for such a group, and owners need no administration rights at all. Owners
-manage these groups under **Account → Groups → Groups I manage**: each group shows the nodes it has roles on, its
+manage these groups under **Account → Groups → Groups I manage**: each group shows the nodes it has roles on or owns, its
 members with **Remove**, and a field to add people. On the group's page in the administration a note explains why the
 members are locked.
 
@@ -87,8 +88,9 @@ Everyone who is signed in can already read the lists of environments and link ki
 **Catalog top level** is about organizations at the top of the catalog: **read** shows every one of them in the catalog
 by name only — without its content, children or settings, which still need a role; **create** adds them, **update** moves an
 organization to or from the top and opens or closes an organization ([catalog.md](catalog.md#open-and-closed-organizations)),
-**delete** removes a top-level organization. Whoever creates an organization without
-being a superadmin becomes its admin, so they can see and set it up. The role can be removed under the organization's
+**delete** removes a top-level organization. Whoever creates an organization becomes its
+owner ([owners.md](owners.md#what-owners-can-do)); without being a superadmin they also become its admin, so they can
+see and set it up. The role can be removed under the organization's
 **Settings → Access**.
 
 How the rights work:

@@ -159,5 +159,6 @@ type NodesService struct {
 	projectKeysService *ProjectKeysService
 	db                 *pgtx.DB
 	tokenRoots         catalogports.TokenRootsPort
+	creatorOwners      catalogports.CreatorOwnersPort
 	bindingRepository  *repositories.BindingRepository
 }

@@ -52,8 +52,9 @@ func (c *CatalogServices) UseSecretUsers(users ...catalogports.SecretUserPort) {
 	c.Secrets.secretUsers = users
 }
 
-func (c *CatalogServices) UseOwners(owners catalogports.OwnersFilterPort) {
+func (c *CatalogServices) UseOwners(owners catalogports.OwnersFilterPort, creators catalogports.CreatorOwnersPort) {
 	c.Table.owners = owners
+	c.Nodes.creatorOwners = creators
 }
 
 func (c *CatalogServices) UseTokenRoots(roots catalogports.TokenRootsPort) {
@@ -62,7 +63,7 @@ func (c *CatalogServices) UseTokenRoots(roots catalogports.TokenRootsPort) {
 
 func (c *CatalogServices) Wired() bool {
 	return c.Nodes.managed != nil && len(c.Activity.sources) > 0 && len(c.Secrets.secretUsers) > 0 && c.Table.owners != nil &&
-		c.Nodes.tokenRoots != nil
+		c.Nodes.creatorOwners != nil && c.Nodes.tokenRoots != nil
 }
 
 type CatalogServices struct {

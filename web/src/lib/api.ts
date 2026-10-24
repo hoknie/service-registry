@@ -78,7 +78,7 @@ export type Owner = {
   node_id: string;
   inherited: boolean;
 };
-export type OwnerSet = { items: Owner[]; from: string | null; own: boolean; none: boolean };
+export type OwnerSet = { items: Owner[]; own: boolean };
 export type OwnerBadge = { subject_kind: SubjectKind; subject_id: string; name: string };
 export type OwnerCandidate = OwnerBadge & { email: string | null; members: number | null; organization: GroupOrganization | null };
 export type OwnerSuggestion = OwnerBadge & { count: number };

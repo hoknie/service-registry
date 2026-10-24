@@ -28,7 +28,7 @@ func (s *OwnersService) SetNodeOwners(ctx context.Context, p accesstypes.Princip
 	if err != nil {
 		return ownershiptypes.OwnerSet{}, apperr.Wrap(err)
 	}
-	if err := s.ownerRepository.Replace(ctx, id, owners, none); err != nil {
+	if err := s.ownerRepository.Replace(ctx, id, owners); err != nil {
 		return ownershiptypes.OwnerSet{}, apperr.Wrap(err)
 	}
 	return s.effective(ctx, id)
@@ -61,11 +61,11 @@ func (s *OwnersService) OwnerBadges(ctx context.Context, ids []uuid.UUID) (map[u
 }
 
 func (s *OwnersService) effective(ctx context.Context, id uuid.UUID) (ownershiptypes.OwnerSet, error) {
-	src, items, err := s.ownerRepository.Effective(ctx, id)
+	items, err := s.ownerRepository.Effective(ctx, id)
 	if err != nil {
 		return ownershiptypes.OwnerSet{}, apperr.Wrap(err)
 	}
-	return ownershiptypes.SetOf(id, src, items), nil
+	return ownershiptypes.SetOf(items), nil
 }
 
 type OwnersService struct {

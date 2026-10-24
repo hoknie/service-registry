@@ -9,10 +9,6 @@ export function putOwners(nodeId: string, draft: DraftOwner[]): Promise<OwnerSet
   return apiSend<OwnerSet>("PUT", `/v1/catalog/nodes/${nodeId}/owners`, ownersBody(draft));
 }
 
-export function clearOwners(nodeId: string): Promise<OwnerSet> {
-  return apiSend<OwnerSet>("PUT", `/v1/catalog/nodes/${nodeId}/owners`, { owners: [], none: true });
-}
-
 export async function ownerCandidates(nodeId: string, q: string, signal?: AbortSignal): Promise<OwnerCandidate[]> {
   const path = `/v1/catalog/nodes/${nodeId}/owners/candidates?q=${encodeURIComponent(q.trim())}` as `/${string}`;
   return (await apiGet<Items<OwnerCandidate>>(path, signal)).items;

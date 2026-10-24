@@ -11,7 +11,7 @@
 | Page | What it covers |
 |---|---|
 | [catalog.md](catalog.md) | organizations, folders and projects; roles; branches; what background jobs are doing |
-| [owners.md](owners.md) | who owns a node, inheritance, "no owners", group contacts and on-call |
+| [owners.md](owners.md) | who owns a node, owners adding up down the tree, group contacts and on-call |
 | [dependencies.md](dependencies.md) | which services depend on which: from CI, clusters, the repository or by hand |
 | [observability-links.md](observability-links.md) | links to logs, dashboards and runbooks from templates, and their checks |
 | [project-documentation.md](project-documentation.md) | collecting documentation and API descriptions, refresh modes, limits, scan history |

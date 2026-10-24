@@ -25,6 +25,7 @@ func startOwners(t *testing.T) *ownersTree {
 	o.platform = idOf(createGroup(t, a, admin, "Platform"))
 	o.sre = idOf(createGroup(t, a, admin, "SRE"))
 	o.frontend = idOf(createGroup(t, a, admin, "Frontend"))
+	eq(t, o.setOwners(admin, acme).status, 200)
 	return o
 }
 
@@ -66,7 +67,8 @@ func TestOwnersAreAssignedAndValidated(t *testing.T) {
 	eq(t, at(r.json(t), "items", 0, "email"), nil)
 	eq(t, jsonText(at(r.json(t), "items", 0, "contacts")), `[]`)
 	eq(t, r.json(t)["own"], any(true))
-	eq(t, r.json(t)["from"], any(o.backend))
+	eq(t, has(r.json(t), "from"), false)
+	eq(t, has(r.json(t), "none"), false)
 
 	r = o.setOwners(ed, o.backend, group("Platform"), group("platform"))
 	eq(t, code(t, r), any("validation.invalid_owners"))
@@ -87,34 +89,37 @@ func TestOwnersAreAssignedAndValidated(t *testing.T) {
 	eq(t, code(t, o.send("PUT", ownersPath(o.backend), ed, obj{})), any("validation.invalid_body"))
 }
 
-func TestOwnersAreInheritedAsAWholeSet(t *testing.T) {
+func TestOwnersAccumulateDownTheChain(t *testing.T) {
 	t.Parallel()
 	o := startOwners(t)
 	o.user("bob@example.com", false)
 	r := o.get(ownersPath(o.api), o.admin)
-	eq(t, r.text(), `{"items":[],"from":null,"own":false,"none":false}`)
+	eq(t, r.text(), `{"items":[],"own":false}`)
 
 	eq(t, o.setOwners(o.admin, o.acme, group("Platform"), group("SRE")).status, 200)
 	r = o.get(ownersPath(o.api), o.admin)
 	eq(t, ownerNames(t, r), "Platform,SRE")
 	eq(t, at(r.json(t), "items", 0, "inherited"), any(true))
 	eq(t, at(r.json(t), "items", 0, "node_id"), any(o.acme))
-	eq(t, r.json(t)["from"], any(o.acme))
 	eq(t, r.json(t)["own"], any(false))
 
 	eq(t, o.setOwners(o.admin, o.backend, person("BOB@example.com")).status, 200)
 	r = o.get(ownersPath(o.api), o.admin)
-	eq(t, ownerNames(t, r), "bob")
-	eq(t, at(r.json(t), "items", 0, "subject_kind"), any("user"))
-	eq(t, at(r.json(t), "items", 0, "email"), any("bob@example.com"))
-	eq(t, at(r.json(t), "items", 0, "status"), any("active"))
-	eq(t, at(r.json(t), "items", 0, "on_call_url"), nil)
-	eq(t, jsonText(at(r.json(t), "items", 0, "contacts")), `[]`)
+	eq(t, ownerNames(t, r), "Platform,SRE,bob")
+	eq(t, at(r.json(t), "items", 2, "subject_kind"), any("user"))
+	eq(t, at(r.json(t), "items", 2, "email"), any("bob@example.com"))
+	eq(t, at(r.json(t), "items", 2, "status"), any("active"))
+	eq(t, at(r.json(t), "items", 2, "on_call_url"), nil)
+	eq(t, at(r.json(t), "items", 2, "node_id"), any(o.backend))
+	eq(t, jsonText(at(r.json(t), "items", 2, "contacts")), `[]`)
 
-	eq(t, o.setOwners(o.admin, o.api, group("Frontend")).status, 200)
+	r = o.setOwners(o.admin, o.api, group("Frontend"))
+	eq(t, ownerNames(t, r), "Platform,SRE,bob,Frontend")
+	eq(t, at(r.json(t), "items", 3, "inherited"), any(false))
+	eq(t, r.json(t)["own"], any(true))
 	r = o.setOwners(o.admin, o.api)
 	eq(t, r.status, 200)
-	eq(t, ownerNames(t, r), "bob")
+	eq(t, ownerNames(t, r), "Platform,SRE,bob")
 	eq(t, r.json(t)["own"], any(false))
 }
 
@@ -129,19 +134,20 @@ func TestOwnerContactsAndVanishedSubjects(t *testing.T) {
 	eq(t, o.setOwners(o.admin, o.backend, group("Platform")).status, 200)
 
 	r = o.get(ownersPath(o.api), o.admin)
-	eq(t, jsonText(at(r.json(t), "items", 0, "contacts")), `[{"kind":"chat","label":"#platform","value":"https://chat.example/platform"}]`)
-	eq(t, at(r.json(t), "items", 0, "on_call_url"), any("https://oncall.example/platform"))
-	eq(t, has(at(r.json(t), "items", 0).(obj), "members"), false)
+	eq(t, ownerNames(t, r), "SRE,Platform")
+	eq(t, jsonText(at(r.json(t), "items", 1, "contacts")), `[{"kind":"chat","label":"#platform","value":"https://chat.example/platform"}]`)
+	eq(t, at(r.json(t), "items", 1, "on_call_url"), any("https://oncall.example/platform"))
+	eq(t, has(at(r.json(t), "items", 1).(obj), "members"), false)
 
 	eq(t, o.call("DELETE", "/api/v1/groups/"+o.platform, o.admin).status, 204)
 	r = o.get(ownersPath(o.api), o.admin)
 	eq(t, ownerNames(t, r), "SRE")
-	eq(t, r.json(t)["from"], any(o.acme))
+	eq(t, at(r.json(t), "items", 0, "node_id"), any(o.acme))
 
 	bob := o.user("bob@example.com", false)
 	eq(t, o.setOwners(o.admin, o.web, person("bob@example.com")).status, 200)
 	eq(t, o.send("PATCH", "/api/v1/users/"+bob.ID.String(), o.admin, obj{"status": "disabled"}).status, 200)
-	eq(t, at(o.get(ownersPath(o.web), o.admin).json(t), "items", 0, "status"), any("disabled"))
+	eq(t, at(o.get(ownersPath(o.web), o.admin).json(t), "items", 1, "status"), any("disabled"))
 }
 
 func TestOwnerCandidatesAndSuggestions(t *testing.T) {
@@ -248,7 +254,7 @@ func TestMCPProjectCarriesOwners(t *testing.T) {
 	eq(t, isErr, false, out)
 	contains(t, out, `"name": "Platform"`)
 	contains(t, out, `"on_call_url": "https://oncall.example/platform"`)
-	contains(t, out, `"from": "`+o.backend+`"`)
+	contains(t, out, `"node_id": "`+o.backend+`"`)
 }
 
 func TestOwnerTablesRefuseBadRows(t *testing.T) {
@@ -264,6 +270,6 @@ func TestOwnerTablesRefuseBadRows(t *testing.T) {
 	eq(t, o.setOwners(o.admin, o.api, group("Platform")).status, 200)
 	eq(t, o.send("PUT", "/api/v1/groups/"+o.platform+"/contacts", o.admin, obj{"contacts": []obj{{"kind": "url", "value": "https://a.example"}}}).status, 200)
 	execSQL(t, o.db, "DELETE FROM groups WHERE id = $1", o.platform)
-	eq(t, o.count("node_owners"), int64(0))
+	eq(t, scalar[int64](t, o.db, "SELECT count(*) FROM node_owners WHERE group_id IS NOT NULL"), int64(0))
 	eq(t, o.count("group_contacts"), int64(0))
 }

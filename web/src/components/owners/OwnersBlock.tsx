@@ -27,7 +27,7 @@ export function OwnersBlock({ node, locale, labels }: Props) {
     const abort = new AbortController();
     getOwners(node.id, abort.signal)
       .then(setSet)
-      .catch(() => !abort.signal.aborted && setSet({ items: [], from: null, own: false, none: false }));
+      .catch(() => !abort.signal.aborted && setSet({ items: [], own: false }));
     return () => abort.abort();
   }, [node.id, version]);
 
@@ -39,30 +39,28 @@ export function OwnersBlock({ node, locale, labels }: Props) {
     );
   }
   if (set.items.length === 0) return null;
-  const from = set.from && !set.own ? [...(node.path ?? [])].find((p) => p.id === set.from) : undefined;
 
   return (
-    <Panel
-      title={t.title}
-      icon={UsersRound}
-      actions={
-        from && (
-          <Link href={catalogHref(locale, from.id)} className="text-sm text-signal hover:underline">
-            {format(t.inheritedFrom, { name: from.name })}
-          </Link>
-        )
-      }
-    >
+    <Panel title={t.title} icon={UsersRound}>
       <ul className="grid gap-3 sm:grid-cols-2">
         {set.items.map((o, i) => (
-          <OwnerCard key={`${o.subject_kind}:${o.subject_id}`} owner={o} primary={i === 0} labels={labels} />
+          <OwnerCard
+            key={`${o.subject_kind}:${o.subject_id}`}
+            owner={o}
+            primary={i === 0}
+            source={o.inherited ? (node.path ?? []).find((p) => p.id === o.node_id) : undefined}
+            locale={locale}
+            labels={labels}
+          />
         ))}
       </ul>
     </Panel>
   );
 }
 
-function OwnerCard({ owner, primary, labels }: { owner: Owner; primary: boolean; labels: CatalogLabels }) {
+type CardProps = { owner: Owner; primary: boolean; source?: { id: string; name: string }; locale: Locale; labels: CatalogLabels };
+
+function OwnerCard({ owner, primary, source, locale, labels }: CardProps) {
   const t = labels.owners;
   const Icon = owner.subject_kind === "group" ? UsersRound : User;
   return (
@@ -79,6 +77,11 @@ function OwnerCard({ owner, primary, labels }: { owner: Owner; primary: boolean;
         </a>
       )}
       <GroupContactsView contacts={owner.contacts} onCallUrl={owner.on_call_url} labels={t} />
+      {source && (
+        <Link href={catalogHref(locale, source.id)} className="truncate text-xs text-muted hover:text-signal hover:underline">
+          {format(t.inheritedFrom, { name: source.name })}
+        </Link>
+      )}
     </li>
   );
 }

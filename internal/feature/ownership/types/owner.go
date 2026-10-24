@@ -32,14 +32,7 @@ type Owner struct {
 
 type OwnerSet struct {
 	Items []Owner
-	From  *uuid.UUID
 	Own   bool
-	None  bool
-}
-
-type Source struct {
-	NodeID uuid.UUID
-	None   bool
 }
 
 type PutOwner struct {
@@ -76,7 +69,7 @@ type Suggestion struct {
 }
 
 func ValidateOwners(in []PutOwner, none bool) ([]NewOwner, error) {
-	if len(in) > MaxOwners || none && len(in) > 0 {
+	if len(in) > MaxOwners || none {
 		return nil, InvalidOwners
 	}
 	seen := map[string]bool{}
@@ -117,16 +110,13 @@ func hasControl(s string) bool {
 	return strings.IndexFunc(s, unicode.IsControl) >= 0
 }
 
-func SetOf(nodeID uuid.UUID, src *Source, items []Owner) OwnerSet {
+func SetOf(items []Owner) OwnerSet {
 	out := OwnerSet{Items: items}
 	if out.Items == nil {
 		out.Items = []Owner{}
 	}
-	if src != nil {
-		from := src.NodeID
-		out.From = &from
-		out.Own = from == nodeID
-		out.None = src.None
+	for _, o := range out.Items {
+		out.Own = out.Own || !o.Inherited
 	}
 	return out
 }

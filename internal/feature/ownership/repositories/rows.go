@@ -25,12 +25,6 @@ func scanOwner(row pgx.CollectableRow) (ownershiptypes.Owner, error) {
 	return o, err
 }
 
-func scanSource(row pgx.CollectableRow) (ownershiptypes.Source, error) {
-	var s ownershiptypes.Source
-	err := row.Scan(&s.NodeID, &s.None)
-	return s, err
-}
-
 type badgeRow struct {
 	nodeID uuid.UUID
 	badge  ownershiptypes.Badge
