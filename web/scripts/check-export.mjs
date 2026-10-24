@@ -45,7 +45,7 @@ function files(dir) {
 }
 
 for (const file of files(out).filter((f) => f.endsWith(".html"))) {
-  const markup = readFileSync(file, "utf8").replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "<script></script>");
+  const markup = readFileSync(file, "utf8").replace(/<script\b[^>]*>[\s\S]*?<\/script[^>]*>/gi, "<script></script>");
   if (INLINE_HANDLER.test(markup)) problems.push(`${relative(out, file)}: inline event handler (not allowed by CSP)`);
   if (JAVASCRIPT_URL.test(markup)) problems.push(`${relative(out, file)}: javascript: URL (not allowed by CSP)`);
 }

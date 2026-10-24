@@ -1,0 +1,3 @@
+name: svc-registry
+paths-ignore:
+  - pkg/testing/**
