@@ -1,52 +1,64 @@
 # Importing repositories from a forge
 
-An organization or folder can be connected to a **GitHub, GitLab, Forgejo or Gitea owner**
-(organization, user or GitLab group) on its **Forge** tab. Every repository of the owner becomes a
-project under that node (GitLab subgroups as folders, optional), and a synchronization keeps the
-description, topics, README, languages, default branch, archived flag, visibility, stars and
-licence current. Synchronized nodes are *managed*: they are moved, renamed and created by the sync
-only, and their description and repository fields change on the forge. A repository that vanishes
-marks its project *orphaned*; nothing is deleted.
+Connect an organization or folder to an owner on **GitHub, GitLab, Forgejo or Gitea** — an organization, a user or a
+GitLab group — and every repository of that owner becomes a project in the catalog, kept up to date.
 
-- **Credentials** — a **secret** picked by name (`"credentials": {"secret_id": "<id>"}`). Secrets
-  live on the Secrets settings section of an organization or folder (inherited down the tree) or in
-  Administration → Secrets (global); see [Secrets](#secrets). Read-only tokens are enough unless the
-  registry registers the webhook itself.
-- **When** — every `interval_secs` (default `FORGE_SYNC_INTERVAL_SECS`, 15 min), on **Sync now**,
-  on a webhook delivery, or `svc-registry forge:sync <connection-id>`. Several replicas never run
-  one connection twice; `BACKGROUND_JOBS_ENABLED=false` makes a replica API-only.
-- **Webhooks** — `POST /api/v1/forge/hooks/<connection-id>`; the registry registers it on the
-  forge or shows the address and secret for manual setup. Needs `PUBLIC_URL`.
-- **Network** — outgoing HTTPS trusts the image's roots plus `HTTP_CA_FILE`; `HTTPS_PROXY` /
-  `NO_PROXY` are honoured.
+## Connecting
 
-## Secrets
+1. Create a [secret](secrets.md) with a token of the forge. A read-only token is enough, unless the registry should
+   register the webhook itself.
+2. Open the organization or folder, **Settings → Forge**, and add a connection: the forge, its address, the owner and
+   the secret.
+3. Optionally limit which branches are read (`release/*`, …) and choose whether GitLab subgroups become folders.
+4. Press **Sync now**, or wait for the first scheduled run.
 
-A secret has a name, a description (visible to every reader of the node) and a value: stored
-AES-256-GCM-encrypted (set `SECRETS_KEYS`, e.g. `k1:$(openssl rand -base64 32)`; rotate with
-`svc-registry secrets:rotate`) or a reference `env:NAME` / `file:/path` so no secret lives in the
-database. The API never returns a value — only the storage kind and a fingerprint.
+What the synchronization keeps current for every project:
+- the description and topics;
+- the README and languages;
+- the default branch;
+- the archived flag and visibility;
+- stars and the licence;
+- branches ([catalog.md](catalog.md#branches)).
 
-- **Where** — `GET/POST /api/v1/catalog/nodes/<id>/secrets` (an organization or folder; changes need
-  the `catalog.access` permission), `GET/POST /api/v1/secrets` (global, superadmin). The list of a
-  node includes the secrets of its ancestors and the global ones, each with `from`.
-- **Who may pick** — a forge connection or a documentation source picks a secret of its node, an
-  ancestor or a global one; a Kubernetes cluster picks a global one only. Anything else is
-  `400 validation.secret_not_available`.
-- **Change once** — replacing the value (`PATCH …/secrets/<sid>`) affects every record using it. A
-  secret in use cannot be deleted: `409 conflict.secret_in_use`; `used_by` counts its users.
-- **BREAKING** — inline `token` / `token_ref` in `credentials` are refused with
-  `400 validation.credentials_inline_removed`; create a secret first. Inline tokens saved by older
-  versions are moved into secrets by `secrets:adopt-legacy` before the upgrade migrates
-  ([install.md](install.md#upgrading-from-a-version-with-inline-tokens)).
+Imported projects are **managed**. The synchronization creates, moves and renames them; their description and
+repository fields are changed on the forge, not in the registry. A repository that disappears marks its project
+*orphaned*. Nothing is deleted.
 
-## Branches
+## When it runs
 
-Every project keeps a list of its **branches**: from the forge sync (changed repositories only,
-`branch_include` patterns per connection, at most `BRANCH_SYNC_MAX_PER_REPO` = 500 per repository),
-from `service.deployed` events (`branch`, `commit_sha`) and the project's `default_branch`. Pick a
-branch on the project page (`&branch=` in the address, the Deployments tab follows it) or manage
-them on the **Branches** tab: pin a branch to keep it forever, delete a stale record. Branches gone
-from the forge are deleted after `BRANCH_RETENTION_DAYS` (30); branches seen only in CI after
-`BRANCH_RETENTION_DAYS + BRANCH_STALE_DAYS` (120) without activity; a branch is *stale* after
-`BRANCH_STALE_DAYS` (90). Deployment history is never deleted with a branch.
+- on a schedule — every `FORGE_SYNC_INTERVAL_SECS` (15 minutes) by default, or the connection's own interval;
+- on **Sync now**;
+- on a webhook delivery from the forge (below);
+- from the command line: `svc-registry forge:sync <connection-id>`.
+
+Several servers on one database never run the same connection twice.
+
+## Webhooks
+
+With a webhook, a push reaches the registry at once instead of waiting for the next scheduled run. The address is
+
+```
+<PUBLIC_URL>/api/v1/forge/hooks/<connection-id>
+```
+
+The registry registers it on the forge if the token may do so. Otherwise the connection shows the address and the
+secret to enter on the forge by hand. `PUBLIC_URL` must be set.
+
+## Taking a project out of the synchronization
+
+**Settings → General → Unlink from forge** turns a managed project into an ordinary one:
+- the repository is added to the connection's exclusions;
+- the project keeps its documentation source as a repository by address with the connection's secret.
+
+To bring it back, remove the exclusion in the connection dialog; the next run links it again.
+
+## Settings
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `FORGE_SYNC_INTERVAL_SECS` | 900 | default interval of a connection |
+| `BACKGROUND_JOBS_ENABLED` | `true` | `false` makes a server answer requests only, without running synchronizations |
+| `HTTP_CA_FILE` | — | extra CA certificates for outgoing HTTPS, next to the system ones |
+| `HTTPS_PROXY`, `NO_PROXY` | — | outgoing proxy; honoured by forge requests |
+
+More `FORGE_SYNC_*` tuning: [`.env.example`](../.env.example).

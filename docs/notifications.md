@@ -1,50 +1,50 @@
 # Notifications
 
-svc-registry sends notifications about what happens in the catalog to a **webhook** or a **Slack** incoming
-webhook. Subscriptions live on organizations, folders and projects and apply to everything below.
+The registry can tell you when something happens: a new deployment, drift in a cluster, a broken link, a failed forge
+synchronization — and when it recovers. Messages go to a **webhook** of yours or to a **Slack** channel.
 
-## Subscriptions
+## Subscribing
 
-Open a node, **Settings → Notifications** (administrators of the node, `catalog.access`).
+Subscriptions live on organizations, folders and projects and cover everything below.
+
+1. Put the receiver's address into a [secret](secrets.md). For Slack it is an incoming webhook address
+   `https://hooks.slack.com/…`.
+2. Open the node, **Settings → Notifications** (admins of the node), and add a subscription:
 
 | Field | Meaning |
 |---|---|
-| Key | `a-z`, `0-9` and `-`, unique on the node. The same key below overrides or disables the subscription. |
-| Channel | `webhook` or `slack`. |
-| Address secret | A named secret holding the receiver's address. Slack accepts only `https://hooks.slack.com/…`. |
-| Events | `deployment.created`, `deployment.drift`, `deployment.drift_resolved`, `link.check_failed`, `link.check_recovered`, `forge.sync_failed`, `forge.sync_recovered`. A recovery type is chosen separately from its failure type, but only together with it: `deployment.drift_resolved` needs `deployment.drift`, `link.check_recovered` needs `link.check_failed`, `forge.sync_recovered` needs `forge.sync_failed` — otherwise `400 validation.recovery_without_failure`. Subscriptions saved before this rule keep their types until they are edited. |
-| Environments | Empty — all. Link and forge events have no environment and always pass. |
-| Language | `en`, `es`, `ru` or `zh` — the language of Slack messages and of the node link in the payload. |
-| Disabled | Receives nothing and switches off the inherited subscription with the same key. |
+| Key | a short name (`a-z`, `0-9`, `-`), unique on the node. A subscription with the same key lower in the tree overrides or disables this one there |
+| Channel | webhook or Slack |
+| Address secret | the secret with the receiver's address |
+| Events | which events to send (below). A recovery can be chosen only together with its failure |
+| Environments | empty means all. Link and forge events have no environment and always pass |
+| Language | `en`, `es`, `ru` or `zh` — the language of Slack messages and of the link back to the registry |
+| Disabled | sends nothing and switches off an inherited subscription with the same key |
 
-The same through the API: `GET/PUT/DELETE /api/v1/catalog/nodes/{id}/notification-subscriptions[/{key}]`,
-`POST …/{key}/test` (one test at most every 10 seconds), `POST …/{key}/signing-secret`,
-`GET /api/v1/catalog/nodes/{id}/notification-deliveries?subscription=&status=` (the delivery log).
+3. Press **Test** to send a test message at once (at most once every 10 seconds).
+4. The delivery log of the node shows what was sent, when, and what the receiver answered.
 
 ## Events
 
-| Type | When |
+| Event | Sent when |
 |---|---|
-| `deployment.created` | A deployment is added to a project's history: an accepted `service.deployed` or a deployment seen only in a cluster (`"source": "cluster"`). A replayed event does not notify. |
-| `deployment.drift` | A cluster runs a version other than the current deployment for longer than `NOTIFY_DRIFT_AFTER_SECS` (15 minutes by default). One notification per episode; a new current deployment or a new observed version starts a new one. |
-| `link.check_failed` | A link address that worked (`ok`, `redirect`, `auth_required`) stops working. The first check of an address and `blocked` never notify. |
-| `forge.sync_failed` | A forge sync run fails after a run that did not. `rate_limited` is not a failure. |
-| `deployment.drift_resolved` | No cluster runs another version than the current deployment of a pair whose drift was notified. |
-| `link.check_recovered` | A notified broken link answers with a working status again. |
-| `forge.sync_recovered` | A run succeeds after a notified `forge.sync_failed`. `rate_limited` does not close it. |
+| `deployment.created` | a release is added: reported by CI, or seen only in a cluster. Sending the same CI event again does not notify |
+| `deployment.drift` | a cluster runs another version than the current release for longer than `NOTIFY_DRIFT_AFTER_SECS` (15 minutes) |
+| `deployment.drift_resolved` | the drift you were told about is gone |
+| `link.check_failed` | a link that worked stops working. The first check of an address and forbidden addresses never notify |
+| `link.check_recovered` | a broken link you were told about works again |
+| `forge.sync_failed` | a forge synchronization fails after one that did not. Hitting the forge's rate limit is not a failure |
+| `forge.sync_recovered` | a synchronization succeeds after a failure you were told about |
 
-### Episodes and recoveries
+**No repeats.** A failure opens an *episode*: the drift of one service and environment, one broken link, one forge
+connection. While the episode is open, the same failure is not sent again. Its recovery closes it, and the next
+failure is sent again.
 
-A failure notification opens an **episode** of its subject: the service and environment of a project (drift), the
-address and link of a project (link) or the forge connection. While the episode is open the same failure does
-not notify again; its recovery closes it, and the next failure notifies again even when it looks the same as
-last time. A recovery is sent only by subscriptions that received the last failure of the episode **and** list the
-recovery type — a recovery without a notified failure is never sent. An episode older than
-`NOTIFY_RETENTION_DAYS` (its failure event is deleted) closes silently.
+**Recoveries.** A recovery goes only to subscriptions that received the failure and chose the recovery event.
 
-## Payload
+## What a webhook receives
 
-Webhooks receive `POST` with `Content-Type: application/json`:
+A `POST` with `Content-Type: application/json`:
 
 ```json
 {
@@ -61,28 +61,29 @@ Webhooks receive `POST` with `Content-Type: application/json`:
 }
 ```
 
-`node.url` is `null` without `PUBLIC_URL`. The payload is fixed when the event happens: later renames and owner
-changes do not change it. `data` by type:
+The message is fixed when the event happens: later renames or owner changes do not change it. `node.url` is empty
+without `PUBLIC_URL`. `data` by event:
 
-- `deployment.drift` — `service`, `environment`, `version`, `deployment_id`, `observed` (`[{cluster, namespace, version}]`), `since`;
-- `link.check_failed` — `link_key`, `kind_key`, `title`, `url`, `status`, `http_status`, `previous_status`, `checked_at`;
-- `forge.sync_failed` — `connection_id`, `forge`, `owner_path`, `run_id`, `trigger`, `error_code`, `error_message`;
-- `deployment.drift_resolved` — `service`, `environment`, `version`, `deployment_id` of the current deployment, `since` of the drift;
-- `link.check_recovered` — as `link.check_failed`, with the working `status` and the broken `previous_status`;
-- `forge.sync_recovered` — as `forge.sync_failed` of the successful run, `error_code` and `error_message` are `null`;
-- `test` — `subscription`.
+| Event | `data` |
+|---|---|
+| `deployment.created` | the release: service, environment, version, commit, branch, source, cluster |
+| `deployment.drift` | the service, environment and current version, what clusters run (`observed`) and since when |
+| `deployment.drift_resolved` | the current release and when the drift started |
+| `link.check_failed`, `link.check_recovered` | the link, its address, the new and the previous state |
+| `forge.sync_failed`, `forge.sync_recovered` | the connection, the forge, the owner, the run and its error |
+| `test` | the subscription |
 
-A recovery payload also carries `"recovers": "<id of the failure event>"`.
+A recovery also carries `"recovers"` — the id of the failure message it closes.
 
 ## Checking the signature
 
-Create a signing key for a webhook subscription (it is shown once, `whsec_…`). Requests then carry the
+Create a **signing key** for a webhook subscription; it is shown once (`whsec_…`). Requests then carry the
 [Standard Webhooks](https://www.standardwebhooks.com/) headers:
 
-- `webhook-id` — the delivery id, the same in every attempt: use it to drop duplicates;
+- `webhook-id` — the same in every retry of one delivery: use it to drop duplicates;
 - `webhook-timestamp` — Unix seconds of the attempt: refuse old ones;
-- `webhook-signature` — `v1,` + base64 of HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the key
-  (the base64 part after `whsec_`, decoded).
+- `webhook-signature` — `v1,` and a base64 HMAC-SHA256 of `<webhook-id>.<webhook-timestamp>.<body>` with the key
+  (the part after `whsec_`, base64-decoded).
 
 ```python
 import base64, hashlib, hmac
@@ -94,25 +95,36 @@ def valid(secret: str, headers: dict, body: bytes) -> bool:
     return any(hmac.compare_digest(expected, s) for s in headers["webhook-signature"].split(" "))
 ```
 
-Libraries of Standard Webhooks for many languages check the same headers.
+Standard Webhooks libraries for many languages check the same headers.
 
 ## Delivery
 
-- Deliveries are written together with the fact, so a notification is never lost on a crash and never appears
-  for a rolled-back fact. They are sent by a background job of `serve` (`BACKGROUND_JOBS_ENABLED=true`).
-- The guarantee is **at least once**: a process may stop after the receiver answered `2xx` and before the result is
-  written, then the delivery is sent again with the same `webhook-id`.
-- `2xx` — delivered. A network error, a timeout, `408`, `429` or `5xx` is retried after 30 s, 2 min, 10 min, 30 min,
-  1 h, 3 h, 6 h and 12 h (`NOTIFY_MAX_ATTEMPTS`); `Retry-After` of `429`/`503` extends a pause up to 1 h. Any other
-  answer fails at once. Redirects are not followed (`notify.redirect`).
-- The receiver's address is resolved before each connection and refused when it is loopback, link-local (cloud
-  metadata), multicast or unspecified, a private network with `NOTIFY_ALLOW_PRIVATE=false` (unless listed in
-  `NOTIFY_ALLOW_HOSTS`), or listed in `NOTIFY_DENY_HOSTS` — `notify.blocked`. By default deliveries do not use
-  `HTTPS_PROXY`/`HTTP_PROXY`: with a proxy the policy could not see the receiver's address.
-- **Through a proxy** (`NOTIFY_USE_PROXY=true`, for networks that reach the outside only through one): deliveries
-  and test sends go through `HTTPS_PROXY`/`HTTP_PROXY`. The proxy resolves the receiver's name, so **the
-  receiver's IP is not checked**: a name that resolves to an internal address is not caught — block internal
-  networks on the proxy itself. What stays: `NOTIFY_DENY_HOSTS`, `localhost`/`*.localhost`, numeric hosts and
-  addresses written as an IP in the URL are refused before the request (`notify.blocked`); hosts in `NO_PROXY`
-  connect directly with the full check; redirects are not followed. `serve` logs a warning at start.
-- Events and deliveries older than `NOTIFY_RETENTION_DAYS` (30 by default) are deleted hourly.
+- **Nothing is lost.** A message is written together with the event, so a crash does not lose it and a rolled-back
+  change sends nothing.
+- **At least once.** Your receiver may see the same message twice, with the same `webhook-id`.
+- **Success** is any `2xx` answer.
+- **Retries.** A network error, a timeout, `408`, `429` or `5xx` is retried after 30 s, 2 min, 10 min, 30 min, 1 h,
+  3 h, 6 h and 12 h. `Retry-After` is honoured up to an hour. Any other answer fails at once.
+- **Redirects** are not followed.
+- **Address checks.** Deliveries never go to loopback, link-local (cloud metadata), multicast or unspecified
+  addresses, nor to hosts in `NOTIFY_DENY_HOSTS`. Private networks are allowed unless `NOTIFY_ALLOW_PRIVATE=false`
+  (then only `NOTIFY_ALLOW_HOSTS`).
+
+**Through a proxy.** By default deliveries ignore `HTTPS_PROXY`, because a proxy hides the receiver's address from
+these checks. With `NOTIFY_USE_PROXY=true` they go through the proxy:
+- the receiver's IP is no longer checked, so block internal networks on the proxy itself;
+- `NOTIFY_DENY_HOSTS`, `localhost` and addresses written as an IP are still refused;
+- hosts in `NO_PROXY` connect directly with the full check;
+- the server logs a warning at start.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `NOTIFY_DRIFT_AFTER_SECS` | 900 | how long drift lasts before it is reported |
+| `NOTIFY_MAX_ATTEMPTS` | 8 | attempts per delivery |
+| `NOTIFY_TIMEOUT_SECS` | 10 | timeout of one attempt |
+| `NOTIFY_ALLOW_PRIVATE` | `true` | `false` — private-network receivers only if listed in `NOTIFY_ALLOW_HOSTS` |
+| `NOTIFY_ALLOW_HOSTS`, `NOTIFY_DENY_HOSTS` | — | receivers always allowed, receivers never contacted |
+| `NOTIFY_USE_PROXY` | `false` | send through `HTTPS_PROXY` |
+| `NOTIFY_RETENTION_DAYS` | 30 | how long messages and the delivery log are kept |
+
+Deliveries are sent by the server's background jobs (`BACKGROUND_JOBS_ENABLED=true`).

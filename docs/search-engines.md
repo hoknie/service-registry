@@ -1,8 +1,8 @@
-# Documentation search: configuring `KNOWLEDGE_SEARCH_ENGINE`
+# Documentation search
 
-Project documentation is searched through the search page (`/<locale>/search`),
-`GET /api/v1/knowledge/search` and the MCP tool `search_docs`. One engine serves all three; it is
-chosen by `KNOWLEDGE_SEARCH_ENGINE`. The user picks a mode for every query:
+Collected documentation ([project-documentation.md](project-documentation.md)) is searched on the
+**Documentation search** page and by AI agents through the MCP tool `search_docs`. Both use one search engine,
+chosen by `KNOWLEDGE_SEARCH_ENGINE`. People pick a mode for every query:
 
 - `text` — by words;
 - `semantic` — by meaning, through embeddings;
@@ -19,8 +19,10 @@ chosen by `KNOWLEDGE_SEARCH_ENGINE`. The user picks a mode for every query:
 
 How the modes work:
 
-- **`text` on `pgvector` and `qdrant`** is the same Postgres full-text search as `postgres`:
-  Russian and English word stems, word beginnings, phrases, `or`, `-exclusion`.
+- **`text` on `postgres`, `pgvector` and `qdrant`** is Postgres full-text search. It matches other forms of
+  Russian and English words ("ветки" finds "ветка", "deploy" finds "deployments"), word beginnings
+  ("Репозит" finds "репозиторий"), phrases in quotes, `or` and `-exclusion`. Without a branch it searches each
+  project's default documentation branch.
   On `meilisearch`, `text` is Meilisearch's own search, which tolerates typos.
 - **`hybrid` on `pgvector` and `qdrant`** merges the `text` and `semantic` results by rank
   (Reciprocal Rank Fusion). On `meilisearch` it is Meilisearch hybrid search with weight 0.5.
@@ -35,7 +37,7 @@ One `serve` process uses one engine. To compare engines, change the variable and
 ## 2. Embeddings (for `semantic` and `hybrid`)
 
 Any OpenAI-compatible API works: OpenAI, Ollama, vLLM, LM Studio, LocalAI. The registry sends
-documentation fragments to `POST {EMBEDDINGS_URL}/embeddings`.
+documentation fragments to `{EMBEDDINGS_URL}/embeddings`.
 
 | Variable | Required | Default | Meaning |
 |---|---|---|---|
@@ -155,8 +157,7 @@ EMBEDDINGS_DIMENSIONS=1024
   recreate the collection: the old one was created for the old size. The registry compares the
   size of an existing collection with `EMBEDDINGS_DIMENSIONS` at startup and before the first write
   or search. On a mismatch it never touches the collection: `serve` logs a warning with
-  `code=search.engine_dimensions`, indexing fails with that code and the `semantic`/`hybrid` modes
-  answer `503`.
+  `code=search.engine_dimensions`, indexing fails with that code, and search by meaning stays unavailable.
 - **`QDRANT_API_KEY`** is needed only when Qdrant has a key (`QDRANT__SERVICE__API_KEY`). A value
   or an `env:` / `file:` reference.
 - **The registry's Qdrant client does not use TLS yet.** Keep Qdrant on the internal network next
@@ -207,8 +208,7 @@ Indexing is a background job inside `serve`. It runs when all of these hold:
 - `BACKGROUND_JOBS_ENABLED=true` (the default);
 - the engine is not `postgres`, and there are embeddings or an external engine (`qdrant`,
   `meilisearch`);
-- the project already has collected documentation snapshots (the project's Documentation tab,
-  `KNOWLEDGE_INTERVAL_SECS`).
+- the project already has collected documentation.
 
 Every 5 seconds the job claims the projects that are due and does this:
 
@@ -228,10 +228,10 @@ you switch back.
 
 If the embeddings API or the engine is down, files stay queued and are retried at the next check.
 Documentation collection and the `text` mode of `pgvector` and `qdrant` keep working. Modes that
-depend on the failed component answer `503 search.unavailable`.
+depend on the failed component report that search is unavailable.
 
-Every indexing run is recorded in the scan history (**Administration → Scans**, `/<locale>/admin/scans`)
-with its counters and, on failure, one of these codes and the technical details:
+Every indexing run is recorded in the scan history (**Administration → Documentation → Scans**) with its counters
+and, on failure, one of these codes and the technical details:
 
 | Code | Meaning |
 |---|---|
@@ -258,18 +258,11 @@ dimensions, want 768 (EMBEDDINGS_DIMENSIONS)"`. Secrets are removed from the det
    ```
    Passes with nothing to do show up with `LOG_LEVEL=debug`. Failures are logged at `WARN` as
    `documentation indexing failed`.
-3. **The API:**
-   ```sh
-   curl -b cookies 'http://localhost:8080/api/v1/knowledge/search/modes'
-   # {"engine":"qdrant","modes":["text","semantic","hybrid"],"default":"hybrid","index":{"pending":0,"indexed":57}}
-   ```
-   - `pending` — files still waiting for embeddings.
-   - `index: null` — no embeddings configured.
-4. **The UI** at `http://localhost:8080/en/search?q=…`.
+3. **The UI** — the **Documentation search** page.
    - The "Text / By meaning / Mixed" switch shows when the engine has more than one mode; the mode
      goes into the address (`&mode=semantic`).
    - While indexing is in progress, "Files still being indexed: N" is shown next to it.
-5. **The engine itself:**
+4. **The engine itself:**
    - Qdrant — dashboard `http://localhost:6333/dashboard`, the collection from `QDRANT_COLLECTION`.
    - Meilisearch — `curl 'http://localhost:7700/indexes/svc_registry_docs/documents?limit=3'`.
    - pgvector:
@@ -284,10 +277,10 @@ dimensions, want 768 (EMBEDDINGS_DIMENSIONS)"`. Secrets are removed from the det
 | Qdrant/Meilisearch indexes are empty, nothing in the log | `KNOWLEDGE_SEARCH_ENGINE` is not set → `postgres` | set the engine, restart `serve` |
 | `serve` fails: `EMBEDDINGS_URL … is required by KNOWLEDGE_SEARCH_ENGINE=qdrant` | `pgvector`/`qdrant` require embeddings | set `EMBEDDINGS_URL`, `EMBEDDINGS_MODEL`, `EMBEDDINGS_DIMENSIONS` |
 | `QDRANT_URL must be host:port of the Qdrant gRPC API` | the address has a scheme | `QDRANT_URL=localhost:6334` |
-| `semantic` answers `503`, a Qdrant error in the log | HTTP port 6333 instead of gRPC 6334, or Qdrant is unreachable | `QDRANT_URL=host:6334`, check the network |
+| search by meaning is unavailable, a Qdrant error in the log | HTTP port 6333 instead of gRPC 6334, or Qdrant is unreachable | `QDRANT_URL=host:6334`, check the network |
 | `serve` fails: `needs the PostgreSQL extension "vector"` | pgvector is not in the database | install the extension (see `pgvector`) |
-| `pending` does not go down, log says `vector … has N dimensions, want M` | `EMBEDDINGS_DIMENSIONS` does not match the model | set the model's native size |
-| `semantic` → `400 validation.search_mode_unavailable` | the engine has no such mode (`postgres`, or `meilisearch` without embeddings) | configure embeddings or search in `text` |
+| "Files still being indexed" does not go down, log says `vector … has N dimensions, want M` | `EMBEDDINGS_DIMENSIONS` does not match the model | set the model's native size |
+| no "By meaning" switch on the search page | the engine has no such mode (`postgres`, or `meilisearch` without embeddings) | configure embeddings |
 | Meilisearch answers `401`/`403` | the server has `MEILI_MASTER_KEY`, and `MEILISEARCH_API_KEY` is empty or lacks rights | set a key with the rights listed under `meilisearch` |
 
 ## 7. Complete examples

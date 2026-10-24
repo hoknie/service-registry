@@ -1,150 +1,149 @@
 # Project documentation
 
-For every project synchronized from a forge, the registry collects documentation files straight
-from the repository through the forge's API — no clone, no CI step. By default the README at
-the root of the default branch and the API descriptions (see below) are collected. The **Documentation settings** tab of a project, folder or
-organization sets glob patterns (`docs/**/*.md`), exclusions
-and extra branches (`release/*`); each field is inherited from the nearest node that sets it, so a
-folder can set the patterns for all its projects and a project can override one field. The
-**Documentation** tab is for reading: a collapsible file tree, Markdown rendered for every project
-(links between collected files stay in the tab), JSON and YAML as collapsible trees with a
-**Source** switch. Search (the search page and the MCP `search_docs` tool) matches other forms of
-Russian and English words ("ветки" finds "ветка", "deploy" finds "deployments") and words
-by their beginning ("Репозит" finds "репозиторий"); without a branch it looks at each project's default
-documentation branch (`local` for a local directory). The migration that added the word forms rebuilds
-the index of every stored file. A new snapshot is taken within `KNOWLEDGE_INTERVAL_SECS` after a branch gets a new
-head in the **On a timer** mode, right after an event in the **On events** mode ([below](#when-documentation-is-refreshed)), or at once with **Collect now**. Content is stored once per
-SHA-256; `KNOWLEDGE_KEEP` older snapshots of a branch are kept, and they go when the branch record
-goes. Limits and timing: `KNOWLEDGE_*` in
-`.env.example`.
+The registry collects documentation files from your projects' repositories — README, guides, OpenSpec folders, API
+descriptions — and shows them in one place:
+- the **Documentation** tab of a project;
+- the **Documentation** section in the sidebar, which has a tree of the whole catalog;
+- search;
+- AI agents through MCP.
 
-A project can also name its own **documentation source** — right in the Add/Edit project dialogs
-("Repository and documentation") or later on the Documentation settings tab → Source. It wins over the forge
-synchronization and works for projects created by hand; a repository by address also becomes the
-project's repository link:
+Nothing has to run in your CI for this. Files are read through the forge's API or from a local folder.
 
-- **Repository by address** — a repository on GitHub, GitLab, Gitea or Forgejo, read through the
-  forge's API with a [secret](forge-sync.md#secrets) of the project's folder, organization, an
-  ancestor or a global one (`"credentials": {"secret_id": "<id>"}`), or anonymously for public
-  repositories (`"credentials": null`; anonymous requests hit low API rate limits). Inline tokens
-  are refused (`validation.credentials_inline_removed`). SSH keys are not supported.
-- **Local directory** — files as they are on disk; one branch `local`, a new snapshot when the
-  content changes.
-- **Local git repository** — a working copy or a bare repository read without the network.
-  Branches are read from their commits. The checked-out branch is read from the working copy by
-  default ("Include uncommitted files of the current branch"):
-  - new and edited files are collected, deleted ones are not;
-  - files excluded by `.gitignore` or `.git/info/exclude` are skipped, except files committed to
-    the branch (git keeps tracking them too);
-  - such a snapshot shows its commit with the mark "working copy".
+## Sources
 
-  Turn the flag off to collect commits only.
+A project synchronized from a forge ([forge-sync.md](forge-sync.md)) is collected from its repository
+automatically. Any project may also name its own **source**, which then wins over the forge. Set it in the new
+project form ("Repository and documentation") or later under **Settings → Documentation settings → Source**:
 
-  "Collect files hidden by .gitignore" (off by default, needs the working copy flag) collects files
-  that match the include patterns even when git ignores them — for documentation kept out of git,
-  such as `openspec/` in a repository whose `.gitignore` has `*.md`. Other ignored files stay out,
-  and an ignored folder is walked only when an include pattern can match inside it: with
-  `openspec/**/*.md`, `target/` and `node_modules/` are not read at all. Prefer narrow patterns; a
-  pattern like `**/*.md` also picks up ignored dependency folders unless you exclude them.
+- **Repository by address** — a repository on GitHub, GitLab, Gitea or Forgejo, read through the forge's API.
+  - Pick a [secret](secrets.md) with a token, or none for a public repository; anonymous access hits low rate
+    limits.
+  - The address also becomes the project's repository link. SSH keys are not supported.
+- **Local directory** — files as they are on the server's disk. There is one branch, `local`, and a new snapshot
+  whenever the content changes.
+- **Local git repository** — a working copy or a bare repository on the server's disk, read without the network.
+  - **Include uncommitted files of the current branch** (on by default) reads the checked-out branch from the working
+    copy: new and edited files are collected, deleted ones are not. Files ignored by `.gitignore` are skipped unless
+    they are committed. Such a snapshot is marked *working copy*. Turn it off to collect commits only.
+  - **Collect files hidden by .gitignore** (off by default, needs the first switch) also collects ignored files that
+    match the include patterns. This is for documentation kept out of git, such as an `openspec/` folder in a
+    repository whose `.gitignore` has `*.md`.
+  - An ignored folder is entered only if a pattern can match inside it: with `openspec/**/*.md`, `node_modules/` is
+    not read at all. Prefer narrow patterns: `**/*.md` also picks up ignored dependency folders unless you exclude
+    them.
 
-Local paths must lie inside `KNOWLEDGE_LOCAL_ROOTS` (absolute directories; empty — local sources
-are off), checked by the real path on save and on every collection.
+**Check** on the source form tries the source and shows how many branches it found.
 
-Searching the collected documentation by words or by meaning: [search-engines.md](search-engines.md).
+Local paths must lie inside `KNOWLEDGE_LOCAL_ROOTS` (comma-separated absolute directories). The rule is checked by
+the real path on save and on every collection. Without the variable, local sources are off.
+
+## What is collected
+
+Under **Settings → Documentation settings → Collection settings** of a project, folder or organization:
+
+| Field | Meaning | Default |
+|---|---|---|
+| Include | glob patterns of files to collect, e.g. `docs/**/*.md`, `openspec/**/*.md` | only the README at the root |
+| Exclude | patterns to skip | nothing |
+| Extra branches | patterns of branches besides the default one, e.g. `release/*` | none |
+| API descriptions | collect OpenAPI, Swagger and protobuf files wherever they are (below) | on |
+| Refresh | **On a timer** or **On events** ([below](#when-documentation-is-refreshed)) | on a timer |
+
+- **Inheritance.** Each field is inherited from the nearest node that sets it: a folder sets patterns for all its
+  projects, and a project overrides one field with **Override**. **Reset** returns a field to inheritance. Every
+  field shows where its value comes from.
+- **Pattern syntax.** `*` (anything but `/`), `**` (any number of folders), `?`, `[...]` and `{a,b}`. Patterns are
+  case-sensitive.
+- **Saving.** Saving queues a new collection of every project below.
 
 ## When documentation is refreshed
 
-The **Refresh** setting (field `refresh` of the documentation settings) picks one of two modes. Like the other
-fields, it is set on an organization, folder or project and inherited by the nearest node that sets it:
+**Refresh** picks one of two modes, inherited like the other fields:
 
-- **On a timer** (`interval`, the default). Each project is checked every `KNOWLEDGE_INTERVAL_SECS`; a branch whose
-  head moved gets a new snapshot. Events do not queue anything extra.
-- **On events** (`event`). No timer. A collection is queued within seconds by:
-  - every new event accepted for the project by `POST /api/v1/ingest/projects/{id}/events` (a replay with the same
-    idempotency key is not new);
-  - a forge synchronization started by a push webhook, by **Sync now** or by `forge:sync` that moved the head of a
-    branch of the project. A scheduled synchronization does not queue one.
+- **On a timer** (the default). Every project is checked every `KNOWLEDGE_INTERVAL_SECS` (5 minutes). A branch whose
+  newest commit changed gets a new snapshot. Events do not trigger anything extra.
+- **On events.** There is no timer. A collection starts within seconds when:
+  - CI reports a new deployment of the project ([ci-events.md](ci-events.md)); sending the same event again does not
+    count;
+  - a forge synchronization started by a push webhook, by **Sync now** or from the command line finds a new commit
+    in one of the project's branches. Scheduled synchronizations do not count.
 
-In both modes **Collect now**, a change of the documentation settings and saving the source queue a collection. Events
-that come during a collection queue exactly one more. Without events a project in this mode is not refreshed: a local
-directory without CI is collected only by **Collect now**. Runs queued by an event are shown with the trigger
-**By event** (`trigger=event`) in the scan history.
+In both modes these start a collection too:
+- **Collect now** on the **Documentation** tab;
+- changing the documentation settings;
+- saving the source.
 
-A CI step that sends the deployment also refreshes the documentation of the deployed branch:
+Events that arrive during a collection queue exactly one more. A project on events that gets no events is not
+refreshed: a local directory without CI is collected only by **Collect now**.
 
-```sh
-curl -fsS -X POST "$REGISTRY_URL/api/v1/ingest/projects/$PROJECT_ID/events" \
-  -H "Authorization: Bearer $SVCR_PROJECT_KEY" -H 'Content-Type: application/json' \
-  -d '{"type":"service.deployed","version":1,"occurred_at":"'"$(date -u +%FT%TZ)"'",
-       "idempotency_key":"'"$CI_PIPELINE_ID"'",
-       "payload":{"service":"api","environment":"prod","version":"'"$VERSION"'",
-                  "branch":"'"$CI_COMMIT_BRANCH"'","commit_sha":"'"$CI_COMMIT_SHA"'"}}'
-```
+## Reading
+
+- The **Documentation** tab has a file tree and renders Markdown, with links between collected files staying inside
+  the tab. JSON and YAML open as collapsible trees with a **Source** switch.
+- The **Documentation** section in the sidebar shows the documentation of the whole catalog. It has a tree of
+  organizations and projects and an outline of the open page.
+- Files of a local git working copy that are not in git are marked: **U** (untracked) and **I** (ignored).
 
 ## API descriptions
 
-OpenAPI 3.x, Swagger 2.0 and `.proto` files are shown as an «API» view in the documentation section and through the MCP
-tools `list_apis` and `get_api`. They are collected even when the include patterns do not name them: every
-`openapi*.{yaml,yml,json}`, `swagger*.{yaml,yml,json}` and `*.proto` in any folder and everything under `apidocs/` or
-`api-docs/` at any depth, matched regardless of case (`OpenAPI.yaml`, `ApiDocs/`, `Billing.PROTO`); your own include and
-exclude patterns stay case-sensitive. Exclusions and collection limits apply to them as to any file. The **API descriptions**
-switch of the documentation settings turns this off for a node and its subtree (field `apis` of
-`PUT …/knowledge/settings`, inherited like the other fields). Existing snapshots get the files with the next commit.
+OpenAPI 3.x, Swagger 2.0 and `.proto` files are shown as an **API** view: operations or services and messages, with
+**Tree** and **Source** views next to it.
 
-Vendored descriptions — under `third_party/`, `vendor/` or `node_modules/`, and `.proto` files of `google/`,
-`buf/validate/`, `validate/validate.proto`, `protoc-gen-openapiv2/` and `gogoproto/` — are collected (imports resolve
-against them) but hidden from the list: `GET …/knowledge/apis?all=1` (MCP `list_apis` with `all: true`, **Show
-vendored** in the UI) returns them with `"vendored": true`; `hidden_vendored` counts the hidden ones. A message or enum
-type of a linked `.proto` that comes from another file of the snapshot links to its definition there (`type_files`).
+They are collected even if the include patterns do not name them:
+- every `openapi*` and `swagger*` file (`.yaml`, `.yml`, `.json`) and every `*.proto`, in any folder;
+- everything under `apidocs/` or `api-docs/`.
 
-## Collection limits
+These names match regardless of case; your own patterns stay case-sensitive. Exclusions and limits still apply.
+Turn the switch **API descriptions** off to stop this for a node and everything below.
 
-A snapshot keeps at most `KNOWLEDGE_MAX_FILES` files (default 2000), `KNOWLEDGE_MAX_SNAPSHOT_BYTES` in total (16 MiB)
-and files up to `KNOWLEDGE_MAX_FILE_BYTES` (512 KiB); files beyond them are listed with `skip_reason` `limit` or
-`too_large`. Snapshots in the API count them (`skipped_limit`, `skipped_too_large`), and for users who may edit the project
-(`catalog.write`, superadmins included) `limits` names the variables the snapshot ran into with their current values. The
-**Documentation** tab and the project page of the documentation section warn about an incomplete snapshot: superadmins see
-which variable to raise and that the server needs a restart, editors see the same variables and are advised to narrow the
-patterns or ask an administrator, other readers are told to contact an administrator. After raising a limit
-restart the server; the snapshot is rebuilt with the next commit or on **Collect now**. The scan history shows how many
-skipped files of a branch are API descriptions (`api_skipped`).
+Descriptions under `third_party/`, `vendor/` or `node_modules/`, and well-known `.proto` packages (`google/`,
+`buf/validate/`, `gogoproto/`, …) are collected, so imports resolve, but hidden from the list. **Show vendored**
+reveals them. A type in a `.proto` file that comes from another file links to its definition.
+
+## Limits
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `KNOWLEDGE_MAX_FILES` | 2000 | files in one snapshot |
+| `KNOWLEDGE_MAX_SNAPSHOT_BYTES` | 16 MiB | total size of one snapshot |
+| `KNOWLEDGE_MAX_FILE_BYTES` | 512 KiB | size of one file |
+| `KNOWLEDGE_KEEP` | 5 | older snapshots kept per branch |
+| `KNOWLEDGE_INTERVAL_SECS` | 300 | the timer of the **On a timer** mode |
+| `KNOWLEDGE_RETRY_SECS` | 900 | pause before a failed collection is retried |
+| `KNOWLEDGE_LOCAL_ROOTS` | — | folders local sources may use |
+
+Files beyond the limits are skipped, and the snapshot is marked incomplete. The **Documentation** tab warns about
+it differently for each audience:
+- superadmins see which variable to raise;
+- editors see the same variables and are advised to narrow the patterns or ask an administrator;
+- other readers are told to contact an administrator.
+
+After raising a limit, restart the server. The snapshot is rebuilt with the next commit or on **Collect now**.
+
+More `KNOWLEDGE_*` tuning: [`.env.example`](../.env.example). Search: [search-engines.md](search-engines.md).
 
 ## Scan history
 
-Every collection run and every search indexing run of a project is recorded and shown to superadmins
-under **Administration → Scans** (`/<locale>/admin/scans`, API `GET /api/v1/knowledge/scans`). A run
-has:
+Every collection and every search indexing run is recorded:
+- **Administration → Documentation → Scans** shows all projects (superadmins and groups with rights on **Scans**);
+- **Settings → Scan history** of a project shows that project's runs to its editors.
 
-- a result: success, no changes, warning or error;
-- per branch: the commit, collected and skipped files with the reason;
-- an error with an explanation and a hint what to do;
-- warnings:
-  - `collect.no_files_matched` — nothing fits the include patterns; a local git source with
-    "Include uncommitted files" off reads only committed files, and without "Collect files hidden
-    by .gitignore" skips files git ignores;
-  - `collect.files_skipped`, `collect.truncated`, `collect.no_branches`, `collect.no_source`;
-  - with details for up to 20 of them — the branch, the file path, the skip reason and a short explanation — and a
-    count per warning code.
+Every run shows:
+- its result: success, no changes, warning or error;
+- per branch: the commit, the collected files and the skipped ones with the reason;
+- for an error: an explanation and a hint what to do;
+- warnings, with details for up to 20 files and a count per warning.
 
-Editors of a project (`catalog.write`) see its own history under **Settings → Scan history** of the project
-(`section=scans`, `GET /api/v1/catalog/nodes/{id}/knowledge/scans`). Both tables can refresh themselves every 10, 30
-or 60 seconds. Filters (project, kind, result, how it started: on schedule, by hand, by event) live in the page address. Repeated runs without
-changes collapse into one row with a counter. The last `KNOWLEDGE_SCAN_HISTORY` (20) runs are kept
-per project for collection and for indexing.
+The common warnings:
 
-## Activity indicators
+| Warning | What to do |
+|---|---|
+| no files matched | the include patterns match nothing; for a local git source check the two switches above |
+| files skipped | some files were too large, binary or over the limit; see the limits |
+| truncated | the snapshot hit a limit |
+| no branches, no source | the project has nothing to collect from |
 
-A project shows what its background jobs are doing right now: documentation collection, indexing
-for search (with the number of files waiting for embeddings), forge sync and cluster polling. Each
-job is:
-
-- **running** — a worker holds it now;
-- **queued** — it is due (or "Collect now" was pressed) and waits for a worker. With
-  `BACKGROUND_JOBS_ENABLED=false` nothing picks it up, so it stays queued;
-- **failed** — its last run ended with an error; the hint explains the code;
-- idle otherwise — nothing is shown.
-
-Organizations and folders show how many readable projects below them are running, queued or failed.
-The page refreshes this every 5 seconds while something runs or waits, otherwise every minute, and
-not while the browser tab is hidden. API: `GET /api/v1/catalog/nodes/{id}/activity`; the catalog table
-view uses `GET /api/v1/catalog/table`.
+Filters (project, kind, result, how it started — on schedule, by hand, by event) live in the page address, so a
+filtered view can be shared. Both tables can refresh themselves every 10, 30 or 60 seconds. Repeated runs without
+changes collapse into one row with a counter. The last `KNOWLEDGE_SCAN_HISTORY` (20) runs per project and kind are
+kept.

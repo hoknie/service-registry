@@ -1,37 +1,35 @@
 # svc-registry
 
-A registry of services: organizations and folders down to repositories, with their branches,
-deployments, Kubernetes state, links to observability tools and collected documentation — in one
-web UI and one API.
-
-The main target is make MCP server, that get data from local folder or remote repositories.
+A registry of services: organizations and folders down to repositories, with their branches, deployments,
+Kubernetes state, owners, dependencies, links to observability tools and collected documentation — in one web
+interface, and for AI agents through MCP.
 
 ## What it does
 
-- **Catalog** — nested organizations, folders and projects; roles `viewer`, `editor`, `admin`
-  inherited down the tree; users, groups, a global superadmin.
-- **Deployments from CI** — pipelines report `service.deployed` events with a project key; the
-  registry keeps the current version per environment and the history. → [docs/ci-events.md](docs/ci-events.md)
-- **Repositories from a forge** — GitHub, GitLab, Forgejo or Gitea owners imported as projects
-  and kept in sync, with their branches. → [docs/forge-sync.md](docs/forge-sync.md)
-- **Kubernetes** — what really runs in clusters next to what CI reported, with drift; isolated
-  clusters report through an in-cluster agent. → [docs/kubernetes.md](docs/kubernetes.md)
-- **Owners** — groups and people responsible for each node, inherited down the tree, with contacts
-  and on-call links. → [docs/owners.md](docs/owners.md)
-- **Dependencies** — which services depend on which, from CI events, cluster annotations, a file in
-  the repository or manual edits, as a list and a graph. → [docs/dependencies.md](docs/dependencies.md)
+- **Catalog** — nested organizations, folders and projects; roles `viewer`, `editor`, `admin` inherited down the
+  tree. → [docs/catalog.md](docs/catalog.md)
+- **Deployments from CI** — one pipeline step reports what was deployed where; the registry keeps the current version
+  per environment and the history. → [docs/ci-events.md](docs/ci-events.md)
+- **Repositories from a forge** — GitHub, GitLab, Forgejo or Gitea owners imported as projects and kept in sync, with
+  their branches. → [docs/forge-sync.md](docs/forge-sync.md)
+- **Kubernetes** — what really runs in clusters next to what CI reported, with drift; isolated clusters report
+  through an agent. → [docs/kubernetes.md](docs/kubernetes.md)
+- **Owners** — groups and people responsible for each node, with contacts and on-call links.
+  → [docs/owners.md](docs/owners.md)
+- **Dependencies** — which services depend on which, as a list and a graph.
+  → [docs/dependencies.md](docs/dependencies.md)
 - **Notifications** — webhook and Slack messages on deployments, drift, broken links and failed forge
-  syncs, and when they recover. → [docs/notifications.md](docs/notifications.md)
-- **Observability links** — links to logs, dashboards, alerting and runbooks generated from
-  templates and checked for availability. → [docs/observability-links.md](docs/observability-links.md)
-- **Project documentation** — docs and API descriptions (OpenAPI, Swagger, protobuf) collected from
-  repositories or local sources on a timer or on CI and forge events, searchable by words or by meaning. → [docs/project-documentation.md](docs/project-documentation.md),
-  [docs/search-engines.md](docs/search-engines.md)
-- **MCP server** — AI agents read projects, deployments, links, dependencies and docs with the
-  user's rights, through a token or OAuth. → [docs/mcp.md](docs/mcp.md)
-- **Access** — email and password, OIDC providers and GitLab, personal access tokens for scripts,
-  limited to scopes, global rights and catalog nodes.
-  → [docs/sign-in.md](docs/sign-in.md), [docs/access-tokens.md](docs/access-tokens.md)
+  synchronizations, and when they recover. → [docs/notifications.md](docs/notifications.md)
+- **Observability links** — links to logs, dashboards, alerts and runbooks from templates, checked for availability.
+  → [docs/observability-links.md](docs/observability-links.md)
+- **Project documentation** — docs and API descriptions (OpenAPI, Swagger, protobuf) collected from repositories or
+  local folders, on a timer or on events, searchable by words or by meaning.
+  → [docs/project-documentation.md](docs/project-documentation.md), [docs/search-engines.md](docs/search-engines.md)
+- **MCP server** — AI agents read projects, deployments, links, dependencies and docs with their user's rights.
+  → [docs/mcp.md](docs/mcp.md)
+- **Access** — email and password or a company identity provider; groups with administration rights; personal
+  tokens for scripts. → [docs/access.md](docs/access.md), [docs/sign-in.md](docs/sign-in.md),
+  [docs/access-tokens.md](docs/access-tokens.md)
 
 ## Installing
 

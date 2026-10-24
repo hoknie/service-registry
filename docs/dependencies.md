@@ -1,28 +1,36 @@
 # Dependencies between services
 
-A project's dependencies are edges "project → target". A target is another project of the registry
-(slug path such as `acme/backend/billing`, compared case-insensitively, or its UUID) or an external
-system named `external:<name>` (`external:postgres-main`; 1–63 characters `a-z`, `0-9`, `.`, `_`, `-`).
-A path that does not match a project is kept as an unresolved reference and resolved again on the next
-report of the same source. A resolved target is kept by id: moving or renaming it (or a folder above it) keeps the
-edge and updates its path; deleting it turns the edge back into an unresolved reference with the path it had, merged
-with an equal unresolved one if the project already has it (a manual note survives).
+The registry keeps which service depends on which, as a list and a graph on every project. A dependency points to
+another project of the registry or to an **external system** — a database, a queue, a SaaS — that is not in the
+catalog.
 
-The project page has a **Dependencies** tab (list and graph, depth 1–3); organizations and folders show
-the graph of their subtree. People see only projects they can read: other projects appear as
-"Unavailable project" or are only counted. MCP clients use the `get_dependencies` tool.
+## Seeing dependencies
 
-## Sources
+- A project's **Dependencies** tab shows what it depends on and what depends on it, as a **List** or a **Graph**
+  (depth 1 to 3).
+- An organization or folder shows the graph of everything below it.
+- You see only projects you can read. Others appear as *Unavailable project* or are only counted.
+- AI agents read the same through MCP ([mcp.md](mcp.md)).
 
-Every edge remembers its source and where it came from. An automatic source replaces the whole set of
-its own place on every report and never touches other places or manual edges.
+## Where dependencies come from
 
-| Source | Where it comes from | Place |
+| Source | How to report it | Replaced when |
 |---|---|---|
-| CI event | `payload.dependencies` of `service.deployed` (at most 50; only when the deployment became current; an absent field changes nothing, `[]` clears) | `<service>/<environment>` |
-| Cluster | annotation `svc-registry.io/depends-on: acme/backend/billing, external:kafka` on the workload or its pod template | `<cluster id>/<namespace>/<kind>/<name>` |
-| Repository | `dependencies` in `.svc-registry.yaml` (or `.svc-registry.yml`) at the root of the documentation's default branch | branch name |
-| Manual | project settings → **Dependencies** (editors) or `POST /api/v1/catalog/nodes/{id}/dependencies` | — |
+| CI | `payload.dependencies` of a deployment event ([ci-events.md](ci-events.md#dependencies-of-a-rollout)) | the next current rollout of the same service and environment reports them |
+| Kubernetes | the annotation `svc-registry.io/depends-on: acme/backend/billing, external:kafka` on a workload ([kubernetes.md](kubernetes.md)) | the next poll or agent report of that workload |
+| Repository | `.svc-registry.yaml` at the root of the default branch (below) | the next documentation collection |
+| Manual | **Settings → Dependencies** of the project (editors) | never; delete by hand |
+
+Each automatic source replaces only what it reported itself: other sources and manual entries stay.
+
+How to name a dependency:
+- another project — by its path (`acme/backend/billing`, any case) or id;
+- something outside the catalog — `external:<name>` with lowercase letters, digits, `.`, `_`, `-`, for example
+  `external:postgres-main`.
+
+A path that matches no project yet is kept and resolved when that project appears. A dependency on a project keeps
+working when the project is moved or renamed. When the project is deleted, the dependency goes back to its old path;
+a manual note on it survives.
 
 ## `.svc-registry.yaml`
 
@@ -32,14 +40,8 @@ dependencies:
   - external:s3
 ```
 
-The file is read on every collection of the default branch whatever the collection patterns are; it gets
-into the documentation snapshot only if the patterns include it. Other keys are ignored. A file over
-64 KiB, broken YAML or `dependencies` that is not a list keep the previous edges and add the warning
-`collect.manifest_invalid` to the scan history; invalid items are skipped with the same warning. Removing
-the file removes the repository edges.
-
-## API
-
-- `GET /api/v1/catalog/nodes/{id}/dependencies` — `depends_on`, `dependents`, `hidden_dependents` (projects).
-- `POST …/dependencies` with `{"target": "…", "note": "…"}` — a manual edge (`catalog.write`); `DELETE …/dependencies/{dependency_id}` removes it.
-- `GET …/dependencies/graph?depth=1..3` — nodes and edges around a project or of a container's subtree (at most 500 nodes).
+- The file is read on every documentation collection of the default branch, whatever the collection patterns are.
+- Other keys are ignored.
+- If the file is over 64 KiB, is not valid YAML or `dependencies` is not a list, the previous dependencies stay and
+  the scan history shows a warning. Wrong items are skipped with the same warning.
+- Deleting the file deletes the dependencies it gave.

@@ -1,62 +1,79 @@
 # Personal access tokens
 
-Scripts, CI jobs and MCP clients call the API as a user with a **personal access token**
-(`svcp_…`): issue one under **Account → Tokens** (shown once), pick scopes — `read` (catalog
-reads), `write` (catalog changes), `mcp` — and a lifetime of 1 to `PAT_MAX_LIFETIME_DAYS` (365)
-days; superadmins may issue tokens without expiry. A token never has more rights than its user, and only a signed-in session can
-issue, list or revoke tokens.
+Scripts, CI jobs and MCP clients act as a user with a **personal access token** (`svcp_…`). A token never has more
+rights than its user.
 
-**Global rights.** Superadmins may add global rights, each opening one part of the administration and
-nothing else. Every part has a read right (`GET`/`HEAD`) and a change right (other methods); the change
-right does not include reading, and the dialog ticks both when you pick a change:
+## Issuing a token
+
+1. Open **Account → Tokens** and press the issue button. Only a signed-in browser session can issue, list or revoke
+   tokens.
+2. Pick the scopes (below), the lifetime — 1 to `PAT_MAX_LIFETIME_DAYS` (365) days — and, if you like, the catalog
+   nodes the token is limited to.
+3. Copy the token: it is shown once.
+
+Superadmins may issue tokens without expiry. Service accounts get their tokens from a superadmin
+([access.md](access.md#users)).
+
+Use it in the `Authorization` header:
+
+```sh
+curl -H "Authorization: Bearer $SVCR_TOKEN" "$SVCR_URL/…"
+```
+
+## Scopes
+
+| Scope | Allows |
+|---|---|
+| `read` | reading the catalog: nodes, deployments, links, documentation, your own groups |
+| `write` | changing the catalog within your roles |
+| `mcp` | the MCP server ([mcp.md](mcp.md)) |
+
+**Global rights** open one part of the administration each. Every part has a read right and a change right. The
+change right does not include reading, so the dialog ticks both when you pick a change.
 
 | Rights | Opens |
 |---|---|
-| `users:read`, `users:write` | `/api/v1/users…`: users, their identities and groups (their tokens and apps stay session-only) |
-| `groups:read`, `groups:write` | `/api/v1/groups…`: groups, members, contacts, contact editors |
-| `clusters:read`, `clusters:write` | `/api/v1/clusters…`: clusters and agent tokens |
-| `settings:read`, `settings:write` | `/api/v1/secrets…`, `/api/v1/knowledge/scans`; changes of `/api/v1/link-kinds…` and `/api/v1/environments…` (`settings:write`; reading them needs `read`) |
-| `catalog.root` | creating, moving and deleting top-level organizations (with `write`) |
+| `users:read`, `users:write` | users, their sign-in methods and groups |
+| `groups:read`, `groups:write` | groups, members, contacts, contact editors |
+| `clusters:read`, `clusters:write` | clusters and agent tokens |
+| `settings:read`, `settings:write` | global secrets and scans; changes of link kinds and environments |
+| `catalog.root` | creating, moving and deleting organizations at the top of the catalog (with `write`) |
 
-A global right works only while the owner is a superadmin; only `catalog.root` may be combined with nodes
-(below). The former `admin` scope and the undivided `users`, `groups`, `clusters`, `settings` are gone:
-existing tokens got both halves of each when the database was migrated, and a request with one of the
-old names in `scopes` is `400 validation.invalid_scopes`.
+Who may get them:
+- Superadmins may add any of them.
+- Other users only for parts their groups have rights in ([access.md](access.md#administration-rights-for-groups)).
+  `:read` needs read in one of the part's sections; `:write` needs create, update or delete.
+- `catalog.root` is for superadmins and for people whose groups may create, move or delete on **Catalog top level**;
+  reading the top level alone is not enough. That reading works through the `read` scope, and not in a token limited to
+  selected nodes.
+- A global right works only while the owner still is a superadmin or still holds the group right, and only for the
+  exact actions the owner holds: with `clusters:write` and the right to update clusters only, the token updates clusters
+  but cannot create or delete them. `:read` never changes anything. Managing all users' tokens works only in a browser
+  session.
 
-**Superadmin tokens and the catalog.** A token a superadmin issues acts as a catalog administrator — on
-the whole catalog, or in the chosen nodes (below) — while its owner stays a superadmin; the top level of
-the catalog needs `catalog.root`. The token list marks such tokens **catalog admin** (`"catalog_admin":
-true`, computed from the owner's current flag). Tokens issued before this rule (or while the owner was not
-a superadmin) keep only the owner's role bindings; issue a new token to get the catalog role.
+Tokens of older versions with the scope `admin` were converted to all global rights when the database was migrated.
 
-```sh
-curl -H "Authorization: Bearer $SVCR_TOKEN" "$SVCR_URL/api/v1/catalog/nodes"
-```
+**Superadmin tokens in the catalog.** A superadmin's token acts as a catalog administrator — everywhere, or in the
+chosen nodes — while its owner stays a superadmin. The token list marks such tokens **catalog admin**. Tokens issued
+before this rule only have the owner's own role bindings; issue a new one to get the catalog role.
 
-Any bad token — malformed, revoked, expired, a disabled user's, a project key — is
-`401 auth.invalid_token`; a missing scope is `403 auth.insufficient_scope`. Superadmins find
-leaked tokens by prefix under **Administration → Tokens**.
+## Tokens for selected nodes
 
-**Service accounts.** For integrations, create a user with "Service account" (password optional)
-under **Administration → Users**, or turn it on for an existing user. A service account cannot sign
-in with a password or through a login provider (turning it on closes its sessions); it works only
-with tokens, which a superadmin issues on the user's page (**Issue token**, `POST
-/api/v1/users/{id}/tokens`, shown once). Its rights are its roles and groups, like any user.
+Under **Catalog access** pick **Selected nodes only** and choose up to 20 organizations, folders or projects.
 
-**Tokens for selected nodes.** Under **Catalog access** pick **Selected nodes only** and find up to
-20 organizations, folders or projects (`"nodes": ["<id>", …]` in the request body). Such a token works
-only inside those subtrees: a role you hold on an ancestor applies to the chosen node and below,
-ancestors are visible only as navigation stubs, everything else answers `404`. You must be able to
-read each node when issuing. A token for nodes has only `read`, `write`, `mcp` and `catalog.root`: the dialog
-disables the other global rights while **Selected nodes only** is chosen, and the API refuses them
-(`400 validation.invalid_token_nodes`). With `catalog.root`, a superadmin's token for nodes creates
-top-level organizations, and each one it creates joins its nodes in the same transaction (up to 20; then
-`409 conflict.token_nodes_full` and nothing is created); it moves to or from the top level and deletes
-only top-level organizations among its nodes. A superadmin's token for nodes acts as a catalog administrator
-in the chosen subtrees (bindings, project keys, node secrets, notifications, owners) without any
-global superadmin power; it loses that as soon as the superadmin flag is removed. Your own groups
-(`GET /api/v1/account/groups`) need `read`; editing a group's contacts as its contact editor needs
-`write` and a token without nodes, since a group is not part of the catalog. A moved node keeps limiting its subtree; a deleted one leaves the
-token's nodes (and the nodes of MCP app grants), so it no longer takes one of the 20 places. When every node of a token
-is deleted, the first one stays listed as a node that no longer exists: it opens nothing, and the token never becomes
-unrestricted. To change the nodes, issue a new token.
+- The token works only inside those subtrees. A role you hold higher up applies to the chosen node and below.
+- You must be able to read each node when you issue the token.
+- Such a token has only `read`, `write`, `mcp` and `catalog.root`. The dialog disables the other global rights.
+- With `catalog.root`, a token of a superadmin or of someone with rights on **Catalog top level** creates top-level
+  organizations, and each one joins the token's nodes (up to 20). It moves and deletes only top-level organizations
+  among its nodes, and only with the matching right.
+- Editing a group's contacts as its contact editor needs a token without nodes, since a group is not part of the
+  catalog.
+- A moved node keeps limiting its subtree. A deleted node leaves the token and frees its place.
+- If every node of a token is deleted, the token opens nothing; it never becomes unrestricted.
+- To change the nodes, issue a new token.
+
+## When a token stops working
+
+A malformed, revoked, expired or disabled user's token is refused, and a missing scope too. Superadmins find leaked
+tokens by their prefix under **Administration → Access → Tokens** and revoke them there.

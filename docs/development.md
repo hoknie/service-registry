@@ -85,14 +85,18 @@ Ports: `QDRANT_PORT` (gRPC, 6334), `QDRANT_HTTP_PORT` (6333, dashboard), `MEILIS
 
 ## Where code lives
 
-- `env/` — the local environment (see above); `packaging/` — packages, CHANGELOG and release scripts.
-- `internal/feature/<feature>/` — the domain of a feature (entities, rules, errors, ports);
-  `service/` — its `Service` with the use-cases; `internal/repository/` — its SQL (Go's `internal/`
-  keeps it inside the feature); other subfolders — clients of external systems.
-- `internal/platform/` — database pool and transactions, configuration, errors, outgoing HTTP, crypto.
-- `internal/presentation/` — `http/` (router, handlers, request and response DTOs, middleware, MCP,
-  web UI files), `console/` (CLI commands), `jobs/` (background jobs).
-- `internal/app/` — builds the application from all of the above.
+| Path | What |
+|---|---|
+| `cmd/svc-registry/` | the entry point |
+| `internal/feature/<feature>/` | one feature: `types/` (domain), `ports/` (interfaces), `services/` (use cases), `repositories/` (SQL), `clients/` (external systems) |
+| `internal/platform/` | the database pool and transactions, configuration, errors, authentication helpers |
+| `internal/presentation/` | `http/` (router, handlers, request and response types, middleware, MCP, web UI files), `console/` (CLI commands), `jobs/` (background jobs) |
+| `internal/app/` | builds the application from all of the above |
+| `pkg/` | standalone libraries that know nothing of the project (key format, encryption, outgoing HTTP, …) |
+| `migrations/` | SQL migrations |
+| `tests/` | integration tests |
+| `web/` | the web interface (Next.js, exported as static files) |
+| `env/`, `packaging/` | the local environment (above); packages, CHANGELOG and release scripts |
 
 Features import each other only along a fixed dependency graph; `just layout` checks it.
 
@@ -131,6 +135,38 @@ just package-macos         # macOS only: universal binary, archive, .pkg, checke
 ```
 
 Everything but `package-macos` needs only Go and Docker. What the packages install: [install.md](install.md).
+
+## Signing the macOS package
+
+`just package-macos` (`packaging/package-macos.sh`) signs and notarizes when all of these are set, and builds unsigned
+when none is. A partial set is an error that names what is missing.
+
+| Variable | What |
+|---|---|
+| `MACOS_SIGN_APPLICATION` | the identity for the program, `Developer ID Application: <name> (<team>)` |
+| `MACOS_SIGN_INSTALLER` | the identity for the `.pkg`, `Developer ID Installer: <name> (<team>)` |
+| `MACOS_TEAM_ID` | the team identifier, checked against both signatures |
+| `MACOS_NOTARY_KEY` | path to the App Store Connect API key (`AuthKey_<id>.p8`) |
+| `MACOS_NOTARY_KEY_ID` | the key's identifier |
+| `MACOS_NOTARY_ISSUER_ID` | the issuer identifier of the key |
+| `MACOS_KEYCHAIN` | optional: the keychain holding the identities |
+
+The package check then also verifies the program's signature (hardened runtime, the team), the `.pkg` signature, the
+stapled ticket and the Gatekeeper assessment.
+
+**Signing releases.** The release workflow signs when the GitHub environment `release` holds the keys. Once, as the
+owner:
+
+1. In Apple Developer create the certificates *Developer ID Application* and *Developer ID Installer*, and export
+   both with their private keys into one `.p12` with a password.
+2. In App Store Connect → Users and Access → Integrations create an API key with the *Developer* role. Note its key ID
+   and issuer ID and download the `.p8`.
+3. In the repository settings create the environment `release` with a deployment rule for tags `v*`. Add the secrets
+   `MACOS_CERTIFICATES_P12` (the `.p12` as base64: `base64 -i certs.p12`), `MACOS_CERTIFICATES_PASSWORD`,
+   `MACOS_SIGN_APPLICATION`, `MACOS_SIGN_INSTALLER`, `MACOS_NOTARY_KEY_P8` (the contents of the `.p8`),
+   `MACOS_NOTARY_KEY_ID`, `MACOS_NOTARY_ISSUER_ID`, and the variable `MACOS_TEAM_ID`.
+
+The next tag publishes a signed and notarized `.pkg`. Removing the secrets brings back unsigned releases.
 
 ## Releasing
 
