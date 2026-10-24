@@ -10,6 +10,7 @@ import (
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/auth"
+	"svc-registry/pkg/pgtx"
 )
 
 type IssuedKey struct {
@@ -33,9 +34,17 @@ func (s *ProjectKeysService) issueKey(ctx context.Context, projectID uuid.UUID, 
 	if err != nil {
 		return IssuedKey{}, apperr.Internalf("no randomness: %v", err)
 	}
-	key, err := s.projectKeyRepository.Rotate(ctx, catalogtypes.NewKey{
-		ID: uuid.Must(uuid.NewV7()), ProjectID: projectID, Prefix: fresh.Prefix, Hash: fresh.Hash,
-	}, graceSecs)
+	var key catalogtypes.ProjectKey
+	err = s.db.InTx(ctx, func(ctx context.Context) error {
+		if err := s.projectKeyRepository.ExpireActive(ctx, projectID, graceSecs); err != nil {
+			return err
+		}
+		var err error
+		key, err = s.projectKeyRepository.Insert(ctx, catalogtypes.NewKey{
+			ID: uuid.Must(uuid.NewV7()), ProjectID: projectID, Prefix: fresh.Prefix, Hash: fresh.Hash,
+		})
+		return err
+	})
 	if err != nil {
 		return IssuedKey{}, apperr.Wrap(err)
 	}
@@ -73,10 +82,20 @@ func (s *ProjectKeysService) VerifyProjectKey(ctx context.Context, projectID uui
 	if !ok {
 		return nil, nil
 	}
-	return s.projectKeyRepository.Verify(ctx, projectID, hash)
+	key, err := s.projectKeyRepository.FindActive(ctx, projectID, hash)
+	if err != nil || key == nil {
+		return nil, err
+	}
+	if key.Stale {
+		if err := s.projectKeyRepository.Touch(ctx, key.ID); err != nil {
+			return nil, err
+		}
+	}
+	return &key.ID, nil
 }
 
 type ProjectKeysService struct {
 	projectKeyRepository *repositories.ProjectKeyRepository
 	access               *AccessService
+	db                   *pgtx.DB
 }

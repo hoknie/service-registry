@@ -9,6 +9,7 @@ import (
 	catalogports "svc-registry/internal/feature/catalog/ports"
 	"svc-registry/internal/feature/catalog/repositories"
 	catalogtypes "svc-registry/internal/feature/catalog/types"
+	"svc-registry/internal/feature/catalog/usecases"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/pkg/pgtx"
 )
@@ -152,7 +153,6 @@ func (s *NodesService) markWalked(ctx context.Context, nodes []catalogtypes.Walk
 }
 
 type NodesService struct {
-	branchRepository   *repositories.BranchRepository
 	managed            catalogports.ManagedNodesPort
 	nodeRepository     *repositories.NodeRepository
 	access             *AccessService
@@ -161,4 +161,6 @@ type NodesService struct {
 	tokenRoots         catalogports.TokenRootsPort
 	creatorOwners      catalogports.CreatorOwnersPort
 	bindingRepository  *repositories.BindingRepository
+	setDefaultBranch   *usecases.SetDefaultBranchUseCase
+	moveNode           *usecases.MoveNodeUseCase
 }

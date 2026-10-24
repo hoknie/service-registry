@@ -9,6 +9,7 @@ import (
 	"svc-registry/internal/feature/access/repositories"
 	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/platform/apperr"
+	"svc-registry/pkg/pgtx"
 )
 
 func (s *GroupContactsService) SetContacts(ctx context.Context, p accesstypes.Principal, id uuid.UUID, in accesstypes.GroupContacts) (accesstypes.Group, error) {
@@ -26,7 +27,17 @@ func (s *GroupContactsService) setContacts(ctx context.Context, id uuid.UUID, in
 	if err != nil {
 		return accesstypes.Group{}, apperr.Wrap(err)
 	}
-	if err := s.groupContactRepository.Set(ctx, id, v); err != nil {
+	ids := make([]uuid.UUID, len(v.Contacts))
+	for i := range ids {
+		ids[i] = uuid.Must(uuid.NewV7())
+	}
+	err = s.db.InTx(ctx, func(ctx context.Context) error {
+		if err := s.groupContactRepository.SetOnCall(ctx, id, v.OnCallURL); err != nil {
+			return err
+		}
+		return s.groupContactRepository.ReplaceContacts(ctx, id, ids, v.Contacts)
+	})
+	if err != nil {
 		return accesstypes.Group{}, apperr.Wrap(err)
 	}
 	g, err := s.groupRepository.Find(ctx, id)
@@ -56,7 +67,14 @@ func (s *GroupContactsService) SetContactEditor(ctx context.Context, p accesstyp
 	if on && !m.Member {
 		return apperr.Wrap(accesstypes.InvalidNotGroupMember)
 	}
-	return apperr.Wrap(s.groupContactRepository.SetEditor(ctx, groupID, userID, on))
+	if on {
+		return apperr.Wrap(s.groupContactRepository.GrantEditor(ctx, groupID, userID))
+	}
+	managed, err := s.groupContactRepository.RevokeManualEditor(ctx, groupID, userID)
+	if err == nil && managed {
+		return apperr.Wrap(accesstypes.ConflictEditorManaged)
+	}
+	return apperr.Wrap(err)
 }
 
 func (s *GroupContactsService) OwnGroups(ctx context.Context, p accesstypes.Principal) ([]accesstypes.OwnGroup, error) {
@@ -86,6 +104,7 @@ func (s *GroupContactsService) SetOwnContacts(ctx context.Context, p accesstypes
 }
 
 type GroupContactsService struct {
+	db                     *pgtx.DB
 	permissionRepository   *repositories.GroupPermissionRepository
 	groupRepository        *repositories.GroupRepository
 	groupContactRepository *repositories.GroupContactRepository

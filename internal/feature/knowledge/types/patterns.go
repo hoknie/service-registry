@@ -15,6 +15,13 @@ func (n NodeSettings) IsEmpty() bool {
 	return !n.IncludeSet && n.Exclude == nil && n.Branches == nil && n.APIs == nil && n.Refresh == nil
 }
 
+func (n NodeSettings) Stored() NodeSettings {
+	if !n.IncludeSet {
+		n.Include = nil
+	}
+	return n
+}
+
 type ChainNode struct {
 	ID   uuid.UUID
 	Kind string

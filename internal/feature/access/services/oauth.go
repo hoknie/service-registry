@@ -11,9 +11,11 @@ import (
 
 	"svc-registry/internal/feature/access/repositories"
 	accesstypes "svc-registry/internal/feature/access/types"
+	"svc-registry/internal/feature/access/usecases"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/auth"
 	"svc-registry/internal/platform/config"
+	"svc-registry/pkg/pgtx"
 )
 
 const LoginStateTTL = 600
@@ -102,6 +104,9 @@ func (s *OAuthService) CompleteLogin(ctx context.Context, cb LoginCallback, prev
 		return LoginDone{}, apperr.Wrap(err)
 	}
 	if ls == nil {
+		if err := s.loginStateRepository.DeleteByState(ctx, cb.State); err != nil {
+			return LoginDone{}, apperr.Wrap(err)
+		}
 		return LoginDone{}, accesstypes.RefuseState
 	}
 	done := LoginDone{Next: "/", Link: ls.LinkUserID != nil}
@@ -150,7 +155,8 @@ func (s *OAuthService) CompleteLogin(ctx context.Context, cb LoginCallback, prev
 	}
 	groups := accesstypes.GroupsFor(claims.Groups, groupRules(cfg.GroupMap))
 	editors := accesstypes.GroupsFor(claims.Groups, groupRules(cfg.EditorMap))
-	if err := s.groupRepository.SyncManaged(ctx, user.ID, accesstypes.OAuthSource(cb.Provider), groups, editors); err != nil {
+	sync := usecases.SyncMembershipsInput{UserID: user.ID, Source: accesstypes.OAuthSource(cb.Provider), Groups: groups, Editors: editors}
+	if err := s.syncMemberships.Run(ctx, sync); err != nil {
 		return done, apperr.Wrap(err)
 	}
 	signedIn, err := s.auth.openSession(ctx, *user, accesstypes.OAuthMethod(cb.Provider), previousToken)
@@ -191,7 +197,8 @@ func (s *OAuthService) PruneLoginStates(ctx context.Context) (int64, error) {
 
 type OAuthService struct {
 	cfg                  *config.Config
-	groupRepository      *repositories.GroupRepository
+	db                   *pgtx.DB
+	syncMemberships      *usecases.SyncMembershipsUseCase
 	identityRepository   *repositories.IdentityRepository
 	loginStateRepository *repositories.LoginStateRepository
 	oauth                accesstypes.OAuthClient
@@ -232,7 +239,7 @@ func (s *OAuthService) applyOutcome(ctx context.Context, outcome accesstypes.Out
 		if err != nil {
 			return nil, accesstypes.RefuseNotProvisioned
 		}
-		created, err := s.identityRepository.CreateUser(ctx, accesstypes.NewUser{ID: uuid.Must(uuid.NewV7()), Email: addr,
+		created, err := s.provision(ctx, accesstypes.NewUser{ID: uuid.Must(uuid.NewV7()), Email: addr,
 			DisplayName: accesstypes.ProvisionedName(claims)}, newIdentity)
 		if err != nil {
 			return nil, apperr.Wrap(err)
@@ -240,4 +247,18 @@ func (s *OAuthService) applyOutcome(ctx context.Context, outcome accesstypes.Out
 		return &created, nil
 	}
 	return who.user, nil
+}
+
+func (s *OAuthService) provision(ctx context.Context, u accesstypes.NewUser, n accesstypes.NewIdentity) (accesstypes.User, error) {
+	var user accesstypes.User
+	err := s.db.InTx(ctx, func(ctx context.Context) error {
+		var err error
+		if user, err = s.userRepository.Insert(ctx, u); err != nil {
+			return err
+		}
+		n.UserID = user.ID
+		_, err = s.identityRepository.Insert(ctx, n)
+		return err
+	})
+	return user, err
 }

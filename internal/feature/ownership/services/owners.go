@@ -10,6 +10,7 @@ import (
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	"svc-registry/internal/feature/ownership/repositories"
 	ownershiptypes "svc-registry/internal/feature/ownership/types"
+	"svc-registry/internal/feature/ownership/usecases"
 	"svc-registry/internal/platform/apperr"
 )
 
@@ -28,7 +29,7 @@ func (s *OwnersService) SetNodeOwners(ctx context.Context, p accesstypes.Princip
 	if err != nil {
 		return ownershiptypes.OwnerSet{}, apperr.Wrap(err)
 	}
-	if err := s.ownerRepository.Replace(ctx, id, owners); err != nil {
+	if err := s.replaceOwners.Run(ctx, usecases.ReplaceOwnersInput{NodeID: id, Owners: owners}); err != nil {
 		return ownershiptypes.OwnerSet{}, apperr.Wrap(err)
 	}
 	return s.effective(ctx, id)
@@ -56,6 +57,9 @@ func (s *OwnersService) SuggestOwners(ctx context.Context, p accesstypes.Princip
 }
 
 func (s *OwnersService) OwnerBadges(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]ownershiptypes.Badge, error) {
+	if len(ids) == 0 {
+		return map[uuid.UUID][]ownershiptypes.Badge{}, nil
+	}
 	out, err := s.ownerRepository.Badges(ctx, ids)
 	return out, apperr.Wrap(err)
 }
@@ -71,4 +75,5 @@ func (s *OwnersService) effective(ctx context.Context, id uuid.UUID) (ownershipt
 type OwnersService struct {
 	catalog         *catalogservices.CatalogServices
 	ownerRepository *repositories.OwnerRepository
+	replaceOwners   *usecases.ReplaceOwnersUseCase
 }

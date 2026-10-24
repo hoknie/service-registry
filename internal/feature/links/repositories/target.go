@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"slices"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -16,32 +15,10 @@ type TargetRepository struct{ db *pgtx.DB }
 
 func NewTargetRepository(db *pgtx.DB) *TargetRepository { return &TargetRepository{db: db} }
 
-func (s *TargetRepository) Seen(ctx context.Context, projectID uuid.UUID, links []linkstypes.Link) error {
-	type pair struct{ url, key string }
-	var pairs []pair
-	var urls []string
-	for _, l := range links {
-		if l.URL == nil {
-			continue
-		}
-		if p := (pair{*l.URL, l.LinkKey}); !slices.Contains(pairs, p) {
-			pairs = append(pairs, p)
-		}
-		if !slices.Contains(urls, *l.URL) {
-			urls = append(urls, *l.URL)
-		}
-	}
-	if len(urls) == 0 {
-		return nil
-	}
-	slices.Sort(urls)
-	ids := make([]uuid.UUID, len(urls))
-	for i := range ids {
-		ids[i] = uuid.Must(uuid.NewV7())
-	}
-	pairIDs, pairURLs, pairKeys := make([]uuid.UUID, len(pairs)), make([]string, len(pairs)), make([]string, len(pairs))
-	for i, p := range pairs {
-		pairIDs[i], pairURLs[i], pairKeys[i] = uuid.Must(uuid.NewV7()), p.url, p.key
+func (s *TargetRepository) Seen(ctx context.Context, projectID uuid.UUID, seen linkstypes.Sighting, urlIDs, pairIDs []uuid.UUID) error {
+	pairURLs, pairKeys := make([]string, len(seen.Pairs)), make([]string, len(seen.Pairs))
+	for i, p := range seen.Pairs {
+		pairURLs[i], pairKeys[i] = p.URL, p.LinkKey
 	}
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		WITH t AS (
@@ -57,7 +34,7 @@ func (s *TargetRepository) Seen(ctx context.Context, projectID uuid.UUID, links 
 		FROM unnest($4::uuid[], $5::text[], $6::text[]) AS x(id, url, key)
 		JOIN t ON t.url = x.url
 		ON CONFLICT (target_id, project_id, link_key)
-		DO UPDATE SET last_seen_at = now()`, ids, urls, projectID, pairIDs, pairURLs, pairKeys)
+		DO UPDATE SET last_seen_at = now()`, urlIDs, seen.URLs, projectID, pairIDs, pairURLs, pairKeys)
 	return err
 }
 
@@ -102,59 +79,54 @@ func (s *TargetRepository) Fresh(ctx context.Context, url string, withinSecs int
 			AND t.last_checked_at > now() - make_interval(secs => $2)`, url, withinSecs)
 }
 
-func (s *TargetRepository) Record(ctx context.Context, url string, r linkstypes.Result, intervalSecs, history uint32) (linkstypes.Recorded, error) {
-	out := linkstypes.Recorded{Check: linkstypes.Check{URL: url, Status: r.Status, HTTPStatus: r.HTTPStatus, DurationMS: r.DurationMS},
-		CheckID: uuid.Must(uuid.NewV7())}
-	err := s.db.InTx(ctx, func(ctx context.Context) error {
-		tx := s.db.From(ctx)
-		previous, err := postgres.Find(ctx, tx, constraints, pgx.RowTo[*string], `
-			SELECT last_status
-			FROM link_targets
-			WHERE url = $1 FOR UPDATE`, url)
-		if err != nil {
-			return err
-		}
-		if previous != nil && *previous != nil {
-			out.Previous = new(linkstypes.Status(**previous))
-		}
-		out.TargetID, err = postgres.One(ctx, tx, constraints, func(row pgx.CollectableRow) (uuid.UUID, error) {
-			var id uuid.UUID
-			err := row.Scan(&id, &out.Check.CheckedAt)
-			return id, err
-		}, `
-			INSERT INTO link_targets AS t (id, url, last_status, last_http_status, last_duration_ms,
-				last_checked_at, next_run_at)
-			VALUES ($1, $2, $3, $4, $5, now(), now() + make_interval(secs => $6))
-			ON CONFLICT (url)
-			DO UPDATE SET last_status = EXCLUDED.last_status, last_http_status = EXCLUDED.last_http_status,
-				last_duration_ms = EXCLUDED.last_duration_ms, last_checked_at = now(),
-				next_run_at = EXCLUDED.next_run_at, lease_until = NULL
-			RETURNING t.id, rfc3339(t.last_checked_at)`, uuid.Must(uuid.NewV7()), url, string(r.Status), r.HTTPStatus,
-			r.DurationMS, int(intervalSecs))
-		if err != nil {
-			return err
-		}
-		if _, err := postgres.Exec(ctx, tx, constraints, `
-			INSERT INTO link_checks (id, target_id, status, http_status, duration_ms, checked_at)
-			VALUES ($1, $2, $3, $4, $5, now())`, out.CheckID, out.TargetID, string(r.Status), r.HTTPStatus, r.DurationMS); err != nil {
-			return err
-		}
-		_, err = postgres.Exec(ctx, tx, constraints, `
-			DELETE FROM link_checks
-			WHERE target_id = $1
-				AND id NOT IN (
-					SELECT id
-					FROM link_checks
-					WHERE target_id = $1
-					ORDER BY checked_at DESC, id DESC
-					LIMIT $2
-				)`, out.TargetID, int(history))
-		return err
-	})
-	if err != nil {
-		return linkstypes.Recorded{}, postgres.Translate(err, constraints)
+func (s *TargetRepository) LockStatus(ctx context.Context, url string) (*linkstypes.Status, error) {
+	previous, err := postgres.Find(ctx, s.db.From(ctx), constraints, pgx.RowTo[*string], `
+		SELECT last_status
+		FROM link_targets
+		WHERE url = $1 FOR UPDATE`, url)
+	if err != nil || previous == nil || *previous == nil {
+		return nil, err
 	}
-	return out, nil
+	return new(linkstypes.Status(**previous)), nil
+}
+
+func (s *TargetRepository) UpsertChecked(ctx context.Context, id uuid.UUID, url string, r linkstypes.Result, intervalSecs int) (uuid.UUID, string, error) {
+	var checkedAt string
+	targetID, err := postgres.One(ctx, s.db.From(ctx), constraints, func(row pgx.CollectableRow) (uuid.UUID, error) {
+		var id uuid.UUID
+		err := row.Scan(&id, &checkedAt)
+		return id, err
+	}, `
+		INSERT INTO link_targets AS t (id, url, last_status, last_http_status, last_duration_ms,
+			last_checked_at, next_run_at)
+		VALUES ($1, $2, $3, $4, $5, now(), now() + make_interval(secs => $6))
+		ON CONFLICT (url)
+		DO UPDATE SET last_status = EXCLUDED.last_status, last_http_status = EXCLUDED.last_http_status,
+			last_duration_ms = EXCLUDED.last_duration_ms, last_checked_at = now(),
+			next_run_at = EXCLUDED.next_run_at, lease_until = NULL
+		RETURNING t.id, rfc3339(t.last_checked_at)`, id, url, string(r.Status), r.HTTPStatus, r.DurationMS, intervalSecs)
+	return targetID, checkedAt, err
+}
+
+func (s *TargetRepository) InsertCheck(ctx context.Context, id, targetID uuid.UUID, r linkstypes.Result) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		INSERT INTO link_checks (id, target_id, status, http_status, duration_ms, checked_at)
+		VALUES ($1, $2, $3, $4, $5, now())`, id, targetID, string(r.Status), r.HTTPStatus, r.DurationMS)
+	return err
+}
+
+func (s *TargetRepository) PruneChecks(ctx context.Context, targetID uuid.UUID, keep int) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		DELETE FROM link_checks
+		WHERE target_id = $1
+			AND id NOT IN (
+				SELECT id
+				FROM link_checks
+				WHERE target_id = $1
+				ORDER BY checked_at DESC, id DESC
+				LIMIT $2
+			)`, targetID, keep)
+	return err
 }
 
 func (s *TargetRepository) History(ctx context.Context, urls []string) ([]linkstypes.Check, error) {

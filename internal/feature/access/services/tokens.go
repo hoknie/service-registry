@@ -68,7 +68,7 @@ func (s *TokensService) issueFor(ctx context.Context, owner accesstypes.User, in
 		if err != nil {
 			return IssuedToken{}, apperr.Wrap(err)
 		}
-		grantor.Rights = rights
+		grantor.Rights = rights.Canonical()
 	}
 	valid, err := accesstypes.ValidateCreateToken(in, grantor, s.cfg.Pat.MaxLifetimeDays)
 	if err != nil {

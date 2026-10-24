@@ -102,3 +102,14 @@ func TestTokenQueryPrefixIsBounded(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestScopesCanonical(t *testing.T) {
+	t.Parallel()
+	got := Scopes{ScopeCatalogRoot, ScopeMCP, ScopeRead, ScopeMCP}.Canonical()
+	if want := (Scopes{ScopeRead, ScopeMCP, ScopeCatalogRoot}); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Canonical() = %v, want %v", got, want)
+	}
+	if got := Scopes(nil).Canonical(); got == nil || len(got) != 0 {
+		t.Fatalf("Canonical() of nil = %#v", got)
+	}
+}

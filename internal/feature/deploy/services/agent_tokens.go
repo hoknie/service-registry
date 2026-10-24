@@ -11,6 +11,7 @@ import (
 	deploytypes "svc-registry/internal/feature/deploy/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/auth"
+	"svc-registry/pkg/pgtx"
 )
 
 type IssuedAgentToken struct {
@@ -57,9 +58,17 @@ func (s *AgentTokensService) issue(ctx context.Context, clusterID uuid.UUID, gra
 	if err != nil {
 		return IssuedAgentToken{}, apperr.Internalf("no randomness: %v", err)
 	}
-	tok, err := s.agentTokenRepository.Issue(ctx, deploytypes.NewAgentToken{
-		ID: uuid.Must(uuid.NewV7()), ClusterID: clusterID, Prefix: fresh.Prefix, Hash: fresh.Hash,
-	}, graceSecs)
+	var tok deploytypes.AgentToken
+	err = s.db.InTx(ctx, func(ctx context.Context) error {
+		if err := s.agentTokenRepository.ExpireActive(ctx, clusterID, graceSecs); err != nil {
+			return err
+		}
+		var err error
+		tok, err = s.agentTokenRepository.Insert(ctx, deploytypes.NewAgentToken{
+			ID: uuid.Must(uuid.NewV7()), ClusterID: clusterID, Prefix: fresh.Prefix, Hash: fresh.Hash,
+		})
+		return err
+	})
 	if err != nil {
 		return IssuedAgentToken{}, apperr.Wrap(err)
 	}
@@ -69,4 +78,5 @@ func (s *AgentTokensService) issue(ctx context.Context, clusterID uuid.UUID, gra
 type AgentTokensService struct {
 	agentTokenRepository *repositories.AgentTokenRepository
 	clusterRepository    *repositories.ClusterRepository
+	db                   *pgtx.DB
 }

@@ -65,13 +65,8 @@ func scanContact(row pgx.CollectableRow) (contactRow, error) {
 	return c, err
 }
 
-type resolvedRow struct {
-	groupID *uuid.UUID
-	userID  *uuid.UUID
-}
-
-func scanResolved(row pgx.CollectableRow) (resolvedRow, error) {
-	var r resolvedRow
-	err := row.Scan(&r.groupID, &r.userID)
+func scanResolved(row pgx.CollectableRow) (ownershiptypes.ResolvedSubject, error) {
+	var r ownershiptypes.ResolvedSubject
+	err := row.Scan(&r.GroupID, &r.UserID)
 	return r, err
 }

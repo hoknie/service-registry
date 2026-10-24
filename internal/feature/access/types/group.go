@@ -2,6 +2,7 @@ package types
 
 import (
 	"slices"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -156,6 +157,16 @@ func (r Rights) Union(other Rights) Rights {
 				out[section] = append(out[section], action)
 			}
 		}
+	}
+	return out
+}
+
+func (r Rights) Canonical() Rights { return r.Union(nil) }
+
+func GroupNameKeys(names []string) []string {
+	out := make([]string, len(names))
+	for i, n := range names {
+		out[i] = strings.ToLower(n)
 	}
 	return out
 }

@@ -4,6 +4,7 @@ import (
 	accessports "svc-registry/internal/feature/access/ports"
 	"svc-registry/internal/feature/access/repositories"
 	accesstypes "svc-registry/internal/feature/access/types"
+	"svc-registry/internal/feature/access/usecases"
 	"svc-registry/internal/platform/auth"
 	"svc-registry/internal/platform/config"
 	"svc-registry/pkg/password"
@@ -89,13 +90,17 @@ func New(d Deps) *AccessServices {
 			tokenRepository: p.tokenRepository, grantRepository: p.grantRepository, userRepository: p.userRepository,
 			permissionRepository: p.permissionRepository},
 		Bootstrap: &BootstrapService{hasher: p.hasher, userRepository: p.userRepository},
-		GroupContacts: &GroupContactsService{groupRepository: p.groupRepository, groupContactRepository: p.groupContactRepository,
+		GroupContacts: &GroupContactsService{db: p.db, groupRepository: p.groupRepository, groupContactRepository: p.groupContactRepository,
 			permissionRepository: p.permissionRepository},
-		Groups:     &GroupsService{groupRepository: p.groupRepository, userRepository: p.userRepository, permissionRepository: p.permissionRepository},
-		Identities: &IdentitiesService{identityRepository: p.identityRepository, userRepository: p.userRepository},
-		OAuth:      &OAuthService{cfg: p.cfg, groupRepository: p.groupRepository, identityRepository: p.identityRepository, loginStateRepository: p.loginStateRepository, oauth: p.oauth, userRepository: p.userRepository},
-		Tokens:     &TokensService{cfg: p.cfg, tokenRepository: p.tokenRepository, userRepository: p.userRepository, permissionRepository: p.permissionRepository},
-		Users:      &UsersService{hasher: p.hasher, sessionRepository: p.sessionRepository, userRepository: p.userRepository, permissionRepository: p.permissionRepository},
+		Groups:     &GroupsService{db: p.db, groupRepository: p.groupRepository, userRepository: p.userRepository, permissionRepository: p.permissionRepository},
+		Identities: &IdentitiesService{db: p.db, identityRepository: p.identityRepository, userRepository: p.userRepository},
+		OAuth: &OAuthService{cfg: p.cfg, db: p.db, syncMemberships: usecases.NewSyncMemberships(p.db, p.groupRepository),
+			identityRepository: p.identityRepository, loginStateRepository: p.loginStateRepository, oauth: p.oauth, userRepository: p.userRepository},
+		Tokens: &TokensService{cfg: p.cfg, tokenRepository: p.tokenRepository, userRepository: p.userRepository, permissionRepository: p.permissionRepository},
+		Users: &UsersService{db: p.db, hasher: p.hasher, sessionRepository: p.sessionRepository, userRepository: p.userRepository,
+			permissionRepository: p.permissionRepository, tokenRepository: p.tokenRepository, grantRepository: p.grantRepository,
+			updateUser: usecases.NewUpdateUser(usecases.UpdateUserDeps{DB: p.db, Users: p.userRepository, Sessions: p.sessionRepository,
+				Tokens: p.tokenRepository, Grants: p.grantRepository})},
 	}
 	f.Identities.oauthService = f.OAuth
 	f.OAuth.auth = f.Auth

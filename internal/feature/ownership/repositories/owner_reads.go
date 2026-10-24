@@ -12,10 +12,6 @@ import (
 )
 
 func (s *OwnerRepository) Badges(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]ownershiptypes.Badge, error) {
-	out := map[uuid.UUID][]ownershiptypes.Badge{}
-	if len(ids) == 0 {
-		return out, nil
-	}
 	rows, err := postgres.List(ctx, s.db.From(ctx), constraints, scanBadge, `
 		WITH RECURSIVE up AS (
 			SELECT n.id AS start, n.id, n.parent_id, 0 AS lvl
@@ -40,6 +36,7 @@ func (s *OwnerRepository) Badges(ctx context.Context, ids []uuid.UUID) (map[uuid
 	if err != nil {
 		return nil, err
 	}
+	out := map[uuid.UUID][]ownershiptypes.Badge{}
 	for _, r := range rows {
 		out[r.nodeID] = append(out[r.nodeID], r.badge)
 	}

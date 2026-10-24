@@ -20,40 +20,39 @@ func secs(n uint64) float64 { return float64(n) }
 func (s *SessionRepository) Create(ctx context.Context, ns accesstypes.NewSession) error {
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO sessions (id, user_id, token_hash, expires_at, method)
-		VALUES ($1, $2, $3, now() + make_interval(secs => $4), COALESCE(NULLIF($5, ''), 'password'))`,
+		VALUES ($1, $2, $3, now() + make_interval(secs => $4), $5)`,
 		ns.ID, ns.UserID, ns.TokenHash[:], secs(ns.AbsoluteTimeoutSecs), ns.Method)
 	return err
 }
 
 func (s *SessionRepository) FindValid(ctx context.Context, tokenHash [32]byte, idleTimeoutSecs uint64) (*accesstypes.SessionUser, error) {
-	var stale bool
-	found, err := postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (accesstypes.SessionUser, error) {
+	return postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (accesstypes.SessionUser, error) {
 		var f accesstypes.SessionUser
 		var err error
-		f.User, err = scanUserWith(r, []any{&f.SessionID, &stale, &f.Method}, nil)
+		f.User, err = scanUserWith(r, []any{&f.SessionID, &f.Method}, nil)
 		return f, err
 	}, `
-		SELECT s.id AS session_id, s.last_seen_at < now() - interval '60 seconds' AS stale, s.method, u.id,
-			u.email, u.display_name, u.status, u.is_superadmin, u.is_service, u.password_hash IS NOT NULL AS has_password,
-			rfc3339(u.created_at) AS created_at, rfc3339(u.updated_at) AS updated_at
-		FROM sessions s
-		JOIN users u ON u.id = s.user_id
-		WHERE s.token_hash = $1
-			AND s.expires_at > now()
-			AND s.last_seen_at > now() - make_interval(secs => $2)
-			AND u.status = 'active'`, tokenHash[:], secs(idleTimeoutSecs))
-	if err != nil || found == nil {
-		return nil, err
-	}
-	if stale {
-		if _, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
-			UPDATE sessions
+		WITH found AS (
+			SELECT s.id AS session_id, s.last_seen_at < now() - interval '60 seconds' AS stale, s.method, u.id,
+				u.email, u.display_name, u.status, u.is_superadmin, u.is_service, u.password_hash IS NOT NULL AS has_password,
+				rfc3339(u.created_at) AS created_at, rfc3339(u.updated_at) AS updated_at
+			FROM sessions s
+			JOIN users u ON u.id = s.user_id
+			WHERE s.token_hash = $1
+				AND s.expires_at > now()
+				AND s.last_seen_at > now() - make_interval(secs => $2)
+				AND u.status = 'active'
+		),
+		touched AS (
+			UPDATE sessions s
 			SET last_seen_at = now()
-			WHERE id = $1`, found.SessionID); err != nil {
-			return nil, err
-		}
-	}
-	return found, nil
+			FROM found f
+			WHERE s.id = f.session_id
+				AND f.stale
+		)
+		SELECT session_id, method, id, email, display_name, status, is_superadmin, is_service, has_password,
+			created_at, updated_at
+		FROM found`, tokenHash[:], secs(idleTimeoutSecs))
 }
 
 func (s *SessionRepository) DeleteByToken(ctx context.Context, tokenHash [32]byte) error {

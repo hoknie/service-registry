@@ -3,6 +3,7 @@ package types
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/hex"
 	"slices"
 	"unicode/utf8"
 )
@@ -157,4 +158,46 @@ func Tree(files []File) map[string]string {
 		}
 	}
 	return out
+}
+
+type SnapshotTotals struct {
+	Stored  int
+	Bytes   int64
+	Skipped int
+}
+
+func (n NewSnapshot) Totals() SnapshotTotals {
+	var t SnapshotTotals
+	if n.Status == StatusFailed {
+		return t
+	}
+	for _, f := range n.Files {
+		if f.Skip != "" {
+			t.Skipped++
+			continue
+		}
+		t.Stored++
+		t.Bytes += f.Bytes
+	}
+	return t
+}
+
+func (f File) TreeKey() string {
+	key := "skip:" + string(f.Skip)
+	if f.Skip == "" {
+		key = hex.EncodeToString(f.SHA256[:])
+	}
+	return key + ":" + string(f.Meta.Git)
+}
+
+func (n NewSnapshot) SameTree(stored map[string]string) bool {
+	if len(stored) != len(n.Files) {
+		return false
+	}
+	for _, f := range n.Files {
+		if key, ok := stored[f.Path]; !ok || key != f.TreeKey() {
+			return false
+		}
+	}
+	return true
 }

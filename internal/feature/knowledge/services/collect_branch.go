@@ -13,6 +13,7 @@ import (
 	knowledgeports "svc-registry/internal/feature/knowledge/ports"
 	"svc-registry/internal/feature/knowledge/repositories"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
+	"svc-registry/internal/feature/knowledge/usecases"
 	topologytypes "svc-registry/internal/feature/topology/types"
 	"svc-registry/internal/platform/apperr"
 )
@@ -118,7 +119,7 @@ func (s *CollectService) collectBranch(ctx context.Context, p knowledgetypes.Pro
 	for i := range ids {
 		ids[i] = uuid.Must(uuid.NewV7())
 	}
-	snap := knowledgetypes.NewSnapshot{ID: uuid.Must(uuid.NewV7()), ProjectID: p.ID, Branch: h.name, Commit: h.sha,
+	snap := knowledgetypes.NewSnapshot{ID: uuid.Must(uuid.NewV7()), ProjectID: p.ID, Branch: h.name, CommitSHA: h.sha,
 		Status: knowledgetypes.SnapshotStatus(files, truncated), Truncated: truncated, Files: files, FileIDs: ids}
 	var refs []topologytypes.Ref
 	manifest := false
@@ -126,7 +127,7 @@ func (s *CollectService) collectBranch(ctx context.Context, p knowledgetypes.Pro
 		refs, manifest = s.readManifest(ctx, p.ID, reader, entries, scan, h.name)
 	}
 	if err := s.db.InTx(ctx, func(ctx context.Context) error {
-		if err := s.snapshotRepository.Save(ctx, snap, cfg.Keep); err != nil {
+		if err := s.saveSnapshot.Run(ctx, usecases.SaveSnapshotInput{Snapshot: snap, Keep: cfg.Keep}); err != nil {
 			return err
 		}
 		if !manifest {
@@ -192,11 +193,14 @@ func (s *CollectService) recordRepository(ctx context.Context, id uuid.UUID, rea
 			return nil
 		}
 	}
-	return s.sourceRepoRepository.Upsert(ctx, id, repo, details)
+	return s.sourceRepoRepository.Upsert(ctx, id, knowledgetypes.NewSourceRepoRecord(repo, details))
 }
 
 func (s *CollectService) setHeads(ctx context.Context, projectID uuid.UUID, heads map[string]string, defaultBranch string,
 	branches map[string]string) error {
+	if heads == nil {
+		heads = map[string]string{}
+	}
 	return repositories.Err(s.db.InTx(ctx, func(ctx context.Context) error {
 		if err := s.sourceRepository.SetHeads(ctx, projectID, heads, defaultBranch); err != nil {
 			return err

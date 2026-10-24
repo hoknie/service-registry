@@ -133,3 +133,13 @@ func (s *GroupRepository) ByIDs(ctx context.Context, ids []uuid.UUID) ([]accesst
 		WHERE g.id = ANY($1)
 		ORDER BY lower(g.name), g.id`, ids)
 }
+
+func (s *GroupRepository) Lock(ctx context.Context, id uuid.UUID) error {
+	return postgres.ExecFound(ctx, s.db.From(ctx), constraints, `
+		SELECT 1 FROM groups WHERE id = $1 FOR UPDATE`, id)
+}
+
+func (s *GroupRepository) Exists(ctx context.Context, id uuid.UUID) (bool, error) {
+	return postgres.One(ctx, s.db.From(ctx), constraints, pgx.RowTo[bool], `
+		SELECT EXISTS (SELECT 1 FROM groups WHERE id = $1)`, id)
+}

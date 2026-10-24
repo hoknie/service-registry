@@ -24,12 +24,17 @@ func (s *ReportsService) AuthenticateAgent(ctx context.Context, clusterID uuid.U
 	if !ok {
 		return Agent{}, apperr.New(apperr.InvalidAgentToken)
 	}
-	valid, err := s.agentTokenRepository.Verify(ctx, clusterID, hash)
+	use, err := s.agentTokenRepository.FindActive(ctx, clusterID, hash)
 	if err != nil {
 		return Agent{}, apperr.Wrap(err)
 	}
-	if !valid {
+	if use == nil {
 		return Agent{}, apperr.New(apperr.InvalidAgentToken)
+	}
+	if use.Stale {
+		if err := s.agentTokenRepository.Touch(ctx, use.ID); err != nil {
+			return Agent{}, apperr.Wrap(err)
+		}
 	}
 	return Agent{clusterID: clusterID}, nil
 }
@@ -46,7 +51,7 @@ func (s *ReportsService) AcceptReport(ctx context.Context, a Agent, r deploytype
 	if err := deploytypes.ValidateReport(r); err != nil {
 		return deploytypes.ReportAnswer{}, apperr.Wrap(err)
 	}
-	lease, err := s.clusterRepository.LeaseReport(ctx, a.clusterID, reportLeaseSecs)
+	lease, err := s.lease(ctx, a.clusterID)
 	switch {
 	case err != nil:
 		return deploytypes.ReportAnswer{}, apperr.Wrap(err)
@@ -64,6 +69,18 @@ func (s *ReportsService) AcceptReport(ctx context.Context, a Agent, r deploytype
 		return deploytypes.ReportAnswer{}, apperr.Wrap(err)
 	}
 	return answer, nil
+}
+
+func (s *ReportsService) lease(ctx context.Context, id uuid.UUID) (deploytypes.ReportLease, error) {
+	leased, err := s.clusterRepository.LeaseReport(ctx, id, reportLeaseSecs)
+	if err != nil || leased {
+		return deploytypes.ReportLease{Leased: leased}, err
+	}
+	state, err := s.clusterRepository.ReportLease(ctx, id)
+	if err != nil || state == nil {
+		return deploytypes.ReportLease{Disabled: true}, err
+	}
+	return *state, nil
 }
 
 func (s *ReportsService) process(ctx context.Context, a Agent, r deploytypes.Report) (deploytypes.ReportAnswer, error) {
@@ -85,7 +102,7 @@ func (s *ReportsService) process(ctx context.Context, a Agent, r deploytypes.Rep
 			counts.Matched, counts.Unmatched = run.counts()
 		}
 	}
-	gap, err := s.clusterRepository.FinishReport(context.WithoutCancel(ctx), c.ID, r.AgentVersion, len(r.Workloads), summary)
+	gap, err := s.clusterRepository.FinishReport(context.WithoutCancel(ctx), c.ID, deploytypes.FinishedReportOf(r.AgentVersion, len(r.Workloads), summary))
 	if err != nil {
 		return deploytypes.ReportAnswer{}, err
 	}

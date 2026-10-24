@@ -114,3 +114,25 @@ func TestOrderRules(t *testing.T) {
 		}
 	}
 }
+
+func TestOrderMustCoverTheCurrentKinds(t *testing.T) {
+	t.Parallel()
+	cases := map[string]struct {
+		current, keys []string
+		want          error
+	}{
+		"same set":      {[]string{"logs", "sentry"}, []string{"sentry", "logs"}, nil},
+		"both empty":    {[]string{}, []string{}, nil},
+		"missing key":   {[]string{"logs", "sentry"}, []string{"logs"}, ConflictKindOrderStale},
+		"extra key":     {[]string{"logs"}, []string{"logs", "sentry"}, ConflictKindOrderStale},
+		"different key": {[]string{"logs", "sentry"}, []string{"logs", "traces"}, ConflictKindOrderStale},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			if err := CheckOrderCurrent(tc.current, tc.keys); !errors.Is(err, tc.want) {
+				t.Fatalf("got %v, want %v", err, tc.want)
+			}
+		})
+	}
+}

@@ -7,7 +7,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	deploytypes "svc-registry/internal/feature/deploy/types"
-	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
 	"svc-registry/pkg/pgtx"
 )
@@ -73,42 +72,18 @@ func clusters(ctx context.Context, q pgtx.Querier, id *uuid.UUID, perGap int32) 
 		ORDER BY lower(c.name), c.id`, id, perGap)
 }
 
-func rulesParam(rules []deploytypes.Rule) []deploytypes.Rule {
-	if rules == nil {
-		return []deploytypes.Rule{}
-	}
-	return rules
-}
-
-func namespacesParam(ns []string) []string {
-	if ns == nil {
-		return []string{}
-	}
-	return ns
-}
-
-func (s *ClusterRepository) Insert(ctx context.Context, c deploytypes.NewCluster) (deploytypes.Cluster, error) {
+func (s *ClusterRepository) Insert(ctx context.Context, c deploytypes.NewCluster) error {
 	st := c.Settings
-	if _, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO clusters (id, mode, name, environment, in_cluster, api_url, ca_pem, credentials_secret_id,
 			namespaces, rules, interval_secs, enabled)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12)`,
 		c.ID, st.Mode, st.Name, st.Environment, st.InCluster, st.APIURL, st.CAPEM,
-		c.SecretID, namespacesParam(st.Namespaces), rulesParam(st.Rules),
-		st.IntervalSecs, st.Enabled); err != nil {
-		return deploytypes.Cluster{}, err
-	}
-	got, err := s.Get(ctx, c.ID)
-	if err != nil {
-		return deploytypes.Cluster{}, err
-	}
-	if got == nil {
-		return deploytypes.Cluster{}, apperr.InternalDetail("inserted cluster vanished")
-	}
-	return *got, nil
+		c.SecretID, st.Namespaces, st.Rules, st.IntervalSecs, st.Enabled)
+	return err
 }
 
-func (s *ClusterRepository) Update(ctx context.Context, id uuid.UUID, u deploytypes.ClusterUpdate) (*deploytypes.Cluster, error) {
+func (s *ClusterRepository) Update(ctx context.Context, id uuid.UUID, u deploytypes.ClusterUpdate) (bool, error) {
 	st := u.Settings
 	n, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		UPDATE clusters
@@ -125,15 +100,9 @@ func (s *ClusterRepository) Update(ctx context.Context, id uuid.UUID, u deployty
 			mode = $13,
 			updated_at = now()
 		WHERE id = $1`, id, st.Name, st.Environment, st.InCluster, st.APIURL, st.CAPEM,
-		namespacesParam(st.Namespaces), rulesParam(st.Rules), st.IntervalSecs, st.Enabled,
+		st.Namespaces, st.Rules, st.IntervalSecs, st.Enabled,
 		u.SecretID != nil, u.SecretID, st.Mode)
-	if err != nil {
-		return nil, err
-	}
-	if n == 0 {
-		return nil, nil
-	}
-	return s.Get(ctx, id)
+	return n > 0, err
 }
 
 func (s *ClusterRepository) Delete(ctx context.Context, id uuid.UUID) error {
@@ -186,27 +155,28 @@ func (s *ClusterRepository) Extend(ctx context.Context, id uuid.UUID, leaseSecs 
 	return err
 }
 
-func (s *ClusterRepository) Finish(ctx context.Context, id uuid.UUID, failure *deploytypes.Failure) error {
-	status := string(deploytypes.StatusOK)
-	var lastError any
-	if failure != nil {
-		status = string(deploytypes.StatusError)
-		lastError = errorJSON{Code: string(failure.Code), Message: failure.Message}
-	}
+func (s *ClusterRepository) Finish(ctx context.Context, id uuid.UUID, status deploytypes.Status, failure *deploytypes.Failure) error {
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		UPDATE clusters
 		SET status = $2, last_error = $3::jsonb, last_polled_at = now(),
 			next_run_at = now() + make_interval(secs => interval_secs), lease_until = NULL
-		WHERE id = $1`, id, status, lastError)
+		WHERE id = $1`, id, string(status), errorParam(failure))
 	return err
 }
 
-func (s *ClusterRepository) Legacy(ctx context.Context) ([]deploytypes.LegacyCluster, error) {
-	tx := s.db.From(ctx)
-	if ok, err := postgres.HasColumn(ctx, tx, deploytypes.Table, deploytypes.ColumnCredentials); err != nil || !ok {
-		return nil, err
+func errorParam(f *deploytypes.Failure) any {
+	if f == nil {
+		return nil
 	}
-	return postgres.List(ctx, tx, constraints, func(r pgx.CollectableRow) (deploytypes.LegacyCluster, error) {
+	return errorJSON{Code: string(f.Code), Message: f.Message}
+}
+
+func (s *ClusterRepository) HasLegacyColumn(ctx context.Context) (bool, error) {
+	return postgres.HasColumn(ctx, s.db.From(ctx), deploytypes.Table, deploytypes.ColumnCredentials)
+}
+
+func (s *ClusterRepository) Legacy(ctx context.Context) ([]deploytypes.LegacyCluster, error) {
+	return postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (deploytypes.LegacyCluster, error) {
 		var c deploytypes.LegacyCluster
 		err := r.Scan(&c.ID, &c.Name, &c.Enc, &c.Ref)
 		return c, err
@@ -234,7 +204,7 @@ func (s *ClusterRepository) SecretUsage(ctx context.Context, secrets []uuid.UUID
 		GROUP BY credentials_secret_id`, secrets)
 }
 
-func (s *ClusterRepository) LeaseReport(ctx context.Context, id uuid.UUID, leaseSecs int) (deploytypes.ReportLease, error) {
+func (s *ClusterRepository) LeaseReport(ctx context.Context, id uuid.UUID, leaseSecs int) (bool, error) {
 	got, err := postgres.Find(ctx, s.db.From(ctx), constraints, pgx.RowTo[uuid.UUID], `
 		UPDATE clusters
 		SET lease_until = now() + make_interval(secs => $2)
@@ -245,29 +215,19 @@ func (s *ClusterRepository) LeaseReport(ctx context.Context, id uuid.UUID, lease
 			AND (agent_reported_at IS NULL
 				OR agent_reported_at <= now() - make_interval(secs => agent_report_gap(interval_secs, agent_workloads, $3)))
 		RETURNING id`, id, leaseSecs, s.perGap)
-	if err != nil || got != nil {
-		return deploytypes.ReportLease{Leased: got != nil}, err
-	}
-	lease, err := postgres.Find(ctx, s.db.From(ctx), constraints, pgx.RowToStructByPos[deploytypes.ReportLease], `
+	return got != nil, err
+}
+
+func (s *ClusterRepository) ReportLease(ctx context.Context, id uuid.UUID) (*deploytypes.ReportLease, error) {
+	return postgres.Find(ctx, s.db.From(ctx), constraints, pgx.RowToStructByPos[deploytypes.ReportLease], `
 		SELECT false, NOT enabled, COALESCE(lease_until > now(), false),
 			GREATEST(1, ceil(extract(epoch FROM agent_reported_at
 				+ make_interval(secs => agent_report_gap(interval_secs, agent_workloads, $2)) - now())))::bigint
 		FROM clusters
 		WHERE id = $1`, id, s.perGap)
-	if err != nil || lease == nil {
-		return deploytypes.ReportLease{Disabled: true}, err
-	}
-	return *lease, nil
 }
 
-func (s *ClusterRepository) FinishReport(ctx context.Context, id uuid.UUID, version string, workloads int,
-	summary deploytypes.ReportSummary) (int32, error) {
-	status := string(deploytypes.StatusOK)
-	var lastError any
-	if summary.Error != nil {
-		status = string(deploytypes.StatusError)
-		lastError = errorJSON{Code: summary.Error.Code, Message: summary.Error.Message}
-	}
+func (s *ClusterRepository) FinishReport(ctx context.Context, id uuid.UUID, r deploytypes.FinishedReport) (int32, error) {
 	gap, err := postgres.Find(ctx, s.db.From(ctx), constraints, pgx.RowTo[int32], `
 		UPDATE clusters
 		SET status = $2, last_error = $3::jsonb, last_polled_at = now(), agent_reported_at = now(),
@@ -275,7 +235,8 @@ func (s *ClusterRepository) FinishReport(ctx context.Context, id uuid.UUID, vers
 			next_run_at = now() + make_interval(secs => GREATEST(interval_secs, agent_report_gap(interval_secs, $6, $7))),
 			lease_until = NULL
 		WHERE id = $1
-		RETURNING agent_report_gap(interval_secs, agent_workloads, $7)`, id, status, lastError, version, summary, workloads, s.perGap)
+		RETURNING agent_report_gap(interval_secs, agent_workloads, $7)`, id, string(r.Status), errorParam(r.Failure), r.Version,
+		r.Summary, r.Workloads, s.perGap)
 	if err != nil || gap == nil {
 		return 0, err
 	}

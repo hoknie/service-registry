@@ -17,6 +17,7 @@ import (
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
+	"svc-registry/pkg/pgtx"
 )
 
 func (s *IndexService) ClaimIndex(ctx context.Context, limit, leaseSecs int) ([]uuid.UUID, error) {
@@ -139,7 +140,9 @@ func (s *IndexService) embedMissing(ctx context.Context, id uuid.UUID, model str
 		for i, sc := range spans {
 			chunks[i] = knowledgetypes.StoredChunk{Ord: i, Span: sc, Vector: vectors[i]}
 		}
-		if err := s.indexRepository.Save(ctx, blob.SHA256, model, chunks); err != nil {
+		if err := repositories.Err(s.db.InTx(ctx, func(ctx context.Context) error {
+			return s.indexRepository.ReplaceEmbeddings(ctx, blob.SHA256, model, chunks)
+		})); err != nil {
 			return err
 		}
 		st.embedded++
@@ -204,6 +207,7 @@ func (s *IndexService) indexDocs(ctx context.Context, id uuid.UUID, files []know
 
 type IndexService struct {
 	cfg              *config.Config
+	db               *pgtx.DB
 	indexRepository  *repositories.IndexRepository
 	searchRepository *repositories.SearchRepository
 	embedder         knowledgeports.EmbedderPort

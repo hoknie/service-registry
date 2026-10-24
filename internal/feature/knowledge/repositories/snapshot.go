@@ -8,7 +8,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
-	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
 	"svc-registry/pkg/pgtx"
 )
@@ -75,22 +74,19 @@ func (s *SnapshotRepository) Known(ctx context.Context, projectID uuid.UUID, sha
 	return out, nil
 }
 
-func (s *SnapshotRepository) resolve(ctx context.Context, projectID uuid.UUID, branch string, ref knowledgetypes.Ref) (*knowledgetypes.Snapshot, error) {
-	if ref.Commit != nil {
-		return postgres.Find(ctx, s.db.From(ctx), constraints, postgres.Struct(snapshotRow.snapshot), `
-			SELECT s.id, s.project_id, s.branch, s.commit_sha, s.status, s.error_code, s.files, s.bytes,
-				s.skipped, s.truncated, rfc3339(s.collected_at) AS collected_at,
-				(SELECT count(*) FROM knowledge_files f WHERE f.snapshot_id = s.id AND f.skip_reason = 'limit')::int AS limited,
-				(SELECT count(*) FROM knowledge_files f WHERE f.snapshot_id = s.id AND f.skip_reason = 'too_large')::int AS too_large
-			FROM knowledge_snapshots s
-			WHERE s.project_id = $1
-				AND s.branch = $2
-				AND s.commit_sha = $3
-				AND s.status <> 'failed'
-			ORDER BY s.collected_at DESC, s.id DESC
-			LIMIT 1`, projectID, branch, *ref.Commit)
-	}
-	return lastSnapshot(ctx, s.db.From(ctx), projectID, branch, false)
+func (s *SnapshotRepository) Resolve(ctx context.Context, projectID uuid.UUID, branch string, commit *string) (*knowledgetypes.Snapshot, error) {
+	return postgres.Find(ctx, s.db.From(ctx), constraints, postgres.Struct(snapshotRow.snapshot), `
+		SELECT s.id, s.project_id, s.branch, s.commit_sha, s.status, s.error_code, s.files, s.bytes,
+			s.skipped, s.truncated, rfc3339(s.collected_at) AS collected_at,
+			(SELECT count(*) FROM knowledge_files f WHERE f.snapshot_id = s.id AND f.skip_reason = 'limit')::int AS limited,
+			(SELECT count(*) FROM knowledge_files f WHERE f.snapshot_id = s.id AND f.skip_reason = 'too_large')::int AS too_large
+		FROM knowledge_snapshots s
+		WHERE s.project_id = $1
+			AND s.branch = $2
+			AND ($3::text IS NULL OR s.commit_sha = $3)
+			AND s.status <> 'failed'
+		ORDER BY s.collected_at DESC, s.id DESC
+		LIMIT 1`, projectID, branch, commit)
 }
 
 func scanInfo(r pgx.CollectableRow, extra ...any) (knowledgetypes.FileInfo, error) {
@@ -111,34 +107,16 @@ func scanInfo(r pgx.CollectableRow, extra ...any) (knowledgetypes.FileInfo, erro
 	return f, nil
 }
 
-func (s *SnapshotRepository) Files(ctx context.Context, projectID uuid.UUID, branch string, ref knowledgetypes.Ref) (knowledgetypes.Snapshot, []knowledgetypes.FileInfo, error) {
-	snap, err := s.resolve(ctx, projectID, branch, ref)
-	if err != nil {
-		return knowledgetypes.Snapshot{}, nil, err
-	}
-	if snap == nil {
-		return knowledgetypes.Snapshot{}, nil, apperr.ErrNotFound
-	}
-	files, err := postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (knowledgetypes.FileInfo, error) { return scanInfo(r) }, `
+func (s *SnapshotRepository) Files(ctx context.Context, snapshotID uuid.UUID) ([]knowledgetypes.FileInfo, error) {
+	return postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (knowledgetypes.FileInfo, error) { return scanInfo(r) }, `
 		SELECT path, kind, bytes, skip_reason, meta
 		FROM knowledge_files
 		WHERE snapshot_id = $1
-		ORDER BY path COLLATE "C"`, snap.ID)
-	if err != nil {
-		return knowledgetypes.Snapshot{}, nil, err
-	}
-	return *snap, files, nil
+		ORDER BY path COLLATE "C"`, snapshotID)
 }
 
-func (s *SnapshotRepository) File(ctx context.Context, projectID uuid.UUID, branch string, ref knowledgetypes.Ref, path string) (knowledgetypes.Snapshot, knowledgetypes.FileContent, error) {
-	snap, err := s.resolve(ctx, projectID, branch, ref)
-	if err != nil {
-		return knowledgetypes.Snapshot{}, knowledgetypes.FileContent{}, err
-	}
-	if snap == nil {
-		return knowledgetypes.Snapshot{}, knowledgetypes.FileContent{}, apperr.ErrNotFound
-	}
-	f, err := postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (knowledgetypes.FileContent, error) {
+func (s *SnapshotRepository) File(ctx context.Context, snapshotID uuid.UUID, path string) (*knowledgetypes.FileContent, error) {
+	return postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (knowledgetypes.FileContent, error) {
 		var f knowledgetypes.FileContent
 		var err error
 		f.FileInfo, err = scanInfo(r, &f.Content)
@@ -148,14 +126,7 @@ func (s *SnapshotRepository) File(ctx context.Context, projectID uuid.UUID, bran
 		FROM knowledge_files f
 		LEFT JOIN knowledge_blobs b ON b.sha256 = f.sha256
 		WHERE f.snapshot_id = $1
-			AND f.path = $2`, snap.ID, path)
-	if err != nil {
-		return knowledgetypes.Snapshot{}, knowledgetypes.FileContent{}, err
-	}
-	if f == nil {
-		return knowledgetypes.Snapshot{}, knowledgetypes.FileContent{}, apperr.ErrNotFound
-	}
-	return *snap, *f, nil
+			AND f.path = $2`, snapshotID, path)
 }
 
 func (s *SnapshotRepository) Contents(ctx context.Context, snapshotID uuid.UUID, paths []string) (map[string]string, error) {

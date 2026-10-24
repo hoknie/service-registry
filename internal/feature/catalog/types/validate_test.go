@@ -189,3 +189,15 @@ func TestRolePermissionSets(t *testing.T) {
 		}
 	}
 }
+
+func TestNewNodeStoredDefaults(t *testing.T) {
+	t.Parallel()
+	n := NewNode{}.Stored()
+	if n.Labels == nil || len(n.Labels) != 0 || n.ClusterObservation == nil || !*n.ClusterObservation {
+		t.Fatalf("defaults: %+v", n)
+	}
+	kept := NewNode{Labels: Labels{"a": "b"}, ClusterObservation: new(false)}.Stored()
+	if kept.Labels["a"] != "b" || *kept.ClusterObservation {
+		t.Fatalf("kept: %+v", kept)
+	}
+}

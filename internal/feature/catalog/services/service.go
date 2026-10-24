@@ -3,6 +3,7 @@ package services
 import (
 	catalogports "svc-registry/internal/feature/catalog/ports"
 	"svc-registry/internal/feature/catalog/repositories"
+	"svc-registry/internal/feature/catalog/usecases"
 	"svc-registry/internal/platform/config"
 	"svc-registry/pkg/pgtx"
 	"svc-registry/pkg/secretbox"
@@ -27,10 +28,14 @@ type parts struct {
 	secretRepository     *repositories.SecretRepository
 	box                  *secretbox.Box
 	secretUsers          []catalogports.SecretUserPort
+	setDefaultBranch     *usecases.SetDefaultBranchUseCase
+	syncForgeBranches    *usecases.SyncForgeBranchesUseCase
+	deleteBranch         *usecases.DeleteBranchUseCase
+	moveNode             *usecases.MoveNodeUseCase
 }
 
 func newParts(d Deps) *parts {
-	return &parts{
+	p := &parts{
 		cfg:                  d.Config,
 		db:                   d.DB,
 		nodeRepository:       repositories.NewNodeRepository(d.DB),
@@ -41,6 +46,11 @@ func newParts(d Deps) *parts {
 		secretRepository:     repositories.NewSecretRepository(d.DB),
 		box:                  d.Secrets,
 	}
+	p.setDefaultBranch = usecases.NewSetDefaultBranch(p.db, p.branchRepository)
+	p.syncForgeBranches = usecases.NewSyncForgeBranches(p.db, p.branchRepository)
+	p.deleteBranch = usecases.NewDeleteBranch(p.db, p.branchRepository)
+	p.moveNode = usecases.NewMoveNode(p.db, p.nodeRepository)
+	return p
 }
 
 func (c *CatalogServices) Use(managed catalogports.ManagedNodesPort, sources ...catalogports.ActivitySourcePort) {
@@ -87,16 +97,17 @@ func New(d Deps) *CatalogServices {
 		Access:   &AccessService{nodeRepository: p.nodeRepository},
 		Activity: &ActivityService{activityRepository: p.activityRepository, sources: p.sources},
 		Bindings: &BindingsService{bindingRepository: p.bindingRepository},
-		Branches: &BranchesService{branchRepository: p.branchRepository, cfg: p.cfg},
+		Branches: &BranchesService{branchRepository: p.branchRepository, cfg: p.cfg, deleteBranch: p.deleteBranch},
 		Labels:   &LabelsService{nodeRepository: p.nodeRepository},
-		Nodes: &NodesService{branchRepository: p.branchRepository, managed: p.managed, nodeRepository: p.nodeRepository, db: p.db,
-			bindingRepository: p.bindingRepository},
-		ProjectKeys:    &ProjectKeysService{projectKeyRepository: p.projectKeyRepository},
+		Nodes: &NodesService{managed: p.managed, nodeRepository: p.nodeRepository, db: p.db,
+			bindingRepository: p.bindingRepository, setDefaultBranch: p.setDefaultBranch, moveNode: p.moveNode},
+		ProjectKeys:    &ProjectKeysService{projectKeyRepository: p.projectKeyRepository, db: p.db},
 		Secrets:        &SecretsService{box: p.box, secretUsers: p.secretUsers, secretRepository: p.secretRepository},
 		SecretResolver: &SecretResolverService{box: p.box, secretRepository: p.secretRepository},
-		System:         &SystemService{nodeRepository: p.nodeRepository},
-		BranchRecords:  &BranchRecordsService{branchRepository: p.branchRepository, db: p.db, nodeRepository: p.nodeRepository},
-		Table:          &TableService{nodeRepository: p.nodeRepository},
+		System:         &SystemService{nodeRepository: p.nodeRepository, moveNode: p.moveNode},
+		BranchRecords: &BranchRecordsService{branchRepository: p.branchRepository, db: p.db, nodeRepository: p.nodeRepository,
+			setDefaultBranch: p.setDefaultBranch, syncForgeBranches: p.syncForgeBranches},
+		Table: &TableService{nodeRepository: p.nodeRepository},
 	}
 	f.Access.system = f.System
 	f.Activity.access = f.Access

@@ -16,7 +16,10 @@ import (
 
 func (s *ProjectsService) ProjectRepository(ctx context.Context, id uuid.UUID) (*forgetypes.Repository, error) {
 	r, err := s.repoRepository.Find(ctx, id)
-	return r, apperr.Wrap(err)
+	if err != nil || r == nil {
+		return nil, apperr.Wrap(err)
+	}
+	return new(r.FromForge()), nil
 }
 
 func (s *ProjectsService) ProjectClient(ctx context.Context, id uuid.UUID) (forgetypes.RemoteRepo, forgeports.ClientPort, string) {

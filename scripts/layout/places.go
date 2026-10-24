@@ -28,6 +28,7 @@ const (
 	kindPorts        kind = "ports"
 	kindServices     kind = "services"
 	kindRepositories kind = "repositories"
+	kindUseCases     kind = "usecases"
 	kindAdapter      kind = "adapter"
 )
 
@@ -58,7 +59,7 @@ func kindOf(path string) kind {
 	}
 	first, _, _ := strings.Cut(sub, "/")
 	switch kind(first) {
-	case kindTypes, kindPorts, kindServices, kindRepositories:
+	case kindTypes, kindPorts, kindServices, kindRepositories, kindUseCases:
 		return kind(first)
 	}
 	return kindAdapter

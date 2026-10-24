@@ -41,41 +41,23 @@ type batchDeploymentRow struct {
 
 func (s *TemplateRepository) ProjectsData(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]linkstypes.ProjectBatch, error) {
 	out := make(map[uuid.UUID]linkstypes.ProjectBatch, len(ids))
-	if len(ids) == 0 {
-		return out, nil
+	tx := s.db.From(ctx)
+	for _, load := range []func(context.Context, pgtx.Querier, []uuid.UUID, map[uuid.UUID]linkstypes.ProjectBatch) error{
+		batchPaths, batchTemplates, batchVars, batchRepos, batchDeployments,
+	} {
+		if err := load(ctx, tx, ids, out); err != nil {
+			return nil, err
+		}
 	}
-	err := s.db.InTxOpts(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}, func(ctx context.Context) error {
-		tx := s.db.From(ctx)
-		if err := batchPaths(ctx, tx, ids, out); err != nil {
-			return err
-		}
-		if err := batchTemplates(ctx, tx, ids, out); err != nil {
-			return err
-		}
-		if err := batchVars(ctx, tx, ids, out); err != nil {
-			return err
-		}
-		if err := batchRepos(ctx, tx, ids, out); err != nil {
-			return err
-		}
-		if err := batchDeployments(ctx, tx, ids, out); err != nil {
-			return err
-		}
-		kinds, err := kindInfos(ctx, tx)
-		if err != nil {
-			return err
-		}
-		for id, b := range out {
-			b.Kinds = kinds
-			out[id] = b
-		}
-		return nil
-	})
+	kinds, err := kindInfos(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
 	for id, b := range out {
-		linkstypes.SortTemplates(b.Templates)
+		b.Kinds = kinds
 		out[id] = b
 	}
-	return out, postgres.Translate(err, constraints)
+	return out, nil
 }
 
 func batchPaths(ctx context.Context, tx pgtx.Querier, ids []uuid.UUID, out map[uuid.UUID]linkstypes.ProjectBatch) error {

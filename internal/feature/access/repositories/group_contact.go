@@ -64,30 +64,28 @@ func withContacts(ctx context.Context, q pgtx.Querier, groups []accesstypes.Grou
 	return groups, nil
 }
 
-func (s *GroupContactRepository) Set(ctx context.Context, groupID uuid.UUID, in accesstypes.GroupContacts) error {
-	err := s.db.InTx(ctx, func(ctx context.Context) error {
-		tx := s.db.From(ctx)
-		if err := postgres.ExecFound(ctx, tx, constraints, `
-			UPDATE groups
-			SET on_call_url = $2, updated_at = now()
-			WHERE id = $1`, groupID, in.OnCallURL); err != nil {
-			return err
-		}
+func (s *GroupContactRepository) SetOnCall(ctx context.Context, groupID uuid.UUID, onCallURL *string) error {
+	return postgres.ExecFound(ctx, s.db.From(ctx), constraints, `
+		UPDATE groups
+		SET on_call_url = $2, updated_at = now()
+		WHERE id = $1`, groupID, onCallURL)
+}
+
+func (s *GroupContactRepository) ReplaceContacts(ctx context.Context, groupID uuid.UUID, ids []uuid.UUID, contacts []accesstypes.Contact) error {
+	tx := s.db.From(ctx)
+	if _, err := postgres.Exec(ctx, tx, constraints, `
+		DELETE FROM group_contacts
+		WHERE group_id = $1`, groupID); err != nil {
+		return err
+	}
+	for i, c := range contacts {
 		if _, err := postgres.Exec(ctx, tx, constraints, `
-			DELETE FROM group_contacts
-			WHERE group_id = $1`, groupID); err != nil {
+			INSERT INTO group_contacts (id, group_id, kind, value, label, position)
+			VALUES ($1, $2, $3, $4, $5, $6)`, ids[i], groupID, c.Kind, c.Value, c.Label, int16(i)); err != nil {
 			return err
 		}
-		for i, c := range in.Contacts {
-			if _, err := postgres.Exec(ctx, tx, constraints, `
-				INSERT INTO group_contacts (id, group_id, kind, value, label, position)
-				VALUES ($1, $2, $3, $4, $5, $6)`, uuid.Must(uuid.NewV7()), groupID, c.Kind, c.Value, c.Label, int16(i)); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	return postgres.Translate(err, constraints)
+	}
+	return nil
 }
 
 func (s *GroupContactRepository) Membership(ctx context.Context, groupID, userID uuid.UUID) (accesstypes.Membership, error) {
@@ -104,33 +102,30 @@ func (s *GroupContactRepository) Membership(ctx context.Context, groupID, userID
 			)`, groupID, userID)
 }
 
-func (s *GroupContactRepository) SetEditor(ctx context.Context, groupID, userID uuid.UUID, on bool) error {
-	if !on {
-		managed, err := postgres.One(ctx, s.db.From(ctx), constraints, pgx.RowTo[bool], `
-			WITH gone AS (
-				DELETE FROM group_contact_editors
-				WHERE group_id = $1
-					AND user_id = $2
-					AND source = 'manual'
-			)
-			SELECT EXISTS (
-				SELECT 1
-				FROM group_contact_editors
-				WHERE group_id = $1
-					AND user_id = $2
-					AND source <> 'manual'
-			)`, groupID, userID)
-		if err == nil && managed {
-			return accesstypes.ConflictEditorManaged
-		}
-		return err
-	}
+func (s *GroupContactRepository) GrantEditor(ctx context.Context, groupID, userID uuid.UUID) error {
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO group_contact_editors (group_id, user_id)
 		VALUES ($1, $2)
 		ON CONFLICT (group_id, user_id)
 		DO UPDATE SET source = 'manual'`, groupID, userID)
 	return err
+}
+
+func (s *GroupContactRepository) RevokeManualEditor(ctx context.Context, groupID, userID uuid.UUID) (bool, error) {
+	return postgres.One(ctx, s.db.From(ctx), constraints, pgx.RowTo[bool], `
+		WITH gone AS (
+			DELETE FROM group_contact_editors
+			WHERE group_id = $1
+				AND user_id = $2
+				AND source = 'manual'
+		)
+		SELECT EXISTS (
+			SELECT 1
+			FROM group_contact_editors
+			WHERE group_id = $1
+				AND user_id = $2
+				AND source <> 'manual'
+		)`, groupID, userID)
 }
 
 func (s *GroupContactRepository) OwnGroups(ctx context.Context, userID uuid.UUID) ([]accesstypes.OwnGroup, error) {
@@ -177,7 +172,7 @@ func (s *GroupPermissionRepository) rights(ctx context.Context, sql string, args
 			out[accesstypes.Section(section)] = append(out[accesstypes.Section(section)], accesstypes.Action(a))
 		}
 	}
-	return out.Union(nil), nil
+	return out, nil
 }
 
 func (s *GroupPermissionRepository) ForGroup(ctx context.Context, groupID uuid.UUID) (accesstypes.Rights, error) {
@@ -200,33 +195,27 @@ func (s *GroupPermissionRepository) ForUser(ctx context.Context, userID uuid.UUI
 }
 
 func (s *GroupPermissionRepository) Replace(ctx context.Context, groupID uuid.UUID, rights accesstypes.Rights) error {
-	return s.db.InTx(ctx, func(ctx context.Context) error {
-		tx := s.db.From(ctx)
-		if err := postgres.ExecFound(ctx, tx, constraints, `
-			SELECT 1 FROM groups WHERE id = $1 FOR UPDATE`, groupID); err != nil {
-			return err
+	tx := s.db.From(ctx)
+	if _, err := postgres.Exec(ctx, tx, constraints, `
+		DELETE FROM group_permissions
+		WHERE group_id = $1`, groupID); err != nil {
+		return err
+	}
+	for section, actions := range rights {
+		if len(actions) == 0 {
+			continue
+		}
+		names := make([]string, len(actions))
+		for i, a := range actions {
+			names[i] = string(a)
 		}
 		if _, err := postgres.Exec(ctx, tx, constraints, `
-			DELETE FROM group_permissions
-			WHERE group_id = $1`, groupID); err != nil {
+			INSERT INTO group_permissions (group_id, section, actions)
+			VALUES ($1, $2, $3)`, groupID, string(section), names); err != nil {
 			return err
 		}
-		for section, actions := range rights {
-			if len(actions) == 0 {
-				continue
-			}
-			names := make([]string, len(actions))
-			for i, a := range actions {
-				names[i] = string(a)
-			}
-			if _, err := postgres.Exec(ctx, tx, constraints, `
-				INSERT INTO group_permissions (group_id, section, actions)
-				VALUES ($1, $2, $3)`, groupID, string(section), names); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	}
+	return nil
 }
 
 func (s *GroupPermissionRepository) GroupHasAny(ctx context.Context, groupID uuid.UUID) (bool, error) {

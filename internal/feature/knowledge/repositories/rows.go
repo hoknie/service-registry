@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	"encoding/json"
+
 	"github.com/google/uuid"
 
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
@@ -66,4 +68,63 @@ type pathKeyRow struct {
 type countsRow struct {
 	Pending int
 	Indexed int
+}
+
+type indexFileRow struct {
+	Branch    string `db:"branch"`
+	CommitSHA string `db:"commit_sha"`
+	Path      string `db:"path"`
+	Kind      string `db:"kind"`
+	SHA256    []byte `db:"sha256"`
+}
+
+func (r indexFileRow) file() knowledgetypes.IndexFile {
+	return knowledgetypes.IndexFile{Branch: r.Branch, Commit: r.CommitSHA, Path: r.Path, Kind: knowledgetypes.Kind(r.Kind), SHA256: r.SHA256}
+}
+
+type hitRow struct {
+	ProjectID   uuid.UUID `db:"project_id"`
+	ProjectName string    `db:"name"`
+	ProjectPath string    `db:"project_path"`
+	Branch      string    `db:"branch"`
+	CommitSHA   string    `db:"commit_sha"`
+	Path        string    `db:"path"`
+	Kind        string    `db:"kind"`
+	Fragment    string    `db:"fragment"`
+}
+
+func (r hitRow) hit() knowledgetypes.Hit {
+	return knowledgetypes.Hit{ProjectID: r.ProjectID, ProjectName: r.ProjectName, ProjectPath: r.ProjectPath, Branch: r.Branch,
+		Commit: r.CommitSHA, Path: r.Path, Kind: knowledgetypes.Kind(r.Kind), Snippet: knowledgetypes.Snippet(r.Fragment)}
+}
+
+type scanArgs struct {
+	branches, index, notes, counts []byte
+	code, detail, source           *string
+}
+
+func scanArgsOf(scan knowledgetypes.Scan) (scanArgs, error) {
+	var a scanArgs
+	var err error
+	if a.branches, err = json.Marshal(scan.Branches); err != nil {
+		return a, err
+	}
+	if scan.Index != nil {
+		if a.index, err = json.Marshal(scan.Index); err != nil {
+			return a, err
+		}
+	}
+	if a.notes, err = json.Marshal(scan.Notes); err != nil {
+		return a, err
+	}
+	if a.counts, err = json.Marshal(scan.Counts); err != nil {
+		return a, err
+	}
+	if scan.Error != nil {
+		a.code, a.detail = &scan.Error.Code, &scan.Error.Detail
+	}
+	if scan.Source != "" {
+		a.source = &scan.Source
+	}
+	return a, nil
 }

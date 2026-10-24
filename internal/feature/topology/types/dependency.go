@@ -57,6 +57,27 @@ type NewTarget struct {
 	Ref       string
 }
 
+func (t NewTarget) Key() string {
+	return Edge{TargetProjectID: t.ProjectID, TargetExternal: t.External, TargetRef: t.Ref}.TargetKey()
+}
+
+func TargetKeys(targets []NewTarget) []string {
+	keys := make([]string, 0, len(targets))
+	for _, t := range targets {
+		keys = append(keys, t.Key())
+	}
+	return keys
+}
+
+type NewEdge struct {
+	ID        uuid.UUID
+	ProjectID uuid.UUID
+	Source    Source
+	Origin    string
+	Target    NewTarget
+	Note      *string
+}
+
 type ClusterEdges struct {
 	ProjectID uuid.UUID
 	Origin    string

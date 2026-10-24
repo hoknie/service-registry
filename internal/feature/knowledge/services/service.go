@@ -5,6 +5,7 @@ import (
 	forgeservices "svc-registry/internal/feature/forge/services"
 	knowledgeports "svc-registry/internal/feature/knowledge/ports"
 	"svc-registry/internal/feature/knowledge/repositories"
+	"svc-registry/internal/feature/knowledge/usecases"
 	topologyservices "svc-registry/internal/feature/topology/services"
 	"svc-registry/internal/platform/config"
 	"svc-registry/pkg/pgtx"
@@ -43,15 +44,17 @@ type parts struct {
 	catalog              *catalogservices.CatalogServices
 	forge                *forgeservices.ForgeServices
 	topology             *topologyservices.TopologyServices
+	saveSnapshot         *usecases.SaveSnapshotUseCase
 }
 
 func newParts(d Deps) *parts {
+	snapshots := repositories.NewSnapshotRepository(d.DB)
 	return &parts{
 		cfg:                  d.Config,
 		db:                   d.DB,
 		collectionRepository: repositories.NewCollectionRepository(d.DB),
 		patternRepository:    repositories.NewPatternRepository(d.DB),
-		snapshotRepository:   repositories.NewSnapshotRepository(d.DB),
+		snapshotRepository:   snapshots,
 		searchRepository:     repositories.NewSearchRepository(d.DB),
 		indexRepository:      repositories.NewIndexRepository(d.DB),
 		scanRepository:       repositories.NewScanRepository(d.DB),
@@ -65,6 +68,7 @@ func newParts(d Deps) *parts {
 		catalog:              d.Catalog,
 		forge:                d.Forge,
 		topology:             d.Topology,
+		saveSnapshot:         usecases.NewSaveSnapshot(d.DB, snapshots),
 	}
 }
 
@@ -83,14 +87,14 @@ type KnowledgeServices struct {
 func New(d Deps) *KnowledgeServices {
 	p := newParts(d)
 	f := &KnowledgeServices{
-		Collect:   &CollectService{readers: p.readers, catalog: p.catalog, cfg: p.cfg, db: p.db, forge: p.forge, scanRepository: p.scanRepository, secrets: p.secrets, collectionRepository: p.collectionRepository, snapshotRepository: p.snapshotRepository, sourceRepoRepository: p.sourceRepoRepository, sourceRepository: p.sourceRepository, topology: p.topology},
+		Collect:   &CollectService{readers: p.readers, catalog: p.catalog, cfg: p.cfg, db: p.db, forge: p.forge, scanRepository: p.scanRepository, secrets: p.secrets, collectionRepository: p.collectionRepository, snapshotRepository: p.snapshotRepository, sourceRepoRepository: p.sourceRepoRepository, sourceRepository: p.sourceRepository, topology: p.topology, saveSnapshot: p.saveSnapshot},
 		Documents: &DocumentsService{catalog: p.catalog, cfg: p.cfg, collectionRepository: p.collectionRepository, snapshotRepository: p.snapshotRepository, sourceRepository: p.sourceRepository},
-		Index:     &IndexService{cfg: p.cfg, indexRepository: p.indexRepository, searchRepository: p.searchRepository, embedder: p.embedder, external: p.external},
+		Index:     &IndexService{cfg: p.cfg, db: p.db, indexRepository: p.indexRepository, searchRepository: p.searchRepository, embedder: p.embedder, external: p.external},
 		Ports:     &PortsService{embedder: p.embedder, external: p.external, searchEngine: p.searchEngine, secrets: p.secrets, collectionRepository: p.collectionRepository, sourceRepository: p.sourceRepository},
 		Scans:     &ScansService{catalog: p.catalog, scanRepository: p.scanRepository},
 		Search:    &SearchService{indexRepository: p.indexRepository, searchRepository: p.searchRepository, embedder: p.embedder, searchEngine: p.searchEngine},
-		Settings:  &SettingsService{cfg: p.cfg, catalog: p.catalog, patternRepository: p.patternRepository},
-		Sources:   &SourcesService{catalog: p.catalog, cfg: p.cfg, forge: p.forge, readers: p.readers, sourceRepoRepository: p.sourceRepoRepository, sourceRepository: p.sourceRepository},
+		Settings:  &SettingsService{cfg: p.cfg, db: p.db, catalog: p.catalog, collectionRepository: p.collectionRepository, patternRepository: p.patternRepository},
+		Sources:   &SourcesService{catalog: p.catalog, cfg: p.cfg, db: p.db, collectionRepository: p.collectionRepository, forge: p.forge, readers: p.readers, sourceRepoRepository: p.sourceRepoRepository, sourceRepository: p.sourceRepository},
 		Space:     &SpaceService{catalog: p.catalog, snapshotRepository: p.snapshotRepository},
 	}
 	f.Collect.documents = f.Documents

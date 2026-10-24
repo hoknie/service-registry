@@ -137,3 +137,45 @@ func Segments(fragment string) []Segment {
 	}
 	return out
 }
+
+const SnippetRunes = 300
+
+func Snippet(fragment string) []Segment {
+	out := []Segment{}
+	n := SnippetRunes
+	for _, s := range Segments(fragment) {
+		if n <= 0 {
+			break
+		}
+		if c := utf8.RuneCountInString(s.Text); c > n {
+			s.Text = string([]rune(s.Text)[:n])
+		}
+		n -= utf8.RuneCountInString(s.Text)
+		out = append(out, s)
+	}
+	return out
+}
+
+type TextQuery struct {
+	PathWords []string
+	Prefix    string
+	Negative  string
+	Excluded  string
+}
+
+func NewTextQuery(q string) TextQuery {
+	pos, neg, _ := PrefixQuery(q)
+	return TextQuery{PathWords: PathWords(q), Prefix: pos, Negative: neg, Excluded: ExcludedWords(q)}
+}
+
+func (q Search) Probe() Search {
+	q.Limit++
+	return q
+}
+
+func (q Search) Page(hits []Hit) ([]Hit, bool) {
+	if len(hits) > q.Limit {
+		return hits[:q.Limit], true
+	}
+	return hits, false
+}

@@ -18,26 +18,22 @@ func NewOutboxRepository(db *pgtx.DB) *OutboxRepository { return &OutboxReposito
 
 const pruneBatch = 5000
 
-func (s *OutboxRepository) Insert(ctx context.Context, ev notifytypes.NewEvent, subscriptions []uuid.UUID) ([]uuid.UUID, error) {
-	tx := s.db.From(ctx)
-	inserted, err := postgres.Find(ctx, tx, constraints, pgx.RowTo[uuid.UUID], `
+func (s *OutboxRepository) InsertEvent(ctx context.Context, ev notifytypes.NewEvent) (bool, error) {
+	inserted, err := postgres.Find(ctx, s.db.From(ctx), constraints, pgx.RowTo[uuid.UUID], `
 		INSERT INTO notification_events (id, type, node_id, payload, dedupe_key, occurred_at)
 		VALUES ($1, $2, $3, $4::jsonb, $5, $6)
 		ON CONFLICT (dedupe_key)
 		DO NOTHING
 		RETURNING id`, ev.ID, string(ev.Type), ev.NodeID, string(ev.Payload), ev.DedupeKey, ev.OccurredAt)
-	if err != nil || inserted == nil {
-		return nil, err
-	}
-	ids := make([]uuid.UUID, len(subscriptions))
-	for i := range ids {
-		ids[i] = uuid.Must(uuid.NewV7())
-	}
-	_, err = postgres.Exec(ctx, tx, constraints, `
+	return inserted != nil, err
+}
+
+func (s *OutboxRepository) InsertDeliveries(ctx context.Context, eventID uuid.UUID, ids, subscriptions []uuid.UUID) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO notification_deliveries (id, event_id, subscription_id)
 		SELECT d, $1, s
-		FROM unnest($2::uuid[], $3::uuid[]) AS x(d, s)`, ev.ID, ids, subscriptions)
-	return ids, err
+		FROM unnest($2::uuid[], $3::uuid[]) AS x(d, s)`, eventID, ids, subscriptions)
+	return err
 }
 
 func (s *OutboxRepository) Claim(ctx context.Context, limit, leaseSecs int) ([]uuid.UUID, error) {

@@ -39,3 +39,5 @@ type LoginState struct {
 	Next       *string
 	LinkUserID *uuid.UUID
 }
+
+func LastLoginMethod(hasPassword bool, identities int64) bool { return !hasPassword && identities <= 1 }

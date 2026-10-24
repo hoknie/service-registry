@@ -2,29 +2,16 @@ package repositories
 
 import (
 	"context"
-	"regexp"
-	"strings"
-	"svc-registry/pkg/pgtx"
 	"time"
 
 	"github.com/google/uuid"
+
+	catalogtypes "svc-registry/internal/feature/catalog/types"
+	"svc-registry/internal/platform/postgres"
 )
 
-var hexSHA = regexp.MustCompile(`^[0-9a-f]{7,64}$`)
-
-func branchSHA(s *string) *string {
-	if s == nil {
-		return nil
-	}
-	v := strings.ToLower(*s)
-	if !hexSHA.MatchString(v) {
-		return nil
-	}
-	return &v
-}
-
-func UpsertIngestBranch(ctx context.Context, db pgtx.Querier, projectID uuid.UUID, name string, commit *string, at string) error {
-	_, err := db.Exec(ctx, `
+func (s *BranchRepository) UpsertIngest(ctx context.Context, id, projectID uuid.UUID, name string, head *string, at string) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO branches AS b (id, project_id, name, head_sha, sources, last_activity_at)
 		VALUES ($1, $2, $3, $4, ARRAY['ingest'], $5::timestamptz)
 		ON CONFLICT (project_id, name)
@@ -38,12 +25,12 @@ func UpsertIngestBranch(ctx context.Context, db pgtx.Querier, projectID uuid.UUI
 				WHEN $4::text IS NOT NULL AND ($5::timestamptz > b.last_activity_at OR b.head_sha IS NULL) THEN $4
 				ELSE b.head_sha END,
 			last_activity_at = GREATEST(b.last_activity_at, $5::timestamptz), gone_at = NULL, updated_at = now()`,
-		uuid.Must(uuid.NewV7()), projectID, name, branchSHA(commit), at)
+		id, projectID, name, head, at)
 	return err
 }
 
-func UpsertForgeBranch(ctx context.Context, db pgtx.Querier, projectID uuid.UUID, name, head string, protected *bool, committed *time.Time) error {
-	_, err := db.Exec(ctx, `
+func (s *BranchRepository) UpsertForge(ctx context.Context, id, projectID uuid.UUID, name string, head *string, protected *bool, committed *time.Time) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO branches AS b (id, project_id, name, head_sha, protected, sources, last_activity_at)
 		VALUES ($1, $2, $3, $4, $5, ARRAY['forge'], COALESCE($6, now()))
 		ON CONFLICT (project_id, name)
@@ -57,12 +44,12 @@ func UpsertForgeBranch(ctx context.Context, db pgtx.Querier, projectID uuid.UUID
 				WHEN $6::timestamptz IS NOT NULL THEN GREATEST(b.last_activity_at, $6)
 				WHEN $4::text IS DISTINCT FROM b.head_sha THEN now()
 				ELSE b.last_activity_at END,
-			gone_at = NULL, updated_at = now()`, uuid.Must(uuid.NewV7()), projectID, name, branchSHA(&head), protected, committed)
+			gone_at = NULL, updated_at = now()`, id, projectID, name, head, protected, committed)
 	return err
 }
 
-func UpsertClusterBranch(ctx context.Context, db pgtx.Querier, projectID uuid.UUID, name string, commit *string, activity *time.Time) error {
-	_, err := db.Exec(ctx, `
+func (s *BranchRepository) UpsertCluster(ctx context.Context, id, projectID uuid.UUID, name string, head *string, activity *time.Time) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO branches AS b (id, project_id, name, head_sha, sources, last_activity_at)
 		VALUES ($1, $2, $3, $4, ARRAY['cluster'], COALESCE($5::timestamptz, now()))
 		ON CONFLICT (project_id, name)
@@ -78,20 +65,20 @@ func UpsertClusterBranch(ctx context.Context, db pgtx.Querier, projectID uuid.UU
 			last_activity_at = CASE
 				WHEN $5::timestamptz IS NOT NULL THEN GREATEST(b.last_activity_at, $5)
 				ELSE b.last_activity_at END,
-			gone_at = NULL, updated_at = now()`, uuid.Must(uuid.NewV7()), projectID, name, branchSHA(commit), activity)
+			gone_at = NULL, updated_at = now()`, id, projectID, name, head, activity)
 	return err
 }
 
-func SyncRepositoryBranches(ctx context.Context, db pgtx.Querier, projectID uuid.UUID, heads map[string]string, defaultBranch string) error {
+func (s *BranchRepository) SyncRepository(ctx context.Context, projectID uuid.UUID, heads []catalogtypes.BranchHead) error {
 	ids := make([]uuid.UUID, 0, len(heads))
 	names := make([]string, 0, len(heads))
 	shas := make([]*string, 0, len(heads))
-	for name, head := range heads {
-		ids = append(ids, uuid.Must(uuid.NewV7()))
-		names = append(names, name)
-		shas = append(shas, branchSHA(&head))
+	for _, h := range heads {
+		ids = append(ids, h.ID)
+		names = append(names, h.Name)
+		shas = append(shas, h.Head)
 	}
-	if _, err := db.Exec(ctx, `
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		WITH incoming AS (
 			SELECT *
 			FROM unnest($2::uuid[], $3::text[], $4::text[]) AS i(id, name, head)
@@ -117,13 +104,12 @@ func SyncRepositoryBranches(ctx context.Context, db pgtx.Querier, projectID uuid
 			last_activity_at = CASE
 				WHEN EXCLUDED.head_sha IS DISTINCT FROM b.head_sha THEN now()
 				ELSE b.last_activity_at END,
-			gone_at = NULL, updated_at = now()`, projectID, ids, names, shas); err != nil {
-		return err
-	}
-	if defaultBranch == "" {
-		return nil
-	}
-	_, err := db.Exec(ctx, `
+			gone_at = NULL, updated_at = now()`, projectID, ids, names, shas)
+	return err
+}
+
+func (s *BranchRepository) MarkRepositoryDefault(ctx context.Context, projectID uuid.UUID, name string) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		UPDATE branches b
 		SET is_default = true, updated_at = now()
 		WHERE b.project_id = $1
@@ -139,6 +125,6 @@ func SyncRepositoryBranches(ctx context.Context, db pgtx.Querier, projectID uuid
 				FROM branches d
 				WHERE d.project_id = $1
 					AND d.is_default
-			)`, projectID, defaultBranch)
+			)`, projectID, name)
 	return err
 }

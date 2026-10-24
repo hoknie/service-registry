@@ -7,7 +7,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	catalogtypes "svc-registry/internal/feature/catalog/types"
-	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
 	"svc-registry/pkg/pgtx"
 )
@@ -15,25 +14,6 @@ import (
 type BindingRepository struct{ db *pgtx.DB }
 
 func NewBindingRepository(db *pgtx.DB) *BindingRepository { return &BindingRepository{db: db} }
-
-func scanBinding(row pgx.CollectableRow) (catalogtypes.Binding, error) {
-	var b catalogtypes.Binding
-	var isGroup bool
-	var role string
-	if err := row.Scan(&b.ID, &b.NodeID, &b.NodeName, &isGroup, &b.SubjectID, &b.SubjectName, &role, &b.CreatedAt); err != nil {
-		return catalogtypes.Binding{}, err
-	}
-	b.SubjectKind = catalogtypes.SubjectUser
-	if isGroup {
-		b.SubjectKind = catalogtypes.SubjectGroup
-	}
-	r, ok := catalogtypes.ParseRole(role)
-	if !ok {
-		return catalogtypes.Binding{}, apperr.UnknownValue("role", role)
-	}
-	b.Role = r
-	return b, nil
-}
 
 func (s *BindingRepository) List(ctx context.Context, nodeIDs []uuid.UUID) ([]catalogtypes.Binding, error) {
 	return postgres.List(ctx, s.db.From(ctx), constraints, scanBinding, `

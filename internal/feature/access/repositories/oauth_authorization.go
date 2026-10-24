@@ -32,8 +32,7 @@ func (s *OAuthAuthorizationRepository) Insert(ctx context.Context, n accesstypes
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO oauth_authorizations (id, client_id, redirect_uri, state, code_challenge, resource, scopes, expires_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, now() + make_interval(secs => $8))`,
-		n.ID, n.ClientID, n.RedirectURI, n.State, n.CodeChallenge, n.Resource, n.Scopes.Strings(),
-		float64(accesstypes.OAuthRequestTTLSecs))
+		n.ID, n.ClientID, n.RedirectURI, n.State, n.CodeChallenge, n.Resource, n.Scopes.Strings(), float64(n.TTLSecs))
 	return err
 }
 
@@ -47,7 +46,7 @@ func (s *OAuthAuthorizationRepository) FindPending(ctx context.Context, id uuid.
 			AND a.expires_at > now()`, id)
 }
 
-func (s *OAuthAuthorizationRepository) Approve(ctx context.Context, id, userID uuid.UUID, nodes []uuid.UUID, codeHash [32]byte) (*accesstypes.AuthorizationRequest, error) {
+func (s *OAuthAuthorizationRepository) Approve(ctx context.Context, id, userID uuid.UUID, nodes []uuid.UUID, codeHash [32]byte, ttlSecs int) (*accesstypes.AuthorizationRequest, error) {
 	return postgres.Find(ctx, s.db.From(ctx), constraints, scanAuthorizationRequest, `
 		UPDATE oauth_authorizations a
 		SET decided_at = now(), user_id = $2, node_ids = $3::uuid[], code_hash = $4,
@@ -58,7 +57,7 @@ func (s *OAuthAuthorizationRepository) Approve(ctx context.Context, id, userID u
 			AND a.decided_at IS NULL
 			AND a.expires_at > now()
 		RETURNING a.id, a.client_id, c.name, c.metadata_url, a.redirect_uri, a.state, a.resource, a.scopes,
-			rfc3339(a.expires_at) AS expires_at`, id, userID, nodes, codeHash[:], float64(accesstypes.OAuthCodeTTLSecs))
+			rfc3339(a.expires_at) AS expires_at`, id, userID, nodes, codeHash[:], float64(ttlSecs))
 }
 
 func (s *OAuthAuthorizationRepository) Deny(ctx context.Context, id, userID uuid.UUID) (*accesstypes.AuthorizationRequest, error) {
@@ -87,16 +86,16 @@ func scanApprovedCode(row pgx.CollectableRow) (accesstypes.ApprovedCode, error) 
 }
 
 func (s *OAuthAuthorizationRepository) TakeCode(ctx context.Context, codeHash [32]byte) (*accesstypes.ApprovedCode, error) {
-	taken, err := postgres.Find(ctx, s.db.From(ctx), constraints, scanApprovedCode, `
+	return postgres.Find(ctx, s.db.From(ctx), constraints, scanApprovedCode, `
 		UPDATE oauth_authorizations
 		SET exchanged_at = now()
 		WHERE code_hash = $1
 			AND exchanged_at IS NULL
 			AND expires_at > now()
 		RETURNING id, client_id, user_id, redirect_uri, code_challenge, resource, scopes, node_ids, grant_id, false`, codeHash[:])
-	if err != nil || taken != nil {
-		return taken, err
-	}
+}
+
+func (s *OAuthAuthorizationRepository) FindExchanged(ctx context.Context, codeHash [32]byte) (*accesstypes.ApprovedCode, error) {
 	return postgres.Find(ctx, s.db.From(ctx), constraints, scanApprovedCode, `
 		SELECT id, client_id, user_id, redirect_uri, code_challenge, resource, scopes, node_ids, grant_id, true
 		FROM oauth_authorizations

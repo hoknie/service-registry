@@ -55,6 +55,14 @@ type RunResult struct {
 	Problems     []Problem
 }
 
+func (r RunResult) Stored() RunResult {
+	if r.Problems == nil {
+		r.Problems = []Problem{}
+	}
+	r.Problems = r.Problems[:min(len(r.Problems), MaxProblems)]
+	return r
+}
+
 type Claimed struct {
 	ID      uuid.UUID
 	Trigger Trigger

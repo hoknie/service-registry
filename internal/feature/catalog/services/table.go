@@ -86,8 +86,13 @@ func (s *TableService) searchTable(ctx context.Context, p accesstypes.Principal,
 	if err != nil {
 		return CatalogTablePage{}, apperr.Wrap(err)
 	}
+	labels, ok := filter.LabelMatch()
+	if !ok {
+		return CatalogTablePage{Items: []catalogtypes.TableNode{}}, nil
+	}
 	items, matches, err := s.nodeRepository.Search(ctx, catalogtypes.Search{
-		Viewer: viewerOf(p), Root: parent, RootReadable: readable, Filter: filter, Only: only, Limit: catalogtypes.TableMaxMatches,
+		Viewer: viewerOf(p), Root: parent, RootReadable: readable, Filter: filter, Only: only, Labels: labels,
+		Limit: catalogtypes.TableMaxMatches,
 	})
 	if err != nil {
 		return CatalogTablePage{}, apperr.Wrap(err)
@@ -162,7 +167,13 @@ func (s *LabelsService) SuggestLabels(ctx context.Context, p accesstypes.Princip
 	} else {
 		out, err = s.nodeRepository.LabelKeys(ctx, viewerOf(p), p.IsSuperadmin, prefix)
 	}
-	return out, apperr.Wrap(err)
+	if err != nil {
+		return nil, apperr.Wrap(err)
+	}
+	if out == nil {
+		out = []catalogtypes.LabelSuggestion{}
+	}
+	return out, nil
 }
 
 type LabelsService struct {

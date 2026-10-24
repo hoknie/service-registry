@@ -3,6 +3,7 @@ package services
 import (
 	catalogservices "svc-registry/internal/feature/catalog/services"
 	"svc-registry/internal/feature/ownership/repositories"
+	"svc-registry/internal/feature/ownership/usecases"
 	"svc-registry/pkg/pgtx"
 )
 
@@ -14,10 +15,12 @@ type Deps struct {
 type parts struct {
 	catalog         *catalogservices.CatalogServices
 	ownerRepository *repositories.OwnerRepository
+	replaceOwners   *usecases.ReplaceOwnersUseCase
 }
 
 func newParts(d Deps) *parts {
-	return &parts{catalog: d.Catalog, ownerRepository: repositories.NewOwnerRepository(d.DB)}
+	owners := repositories.NewOwnerRepository(d.DB)
+	return &parts{catalog: d.Catalog, ownerRepository: owners, replaceOwners: usecases.NewReplaceOwners(d.DB, owners)}
 }
 
 type OwnershipServices struct {
@@ -28,7 +31,7 @@ type OwnershipServices struct {
 func New(d Deps) *OwnershipServices {
 	p := newParts(d)
 	return &OwnershipServices{
-		Owners: &OwnersService{catalog: p.catalog, ownerRepository: p.ownerRepository},
+		Owners: &OwnersService{catalog: p.catalog, ownerRepository: p.ownerRepository, replaceOwners: p.replaceOwners},
 		Ports:  &PortsService{catalog: p.catalog, ownerRepository: p.ownerRepository},
 	}
 }

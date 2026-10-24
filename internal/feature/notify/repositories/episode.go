@@ -23,7 +23,7 @@ func (s *EpisodeRepository) Open(ctx context.Context, ep notifytypes.NewEpisode,
 		ON CONFLICT (key)
 		DO UPDATE SET signature = EXCLUDED.signature, event_id = EXCLUDED.event_id, updated_at = now()
 		WHERE notification_episodes.signature <> EXCLUDED.signature
-		RETURNING key`, ep.Key, uuid.Must(uuid.NewV7()), string(ep.Type), ep.NodeID, ep.Signature, eventID)
+		RETURNING key`, ep.Key, ep.ID, string(ep.Type), ep.NodeID, ep.Signature, eventID)
 	return key != nil, err
 }
 

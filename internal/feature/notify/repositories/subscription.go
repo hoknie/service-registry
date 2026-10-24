@@ -47,40 +47,34 @@ func (s *SubscriptionRepository) Get(ctx context.Context, id uuid.UUID) (*notify
 		WHERE s.id = $1`, id)
 }
 
-func (s *SubscriptionRepository) Put(ctx context.Context, nodeID uuid.UUID, n notifytypes.NewSubscription) error {
-	err := s.db.InTx(ctx, func(ctx context.Context) error {
-		tx := s.db.From(ctx)
-		if err := postgres.ExecFound(ctx, tx, constraints, `
-			SELECT 1
-			FROM nodes
-			WHERE id = $1 FOR NO KEY UPDATE`, nodeID); err != nil {
-			return err
-		}
-		count, err := postgres.One(ctx, tx, constraints, pgx.RowTo[int64], `
-			SELECT count(*)
-			FROM notification_subscriptions
-			WHERE node_id = $1
-				AND key <> $2`, nodeID, n.Key)
-		if err != nil {
-			return err
-		}
-		if count >= notifytypes.MaxSubscriptions {
-			return notifytypes.TooManySubscriptions
-		}
-		_, err = postgres.Exec(ctx, tx, constraints, `
-			INSERT INTO notification_subscriptions AS s (id, node_id, key, channel, secret_id, event_types, environments,
-				locale, disabled)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-			ON CONFLICT (node_id, key)
-			DO UPDATE SET channel = EXCLUDED.channel, secret_id = EXCLUDED.secret_id, event_types = EXCLUDED.event_types,
-				environments = EXCLUDED.environments, locale = EXCLUDED.locale, disabled = EXCLUDED.disabled,
-				signing_secret_enc = CASE WHEN EXCLUDED.channel = 'webhook' THEN s.signing_secret_enc END,
-				signing_fingerprint = CASE WHEN EXCLUDED.channel = 'webhook' THEN s.signing_fingerprint END,
-				updated_at = now()`, uuid.Must(uuid.NewV7()), nodeID, n.Key, string(n.Channel), n.SecretID,
-			eventTypes(n.EventTypes), n.Environments, n.Locale, n.Disabled)
-		return err
-	})
-	return postgres.Translate(err, constraints)
+func (s *SubscriptionRepository) LockNode(ctx context.Context, nodeID uuid.UUID) error {
+	return postgres.ExecFound(ctx, s.db.From(ctx), constraints, `
+		SELECT 1
+		FROM nodes
+		WHERE id = $1 FOR NO KEY UPDATE`, nodeID)
+}
+
+func (s *SubscriptionRepository) CountOthers(ctx context.Context, nodeID uuid.UUID, key string) (int64, error) {
+	return postgres.One(ctx, s.db.From(ctx), constraints, pgx.RowTo[int64], `
+		SELECT count(*)
+		FROM notification_subscriptions
+		WHERE node_id = $1
+			AND key <> $2`, nodeID, key)
+}
+
+func (s *SubscriptionRepository) Upsert(ctx context.Context, id, nodeID uuid.UUID, n notifytypes.NewSubscription) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		INSERT INTO notification_subscriptions AS s (id, node_id, key, channel, secret_id, event_types, environments,
+			locale, disabled)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		ON CONFLICT (node_id, key)
+		DO UPDATE SET channel = EXCLUDED.channel, secret_id = EXCLUDED.secret_id, event_types = EXCLUDED.event_types,
+			environments = EXCLUDED.environments, locale = EXCLUDED.locale, disabled = EXCLUDED.disabled,
+			signing_secret_enc = CASE WHEN EXCLUDED.channel = 'webhook' THEN s.signing_secret_enc END,
+			signing_fingerprint = CASE WHEN EXCLUDED.channel = 'webhook' THEN s.signing_fingerprint END,
+			updated_at = now()`, id, nodeID, n.Key, string(n.Channel), n.SecretID,
+		eventTypes(n.EventTypes), n.Environments, n.Locale, n.Disabled)
+	return err
 }
 
 func (s *SubscriptionRepository) Delete(ctx context.Context, nodeID uuid.UUID, key string) error {
@@ -97,21 +91,21 @@ func (s *SubscriptionRepository) SetSigning(ctx context.Context, id uuid.UUID, e
 		WHERE id = $1`, id, enc, fingerprint)
 }
 
-func (s *SubscriptionRepository) MarkTest(ctx context.Context, id uuid.UUID, everySecs int) (int64, error) {
+func (s *SubscriptionRepository) MarkTest(ctx context.Context, id uuid.UUID, everySecs int) (bool, error) {
 	marked, err := postgres.Find(ctx, s.db.From(ctx), constraints, pgx.RowTo[bool], `
 		UPDATE notification_subscriptions
 		SET last_test_at = now()
 		WHERE id = $1
 			AND (last_test_at IS NULL OR last_test_at <= now() - make_interval(secs => $2))
 		RETURNING true`, id, everySecs)
-	if err != nil || marked != nil {
-		return 0, err
-	}
-	wait, err := postgres.One(ctx, s.db.From(ctx), constraints, pgx.RowTo[int64], `
+	return marked != nil, err
+}
+
+func (s *SubscriptionRepository) TestWait(ctx context.Context, id uuid.UUID, everySecs int) (int64, error) {
+	return postgres.One(ctx, s.db.From(ctx), constraints, pgx.RowTo[int64], `
 		SELECT ceil(extract(epoch FROM last_test_at + make_interval(secs => $2) - now()))::bigint
 		FROM notification_subscriptions
 		WHERE id = $1`, id, everySecs)
-	return max(wait, 1), err
 }
 
 func (s *SubscriptionRepository) Signing(ctx context.Context) ([]notifytypes.SigningRow, error) {

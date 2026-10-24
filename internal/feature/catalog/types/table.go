@@ -49,7 +49,28 @@ type Search struct {
 	RootReadable bool
 	Filter       TableFilter
 	Only         []uuid.UUID
+	Labels       LabelMatch
 	Limit        int
+}
+
+type LabelMatch struct {
+	Values map[string]string
+	Keys   []string
+}
+
+func (f TableFilter) LabelMatch() (LabelMatch, bool) {
+	m := LabelMatch{Values: map[string]string{}, Keys: []string{}}
+	for _, l := range f.Labels {
+		if l.Value == nil {
+			m.Keys = append(m.Keys, l.Key)
+			continue
+		}
+		if v, ok := m.Values[l.Key]; ok && v != *l.Value {
+			return LabelMatch{}, false
+		}
+		m.Values[l.Key] = *l.Value
+	}
+	return m, true
 }
 
 type TableNode struct {

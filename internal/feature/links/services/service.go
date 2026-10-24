@@ -57,9 +57,9 @@ func New(d Deps) *LinksServices {
 	f := &LinksServices{
 		Checks:    &ChecksService{catalog: p.catalog, cfg: p.cfg, checker: p.checker, targetRepository: p.targetRepository, templateRepository: p.templateRepository},
 		Icons:     &IconsService{catalog: p.catalog, icons: p.icons, templateRepository: p.templateRepository, grace: p.cfg.Uploads.UnreferencedTTL()},
-		Kinds:     &KindsService{kindRepository: p.kindRepository},
+		Kinds:     &KindsService{db: p.db, kindRepository: p.kindRepository},
 		Projects:  &ProjectsService{catalog: p.catalog, cfg: p.cfg, checker: p.checker, db: p.db, notify: p.notify, targetRepository: p.targetRepository, templateRepository: p.templateRepository},
-		Templates: &TemplatesService{catalog: p.catalog, icons: p.icons, templateRepository: p.templateRepository},
+		Templates: &TemplatesService{db: p.db, catalog: p.catalog, icons: p.icons, templateRepository: p.templateRepository},
 	}
 	f.Checks.projects = f.Projects
 	f.Templates.projects = f.Projects

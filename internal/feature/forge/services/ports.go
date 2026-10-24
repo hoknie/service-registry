@@ -57,7 +57,7 @@ func (s *PortsService) PrepareSecretRotation(ctx context.Context) (func(context.
 }
 
 func (s *PortsService) AdoptLegacyCredentials(ctx context.Context, adopt catalogtypes.AdoptFunc) (int, error) {
-	rows, err := s.connectionRepository.Legacy(ctx)
+	rows, err := s.legacy(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -83,8 +83,16 @@ func (s *PortsService) AdoptLegacyCredentials(ctx context.Context, adopt catalog
 }
 
 func (s *PortsService) LegacyCredentialCount(ctx context.Context) (int, error) {
-	rows, err := s.connectionRepository.Legacy(ctx)
+	rows, err := s.legacy(ctx)
 	return len(rows), err
+}
+
+func (s *PortsService) legacy(ctx context.Context) ([]forgetypes.LegacyConnection, error) {
+	ok, err := s.connectionRepository.HasLegacyColumns(ctx)
+	if err != nil || !ok {
+		return nil, err
+	}
+	return s.connectionRepository.Legacy(ctx)
 }
 
 type PortsService struct {

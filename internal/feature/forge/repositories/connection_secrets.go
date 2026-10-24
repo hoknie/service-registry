@@ -38,12 +38,12 @@ func (s *ConnectionRepository) SecretUsage(ctx context.Context, secrets []uuid.U
 		GROUP BY credentials_secret_id`, secrets)
 }
 
+func (s *ConnectionRepository) HasLegacyColumns(ctx context.Context) (bool, error) {
+	return postgres.HasColumn(ctx, s.db.From(ctx), forgetypes.Table, forgetypes.ColumnCredentials)
+}
+
 func (s *ConnectionRepository) Legacy(ctx context.Context) ([]forgetypes.LegacyConnection, error) {
-	tx := s.db.From(ctx)
-	if ok, err := postgres.HasColumn(ctx, tx, forgetypes.Table, forgetypes.ColumnCredentials); err != nil || !ok {
-		return nil, err
-	}
-	return postgres.List(ctx, tx, constraints, func(r pgx.CollectableRow) (forgetypes.LegacyConnection, error) {
+	return postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (forgetypes.LegacyConnection, error) {
 		var c forgetypes.LegacyConnection
 		err := r.Scan(&c.ID, &c.NodeID, &c.OwnerPath, &c.Enc, &c.Ref)
 		return c, err

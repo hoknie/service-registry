@@ -54,6 +54,16 @@ type NewNode struct {
 	ClusterObservation *bool
 }
 
+func (n NewNode) Stored() NewNode {
+	if n.Labels == nil {
+		n.Labels = Labels{}
+	}
+	if n.ClusterObservation == nil {
+		n.ClusterObservation = new(true)
+	}
+	return n
+}
+
 type Change[T any] struct {
 	Set   bool
 	Value *T

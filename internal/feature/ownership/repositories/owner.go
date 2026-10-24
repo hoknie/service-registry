@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"slices"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -17,102 +16,75 @@ type OwnerRepository struct{ db *pgtx.DB }
 
 func NewOwnerRepository(db *pgtx.DB) *OwnerRepository { return &OwnerRepository{db: db} }
 
-func (s *OwnerRepository) Replace(ctx context.Context, nodeID uuid.UUID, owners []ownershiptypes.NewOwner) error {
+func (s *OwnerRepository) LockNode(ctx context.Context, nodeID uuid.UUID) error {
+	return postgres.ExecFound(ctx, s.db.From(ctx), constraints, `
+		SELECT 1
+		FROM nodes
+		WHERE id = $1 FOR NO KEY UPDATE`, nodeID)
+}
+
+func (s *OwnerRepository) Resolve(ctx context.Context, nodeID uuid.UUID, owners []ownershiptypes.NewOwner) ([]ownershiptypes.ResolvedSubject, error) {
 	kinds := make([]string, len(owners))
 	subjects := make([]string, len(owners))
 	for i, o := range owners {
 		kinds[i], subjects[i] = string(o.SubjectKind), o.Subject
 	}
-	err := s.db.InTx(ctx, func(ctx context.Context) error {
-		tx := s.db.From(ctx)
-		if err := postgres.ExecFound(ctx, tx, constraints, `
-			SELECT 1
-			FROM nodes
-			WHERE id = $1 FOR NO KEY UPDATE`, nodeID); err != nil {
-			return err
-		}
-		resolved, err := postgres.List(ctx, tx, constraints, scanResolved, `
-			SELECT g.id, u.id
-			FROM unnest($1::text[], $2::text[]) WITH ORDINALITY AS x(kind, subject, ord)
-			LEFT JOIN LATERAL (
-				SELECT g.id
-				FROM groups g
-				WHERE x.kind = 'group'
-					AND lower(g.name) = lower(x.subject)
-					AND (g.organization_id IS NULL OR g.organization_id = node_root($3))
-				ORDER BY g.organization_id IS NULL
-				LIMIT 1
-			) g ON true
-			LEFT JOIN users u ON x.kind = 'user' AND lower(u.email) = lower(x.subject)
-			ORDER BY x.ord`, kinds, subjects, nodeID)
-		if err != nil {
-			return err
-		}
-		inherited, err := postgres.List(ctx, tx, constraints, pgx.RowTo[uuid.UUID], `
-			WITH RECURSIVE up AS (
-				SELECT n.parent_id AS id
-				FROM nodes n
-				WHERE n.id = $1
-					AND n.parent_id IS NOT NULL
-				UNION ALL
-				SELECT p.parent_id
-				FROM nodes p
-				JOIN up ON p.id = up.id
-				WHERE p.parent_id IS NOT NULL
-			)
-			SELECT COALESCE(o.group_id, o.user_id)
-			FROM node_owners o
-			WHERE o.node_id IN (SELECT id FROM up)`, nodeID)
-		if err != nil {
-			return err
-		}
-		own, err := ownSubjects(resolved, inherited)
-		if err != nil {
-			return err
-		}
-		if _, err := postgres.Exec(ctx, tx, constraints, `
-			DELETE FROM node_owners
-			WHERE node_id = $1`, nodeID); err != nil {
-			return err
-		}
-		for i, r := range own {
-			if _, err := postgres.Exec(ctx, tx, constraints, `
-				INSERT INTO node_owners (id, node_id, group_id, user_id, position)
-				VALUES ($1, $2, $3, $4, $5)`, uuid.Must(uuid.NewV7()), nodeID, r.groupID, r.userID, int16(i)); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	return postgres.Translate(err, constraints)
+	return postgres.List(ctx, s.db.From(ctx), constraints, scanResolved, `
+		SELECT g.id, u.id
+		FROM unnest($1::text[], $2::text[]) WITH ORDINALITY AS x(kind, subject, ord)
+		LEFT JOIN LATERAL (
+			SELECT g.id
+			FROM groups g
+			WHERE x.kind = 'group'
+				AND lower(g.name) = lower(x.subject)
+				AND (g.organization_id IS NULL OR g.organization_id = node_root($3))
+			ORDER BY g.organization_id IS NULL
+			LIMIT 1
+		) g ON true
+		LEFT JOIN users u ON x.kind = 'user' AND lower(u.email) = lower(x.subject)
+		ORDER BY x.ord`, kinds, subjects, nodeID)
 }
 
-func ownSubjects(resolved []resolvedRow, inherited []uuid.UUID) ([]resolvedRow, error) {
-	seen := map[uuid.UUID]bool{}
-	own := make([]resolvedRow, 0, len(resolved))
-	for _, r := range resolved {
-		id := r.groupID
-		if id == nil {
-			id = r.userID
-		}
-		if id == nil {
-			return nil, catalogtypes.InvalidUnknownSubject
-		}
-		if seen[*id] {
-			return nil, ownershiptypes.InvalidOwners
-		}
-		seen[*id] = true
-		if !slices.Contains(inherited, *id) {
-			own = append(own, r)
+func (s *OwnerRepository) AncestorSubjects(ctx context.Context, nodeID uuid.UUID) ([]uuid.UUID, error) {
+	return postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowTo[uuid.UUID], `
+		WITH RECURSIVE up AS (
+			SELECT n.parent_id AS id
+			FROM nodes n
+			WHERE n.id = $1
+				AND n.parent_id IS NOT NULL
+			UNION ALL
+			SELECT p.parent_id
+			FROM nodes p
+			JOIN up ON p.id = up.id
+			WHERE p.parent_id IS NOT NULL
+		)
+		SELECT COALESCE(o.group_id, o.user_id)
+		FROM node_owners o
+		WHERE o.node_id IN (SELECT id FROM up)`, nodeID)
+}
+
+func (s *OwnerRepository) DeleteOwn(ctx context.Context, nodeID uuid.UUID) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		DELETE FROM node_owners
+		WHERE node_id = $1`, nodeID)
+	return err
+}
+
+func (s *OwnerRepository) InsertOwn(ctx context.Context, nodeID uuid.UUID, ids []uuid.UUID, owners []ownershiptypes.ResolvedSubject) error {
+	for i, r := range owners {
+		if _, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+			INSERT INTO node_owners (id, node_id, group_id, user_id, position)
+			VALUES ($1, $2, $3, $4, $5)`, ids[i], nodeID, r.GroupID, r.UserID, int16(i)); err != nil {
+			return err
 		}
 	}
-	return own, nil
+	return nil
 }
 
-func (s *OwnerRepository) AddUser(ctx context.Context, nodeID, userID uuid.UUID) error {
+func (s *OwnerRepository) AddUser(ctx context.Context, id, nodeID, userID uuid.UUID) error {
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO node_owners (id, node_id, user_id, position)
-		VALUES ($1, $2, $3, 0)`, uuid.Must(uuid.NewV7()), nodeID, userID)
+		VALUES ($1, $2, $3, 0)`, id, nodeID, userID)
 	return err
 }
 

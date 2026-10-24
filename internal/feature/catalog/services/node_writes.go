@@ -54,7 +54,7 @@ func (s *NodesService) CreateNode(ctx context.Context, p accesstypes.Principal, 
 		return node, nil, nil
 	}
 	if node.Repo.DefaultBranch != nil {
-		if err := s.branchRepository.SetDefault(ctx, node.ID, node.Repo.DefaultBranch); err != nil {
+		if err := s.setDefaultBranch.Run(ctx, node.ID, node.Repo.DefaultBranch); err != nil {
 			_ = s.nodeRepository.Delete(ctx, node.ID)
 			return catalogtypes.Node{}, nil, apperr.Wrap(err)
 		}
@@ -126,7 +126,7 @@ func (s *NodesService) UpdateNode(ctx context.Context, p accesstypes.Principal, 
 		return catalogtypes.Node{}, apperr.Wrap(err)
 	}
 	if changes.DefaultBranch.Set {
-		if err := s.branchRepository.SetDefault(ctx, id, node.Repo.DefaultBranch); err != nil {
+		if err := s.setDefaultBranch.Run(ctx, id, node.Repo.DefaultBranch); err != nil {
 			return catalogtypes.Node{}, apperr.Wrap(err)
 		}
 	}
@@ -161,7 +161,7 @@ func (s *NodesService) MoveNode(ctx context.Context, p accesstypes.Principal, id
 	if !scoped.Node.Kind.MayBeUnder(targetKind) {
 		return catalogtypes.Node{}, apperr.Wrap(catalogtypes.ConflictInvalidParent)
 	}
-	node, err := s.nodeRepository.Move(ctx, id, parent)
+	node, err := s.moveNode.Run(ctx, id, parent)
 	if err != nil {
 		return catalogtypes.Node{}, apperr.Wrap(err)
 	}
@@ -189,7 +189,7 @@ func (s *NodesService) insert(ctx context.Context, p accesstypes.Principal, row 
 	top := row.ParentID == nil
 	creatorAdmin := top && !p.IsSuperadmin && !p.CatalogAdmin
 	if !top {
-		node, err := s.nodeRepository.Insert(ctx, row)
+		node, err := s.nodeRepository.Insert(ctx, row.Stored())
 		return node, apperr.Wrap(err)
 	}
 	if p.AddsRoots() && len(p.Nodes) >= accesstypes.TokenMaxNodes {
@@ -198,7 +198,7 @@ func (s *NodesService) insert(ctx context.Context, p accesstypes.Principal, row 
 	var node catalogtypes.Node
 	err := s.db.InTx(ctx, func(ctx context.Context) error {
 		var err error
-		if node, err = s.nodeRepository.Insert(ctx, row); err != nil {
+		if node, err = s.nodeRepository.Insert(ctx, row.Stored()); err != nil {
 			return err
 		}
 		if err := s.creatorOwners.AddCreatorOwner(ctx, node.ID, p.UserID); err != nil {

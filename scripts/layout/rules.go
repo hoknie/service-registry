@@ -31,20 +31,28 @@ var rules = []rule{
 	{"a feature must not import its own adapters (app wires them)", func(from, to string) bool {
 		return sameFeature(from, to) && kindOf(from) != kindAdapter && kindOf(to) == kindAdapter
 	}},
-	{"the domain of a feature must not import its ports, services or repositories", func(from, to string) bool {
+	{"the domain of a feature must not import its ports, services, use cases or repositories", func(from, to string) bool {
 		k := kindOf(to)
-		return sameFeature(from, to) && kindOf(from) == kindTypes && (k == kindPorts || k == kindServices || k == kindRepositories)
+		return sameFeature(from, to) && kindOf(from) == kindTypes && (k == kindPorts || k == kindServices || k == kindUseCases || k == kindRepositories)
 	}},
-	{"ports of a feature must not import its services or repositories", func(from, to string) bool {
+	{"ports of a feature must not import its services, use cases or repositories", func(from, to string) bool {
 		k := kindOf(to)
-		return sameFeature(from, to) && kindOf(from) == kindPorts && (k == kindServices || k == kindRepositories)
+		return sameFeature(from, to) && kindOf(from) == kindPorts && (k == kindServices || k == kindUseCases || k == kindRepositories)
 	}},
-	{"repositories must not import the services", func(from, to string) bool {
-		return sameFeature(from, to) && kindOf(from) == kindRepositories && kindOf(to) == kindServices
+	{"repositories must not import the services or use cases", func(from, to string) bool {
+		k := kindOf(to)
+		return sameFeature(from, to) && kindOf(from) == kindRepositories && (k == kindServices || k == kindUseCases)
 	}},
-	{"a repository is used only by the services of its feature", func(from, to string) bool {
+	{"use cases must not import the services of their feature", func(from, to string) bool {
+		return sameFeature(from, to) && kindOf(from) == kindUseCases && kindOf(to) == kindServices
+	}},
+	{"a repository is used only by the services and use cases of its feature", func(from, to string) bool {
 		k := kindOf(from)
-		return kindOf(to) == kindRepositories && !(sameFeature(from, to) && (k == kindServices || k == kindRepositories))
+		return kindOf(to) == kindRepositories && !(sameFeature(from, to) && (k == kindServices || k == kindUseCases || k == kindRepositories))
+	}},
+	{"a use case is used only by the services of its feature", func(from, to string) bool {
+		k := kindOf(from)
+		return kindOf(to) == kindUseCases && !(sameFeature(from, to) && (k == kindServices || k == kindUseCases))
 	}},
 	{"handlers, requests, responses, middleware and mcp are for the HTTP layer only", func(from, to string) bool {
 		return httpPart(to) && !under(from, "internal/presentation/http")

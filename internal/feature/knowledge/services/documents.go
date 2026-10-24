@@ -158,9 +158,47 @@ func (s *DocumentsService) KnowledgeFiles(ctx context.Context, p accesstypes.Pri
 	if err != nil {
 		return knowledgetypes.Snapshot{}, nil, err
 	}
-	snap, files, err := s.snapshotRepository.Files(ctx, id, branch, ref)
+	snap, files, err := s.snapshotFiles(ctx, id, branch, ref)
 	s.explain(kp, &snap)
 	return snap, files, apperr.Wrap(err)
+}
+
+func (s *DocumentsService) resolveSnapshot(ctx context.Context, id uuid.UUID, branch string, ref knowledgetypes.Ref) (knowledgetypes.Snapshot, error) {
+	snap, err := s.snapshotRepository.Resolve(ctx, id, branch, ref.Commit)
+	if err != nil {
+		return knowledgetypes.Snapshot{}, err
+	}
+	if snap == nil {
+		return knowledgetypes.Snapshot{}, apperr.ErrNotFound
+	}
+	return *snap, nil
+}
+
+func (s *DocumentsService) snapshotFiles(ctx context.Context, id uuid.UUID, branch string, ref knowledgetypes.Ref) (knowledgetypes.Snapshot, []knowledgetypes.FileInfo, error) {
+	snap, err := s.resolveSnapshot(ctx, id, branch, ref)
+	if err != nil {
+		return knowledgetypes.Snapshot{}, nil, err
+	}
+	files, err := s.snapshotRepository.Files(ctx, snap.ID)
+	if err != nil {
+		return knowledgetypes.Snapshot{}, nil, err
+	}
+	return snap, files, nil
+}
+
+func (s *DocumentsService) snapshotFile(ctx context.Context, id uuid.UUID, branch string, ref knowledgetypes.Ref, path string) (knowledgetypes.Snapshot, knowledgetypes.FileContent, error) {
+	snap, err := s.resolveSnapshot(ctx, id, branch, ref)
+	if err != nil {
+		return knowledgetypes.Snapshot{}, knowledgetypes.FileContent{}, err
+	}
+	f, err := s.snapshotRepository.File(ctx, snap.ID, path)
+	if err != nil {
+		return knowledgetypes.Snapshot{}, knowledgetypes.FileContent{}, err
+	}
+	if f == nil {
+		return knowledgetypes.Snapshot{}, knowledgetypes.FileContent{}, apperr.ErrNotFound
+	}
+	return snap, *f, nil
 }
 
 func (s *DocumentsService) explain(kp knowledgetypes.Project, snap *knowledgetypes.Snapshot) {
@@ -179,7 +217,7 @@ func (s *DocumentsService) KnowledgeFile(ctx context.Context, p accesstypes.Prin
 	if err != nil {
 		return knowledgetypes.Snapshot{}, knowledgetypes.FileContent{}, err
 	}
-	snap, f, err := s.snapshotRepository.File(ctx, id, branch, ref, path)
+	snap, f, err := s.snapshotFile(ctx, id, branch, ref, path)
 	s.explain(kp, &snap)
 	return snap, f, apperr.Wrap(err)
 }

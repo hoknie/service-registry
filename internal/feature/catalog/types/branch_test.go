@@ -31,3 +31,44 @@ func TestBranchQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestBranchSHANormalizes(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		in   *string
+		want *string
+	}{
+		{nil, nil},
+		{new("ABCDEF1"), new("abcdef1")},
+		{new("abc"), nil},
+		{new("not-a-sha"), nil},
+		{new(""), nil},
+	}
+	for _, c := range cases {
+		got := BranchSHA(c.in)
+		if (got == nil) != (c.want == nil) || (got != nil && *got != *c.want) {
+			t.Errorf("%v: got %v want %v", c.in, got, c.want)
+		}
+	}
+}
+
+func TestHeadsMoved(t *testing.T) {
+	t.Parallel()
+	known := map[string]string{"main": "abcdef1"}
+	cases := []struct {
+		name     string
+		branches []ForgeBranch
+		want     bool
+	}{
+		{"same head", []ForgeBranch{{Name: "main", HeadSHA: "ABCDEF1"}}, false},
+		{"moved head", []ForgeBranch{{Name: "main", HeadSHA: "abcdef2"}}, true},
+		{"new branch", []ForgeBranch{{Name: "dev", HeadSHA: "abcdef1"}}, true},
+		{"invalid head", []ForgeBranch{{Name: "dev", HeadSHA: "zzz"}}, false},
+		{"none", nil, false},
+	}
+	for _, c := range cases {
+		if got := HeadsMoved(known, c.branches); got != c.want {
+			t.Errorf("%s: got %v", c.name, got)
+		}
+	}
+}

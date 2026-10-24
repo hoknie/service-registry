@@ -14,18 +14,8 @@ func scanSuggestion(r pgx.CollectableRow) (catalogtypes.LabelSuggestion, error) 
 	return s, r.Scan(&s.Value, &s.Count)
 }
 
-func suggestions(out []catalogtypes.LabelSuggestion, err error) ([]catalogtypes.LabelSuggestion, error) {
-	if err != nil {
-		return nil, err
-	}
-	if out == nil {
-		out = []catalogtypes.LabelSuggestion{}
-	}
-	return out, nil
-}
-
 func (s *NodeRepository) LabelKeys(ctx context.Context, v catalogtypes.Viewer, all bool, prefix string) ([]catalogtypes.LabelSuggestion, error) {
-	return suggestions(postgres.List(ctx, s.db.From(ctx), constraints, scanSuggestion, `
+	return postgres.List(ctx, s.db.From(ctx), constraints, scanSuggestion, `
 		WITH RECURSIVE bound AS (
 			SELECT node_id
 			FROM viewer_bindings($1, $4::uuid[], $5::boolean)
@@ -47,11 +37,11 @@ func (s *NodeRepository) LabelKeys(ctx context.Context, v catalogtypes.Viewer, a
 		WHERE k.key ILIKE $3 ESCAPE '\'
 		GROUP BY k.key
 		ORDER BY count(*) DESC, k.key
-		LIMIT 20`, v.UserID, all, prefix, v.Nodes, v.Admin))
+		LIMIT 20`, v.UserID, all, prefix, v.Nodes, v.Admin)
 }
 
 func (s *NodeRepository) LabelValues(ctx context.Context, v catalogtypes.Viewer, all bool, key, prefix string) ([]catalogtypes.LabelSuggestion, error) {
-	return suggestions(postgres.List(ctx, s.db.From(ctx), constraints, scanSuggestion, `
+	return postgres.List(ctx, s.db.From(ctx), constraints, scanSuggestion, `
 		WITH RECURSIVE bound AS (
 			SELECT node_id
 			FROM viewer_bindings($1, $5::uuid[], $6::boolean)
@@ -73,5 +63,5 @@ func (s *NodeRepository) LabelValues(ctx context.Context, v catalogtypes.Viewer,
 			AND (n.labels ->> $3) ILIKE $4 ESCAPE '\'
 		GROUP BY n.labels ->> $3
 		ORDER BY count(*) DESC, n.labels ->> $3
-		LIMIT 20`, v.UserID, all, key, prefix, v.Nodes, v.Admin))
+		LIMIT 20`, v.UserID, all, key, prefix, v.Nodes, v.Admin)
 }

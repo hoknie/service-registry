@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	accesstypes "svc-registry/internal/feature/access/types"
 	catalogservices "svc-registry/internal/feature/catalog/services"
@@ -15,12 +16,14 @@ import (
 
 const freshCheckSecs = 30
 
+var snapshot = pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}
+
 func (s *ProjectsService) ProjectLinks(ctx context.Context, p accesstypes.Principal, id uuid.UUID, q linkstypes.LinkQuery) ([]linkstypes.Link, error) {
 	out, err := s.expandProject(ctx, p, id, q)
 	if err != nil {
 		return nil, err
 	}
-	if err := s.targetRepository.Seen(ctx, id, out); err != nil {
+	if err := s.seen(ctx, id, out); err != nil {
 		return nil, apperr.Wrap(err)
 	}
 	return out, s.attachChecks(ctx, out)
@@ -137,10 +140,16 @@ func (s *ProjectsService) projectContext(ctx context.Context, sc catalogservices
 }
 
 func (s *ProjectsService) loadContext(ctx context.Context, project catalogtypes.Node, ancestors []catalogtypes.Node) (linkstypes.Context, []linkstypes.Template, error) {
-	data, err := s.templateRepository.ProjectData(ctx, project.ID)
+	var data linkstypes.ProjectData
+	err := s.db.InTxOpts(ctx, snapshot, func(ctx context.Context) error {
+		var err error
+		data, err = s.templateRepository.ProjectData(ctx, project.ID)
+		return err
+	})
 	if err != nil {
 		return linkstypes.Context{}, nil, apperr.Wrap(err)
 	}
+	linkstypes.SortTemplates(data.Templates)
 	c := linkstypes.Context{
 		ProjectID: project.ID, ProjectSlug: project.Slug, ProjectName: project.Name,
 		Labels: map[string]string{}, Vars: map[string]string{},
@@ -157,6 +166,22 @@ func (s *ProjectsService) loadContext(ctx context.Context, project catalogtypes.
 		c.Vars[v.Key] = v.Value
 	}
 	return c, data.Templates, nil
+}
+
+func (s *ProjectsService) seen(ctx context.Context, id uuid.UUID, links []linkstypes.Link) error {
+	seen := linkstypes.Sightings(links)
+	if len(seen.URLs) == 0 {
+		return nil
+	}
+	return s.targetRepository.Seen(ctx, id, seen, newIDs(len(seen.URLs)), newIDs(len(seen.Pairs)))
+}
+
+func newIDs(n int) []uuid.UUID {
+	ids := make([]uuid.UUID, n)
+	for i := range ids {
+		ids[i] = uuid.Must(uuid.NewV7())
+	}
+	return ids
 }
 
 func (s *ProjectsService) attachChecks(ctx context.Context, out []linkstypes.Link) error {

@@ -156,6 +156,7 @@ type NewEvent struct {
 }
 
 type NewEpisode struct {
+	ID        uuid.UUID
 	Key       string
 	Type      EventType
 	NodeID    uuid.UUID

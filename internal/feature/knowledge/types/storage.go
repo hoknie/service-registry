@@ -49,3 +49,19 @@ type LegacySource struct {
 	Enc       *string
 	Ref       *string
 }
+
+func (s Scan) Stored() Scan {
+	if s.Branches == nil {
+		s.Branches = []ScanBranch{}
+	}
+	if s.Warnings == nil {
+		s.Warnings = []string{}
+	}
+	if s.Notes == nil {
+		s.Notes = []ScanNote{}
+	}
+	if s.Counts == nil {
+		s.Counts = map[string]int{}
+	}
+	return s
+}

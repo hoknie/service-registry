@@ -78,19 +78,49 @@ func roleOfRank(rank *int32) *catalogtypes.Role {
 	return &r
 }
 
-func labelsParam(l catalogtypes.Labels) catalogtypes.Labels {
-	if l == nil {
-		return catalogtypes.Labels{}
-	}
-	return l
-}
-
 type keyUseRow struct {
 	ID    uuid.UUID `db:"id"`
 	Stale bool      `db:"stale"`
 }
 
+func (r keyUseRow) activeKey() catalogtypes.ActiveKey {
+	return catalogtypes.ActiveKey{ID: r.ID, Stale: r.Stale}
+}
+
 type containedRow struct {
 	ContainerID uuid.UUID `db:"container_id"`
 	ProjectID   uuid.UUID `db:"project_id"`
+}
+
+func scanKey(row pgx.CollectableRow) (catalogtypes.ProjectKey, error) {
+	var k catalogtypes.ProjectKey
+	var status string
+	if err := row.Scan(&k.ID, &k.ProjectID, &k.Prefix, &k.CreatedAt, &k.LastUsedAt, &k.ExpiresAt, &k.RevokedAt, &status); err != nil {
+		return catalogtypes.ProjectKey{}, err
+	}
+	st, ok := catalogtypes.ParseKeyStatus(status)
+	if !ok {
+		return catalogtypes.ProjectKey{}, apperr.UnknownValue("key status", status)
+	}
+	k.Status = st
+	return k, nil
+}
+
+func scanBinding(row pgx.CollectableRow) (catalogtypes.Binding, error) {
+	var b catalogtypes.Binding
+	var isGroup bool
+	var role string
+	if err := row.Scan(&b.ID, &b.NodeID, &b.NodeName, &isGroup, &b.SubjectID, &b.SubjectName, &role, &b.CreatedAt); err != nil {
+		return catalogtypes.Binding{}, err
+	}
+	b.SubjectKind = catalogtypes.SubjectUser
+	if isGroup {
+		b.SubjectKind = catalogtypes.SubjectGroup
+	}
+	r, ok := catalogtypes.ParseRole(role)
+	if !ok {
+		return catalogtypes.Binding{}, apperr.UnknownValue("role", role)
+	}
+	b.Role = r
+	return b, nil
 }

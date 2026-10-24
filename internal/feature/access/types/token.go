@@ -38,6 +38,16 @@ func ParseScope(s string) (Scope, bool) {
 
 type Scopes []Scope
 
+func (s Scopes) Canonical() Scopes {
+	out := make(Scopes, 0, len(s))
+	for _, sc := range AllScopes {
+		if s.Has(sc) {
+			out = append(out, sc)
+		}
+	}
+	return out
+}
+
 func (s Scopes) Has(scope Scope) bool {
 	for _, sc := range s {
 		if sc == scope {

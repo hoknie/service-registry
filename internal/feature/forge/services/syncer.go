@@ -130,7 +130,7 @@ func (s *syncer) create(ctx context.Context, pl placement) error {
 	if err != nil {
 		return err
 	}
-	if err := s.svc.repoRepository.Upsert(ctx, forgetypes.RepoRecord{ProjectID: node.ID, ConnectionID: s.conn.ID, Remote: r, Details: pl.details}); err != nil {
+	if err := s.svc.repoRepository.Upsert(ctx, forgetypes.RepoRecord{ProjectID: node.ID, ConnectionID: s.conn.ID, Remote: r, Details: pl.details}.Stored()); err != nil {
 		_ = s.svc.catalog.System.RemoveNode(context.WithoutCancel(ctx), node.ID)
 		return err
 	}
@@ -174,7 +174,7 @@ func (s *syncer) update(ctx context.Context, pl placement) error {
 		}
 		return err
 	}
-	if err := s.svc.repoRepository.Upsert(ctx, forgetypes.RepoRecord{ProjectID: projectID, ConnectionID: s.conn.ID, Remote: r, Details: pl.details}); err != nil {
+	if err := s.svc.repoRepository.Upsert(ctx, forgetypes.RepoRecord{ProjectID: projectID, ConnectionID: s.conn.ID, Remote: r, Details: pl.details}.Stored()); err != nil {
 		return err
 	}
 	if t.Adopted {

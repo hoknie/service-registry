@@ -3,7 +3,6 @@ package repositories
 import (
 	"context"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -21,13 +20,12 @@ func like(s string) string {
 	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
 }
 
-func (s *SearchRepository) Search(ctx context.Context, v knowledgetypes.Viewer, q knowledgetypes.Search) ([]knowledgetypes.Hit, bool, error) {
-	words := []string{}
-	for _, w := range knowledgetypes.PathWords(q.Q) {
+func (s *SearchRepository) Search(ctx context.Context, v knowledgetypes.Viewer, q knowledgetypes.Search, t knowledgetypes.TextQuery) ([]knowledgetypes.Hit, error) {
+	words := make([]string, 0, len(t.PathWords))
+	for _, w := range t.PathWords {
 		words = append(words, "%"+like(w)+"%")
 	}
-	pos, neg, _ := knowledgetypes.PrefixQuery(q.Q)
-	hits, err := postgres.List(ctx, s.db.From(ctx), constraints, scanHit, `
+	return postgres.List(ctx, s.db.From(ctx), constraints, postgres.Struct(hitRow.hit), `
 		WITH RECURSIVE bound AS (
 			SELECT node_id
 			FROM viewer_bindings($1, $13::uuid[], $14::boolean)
@@ -113,40 +111,7 @@ func (s *SearchRepository) Search(ctx context.Context, v knowledgetypes.Viewer, 
 		LEFT JOIN knowledge_blobs b ON b.sha256 = p.sha256, q, pref
 		ORDER BY p.in_path DESC, p.rank DESC, p.project_id, p.branch, p.path`,
 		v.UserID, v.Superadmin, q.Project, q.Branch, q.Q, like(q.Path)+"%", words,
-		q.Limit+1, q.Offset, pos, neg, knowledgetypes.ExcludedWords(q.Q), v.Nodes, v.Admin)
-	if err != nil {
-		return nil, false, err
-	}
-	more := len(hits) > q.Limit
-	if more {
-		hits = hits[:q.Limit]
-	}
-	return hits, more, nil
-}
-
-func scanHit(r pgx.CollectableRow) (knowledgetypes.Hit, error) {
-	var h knowledgetypes.Hit
-	var kind, fragment string
-	var id uuid.UUID
-	err := r.Scan(&id, &h.ProjectName, &h.ProjectPath, &h.Branch, &h.Commit, &h.Path, &kind, &fragment)
-	h.ProjectID, h.Kind = id, knowledgetypes.Kind(kind)
-	h.Snippet = trim(knowledgetypes.Segments(fragment), 300)
-	return h, err
-}
-
-func trim(segments []knowledgetypes.Segment, n int) []knowledgetypes.Segment {
-	out := []knowledgetypes.Segment{}
-	for _, s := range segments {
-		if n <= 0 {
-			break
-		}
-		if c := utf8.RuneCountInString(s.Text); c > n {
-			s.Text = string([]rune(s.Text)[:n])
-		}
-		n -= utf8.RuneCountInString(s.Text)
-		out = append(out, s)
-	}
-	return out
+		q.Limit, q.Offset, t.Prefix, t.Negative, t.Excluded, v.Nodes, v.Admin)
 }
 
 func (s *SearchRepository) Readable(ctx context.Context, v knowledgetypes.Viewer, project *uuid.UUID) ([]uuid.UUID, error) {

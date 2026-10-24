@@ -133,7 +133,7 @@ func featureKind(path string) (feature, kind string, ok bool) {
 	return feature, kind, true
 }
 
-var featureKinds = map[string]bool{"types": true, "ports": true, "services": true, "repositories": true, "clients": true}
+var featureKinds = map[string]bool{"types": true, "ports": true, "services": true, "usecases": true, "repositories": true, "clients": true}
 
 func TestFeaturesAreKindFolders(t *testing.T) {
 	t.Parallel()
@@ -148,7 +148,7 @@ func TestFeaturesAreKindFolders(t *testing.T) {
 		}
 		for _, e := range entries {
 			if !e.IsDir() || !featureKinds[e.Name()] {
-				t.Errorf("internal/feature/%s/%s: a feature holds only types/, ports/, services/, repositories/ and clients/ (ADR-0073)", f.Name(), e.Name())
+				t.Errorf("internal/feature/%s/%s: a feature holds only types/, ports/, services/, usecases/, repositories/ and clients/ (ADR-0073, ADR-0109)", f.Name(), e.Name())
 			}
 		}
 	}

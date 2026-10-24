@@ -25,12 +25,8 @@ func (s *SubscriptionsService) TestSubscription(ctx context.Context, p accesstyp
 	if sub == nil {
 		return notifytypes.TestResult{}, apperr.New(apperr.NotFound)
 	}
-	wait, err := s.subscriptionRepository.MarkTest(ctx, sub.ID, notifytypes.TestEverySecs)
-	if err != nil {
-		return notifytypes.TestResult{}, apperr.Wrap(err)
-	}
-	if wait > 0 {
-		return notifytypes.TestResult{}, notifytypes.RateLimited(uint64(wait))
+	if err := s.markTest(ctx, sub.ID); err != nil {
+		return notifytypes.TestResult{}, err
 	}
 	eventID := uuid.Must(uuid.NewV7())
 	var deliveries []uuid.UUID
@@ -62,4 +58,19 @@ func (s *SubscriptionsService) TestSubscription(ctx context.Context, p accesstyp
 		return notifytypes.TestResult{}, apperr.Wrap(err)
 	}
 	return notifytypes.TestResult{Status: o.Status, HTTPStatus: r.HTTPStatus, ErrorCode: r.ErrorCode, DurationMS: r.DurationMS}, nil
+}
+
+func (s *SubscriptionsService) markTest(ctx context.Context, id uuid.UUID) error {
+	marked, err := s.subscriptionRepository.MarkTest(ctx, id, notifytypes.TestEverySecs)
+	if err != nil {
+		return apperr.Wrap(err)
+	}
+	if marked {
+		return nil
+	}
+	wait, err := s.subscriptionRepository.TestWait(ctx, id, notifytypes.TestEverySecs)
+	if err != nil {
+		return apperr.Wrap(err)
+	}
+	return notifytypes.RateLimited(uint64(max(wait, 1)))
 }

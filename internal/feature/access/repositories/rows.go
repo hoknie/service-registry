@@ -41,13 +41,7 @@ func parseScopes(raw []string) (accesstypes.Scopes, error) {
 		}
 		out = append(out, sc)
 	}
-	ordered := make(accesstypes.Scopes, 0, len(out))
-	for _, sc := range accesstypes.AllScopes {
-		if out.Has(sc) {
-			ordered = append(ordered, sc)
-		}
-	}
-	return ordered, nil
+	return out.Canonical(), nil
 }
 
 func scanToken(row pgx.CollectableRow) (accesstypes.Token, error) {
@@ -143,4 +137,24 @@ func scanMember(row pgx.CollectableRow) (accesstypes.Member, error) {
 	m.User.Status, err = status(st)
 	m.Source = accesstypes.MembershipSource(source)
 	return m, err
+}
+
+func scanAppGrant(r pgx.CollectableRow) (accesstypes.AppGrant, error) {
+	var g accesstypes.AppGrant
+	var scopes, redirects []string
+	var st string
+	err := r.Scan(&g.ID, &g.UserID, &g.ClientID, &g.ClientName, &g.ClientMetadataURL, &redirects, &scopes, &g.NodeIDs, &g.CreatedAt,
+		&g.LastUsedAt, &g.ExpiresAt, &g.RevokedAt, &st)
+	if err != nil {
+		return g, err
+	}
+	if len(redirects) > 0 {
+		g.RedirectHost = accesstypes.RedirectHost(redirects[0])
+	}
+	var ok bool
+	if g.Status, ok = accesstypes.ParseTokenStatus(st); !ok {
+		return g, apperr.InternalDetail("unknown grant status " + st)
+	}
+	g.Scopes, err = parseScopes(scopes)
+	return g, err
 }

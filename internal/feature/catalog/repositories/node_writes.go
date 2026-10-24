@@ -22,11 +22,11 @@ func (s *NodeRepository) Insert(ctx context.Context, n catalogtypes.NewNode) (ca
 	return postgres.One(ctx, s.db.From(ctx), constraints, scanNode, `
 		INSERT INTO nodes AS n (id, kind, parent_id, slug, name, description, labels, forge, repo_url,
 			default_branch, cluster_observation)
-		VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, COALESCE($11, true))
+		VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11)
 		RETURNING n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url,
 			n.default_branch, n.cluster_observation, n.visibility, rfc3339(n.created_at) AS created_at,
 			rfc3339(n.updated_at) AS updated_at`, n.ID, string(n.Kind), n.ParentID, n.Slug, n.Name,
-		n.Description, labelsParam(n.Labels), forgeText(n.Repo.Forge), n.Repo.RepoURL, n.Repo.DefaultBranch, n.ClusterObservation)
+		n.Description, n.Labels, forgeText(n.Repo.Forge), n.Repo.RepoURL, n.Repo.DefaultBranch, n.ClusterObservation)
 }
 
 func (s *NodeRepository) Update(ctx context.Context, id uuid.UUID, c catalogtypes.NodeChanges) (catalogtypes.Node, error) {
@@ -60,49 +60,34 @@ func foundNode(node *catalogtypes.Node, err error) (catalogtypes.Node, error) {
 	return *node, nil
 }
 
-func (s *NodeRepository) Move(ctx context.Context, id uuid.UUID, parent *uuid.UUID) (catalogtypes.Node, error) {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return catalogtypes.Node{}, postgres.Translate(err, constraints)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err := postgres.Exec(ctx, tx, constraints, `
-		SELECT pg_advisory_xact_lock(7316001)`); err != nil {
-		return catalogtypes.Node{}, err
-	}
-	if parent != nil {
-		cycle, err := postgres.One(ctx, tx, constraints, pgx.RowTo[bool], `
-			WITH RECURSIVE up AS (
-				SELECT id, parent_id
-				FROM nodes
-				WHERE id = $1
-				UNION ALL
-				SELECT p.id, p.parent_id
-				FROM nodes p
-				JOIN up ON p.id = up.parent_id
-			)
-			SELECT EXISTS (SELECT 1 FROM up WHERE id = $2)`, *parent, id)
-		if err != nil {
-			return catalogtypes.Node{}, err
-		}
-		if cycle {
-			return catalogtypes.Node{}, catalogtypes.ConflictCycle
-		}
-	}
-	moved, err := foundNode(postgres.Find(ctx, tx, constraints, scanNode, `
+func (s *NodeRepository) LockTree(ctx context.Context) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		SELECT pg_advisory_xact_lock(7316001)`)
+	return err
+}
+
+func (s *NodeRepository) IsAncestorOrSelf(ctx context.Context, ancestor, id uuid.UUID) (bool, error) {
+	return postgres.One(ctx, s.db.From(ctx), constraints, pgx.RowTo[bool], `
+		WITH RECURSIVE up AS (
+			SELECT id, parent_id
+			FROM nodes
+			WHERE id = $1
+			UNION ALL
+			SELECT p.id, p.parent_id
+			FROM nodes p
+			JOIN up ON p.id = up.parent_id
+		)
+		SELECT EXISTS (SELECT 1 FROM up WHERE id = $2)`, id, ancestor)
+}
+
+func (s *NodeRepository) SetParent(ctx context.Context, id uuid.UUID, parent *uuid.UUID) (catalogtypes.Node, error) {
+	return foundNode(postgres.Find(ctx, s.db.From(ctx), constraints, scanNode, `
 		UPDATE nodes AS n
 		SET parent_id = $2, visibility = CASE WHEN $2::uuid IS NULL THEN n.visibility ELSE 'closed' END, updated_at = now()
 		WHERE n.id = $1
 		RETURNING n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url,
 			n.default_branch, n.cluster_observation, n.visibility, rfc3339(n.created_at) AS created_at,
 			rfc3339(n.updated_at) AS updated_at`, id, parent))
-	if err != nil {
-		return catalogtypes.Node{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return catalogtypes.Node{}, postgres.Translate(err, constraints)
-	}
-	return moved, nil
 }
 
 func (s *NodeRepository) SetVisibility(ctx context.Context, id uuid.UUID, v catalogtypes.OrgVisibility) (catalogtypes.Node, error) {

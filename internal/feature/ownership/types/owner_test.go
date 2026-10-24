@@ -63,3 +63,31 @@ func TestQueriesAndSets(t *testing.T) {
 		t.Errorf("own set %+v", s)
 	}
 }
+
+func TestOwnSubjects(t *testing.T) {
+	t.Parallel()
+	g, u, up := uuid.New(), uuid.New(), uuid.New()
+	for name, tc := range map[string]struct {
+		in        []ResolvedSubject
+		inherited []uuid.UUID
+		want      int
+		err       error
+	}{
+		"empty":     {nil, nil, 0, nil},
+		"both":      {[]ResolvedSubject{{GroupID: &g}, {UserID: &u}}, nil, 2, nil},
+		"inherited": {[]ResolvedSubject{{GroupID: &g}, {UserID: &up}}, []uuid.UUID{up}, 1, nil},
+		"unknown":   {[]ResolvedSubject{{GroupID: &g}, {}}, nil, 0, catalogtypes.InvalidUnknownSubject},
+		"repeated":  {[]ResolvedSubject{{UserID: &u}, {UserID: &u}}, nil, 0, InvalidOwners},
+	} {
+		got, err := OwnSubjects(tc.in, tc.inherited)
+		if !errors.Is(err, tc.err) && (err != nil || tc.err != nil) {
+			t.Errorf("%s: err %v, want %v", name, err, tc.err)
+		}
+		if err == nil && len(got) != tc.want {
+			t.Errorf("%s: %d own, want %d", name, len(got), tc.want)
+		}
+	}
+	if (ResolvedSubject{GroupID: &g, UserID: &u}).ID() != &g {
+		t.Error("group id first")
+	}
+}

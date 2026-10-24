@@ -121,11 +121,10 @@ func (s *ConnectionsService) CreateConnection(ctx context.Context, p accesstypes
 		return ConnectionView{}, err
 	}
 	id := uuid.Must(uuid.NewV7())
-	c, err := s.connectionRepository.Insert(ctx, forgetypes.NewConnection{ID: id, NodeID: nodeID, Settings: settings, SecretID: secret})
-	if err != nil {
+	if err := s.connectionRepository.Insert(ctx, forgetypes.NewConnection{ID: id, NodeID: nodeID, Settings: settings, SecretID: secret}); err != nil {
 		return ConnectionView{}, apperr.Wrap(err)
 	}
-	return s.view(ctx, c)
+	return s.reload(ctx, id)
 }
 
 func (s *ConnectionsService) GetConnection(ctx context.Context, p accesstypes.Principal, nodeID, id uuid.UUID) (ConnectionView, error) {
@@ -153,11 +152,21 @@ func (s *ConnectionsService) UpdateConnection(ctx context.Context, p accesstypes
 		}
 		secret = &sid
 	}
-	c, err := s.connectionRepository.Update(ctx, id, settings, secret)
+	if err := s.connectionRepository.Update(ctx, id, settings, secret); err != nil {
+		return ConnectionView{}, apperr.Wrap(err)
+	}
+	return s.reload(ctx, id)
+}
+
+func (s *ConnectionsService) reload(ctx context.Context, id uuid.UUID) (ConnectionView, error) {
+	c, err := s.connectionRepository.Find(ctx, id)
 	if err != nil {
 		return ConnectionView{}, apperr.Wrap(err)
 	}
-	return s.view(ctx, c)
+	if c == nil {
+		return ConnectionView{}, apperr.Wrap(apperr.ErrNotFound)
+	}
+	return s.view(ctx, *c)
 }
 
 func (s *ConnectionsService) DeleteConnection(ctx context.Context, p accesstypes.Principal, nodeID, id uuid.UUID) error {

@@ -4,6 +4,7 @@ import (
 	catalogservices "svc-registry/internal/feature/catalog/services"
 	ingestports "svc-registry/internal/feature/ingest/ports"
 	"svc-registry/internal/feature/ingest/repositories"
+	"svc-registry/internal/feature/ingest/usecases"
 	notifyservices "svc-registry/internal/feature/notify/services"
 	topologyservices "svc-registry/internal/feature/topology/services"
 	"svc-registry/internal/platform/auth"
@@ -49,12 +50,15 @@ type IngestServices struct {
 	Records *RecordsService
 }
 
-func (f *IngestServices) Use(docs ingestports.DocsTriggerPort) { f.Accept.docs = docs }
+func (f *IngestServices) Use(docs ingestports.DocsTriggerPort) { f.Accept.acceptEvent.Use(docs) }
 
 func New(d Deps) *IngestServices {
 	p := newParts(d)
+	record := usecases.NewRecordDeployment(p.db, p.deploymentRepository, p.notify)
+	accept := usecases.NewAcceptEvent(usecases.AcceptEventDeps{DB: p.db, Events: p.eventRepository, Deployments: p.deploymentRepository,
+		RecordDeployment: record, Catalog: p.catalog, Topology: p.topology})
 	f := &IngestServices{
-		Accept:  &AcceptService{catalog: p.catalog, cfg: p.cfg, db: p.db, deploymentRepository: p.deploymentRepository, eventRepository: p.eventRepository, limiter: p.limiter, notify: p.notify, topology: p.topology},
+		Accept:  &AcceptService{catalog: p.catalog, cfg: p.cfg, deploymentRepository: p.deploymentRepository, eventRepository: p.eventRepository, limiter: p.limiter, acceptEvent: accept, recordDeployment: record},
 		Records: &RecordsService{catalog: p.catalog, deploymentRepository: p.deploymentRepository, eventRepository: p.eventRepository},
 	}
 	return f

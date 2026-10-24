@@ -28,3 +28,8 @@ type ProjectKey struct {
 	RevokedAt  *string
 	Status     KeyStatus
 }
+
+type ActiveKey struct {
+	ID    uuid.UUID
+	Stale bool
+}

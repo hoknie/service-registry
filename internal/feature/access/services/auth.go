@@ -101,7 +101,10 @@ func (s *AuthService) rightsOf(ctx context.Context, user accesstypes.User) (acce
 		return nil, nil
 	}
 	rights, err := s.permissionRepository.ForUser(ctx, user.ID)
-	return rights, apperr.Wrap(err)
+	if err != nil {
+		return nil, apperr.Wrap(err)
+	}
+	return rights.Canonical(), nil
 }
 
 func (s *AuthService) authenticateApp(ctx context.Context, hash [32]byte) (accesstypes.Principal, accesstypes.User, error) {

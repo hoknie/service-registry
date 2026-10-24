@@ -73,7 +73,7 @@ func (s *SearchService) SearchKnowledge(ctx context.Context, p accesstypes.Princ
 	var more bool
 	switch {
 	case mode == knowledgetypes.ModeText && !e.Handles(mode):
-		hits, more, err = s.searchRepository.Search(ctx, viewer, q)
+		hits, more, err = s.textSearch(ctx, viewer, q)
 	case mode == knowledgetypes.ModeHybrid && !e.Handles(mode):
 		hits, more, err = s.hybrid(ctx, e, viewer, q)
 	default:
@@ -119,7 +119,7 @@ func (s *SearchService) engineQuery(ctx context.Context, v knowledgetypes.Viewer
 func (s *SearchService) hybrid(ctx context.Context, e knowledgeports.EnginePort, v knowledgetypes.Viewer, q knowledgetypes.Search) ([]knowledgetypes.Hit, bool, error) {
 	window := q
 	window.Offset, window.Limit = 0, q.Offset+q.Limit+1
-	text, _, err := s.searchRepository.Search(ctx, v, window)
+	text, _, err := s.textSearch(ctx, v, window)
 	if err != nil {
 		return nil, false, err
 	}
@@ -141,6 +141,15 @@ func (s *SearchService) hybrid(ctx context.Context, e knowledgeports.EnginePort,
 		page = page[:q.Limit]
 	}
 	return page, more, nil
+}
+
+func (s *SearchService) textSearch(ctx context.Context, v knowledgetypes.Viewer, q knowledgetypes.Search) ([]knowledgetypes.Hit, bool, error) {
+	hits, err := s.searchRepository.Search(ctx, v, q.Probe(), knowledgetypes.NewTextQuery(q.Q))
+	if err != nil {
+		return nil, false, err
+	}
+	hits, more := q.Page(hits)
+	return hits, more, nil
 }
 
 func offers(e knowledgeports.EnginePort, m knowledgetypes.Mode) bool {

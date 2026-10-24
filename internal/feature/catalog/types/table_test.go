@@ -46,3 +46,18 @@ func TestValidateTable(t *testing.T) {
 		t.Fatalf("got %+v", f)
 	}
 }
+
+func TestTableFilterLabelMatch(t *testing.T) {
+	t.Parallel()
+	m, ok := TableFilter{}.LabelMatch()
+	if !ok || m.Values == nil || m.Keys == nil || len(m.Values) != 0 || len(m.Keys) != 0 {
+		t.Fatalf("empty: %+v %v", m, ok)
+	}
+	m, ok = TableFilter{Labels: []LabelFilter{{Key: "team", Value: new("a")}, {Key: "tier"}, {Key: "team", Value: new("a")}}}.LabelMatch()
+	if !ok || m.Values["team"] != "a" || len(m.Values) != 1 || len(m.Keys) != 1 || m.Keys[0] != "tier" {
+		t.Fatalf("match: %+v %v", m, ok)
+	}
+	if _, ok := (TableFilter{Labels: []LabelFilter{{Key: "team", Value: new("a")}, {Key: "team", Value: new("b")}}}).LabelMatch(); ok {
+		t.Fatal("contradicting values must not match")
+	}
+}

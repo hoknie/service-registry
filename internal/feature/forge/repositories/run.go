@@ -2,13 +2,11 @@ package repositories
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	forgetypes "svc-registry/internal/feature/forge/types"
-	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
 	"svc-registry/pkg/pgtx"
 )
@@ -26,44 +24,28 @@ func (s *RunRepository) Start(ctx context.Context, n forgetypes.NewRun) (forgety
 		n.ID, n.ConnectionID, string(n.Trigger))
 }
 
-func (s *RunRepository) Finish(ctx context.Context, id uuid.UUID, res forgetypes.RunResult, keep int) error {
-	problems := res.Problems
-	if problems == nil {
-		problems = []forgetypes.Problem{}
-	}
-	if len(problems) > forgetypes.MaxProblems {
-		problems = problems[:forgetypes.MaxProblems]
-	}
-	body, err := json.Marshal(problems)
-	if err != nil {
-		return apperr.InternalDetail(err.Error())
-	}
-	err = s.db.InTx(ctx, func(ctx context.Context) error {
-		tx := s.db.From(ctx)
-		c := res.Counts
-		connID, err := postgres.One(ctx, tx, constraints, pgx.RowTo[uuid.UUID], `
-			UPDATE forge_sync_runs
-			SET status = $2, finished_at = now(), created = $3, updated = $4, orphaned = $5, skipped = $6,
-				error_code = $7, error_message = $8, problems = $9
-			WHERE id = $1
-			RETURNING connection_id`, id, string(res.Status), c.Created, c.Updated, c.Orphaned, c.Skipped,
-			res.ErrorCode, res.ErrorMessage, body)
-		if err != nil {
-			return err
-		}
-		_, err = postgres.Exec(ctx, tx, constraints, `
-			DELETE FROM forge_sync_runs
-			WHERE connection_id = $1
-				AND id NOT IN (
-					SELECT id
-					FROM forge_sync_runs
-					WHERE connection_id = $1
-					ORDER BY started_at DESC, id DESC
-					LIMIT $2
-				)`, connID, keep)
-		return err
-	})
-	return postgres.Translate(err, constraints)
+func (s *RunRepository) Finish(ctx context.Context, id uuid.UUID, res forgetypes.RunResult) error {
+	c := res.Counts
+	return postgres.ExecFound(ctx, s.db.From(ctx), constraints, `
+		UPDATE forge_sync_runs
+		SET status = $2, finished_at = now(), created = $3, updated = $4, orphaned = $5, skipped = $6,
+			error_code = $7, error_message = $8, problems = $9
+		WHERE id = $1`, id, string(res.Status), c.Created, c.Updated, c.Orphaned, c.Skipped,
+		res.ErrorCode, res.ErrorMessage, res.Problems)
+}
+
+func (s *RunRepository) Prune(ctx context.Context, connID uuid.UUID, keep int) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		DELETE FROM forge_sync_runs
+		WHERE connection_id = $1
+			AND id NOT IN (
+				SELECT id
+				FROM forge_sync_runs
+				WHERE connection_id = $1
+				ORDER BY started_at DESC, id DESC
+				LIMIT $2
+			)`, connID, keep)
+	return err
 }
 
 func (s *RunRepository) PreviousStatus(ctx context.Context, connID, runID uuid.UUID) (*forgetypes.RunStatus, error) {

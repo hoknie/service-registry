@@ -1,6 +1,7 @@
 package types
 
 import (
+	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -115,4 +116,32 @@ func ValidateBranchQuery(q BranchQuery) (BranchFilter, error) {
 		f.Offset = uint64(*q.Offset)
 	}
 	return f, nil
+}
+
+var hexSHA = regexp.MustCompile(`^[0-9a-f]{7,64}$`)
+
+func BranchSHA(s *string) *string {
+	if s == nil {
+		return nil
+	}
+	v := strings.ToLower(*s)
+	if !hexSHA.MatchString(v) {
+		return nil
+	}
+	return &v
+}
+
+type BranchHead struct {
+	ID   uuid.UUID
+	Name string
+	Head *string
+}
+
+func HeadsMoved(known map[string]string, branches []ForgeBranch) bool {
+	for _, b := range branches {
+		if head := BranchSHA(&b.HeadSHA); head != nil && known[b.Name] != *head {
+			return true
+		}
+	}
+	return false
 }

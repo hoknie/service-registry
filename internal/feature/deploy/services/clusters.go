@@ -63,8 +63,7 @@ func (s *ClustersService) CreateCluster(ctx context.Context, p accesstypes.Princ
 	}
 	id := uuid.Must(uuid.NewV7())
 	issued, err := s.saveCluster(ctx, deploytypes.ModePoll, settings.Mode, id, func(ctx context.Context) error {
-		_, err := s.clusterRepository.Insert(ctx, deploytypes.NewCluster{ID: id, Settings: settings, SecretID: secret})
-		return err
+		return s.clusterRepository.Insert(ctx, deploytypes.NewCluster{ID: id, Settings: settings.Stored(), SecretID: secret})
 	})
 	if err != nil {
 		return deploytypes.Cluster{}, nil, err
@@ -93,8 +92,8 @@ func (s *ClustersService) UpdateCluster(ctx context.Context, p accesstypes.Princ
 		return deploytypes.Cluster{}, nil, err
 	}
 	issued, err := s.saveCluster(ctx, current.Mode, settings.Mode, id, func(ctx context.Context) error {
-		c, err := s.clusterRepository.Update(ctx, id, deploytypes.ClusterUpdate{Settings: settings, SecretID: secret})
-		if err == nil && c == nil {
+		found, err := s.clusterRepository.Update(ctx, id, deploytypes.ClusterUpdate{Settings: settings.Stored(), SecretID: secret})
+		if err == nil && !found {
 			return apperr.New(apperr.NotFound)
 		}
 		return err

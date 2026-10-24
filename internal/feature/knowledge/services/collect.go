@@ -17,6 +17,7 @@ import (
 	knowledgeports "svc-registry/internal/feature/knowledge/ports"
 	"svc-registry/internal/feature/knowledge/repositories"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
+	"svc-registry/internal/feature/knowledge/usecases"
 	topologyservices "svc-registry/internal/feature/topology/services"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
@@ -46,7 +47,7 @@ func (s *CollectService) recordScan(ctx context.Context, scan *knowledgetypes.Sc
 		interval = s.cfg.Search.IndexIntervalSecs
 	}
 	maxGap := 2 * time.Duration(interval) * time.Second
-	if err := s.scanRepository.Record(context.WithoutCancel(ctx), *scan, int(s.cfg.Knowledge.ScanHistory), maxGap); err != nil {
+	if err := s.saveScan(context.WithoutCancel(ctx), scan.Stored(), maxGap); err != nil {
 		slog.Warn("documentation scan not recorded", "project", scan.ProjectID, "kind", scan.Kind, "error", err)
 	}
 }
@@ -131,9 +132,27 @@ func (s *CollectService) recordFailure(ctx context.Context, id uuid.UUID, branch
 	if len(commit) > 0 {
 		c = commit[0]
 	}
-	snap := knowledgetypes.NewSnapshot{ID: uuid.Must(uuid.NewV7()), ProjectID: id, Branch: branch, Commit: c,
+	snap := knowledgetypes.NewSnapshot{ID: uuid.Must(uuid.NewV7()), ProjectID: id, Branch: branch, CommitSHA: c,
 		Status: knowledgetypes.StatusFailed, ErrorCode: code}
-	return apperr.Wrap(s.snapshotRepository.Save(context.WithoutCancel(ctx), snap, s.cfg.Knowledge.Keep))
+	return apperr.Wrap(s.saveSnapshot.Run(context.WithoutCancel(ctx), usecases.SaveSnapshotInput{Snapshot: snap, Keep: s.cfg.Knowledge.Keep}))
+}
+
+func (s *CollectService) saveScan(ctx context.Context, scan knowledgetypes.Scan, maxGap time.Duration) error {
+	return repositories.Err(s.db.InTx(ctx, func(ctx context.Context) error {
+		if scan.Status == knowledgetypes.ScanUnchanged {
+			last, err := s.scanRepository.LockLast(ctx, scan)
+			if err != nil {
+				return err
+			}
+			if last != nil && scan.Extends(*last, maxGap) {
+				return s.scanRepository.Repeat(ctx, last.ID, scan)
+			}
+		}
+		if err := s.scanRepository.Insert(ctx, scan); err != nil {
+			return err
+		}
+		return s.scanRepository.Trim(ctx, scan, int(s.cfg.Knowledge.ScanHistory))
+	}))
 }
 
 func failureOf(err error) (string, *time.Time) {
@@ -167,6 +186,7 @@ type CollectService struct {
 	documents            *DocumentsService
 	settingsService      *SettingsService
 	topology             *topologyservices.TopologyServices
+	saveSnapshot         *usecases.SaveSnapshotUseCase
 }
 
 func (s *CollectService) CollectKnowledge(ctx context.Context, p accesstypes.Principal, id uuid.UUID) error {

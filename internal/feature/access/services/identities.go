@@ -8,6 +8,7 @@ import (
 	"svc-registry/internal/feature/access/repositories"
 	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/platform/apperr"
+	"svc-registry/pkg/pgtx"
 )
 
 type IdentityView struct {
@@ -54,10 +55,31 @@ func (s *IdentitiesService) UserIdentities(ctx context.Context, p accesstypes.Pr
 }
 
 func (s *IdentitiesService) UnlinkIdentity(ctx context.Context, p accesstypes.Principal, id uuid.UUID) error {
-	return apperr.Wrap(s.identityRepository.Delete(ctx, p.UserID, id))
+	err := s.db.InTx(ctx, func(ctx context.Context) error {
+		hasPassword, err := s.userRepository.LockPassword(ctx, p.UserID)
+		if err != nil {
+			return err
+		}
+		if hasPassword == nil {
+			return apperr.ErrNotFound
+		}
+		count, err := s.identityRepository.CountForUser(ctx, p.UserID)
+		if err != nil {
+			return err
+		}
+		if err := s.identityRepository.Delete(ctx, p.UserID, id); err != nil {
+			return err
+		}
+		if accesstypes.LastLoginMethod(*hasPassword, count) {
+			return accesstypes.ConflictLastLoginMethod
+		}
+		return nil
+	})
+	return apperr.Wrap(err)
 }
 
 type IdentitiesService struct {
+	db                 *pgtx.DB
 	identityRepository *repositories.IdentityRepository
 	userRepository     *repositories.UserRepository
 	oauthService       *OAuthService

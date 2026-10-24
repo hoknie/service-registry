@@ -41,25 +41,17 @@ func (r secretRow) secret() catalogtypes.Secret {
 }
 
 func (s *SecretRepository) Insert(ctx context.Context, n catalogtypes.NewSecret) (catalogtypes.Secret, error) {
-	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
-		INSERT INTO secrets (id, node_id, name, description, value_enc, value_ref, fingerprint)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+	return postgres.One(ctx, s.db.From(ctx), constraints, postgres.Struct(secretRow.secret), `
+		WITH s AS (
+			INSERT INTO secrets (id, node_id, name, description, value_enc, value_ref, fingerprint)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			RETURNING *
+		)
+		SELECT s.id, s.node_id, s.name, s.description, s.value_ref, s.fingerprint, n.name AS from_name,
+			rfc3339(s.created_at) AS created_at, rfc3339(s.updated_at) AS updated_at
+		FROM s
+		LEFT JOIN nodes n ON n.id = s.node_id`,
 		n.ID, n.NodeID, n.Name, n.Description, n.Stored.Enc, n.Stored.Ref, n.Stored.Fingerprint)
-	if err != nil {
-		return catalogtypes.Secret{}, err
-	}
-	return s.must(ctx, n.ID)
-}
-
-func (s *SecretRepository) must(ctx context.Context, id uuid.UUID) (catalogtypes.Secret, error) {
-	found, err := s.Get(ctx, id)
-	if err != nil {
-		return catalogtypes.Secret{}, err
-	}
-	if found == nil {
-		return catalogtypes.Secret{}, apperr.ErrNotFound
-	}
-	return *found, nil
 }
 
 func (s *SecretRepository) Get(ctx context.Context, id uuid.UUID) (*catalogtypes.Secret, error) {
@@ -76,20 +68,30 @@ func (s *SecretRepository) Update(ctx context.Context, id uuid.UUID, scope *uuid
 	if c.Stored != nil {
 		enc, ref, fingerprint = c.Stored.Enc, c.Stored.Ref, c.Stored.Fingerprint
 	}
-	err := postgres.ExecFound(ctx, s.db.From(ctx), constraints, `
-		UPDATE secrets
-		SET name = COALESCE($3, name), description = COALESCE($4, description),
-			value_enc = CASE WHEN $5 THEN $6 ELSE value_enc END,
-			value_ref = CASE WHEN $5 THEN $7 ELSE value_ref END,
-			fingerprint = CASE WHEN $5 THEN $8 ELSE fingerprint END,
-			updated_at = now()
-		WHERE id = $1
-			AND node_id IS NOT DISTINCT FROM $2`,
+	found, err := postgres.Find(ctx, s.db.From(ctx), constraints, postgres.Struct(secretRow.secret), `
+		WITH s AS (
+			UPDATE secrets
+			SET name = COALESCE($3, name), description = COALESCE($4, description),
+				value_enc = CASE WHEN $5 THEN $6 ELSE value_enc END,
+				value_ref = CASE WHEN $5 THEN $7 ELSE value_ref END,
+				fingerprint = CASE WHEN $5 THEN $8 ELSE fingerprint END,
+				updated_at = now()
+			WHERE id = $1
+				AND node_id IS NOT DISTINCT FROM $2
+			RETURNING *
+		)
+		SELECT s.id, s.node_id, s.name, s.description, s.value_ref, s.fingerprint, n.name AS from_name,
+			rfc3339(s.created_at) AS created_at, rfc3339(s.updated_at) AS updated_at
+		FROM s
+		LEFT JOIN nodes n ON n.id = s.node_id`,
 		id, scope, c.Name, c.Description, c.Stored != nil, enc, ref, fingerprint)
 	if err != nil {
 		return catalogtypes.Secret{}, err
 	}
-	return s.must(ctx, id)
+	if found == nil {
+		return catalogtypes.Secret{}, apperr.ErrNotFound
+	}
+	return *found, nil
 }
 
 func (s *SecretRepository) Delete(ctx context.Context, id uuid.UUID, scope *uuid.UUID) error {

@@ -73,6 +73,7 @@ type NewAuthorization struct {
 	CodeChallenge string
 	Resource      *string
 	Scopes        Scopes
+	TTLSecs       int
 }
 
 type AuthorizationRequest struct {

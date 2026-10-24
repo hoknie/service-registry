@@ -38,7 +38,22 @@ func (s *GroupsService) RemoveMember(ctx context.Context, p accesstypes.Principa
 	if _, err := s.mayManageMembers(ctx, p, at); err != nil {
 		return err
 	}
-	return apperr.Wrap(s.groupRepository.RemoveMember(ctx, at.ID, userID))
+	removed, err := s.groupRepository.RemoveManualMember(ctx, at.ID, userID)
+	if err != nil || removed {
+		return apperr.Wrap(err)
+	}
+	source, err := s.groupRepository.MemberSource(ctx, at.ID, userID)
+	if err != nil {
+		return apperr.Wrap(err)
+	}
+	if source != nil {
+		return apperr.Wrap(accesstypes.ConflictMembershipManaged)
+	}
+	exists, err := s.groupRepository.Exists(ctx, at.ID)
+	if err == nil && !exists {
+		err = apperr.ErrNotFound
+	}
+	return apperr.Wrap(err)
 }
 
 func (s *GroupsService) ManagedGroups(ctx context.Context, p accesstypes.Principal) ([]accesstypes.ManagedGroup, error) {

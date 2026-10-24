@@ -14,15 +14,29 @@ import (
 
 func (s *ProjectsService) record(ctx context.Context, url string, r linkstypes.Result) (linkstypes.Check, error) {
 	cfg := s.cfg.LinkCheck
-	var out linkstypes.Recorded
+	out := linkstypes.Recorded{Check: linkstypes.Check{URL: url, Status: r.Status, HTTPStatus: r.HTTPStatus, DurationMS: r.DurationMS},
+		CheckID: uuid.Must(uuid.NewV7())}
+	targetID := uuid.Must(uuid.NewV7())
 	err := s.db.InTx(ctx, func(ctx context.Context) error {
 		var err error
-		if out, err = s.targetRepository.Record(ctx, url, r, cfg.IntervalSecs, cfg.History); err != nil {
+		if out.Previous, err = s.targetRepository.LockStatus(ctx, url); err != nil {
+			return err
+		}
+		if out.TargetID, out.Check.CheckedAt, err = s.targetRepository.UpsertChecked(ctx, targetID, url, r, int(cfg.IntervalSecs)); err != nil {
+			return err
+		}
+		if err := s.targetRepository.InsertCheck(ctx, out.CheckID, out.TargetID, r); err != nil {
+			return err
+		}
+		if err := s.targetRepository.PruneChecks(ctx, out.TargetID, int(cfg.History)); err != nil {
 			return err
 		}
 		return s.emitTransition(ctx, out)
 	})
-	return out.Check, apperr.Wrap(err)
+	if err != nil {
+		return linkstypes.Check{}, apperr.Wrap(err)
+	}
+	return out.Check, nil
 }
 
 func (s *ProjectsService) emitTransition(ctx context.Context, rec linkstypes.Recorded) error {

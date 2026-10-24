@@ -53,7 +53,7 @@ func (s *PollService) RunClusterPoll(ctx context.Context, id uuid.UUID) error {
 	if ctx.Err() != nil {
 		return nil
 	}
-	return apperr.Wrap(s.clusterRepository.Finish(context.WithoutCancel(ctx), id, f))
+	return apperr.Wrap(s.clusterRepository.Finish(context.WithoutCancel(ctx), id, deploytypes.StatusOf(f), f))
 }
 
 func (s *PollService) observeCluster(ctx context.Context, c deploytypes.Cluster, client deployports.ClusterClientPort) (*pollRun, *deploytypes.Failure, error) {
@@ -116,7 +116,7 @@ func (r *pollRun) resolve(ctx context.Context) deploytypes.Resolver {
 		if p, ok := r.projects[ref]; ok {
 			return p, nil
 		}
-		p, err := r.poll.workloadRepository.Project(ctx, ref)
+		p, err := r.poll.project(ctx, ref)
 		if err == nil {
 			r.projects[ref] = p
 		}
@@ -215,7 +215,7 @@ func (s *PollService) PruneWorkloads(ctx context.Context) (int64, error) {
 func (s *PollService) saveObservations(ctx context.Context, clusterID uuid.UUID, run *pollRun) error {
 	obs, deployments := run.obs, run.deployments
 	return repositories.Err(s.db.InTx(ctx, func(ctx context.Context) error {
-		if err := s.workloadRepository.Save(ctx, clusterID, obs); err != nil {
+		if err := s.saveWorkloads(ctx, clusterID, obs); err != nil {
 			return err
 		}
 		if err := s.topology.Records.SyncCluster(ctx, clusterID, run.dependencies); err != nil {
@@ -243,6 +243,39 @@ func (s *PollService) saveObservations(ctx context.Context, clusterID uuid.UUID,
 		}
 		return s.resolveDrifts(ctx)
 	}))
+}
+
+func (s *PollService) project(ctx context.Context, ref string) (*deploytypes.ProjectRef, error) {
+	id, slugs := deploytypes.ProjectPath(ref)
+	if id != nil {
+		return s.workloadRepository.ProjectByID(ctx, *id)
+	}
+	var parent *uuid.UUID
+	for i, slug := range slugs {
+		n, err := s.workloadRepository.Child(ctx, parent, slug)
+		if n == nil || err != nil {
+			return nil, err
+		}
+		if i == len(slugs)-1 {
+			if !n.Project {
+				return nil, nil
+			}
+			return &n.ProjectRef, nil
+		}
+		parent = &n.ID
+	}
+	return nil, nil
+}
+
+func (s *PollService) saveWorkloads(ctx context.Context, clusterID uuid.UUID, obs []deploytypes.Observation) error {
+	rows, uids := deploytypes.StoredWorkloads(obs, func() uuid.UUID { return uuid.Must(uuid.NewV7()) })
+	if err := s.workloadRepository.Upsert(ctx, clusterID, rows); err != nil {
+		return err
+	}
+	if err := s.workloadRepository.MarkGoneExcept(ctx, clusterID, uids); err != nil {
+		return err
+	}
+	return s.workloadRepository.DropUnobserved(ctx, clusterID)
 }
 
 type PollService struct {

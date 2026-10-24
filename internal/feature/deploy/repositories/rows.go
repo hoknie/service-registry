@@ -94,11 +94,6 @@ type previousRow struct {
 	deploytypes.Previous
 }
 
-type keyUseRow struct {
-	ID    uuid.UUID `db:"id"`
-	Stale bool      `db:"stale"`
-}
-
 type workloadWrite struct {
 	ID             uuid.UUID           `json:"id"`
 	UID            string              `json:"uid"`

@@ -16,8 +16,16 @@ func (s *PortsService) ActivitySignals(ctx context.Context, projects []uuid.UUID
 	return s.clusterRepository.Signals(ctx, projects, busy)
 }
 
+func (s *PortsService) legacy(ctx context.Context) ([]deploytypes.LegacyCluster, error) {
+	ok, err := s.clusterRepository.HasLegacyColumn(ctx)
+	if err != nil || !ok {
+		return nil, err
+	}
+	return s.clusterRepository.Legacy(ctx)
+}
+
 func (s *PortsService) AdoptLegacyCredentials(ctx context.Context, adopt catalogtypes.AdoptFunc) (int, error) {
-	rows, err := s.clusterRepository.Legacy(ctx)
+	rows, err := s.legacy(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -42,7 +50,7 @@ func (s *PortsService) AdoptLegacyCredentials(ctx context.Context, adopt catalog
 }
 
 func (s *PortsService) LegacyCredentialCount(ctx context.Context) (int, error) {
-	rows, err := s.clusterRepository.Legacy(ctx)
+	rows, err := s.legacy(ctx)
 	return len(rows), err
 }
 

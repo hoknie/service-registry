@@ -10,6 +10,7 @@ import (
 	"svc-registry/internal/feature/access/repositories"
 	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/platform/apperr"
+	"svc-registry/pkg/pgtx"
 )
 
 func (s *GroupsService) CreateGroup(ctx context.Context, p accesstypes.Principal, in accesstypes.GroupName) (accesstypes.Group, error) {
@@ -76,6 +77,7 @@ func (s *GroupsService) GetGroup(ctx context.Context, p accesstypes.Principal, a
 	if g.Permissions, err = s.permissionRepository.ForGroup(ctx, at.ID); err != nil {
 		return accesstypes.GroupDetails{}, apperr.Wrap(err)
 	}
+	g.Permissions = g.Permissions.Canonical()
 	if g.MembersLock, g.CanManageMembers, err = s.membership(ctx, p, g.Group); err != nil {
 		return accesstypes.GroupDetails{}, err
 	}
@@ -125,7 +127,13 @@ func (s *GroupsService) SetGroupPermissions(ctx context.Context, p accesstypes.P
 	if g != nil && g.Group.Organization != nil {
 		return nil, apperr.Wrap(accesstypes.InvalidOrgGroupRights)
 	}
-	if err := s.permissionRepository.Replace(ctx, id, rights); err != nil {
+	err = s.db.InTx(ctx, func(ctx context.Context) error {
+		if err := s.groupRepository.Lock(ctx, id); err != nil {
+			return err
+		}
+		return s.permissionRepository.Replace(ctx, id, rights)
+	})
+	if err != nil {
 		return nil, apperr.Wrap(err)
 	}
 	return rights, nil
@@ -232,6 +240,7 @@ func (s *GroupsService) organizationAdmin(ctx context.Context, p accesstypes.Pri
 }
 
 type GroupsService struct {
+	db                   *pgtx.DB
 	permissionRepository *repositories.GroupPermissionRepository
 	groupRepository      *repositories.GroupRepository
 	userRepository       *repositories.UserRepository

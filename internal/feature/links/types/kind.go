@@ -212,3 +212,19 @@ func ValidateOrder(keys []string) ([]string, error) {
 	}
 	return out, nil
 }
+
+func CheckOrderCurrent(current, keys []string) error {
+	if len(current) != len(keys) {
+		return ConflictKindOrderStale
+	}
+	given := make(map[string]bool, len(keys))
+	for _, k := range keys {
+		given[k] = true
+	}
+	for _, k := range current {
+		if !given[k] {
+			return ConflictKindOrderStale
+		}
+	}
+	return nil
+}

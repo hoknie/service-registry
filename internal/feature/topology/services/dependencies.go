@@ -59,15 +59,15 @@ func (s *DependenciesService) AddDependency(ctx context.Context, p accesstypes.P
 			return topologytypes.Item{}, topologytypes.InvalidDependency
 		}
 	}
-	if _, err := s.dependencyRepository.InsertManual(ctx, id, t, note); err != nil {
+	e := topologytypes.NewEdge{ID: uuid.Must(uuid.NewV7()), ProjectID: id, Source: topologytypes.SourceManual, Target: t, Note: note}
+	if err := s.dependencyRepository.InsertManual(ctx, e); err != nil {
 		return topologytypes.Item{}, apperr.Wrap(err)
 	}
 	_, keyed, err := s.list(ctx, p, id)
 	if err != nil {
 		return topologytypes.Item{}, err
 	}
-	key := topologytypes.Edge{TargetProjectID: t.ProjectID, TargetExternal: t.External, TargetRef: t.Ref}.TargetKey()
-	return keyed[key], nil
+	return keyed[t.Key()], nil
 }
 
 func (s *DependenciesService) DeleteDependency(ctx context.Context, p accesstypes.Principal, id, dependency uuid.UUID) error {

@@ -12,6 +12,7 @@ import (
 	"svc-registry/internal/feature/links/repositories"
 	linkstypes "svc-registry/internal/feature/links/types"
 	"svc-registry/internal/platform/apperr"
+	"svc-registry/pkg/pgtx"
 	"svc-registry/pkg/ptr"
 )
 
@@ -20,7 +21,11 @@ func (s *TemplatesService) ListLinkTemplates(ctx context.Context, p accesstypes.
 		return nil, err
 	}
 	items, err := s.templateRepository.Effective(ctx, id)
-	return items, apperr.Wrap(err)
+	if err != nil {
+		return nil, apperr.Wrap(err)
+	}
+	linkstypes.SortTemplates(items)
+	return items, nil
 }
 
 func (s *TemplatesService) PutLinkTemplate(ctx context.Context, p accesstypes.Principal, id uuid.UUID, linkKey string, in linkstypes.PutTemplate) (linkstypes.Template, error) {
@@ -34,8 +39,37 @@ func (s *TemplatesService) PutLinkTemplate(ctx context.Context, p accesstypes.Pr
 	if t.IconFile != nil && (s.icons == nil || !s.icons.Touch(*t.IconFile)) {
 		return linkstypes.Template{}, apperr.Wrap(linkstypes.InvalidTemplateIcon)
 	}
-	saved, err := s.templateRepository.Put(ctx, t)
+	saved, err := s.put(ctx, t)
 	return saved, apperr.Wrap(err)
+}
+
+func (s *TemplatesService) put(ctx context.Context, t linkstypes.NewTemplate) (linkstypes.Template, error) {
+	var out linkstypes.Template
+	err := s.db.InTx(ctx, func(ctx context.Context) error {
+		if err := s.templateRepository.LockNode(ctx, t.NodeID); err != nil {
+			return err
+		}
+		kindID, err := s.templateRepository.KindID(ctx, t.KindKey)
+		if err != nil {
+			return err
+		}
+		if kindID == nil {
+			return linkstypes.UnknownKind
+		}
+		others, err := s.templateRepository.CountOthers(ctx, t.NodeID, t.LinkKey)
+		if err != nil {
+			return err
+		}
+		if others >= linkstypes.MaxTemplatesPerNode {
+			return linkstypes.TooManyTemplates
+		}
+		if err := s.templateRepository.Upsert(ctx, t, *kindID); err != nil {
+			return err
+		}
+		out, err = s.templateRepository.Own(ctx, t.NodeID, t.LinkKey)
+		return err
+	})
+	return out, err
 }
 
 func (s *TemplatesService) DeleteLinkTemplate(ctx context.Context, p accesstypes.Principal, id uuid.UUID, rawKey string) error {
@@ -65,7 +99,21 @@ func (s *TemplatesService) ReplaceNodeVars(ctx context.Context, p accesstypes.Pr
 	if err != nil {
 		return nil, apperr.Wrap(err)
 	}
-	if err := s.templateRepository.ReplaceVars(ctx, id, vars); err != nil {
+	err = s.db.InTx(ctx, func(ctx context.Context) error {
+		if err := s.templateRepository.LockNode(ctx, id); err != nil {
+			return err
+		}
+		if err := s.templateRepository.DeleteVars(ctx, id); err != nil {
+			return err
+		}
+		for k, v := range vars {
+			if err := s.templateRepository.InsertVar(ctx, uuid.Must(uuid.NewV7()), id, k, v); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, apperr.Wrap(err)
 	}
 	items, err := s.templateRepository.EffectiveVars(ctx, id)
@@ -113,6 +161,7 @@ func (s *TemplatesService) PreviewLinkTemplate(ctx context.Context, p accesstype
 }
 
 type TemplatesService struct {
+	db                 *pgtx.DB
 	catalog            *catalogservices.CatalogServices
 	icons              linksports.IconFilesPort
 	templateRepository *repositories.TemplateRepository

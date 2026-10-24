@@ -1,6 +1,10 @@
 package types
 
-import "github.com/google/uuid"
+import (
+	"slices"
+
+	"github.com/google/uuid"
+)
 
 type Status string
 
@@ -29,6 +33,30 @@ type Recorded struct {
 	TargetID uuid.UUID
 	CheckID  uuid.UUID
 	Previous *Status
+}
+
+type TargetPair struct {
+	URL     string
+	LinkKey string
+}
+
+type Sighting struct {
+	URLs  []string
+	Pairs []TargetPair
+}
+
+func Sightings(links []Link) Sighting {
+	out := Sighting{URLs: URLs(links)}
+	for _, l := range links {
+		if l.URL == nil {
+			continue
+		}
+		if p := (TargetPair{URL: *l.URL, LinkKey: l.LinkKey}); !slices.Contains(out.Pairs, p) {
+			out.Pairs = append(out.Pairs, p)
+		}
+	}
+	slices.Sort(out.URLs)
+	return out
 }
 
 type TargetProject struct {

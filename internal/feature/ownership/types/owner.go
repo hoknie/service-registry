@@ -1,6 +1,7 @@
 package types
 
 import (
+	"slices"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -119,4 +120,35 @@ func SetOf(items []Owner) OwnerSet {
 		out.Own = out.Own || !o.Inherited
 	}
 	return out
+}
+
+type ResolvedSubject struct {
+	GroupID *uuid.UUID
+	UserID  *uuid.UUID
+}
+
+func (r ResolvedSubject) ID() *uuid.UUID {
+	if r.GroupID != nil {
+		return r.GroupID
+	}
+	return r.UserID
+}
+
+func OwnSubjects(resolved []ResolvedSubject, inherited []uuid.UUID) ([]ResolvedSubject, error) {
+	seen := map[uuid.UUID]bool{}
+	own := make([]ResolvedSubject, 0, len(resolved))
+	for _, r := range resolved {
+		id := r.ID()
+		if id == nil {
+			return nil, catalogtypes.InvalidUnknownSubject
+		}
+		if seen[*id] {
+			return nil, InvalidOwners
+		}
+		seen[*id] = true
+		if !slices.Contains(inherited, *id) {
+			own = append(own, r)
+		}
+	}
+	return own, nil
 }

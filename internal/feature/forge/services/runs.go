@@ -37,7 +37,10 @@ func (s *SyncService) ListRuns(ctx context.Context, p accesstypes.Principal, nod
 
 func (s *SyncService) finishRun(ctx context.Context, conn forgetypes.Connection, run forgetypes.Run, res forgetypes.RunResult) error {
 	return s.db.InTx(ctx, func(ctx context.Context) error {
-		if err := s.runRepository.Finish(ctx, run.ID, res, int(s.cfg.Jobs.ForgeRunsKept)); err != nil {
+		if err := s.runRepository.Finish(ctx, run.ID, res.Stored()); err != nil {
+			return err
+		}
+		if err := s.runRepository.Prune(ctx, run.ConnectionID, int(s.cfg.Jobs.ForgeRunsKept)); err != nil {
 			return err
 		}
 		ev := notifytypes.Event{Type: notifytypes.EventForgeSyncFailed, NodeID: conn.NodeID, DedupeKey: notifytypes.ForgeKey(run.ID),

@@ -12,6 +12,7 @@ import (
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
+	"svc-registry/pkg/pgtx"
 )
 
 type KnowledgeSettings struct {
@@ -62,14 +63,31 @@ func (s *SettingsService) PutKnowledgeSettings(ctx context.Context, p accesstype
 	if err != nil {
 		return KnowledgeSettings{}, apperr.Wrap(err)
 	}
-	if err := s.patternRepository.Put(ctx, id, sc); err != nil {
+	if err := s.putPatterns(ctx, id, sc); err != nil {
 		return KnowledgeSettings{}, apperr.Wrap(err)
 	}
 	return s.nodeSettings(ctx, id)
 }
 
+func (s *SettingsService) putPatterns(ctx context.Context, id uuid.UUID, sc knowledgetypes.NodeSettings) error {
+	return repositories.Err(s.db.InTx(ctx, func(ctx context.Context) error {
+		var err error
+		if sc.IsEmpty() {
+			err = s.patternRepository.Delete(ctx, id)
+		} else {
+			err = s.patternRepository.Upsert(ctx, id, sc.Stored())
+		}
+		if err != nil {
+			return err
+		}
+		return s.collectionRepository.MarkSubtreeDue(ctx, id)
+	}))
+}
+
 type SettingsService struct {
-	cfg               *config.Config
-	catalog           *catalogservices.CatalogServices
-	patternRepository *repositories.PatternRepository
+	cfg                  *config.Config
+	db                   *pgtx.DB
+	catalog              *catalogservices.CatalogServices
+	collectionRepository *repositories.CollectionRepository
+	patternRepository    *repositories.PatternRepository
 }

@@ -81,6 +81,46 @@ func (r RemoteRepo) ChangedAt() *time.Time {
 	return r.UpdatedAt
 }
 
+type StoredRepo struct {
+	ProjectID     uuid.UUID
+	ConnectionID  uuid.UUID
+	Remote        RemoteRepo
+	DefaultBranch *string
+	License       *string
+	Topics        []string
+	WithDetails   bool
+	Readme        *string
+	Truncated     *bool
+	Languages     map[string]float64
+	ChangedAt     *time.Time
+}
+
+func (rec RepoRecord) Stored() StoredRepo {
+	r := rec.Remote
+	out := StoredRepo{ProjectID: rec.ProjectID, ConnectionID: rec.ConnectionID, Remote: r, Topics: r.Topics,
+		WithDetails: rec.Details != nil}
+	if r.DefaultBranch != "" {
+		out.DefaultBranch = &r.DefaultBranch
+	}
+	if r.License != "" {
+		out.License = &r.License
+	}
+	if out.Topics == nil {
+		out.Topics = []string{}
+	}
+	if d := rec.Details; d != nil {
+		out.Readme, out.Truncated, out.Languages = d.Readme, &d.Truncated, d.Languages
+		if l := BoundedLicense(d.License); l != nil {
+			out.License = l
+		}
+		out.ChangedAt = r.ChangedAt()
+	}
+	if out.Languages == nil {
+		out.Languages = map[string]float64{}
+	}
+	return out
+}
+
 type Details struct {
 	Readme    *string
 	Truncated bool
@@ -123,6 +163,17 @@ const (
 	OriginForge  = "forge"
 	OriginSource = "source"
 )
+
+func (r Repository) FromForge() Repository {
+	r.Origin = OriginForge
+	if r.Topics == nil {
+		r.Topics = []string{}
+	}
+	if r.Languages == nil {
+		r.Languages = map[string]float64{}
+	}
+	return r
+}
 
 type Readme struct {
 	Markdown      string

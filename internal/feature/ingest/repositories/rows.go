@@ -27,6 +27,10 @@ type replayRow struct {
 
 func (r eventRow) event() ingesttypes.Event { return ingesttypes.Event(r) }
 
+func (r replayRow) replay() ingesttypes.Replay {
+	return ingesttypes.Replay{EventID: r.ID, Same: r.Same}
+}
+
 type deploymentRow struct {
 	ID          uuid.UUID                    `db:"id"`
 	ProjectID   uuid.UUID                    `db:"project_id"`

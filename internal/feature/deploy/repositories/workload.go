@@ -3,7 +3,6 @@ package repositories
 import (
 	"context"
 	"encoding/json"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -36,67 +35,53 @@ func (s *WorkloadRepository) Previous(ctx context.Context, clusterID uuid.UUID) 
 	return out, nil
 }
 
-func (s *WorkloadRepository) Save(ctx context.Context, clusterID uuid.UUID, obs []deploytypes.Observation) error {
-	err := s.db.InTx(ctx, func(ctx context.Context) error {
-		tx := s.db.From(ctx)
-		rows, uids := workloadRowsOf(obs)
-		for start := 0; start < len(rows); start += workloadBatch {
-			if err := upsertWorkloads(ctx, tx, clusterID, rows[start:min(start+workloadBatch, len(rows))]); err != nil {
-				return err
-			}
-		}
-		if _, err := postgres.Exec(ctx, tx, constraints, `
-			UPDATE cluster_workloads
-			SET gone_at = now(), pending_version = NULL, pending_since = NULL, updated_at = now()
-			WHERE cluster_id = $1
-				AND gone_at IS NULL
-				AND NOT (uid = ANY($2::text[]))`, clusterID, uids); err != nil {
+func (s *WorkloadRepository) Upsert(ctx context.Context, clusterID uuid.UUID, rows []deploytypes.StoredWorkload) error {
+	for start := 0; start < len(rows); start += workloadBatch {
+		if err := upsertWorkloads(ctx, s.db.From(ctx), clusterID, rows[start:min(start+workloadBatch, len(rows))]); err != nil {
 			return err
 		}
-		if _, err := postgres.Exec(ctx, tx, constraints, `
-			DELETE FROM cluster_workloads w USING nodes n
-			WHERE w.cluster_id = $1
-				AND n.id = w.project_id
-				AND NOT n.cluster_observation`, clusterID); err != nil {
-			return err
-		}
-		return nil
-	})
-	return postgres.Translate(err, constraints)
+	}
+	return nil
+}
+
+func (s *WorkloadRepository) MarkGoneExcept(ctx context.Context, clusterID uuid.UUID, uids []string) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		UPDATE cluster_workloads
+		SET gone_at = now(), pending_version = NULL, pending_since = NULL, updated_at = now()
+		WHERE cluster_id = $1
+			AND gone_at IS NULL
+			AND NOT (uid = ANY($2::text[]))`, clusterID, uids)
+	return err
+}
+
+func (s *WorkloadRepository) DropUnobserved(ctx context.Context, clusterID uuid.UUID) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		DELETE FROM cluster_workloads w USING nodes n
+		WHERE w.cluster_id = $1
+			AND n.id = w.project_id
+			AND NOT n.cluster_observation`, clusterID)
+	return err
 }
 
 const workloadBatch = 1000
 
-func workloadRowsOf(obs []deploytypes.Observation) ([]workloadWrite, []string) {
-	last := make(map[string]int, len(obs))
-	for i, o := range obs {
-		last[o.UID] = i
-	}
-	rows := make([]workloadWrite, 0, len(last))
-	uids := make([]string, 0, len(last))
-	for i, o := range obs {
-		if last[o.UID] != i {
-			continue
-		}
-		images := o.Images
-		if images == nil {
-			images = []deploytypes.Image{}
-		}
+func workloadWrites(rows []deploytypes.StoredWorkload) []workloadWrite {
+	out := make([]workloadWrite, 0, len(rows))
+	for _, o := range rows {
 		var reason *string
 		if o.Reason != nil {
 			reason = new(string(*o.Reason))
 		}
-		uids = append(uids, o.UID)
-		rows = append(rows, workloadWrite{ID: uuid.Must(uuid.NewV7()), UID: o.UID, Namespace: o.Namespace,
+		out = append(out, workloadWrite{ID: o.ID, UID: o.UID, Namespace: o.Namespace,
 			Kind: string(o.Kind), Name: o.Name, ProjectID: o.ProjectID, Reason: reason, Annotation: o.Annotation,
-			Service: o.Service, Environment: o.Environment, Branch: o.Branch, Version: o.Version, Images: images,
+			Service: o.Service, Environment: o.Environment, Branch: o.Branch, Version: o.Version, Images: o.Images,
 			State: o.State, PendingVersion: o.PendingVersion, PendingSince: o.PendingSince})
 	}
-	return rows, uids
+	return out
 }
 
-func upsertWorkloads(ctx context.Context, tx pgtx.Querier, clusterID uuid.UUID, rows []workloadWrite) error {
-	batch, err := json.Marshal(rows)
+func upsertWorkloads(ctx context.Context, tx pgtx.Querier, clusterID uuid.UUID, rows []deploytypes.StoredWorkload) error {
+	batch, err := json.Marshal(workloadWrites(rows))
 	if err != nil {
 		return err
 	}
@@ -195,43 +180,28 @@ func (s *WorkloadRepository) Prune(ctx context.Context, days uint32) (int64, err
 		WHERE gone_at < now() - make_interval(days => $1::int)`, int(days))
 }
 
-func (s *WorkloadRepository) Project(ctx context.Context, ref string) (*deploytypes.ProjectRef, error) {
-	if id, err := uuid.Parse(ref); err == nil {
-		return postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (deploytypes.ProjectRef, error) {
-			var p deploytypes.ProjectRef
-			err := r.Scan(&p.ID, &p.Observe)
-			return p, err
-		}, `
-			SELECT id, cluster_observation
-			FROM nodes
-			WHERE id = $1
-				AND kind = 'project'`, id)
-	}
-	var parent *uuid.UUID
-	segments := strings.Split(ref, "/")
-	for i, seg := range segments {
-		var kind string
-		n, err := postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (deploytypes.ProjectRef, error) {
-			var p deploytypes.ProjectRef
-			err := r.Scan(&p.ID, &kind, &p.Observe)
-			return p, err
-		}, `
-			SELECT id, kind, cluster_observation
-			FROM nodes
-			WHERE parent_id IS NOT DISTINCT FROM $1
-				AND slug = $2`, parent, strings.ToLower(seg))
-		if n == nil || err != nil {
-			return nil, err
-		}
-		if i == len(segments)-1 {
-			if kind != "project" {
-				return nil, nil
-			}
-			return n, nil
-		}
-		parent = &n.ID
-	}
-	return nil, nil
+func (s *WorkloadRepository) ProjectByID(ctx context.Context, id uuid.UUID) (*deploytypes.ProjectRef, error) {
+	return postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (deploytypes.ProjectRef, error) {
+		var p deploytypes.ProjectRef
+		err := r.Scan(&p.ID, &p.Observe)
+		return p, err
+	}, `
+		SELECT id, cluster_observation
+		FROM nodes
+		WHERE id = $1
+			AND kind = 'project'`, id)
+}
+
+func (s *WorkloadRepository) Child(ctx context.Context, parent *uuid.UUID, slug string) (*deploytypes.PathNode, error) {
+	return postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (deploytypes.PathNode, error) {
+		var n deploytypes.PathNode
+		err := r.Scan(&n.ID, &n.Project, &n.Observe)
+		return n, err
+	}, `
+		SELECT id, kind = 'project', cluster_observation
+		FROM nodes
+		WHERE parent_id IS NOT DISTINCT FROM $1
+			AND slug = $2`, parent, slug)
 }
 
 func (s *WorkloadRepository) Current(ctx context.Context, projectID uuid.UUID, service, environment string) (*string, error) {

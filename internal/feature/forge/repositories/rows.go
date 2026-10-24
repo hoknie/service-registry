@@ -92,3 +92,18 @@ func credentialsOf(secret *uuid.UUID) catalogtypes.Credentials {
 	}
 	return catalogtypes.Credentials{Kind: catalogtypes.CredentialsSecret, SecretID: secret}
 }
+
+func scanProjectLink(row pgx.CollectableRow) (forgetypes.ProjectLink, error) {
+	var l forgetypes.ProjectLink
+	var kind string
+	var secret *uuid.UUID
+	if err := row.Scan(&l.ConnectionID, &l.NodeID, &l.Owner, &kind, &l.WebURL, &l.APIURL, &secret, &l.SyncedAt); err != nil {
+		return l, err
+	}
+	var ok bool
+	if l.Kind, ok = forgetypes.ParseKind(kind); !ok {
+		return l, apperr.UnknownValue("forge kind", kind)
+	}
+	l.Credentials = credentialsOf(secret)
+	return l, nil
+}

@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	forgetypes "svc-registry/internal/feature/forge/types"
+	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/postgres"
 	"svc-registry/pkg/pgtx"
 )
@@ -29,36 +30,8 @@ func (s *SourceRepoRepository) ChangedAt(ctx context.Context, projectID uuid.UUI
 	return *at, nil
 }
 
-func (s *SourceRepoRepository) Upsert(ctx context.Context, projectID uuid.UUID, r forgetypes.RemoteRepo, d *forgetypes.Details) error {
-	var branch, license *string
-	if r.DefaultBranch != "" {
-		branch = &r.DefaultBranch
-	}
-	if r.License != "" {
-		license = &r.License
-	}
-	topics := r.Topics
-	if topics == nil {
-		topics = []string{}
-	}
-	var readme *string
-	var truncated *bool
-	var languages map[string]float64
-	var changed *time.Time
-	if d != nil {
-		readme, truncated, languages = d.Readme, &d.Truncated, d.Languages
-		if l := forgetypes.BoundedLicense(d.License); l != nil {
-			license = l
-		}
-		changed = r.ChangedAt()
-	}
-	if languages == nil {
-		languages = map[string]float64{}
-	}
-	visibility := string(r.Visibility)
-	if visibility == "" {
-		visibility = string(forgetypes.VisibilityPublic)
-	}
+func (s *SourceRepoRepository) Upsert(ctx context.Context, projectID uuid.UUID, rec knowledgetypes.SourceRepoRecord) error {
+	r := rec.Repo
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO knowledge_source_repos AS k (project_id, full_path, web_url, description, topics, default_branch,
 			archived, visibility, stars, license, pushed_at, source_updated_at, readme_md, readme_truncated, languages)
@@ -72,8 +45,8 @@ func (s *SourceRepoRepository) Upsert(ctx context.Context, projectID uuid.UUID, 
 			readme_md = CASE WHEN $13 THEN EXCLUDED.readme_md ELSE k.readme_md END,
 			readme_truncated = CASE WHEN $13 THEN EXCLUDED.readme_truncated ELSE k.readme_truncated END,
 			languages = CASE WHEN $13 THEN EXCLUDED.languages ELSE k.languages END,
-			synced_at = now()`, projectID, r.FullPath, r.WebURL, r.Description, topics, branch, r.Archived, visibility,
-		r.Stars, license, r.PushedAt, changed, d != nil, readme, truncated, languages)
+			synced_at = now()`, projectID, r.FullPath, r.WebURL, r.Description, r.Topics, rec.DefaultBranch, r.Archived,
+		string(r.Visibility), r.Stars, rec.License, r.PushedAt, rec.ChangedAt, rec.Details, rec.Readme, rec.Truncated, rec.Languages)
 	return err
 }
 

@@ -36,7 +36,7 @@ func (p preparedSource) Attach(ctx context.Context, projectID uuid.UUID) error {
 	if err := p.svc.sourcesService.checkSecret(ctx, projectID, p.source.SecretID); err != nil {
 		return err
 	}
-	_, err := p.svc.sourceRepository.Put(ctx, projectID, p.source)
+	_, err := p.svc.sourcesService.saveSource(ctx, projectID, p.source)
 	return err
 }
 
@@ -51,7 +51,7 @@ func (s *PortsService) SourceFor(in knowledgetypes.SourceInput) catalogports.Sou
 }
 
 func (s *PortsService) AdoptLegacyCredentials(ctx context.Context, adopt catalogtypes.AdoptFunc) (int, error) {
-	rows, err := s.sourceRepository.Legacy(ctx)
+	rows, err := s.legacySources(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -77,8 +77,16 @@ func (s *PortsService) AdoptLegacyCredentials(ctx context.Context, adopt catalog
 }
 
 func (s *PortsService) LegacyCredentialCount(ctx context.Context) (int, error) {
-	rows, err := s.sourceRepository.Legacy(ctx)
+	rows, err := s.legacySources(ctx)
 	return len(rows), err
+}
+
+func (s *PortsService) legacySources(ctx context.Context) ([]knowledgetypes.LegacySource, error) {
+	ok, err := s.sourceRepository.HasLegacyCredentials(ctx)
+	if err != nil || !ok {
+		return nil, err
+	}
+	return s.sourceRepository.Legacy(ctx)
 }
 
 type IndexInfo struct {

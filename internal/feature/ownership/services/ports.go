@@ -41,7 +41,7 @@ func (s *PortsService) GroupNodes(ctx context.Context, groupIDs []uuid.UUID) (ma
 }
 
 func (s *PortsService) AddCreatorOwner(ctx context.Context, nodeID, userID uuid.UUID) error {
-	return apperr.Wrap(s.ownerRepository.AddUser(ctx, nodeID, userID))
+	return apperr.Wrap(s.ownerRepository.AddUser(ctx, uuid.Must(uuid.NewV7()), nodeID, userID))
 }
 
 func (s *PortsService) OwnedAmong(ctx context.Context, userID uuid.UUID, nodeIDs []uuid.UUID) ([]uuid.UUID, error) {

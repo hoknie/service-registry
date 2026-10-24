@@ -28,7 +28,7 @@ type NewSnapshot struct {
 	ID        uuid.UUID
 	ProjectID uuid.UUID
 	Branch    string
-	Commit    string
+	CommitSHA string
 	Status    Status
 	ErrorCode string
 	Truncated bool

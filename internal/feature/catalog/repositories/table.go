@@ -60,19 +60,8 @@ func (s *NodeRepository) Table(ctx context.Context, w catalogtypes.Walk) ([]cata
 }
 
 func (s *NodeRepository) Search(ctx context.Context, q catalogtypes.Search) ([]catalogtypes.TableNode, uint64, error) {
-	values := map[string]string{}
-	keys := []string{}
-	for _, l := range q.Filter.Labels {
-		if l.Value == nil {
-			keys = append(keys, l.Key)
-			continue
-		}
-		if v, ok := values[l.Key]; ok && v != *l.Value {
-			return []catalogtypes.TableNode{}, 0, nil
-		}
-		values[l.Key] = *l.Value
-	}
-	pairs, err := json.Marshal(values)
+	keys := q.Labels.Keys
+	pairs, err := json.Marshal(q.Labels.Values)
 	if err != nil {
 		return nil, 0, err
 	}

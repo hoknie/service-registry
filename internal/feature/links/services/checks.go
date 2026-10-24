@@ -46,7 +46,7 @@ func (s *ChecksService) RefreshLinkTargets(ctx context.Context) (int, error) {
 			if err != nil {
 				return seen, err
 			}
-			if err := s.targetRepository.Seen(ctx, id, links); err != nil {
+			if err := s.projects.seen(ctx, id, links); err != nil {
 				return seen, apperr.Wrap(err)
 			}
 			seen += len(linkstypes.URLs(links))

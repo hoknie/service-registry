@@ -79,13 +79,7 @@ func (s *IndexRepository) Synced(ctx context.Context, project uuid.UUID, st know
 }
 
 func (s *IndexRepository) Files(ctx context.Context, project uuid.UUID) ([]knowledgetypes.IndexFile, error) {
-	return postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (knowledgetypes.IndexFile, error) {
-		var f knowledgetypes.IndexFile
-		var kind string
-		err := r.Scan(&f.Branch, &f.Commit, &f.Path, &kind, &f.SHA256)
-		f.Kind = knowledgetypes.Kind(kind)
-		return f, err
-	}, `
+	return postgres.List(ctx, s.db.From(ctx), constraints, postgres.Struct(indexFileRow.file), `
 		WITH latest AS (
 			SELECT DISTINCT ON (branch) id, branch, commit_sha
 			FROM knowledge_snapshots
@@ -140,12 +134,8 @@ func (s *IndexRepository) Contents(ctx context.Context, shas [][]byte) (map[stri
 	return out, nil
 }
 
-func (s *IndexRepository) Save(ctx context.Context, sha256 []byte, model string, chunks []knowledgetypes.StoredChunk) error {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return postgres.Translate(err, constraints)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
+func (s *IndexRepository) ReplaceEmbeddings(ctx context.Context, sha256 []byte, model string, chunks []knowledgetypes.StoredChunk) error {
+	tx := s.db.From(ctx)
 	if _, err := postgres.Exec(ctx, tx, constraints, `
 		DELETE FROM knowledge_embeddings
 		WHERE sha256 = $1
@@ -159,7 +149,7 @@ func (s *IndexRepository) Save(ctx context.Context, sha256 []byte, model string,
 			return err
 		}
 	}
-	return postgres.Translate(tx.Commit(ctx), constraints)
+	return nil
 }
 
 func (s *IndexRepository) Chunks(ctx context.Context, shas [][]byte, model string) (map[string][]knowledgetypes.StoredChunk, error) {

@@ -7,7 +7,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	catalogtypes "svc-registry/internal/feature/catalog/types"
-	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
 	"svc-registry/pkg/pgtx"
 )
@@ -83,65 +82,42 @@ func (s *BranchRepository) Get(ctx context.Context, projectID uuid.UUID, name st
 			AND b.name = $3`, projectID, int(s.staleDays), name)
 }
 
-func (s *BranchRepository) SetDefault(ctx context.Context, projectID uuid.UUID, name *string) error {
-	err := s.db.InTx(ctx, func(ctx context.Context) error {
-		tx := s.db.From(ctx)
-		if _, err := tx.Exec(ctx, `
-			UPDATE branches
-			SET is_default = false, updated_at = now()
-			WHERE project_id = $1
-				AND is_default
-				AND ($2::text IS NULL OR name <> $2)`, projectID, name); err != nil {
-			return err
-		}
-		if name == nil {
-			return nil
-		}
-		_, err := tx.Exec(ctx, `
-			INSERT INTO branches AS b (id, project_id, name, is_default, sources)
-			VALUES ($1, $2, $3, true, ARRAY['manual'])
-			ON CONFLICT (project_id, name)
-			DO UPDATE SET is_default = true, updated_at = now()
-			WHERE NOT b.is_default`, uuid.Must(uuid.NewV7()), projectID, *name)
-		return err
-	})
-	return postgres.Translate(err, constraints)
+func (s *BranchRepository) ClearDefault(ctx context.Context, projectID uuid.UUID, keep *string) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		UPDATE branches
+		SET is_default = false, updated_at = now()
+		WHERE project_id = $1
+			AND is_default
+			AND ($2::text IS NULL OR name <> $2)`, projectID, keep)
+	return err
 }
 
-func (s *BranchRepository) SyncForge(ctx context.Context, projectID uuid.UUID, branches []catalogtypes.ForgeBranch, complete bool) (bool, error) {
-	moved := false
-	err := s.db.InTx(ctx, func(ctx context.Context) error {
-		tx := s.db.From(ctx)
-		heads, err := postgres.Pairs[string, string](ctx, tx, constraints, `
-			SELECT name, COALESCE(head_sha, '')
-			FROM branches
-			WHERE project_id = $1`, projectID)
-		if err != nil {
-			return err
-		}
-		names := make([]string, 0, len(branches))
-		for _, b := range branches {
-			if head := branchSHA(&b.HeadSHA); head != nil && heads[b.Name] != *head {
-				moved = true
-			}
-			if err := UpsertForgeBranch(ctx, tx, projectID, b.Name, b.HeadSHA, b.Protected, b.CommittedAt); err != nil {
-				return err
-			}
-			names = append(names, b.Name)
-		}
-		if !complete {
-			return nil
-		}
-		_, err = tx.Exec(ctx, `
-			UPDATE branches
-			SET gone_at = now(), updated_at = now()
-			WHERE project_id = $1
-				AND 'forge' = ANY(sources)
-				AND gone_at IS NULL
-				AND NOT (name = ANY($2::text[]))`, projectID, names)
-		return err
-	})
-	return moved, postgres.Translate(err, constraints)
+func (s *BranchRepository) MarkDefault(ctx context.Context, id, projectID uuid.UUID, name string) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		INSERT INTO branches AS b (id, project_id, name, is_default, sources)
+		VALUES ($1, $2, $3, true, ARRAY['manual'])
+		ON CONFLICT (project_id, name)
+		DO UPDATE SET is_default = true, updated_at = now()
+		WHERE NOT b.is_default`, id, projectID, name)
+	return err
+}
+
+func (s *BranchRepository) Heads(ctx context.Context, projectID uuid.UUID) (map[string]string, error) {
+	return postgres.Pairs[string, string](ctx, s.db.From(ctx), constraints, `
+		SELECT name, COALESCE(head_sha, '')
+		FROM branches
+		WHERE project_id = $1`, projectID)
+}
+
+func (s *BranchRepository) MarkForgeGone(ctx context.Context, projectID uuid.UUID, kept []string) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		UPDATE branches
+		SET gone_at = now(), updated_at = now()
+		WHERE project_id = $1
+			AND 'forge' = ANY(sources)
+			AND gone_at IS NULL
+			AND NOT (name = ANY($2::text[]))`, projectID, kept)
+	return err
 }
 
 func (s *BranchRepository) SetPinned(ctx context.Context, projectID uuid.UUID, name string, pinned bool) (*catalogtypes.Branch, error) {
@@ -155,37 +131,27 @@ func (s *BranchRepository) SetPinned(ctx context.Context, projectID uuid.UUID, n
 			rfc3339(b.last_activity_at), rfc3339(b.gone_at)`, projectID, int(s.staleDays), name, pinned)
 }
 
+func (s *BranchRepository) DefaultForUpdate(ctx context.Context, projectID uuid.UUID, name string) (*bool, error) {
+	return postgres.Find(ctx, s.db.From(ctx), constraints, pgx.RowTo[bool], `
+		SELECT is_default
+		FROM branches
+		WHERE project_id = $1
+			AND name = $2
+		FOR UPDATE`, projectID, name)
+}
+
 func (s *BranchRepository) Delete(ctx context.Context, projectID uuid.UUID, name string) error {
-	err := s.db.InTx(ctx, func(ctx context.Context) error {
-		tx := s.db.From(ctx)
-		isDefault, err := postgres.Find(ctx, tx, constraints, pgx.RowTo[bool], `
-			SELECT is_default
-			FROM branches
-			WHERE project_id = $1
-				AND name = $2
-			FOR UPDATE`, projectID, name)
-		if err != nil {
-			return err
-		}
-		if isDefault == nil {
-			return apperr.ErrNotFound
-		}
-		if *isDefault {
-			return catalogtypes.ConflictBranchIsDefault
-		}
-		if _, err := tx.Exec(ctx, `
-			DELETE FROM branches
-			WHERE project_id = $1
-				AND name = $2`, projectID, name); err != nil {
-			return err
-		}
-		_, err = tx.Exec(ctx, `
-			DELETE FROM knowledge_snapshots
-			WHERE project_id = $1
-				AND branch = $2`, projectID, name)
+	if _, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		DELETE FROM branches
+		WHERE project_id = $1
+			AND name = $2`, projectID, name); err != nil {
 		return err
-	})
-	return postgres.Translate(err, constraints)
+	}
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		DELETE FROM knowledge_snapshots
+		WHERE project_id = $1
+			AND branch = $2`, projectID, name)
+	return err
 }
 
 func (s *BranchRepository) Prune(ctx context.Context, retentionDays, staleDays uint32) (int64, error) {

@@ -7,6 +7,7 @@ import (
 
 	"svc-registry/internal/feature/catalog/repositories"
 	catalogtypes "svc-registry/internal/feature/catalog/types"
+	"svc-registry/internal/feature/catalog/usecases"
 )
 
 func (s *SystemService) FindNode(ctx context.Context, id uuid.UUID) (*catalogtypes.Node, error) {
@@ -22,7 +23,7 @@ func (s *SystemService) NodeChain(ctx context.Context, id uuid.UUID) (*catalogty
 }
 
 func (s *SystemService) InsertNode(ctx context.Context, n catalogtypes.NewNode) (catalogtypes.Node, error) {
-	return s.nodeRepository.Insert(ctx, n)
+	return s.nodeRepository.Insert(ctx, n.Stored())
 }
 
 func (s *SystemService) ChangeNode(ctx context.Context, id uuid.UUID, c catalogtypes.NodeChanges) (catalogtypes.Node, error) {
@@ -30,7 +31,7 @@ func (s *SystemService) ChangeNode(ctx context.Context, id uuid.UUID, c catalogt
 }
 
 func (s *SystemService) PlaceNode(ctx context.Context, id uuid.UUID, parent *uuid.UUID) (catalogtypes.Node, error) {
-	return s.nodeRepository.Move(ctx, id, parent)
+	return s.moveNode.Run(ctx, id, parent)
 }
 
 func (s *SystemService) RemoveNode(ctx context.Context, id uuid.UUID) error {
@@ -39,4 +40,5 @@ func (s *SystemService) RemoveNode(ctx context.Context, id uuid.UUID) error {
 
 type SystemService struct {
 	nodeRepository *repositories.NodeRepository
+	moveNode       *usecases.MoveNodeUseCase
 }

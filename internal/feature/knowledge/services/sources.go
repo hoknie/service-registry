@@ -17,6 +17,7 @@ import (
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
+	"svc-registry/pkg/pgtx"
 )
 
 func (s *SourcesService) GetKnowledgeSource(ctx context.Context, p accesstypes.Principal, id uuid.UUID) (*knowledgetypes.Source, error) {
@@ -114,7 +115,7 @@ func (s *SourcesService) PutKnowledgeSource(ctx context.Context, p accesstypes.P
 	if err != nil {
 		return knowledgetypes.Source{}, err
 	}
-	saved, err := s.sourceRepository.Put(ctx, id, n)
+	saved, err := s.saveSource(ctx, id, n)
 	if err != nil {
 		return knowledgetypes.Source{}, apperr.Wrap(err)
 	}
@@ -152,7 +153,7 @@ func (s *SourcesService) AdoptRemote(ctx context.Context, projectID uuid.UUID, s
 			v.SecretID = nil
 		}
 	}
-	_, err = s.sourceRepository.Put(ctx, projectID, knowledgetypes.NewSource(v))
+	_, err = s.saveSource(ctx, projectID, knowledgetypes.NewSource(v))
 	return err
 }
 
@@ -265,9 +266,23 @@ func branchNames(heads map[string]string, def string) []string {
 	return names
 }
 
+func (s *SourcesService) saveSource(ctx context.Context, projectID uuid.UUID, n knowledgetypes.NewSource) (knowledgetypes.Source, error) {
+	var out knowledgetypes.Source
+	err := s.db.InTx(ctx, func(ctx context.Context) error {
+		var err error
+		if out, err = s.sourceRepository.Upsert(ctx, projectID, n); err != nil {
+			return err
+		}
+		return s.collectionRepository.Schedule(ctx, projectID)
+	})
+	return out, repositories.Err(err)
+}
+
 type SourcesService struct {
 	catalog              *catalogservices.CatalogServices
 	cfg                  *config.Config
+	db                   *pgtx.DB
+	collectionRepository *repositories.CollectionRepository
 	forge                *forgeservices.ForgeServices
 	readers              knowledgeports.ReaderFactoryPort
 	sourceRepoRepository *repositories.SourceRepoRepository

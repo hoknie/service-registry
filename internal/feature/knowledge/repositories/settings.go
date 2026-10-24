@@ -46,6 +46,32 @@ func (s *CollectionRepository) Trigger(ctx context.Context, projectID uuid.UUID)
 	return err
 }
 
+func (s *CollectionRepository) Schedule(ctx context.Context, projectID uuid.UUID) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		INSERT INTO knowledge_settings (project_id)
+		VALUES ($1)
+		ON CONFLICT (project_id)
+		DO UPDATE SET next_run_at = now()`, projectID)
+	return err
+}
+
+func (s *CollectionRepository) MarkSubtreeDue(ctx context.Context, nodeID uuid.UUID) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		WITH RECURSIVE down AS (
+			SELECT id
+			FROM nodes
+			WHERE id = $1
+			UNION ALL
+			SELECT n.id
+			FROM nodes n
+			JOIN down ON n.parent_id = down.id
+		)
+		UPDATE knowledge_settings
+		SET next_run_at = now(), updated_at = now()
+		WHERE project_id IN (SELECT id FROM down)`, nodeID)
+	return err
+}
+
 func (s *CollectionRepository) Claim(ctx context.Context, limit, leaseSecs int) ([]uuid.UUID, error) {
 	if _, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO knowledge_settings (project_id)
@@ -112,12 +138,11 @@ func (s *CollectionRepository) Release(ctx context.Context, projectID uuid.UUID,
 func (s *CollectionRepository) Project(ctx context.Context, projectID uuid.UUID) (knowledgetypes.Project, error) {
 	p, err := postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (knowledgetypes.Project, error) {
 		var p knowledgetypes.Project
-		err := r.Scan(&p.ID, &p.DefaultBranch, &p.ConnectionID, &p.Force, &p.TriggeredAt)
-		p.Synced = p.ConnectionID != nil
+		err := r.Scan(&p.ID, &p.DefaultBranch, &p.ConnectionID, &p.Synced, &p.Force, &p.TriggeredAt)
 		return p, err
 	}, `
 		SELECT n.id, COALESCE(n.default_branch, r.default_branch, '') AS default_branch, r.connection_id,
-			COALESCE(s.force, false) AS force, s.triggered_at
+			r.connection_id IS NOT NULL AS synced, COALESCE(s.force, false) AS force, s.triggered_at
 		FROM nodes n
 		LEFT JOIN forge_repositories r ON r.project_id = n.id AND r.orphaned_at IS NULL
 		LEFT JOIN knowledge_settings s ON s.project_id = n.id

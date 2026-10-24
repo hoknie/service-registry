@@ -1,6 +1,10 @@
 package types
 
-import "github.com/google/uuid"
+import (
+	"slices"
+
+	"github.com/google/uuid"
+)
 
 type UserStatus string
 
@@ -50,3 +54,13 @@ type SessionUser struct {
 const MethodPassword = "password"
 
 func OAuthMethod(provider string) string { return "oauth:" + provider }
+
+func (c UserChanges) Disables() bool { return c.Status != nil && *c.Status == StatusDisabled }
+
+func (c UserChanges) Demotes() bool { return c.IsSuperadmin != nil && !*c.IsSuperadmin }
+
+func (c UserChanges) MakesService() bool { return c.IsService != nil && *c.IsService }
+
+func LastSuperadmin(activeSuperadmins []uuid.UUID, id uuid.UUID) bool {
+	return len(activeSuperadmins) == 1 && slices.Contains(activeSuperadmins, id)
+}

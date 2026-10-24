@@ -7,7 +7,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	accesstypes "svc-registry/internal/feature/access/types"
-	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
 	"svc-registry/pkg/pgtx"
 )
@@ -15,15 +14,6 @@ import (
 type IdentityRepository struct{ db *pgtx.DB }
 
 func NewIdentityRepository(db *pgtx.DB) *IdentityRepository { return &IdentityRepository{db: db} }
-
-func insertIdentity(ctx context.Context, db pgtx.Querier, n accesstypes.NewIdentity, userID uuid.UUID) (accesstypes.Identity, error) {
-	return postgres.One(ctx, db, constraints, scanIdentity, `
-		INSERT INTO user_identities AS i (id, user_id, provider, subject, email)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING i.id, i.user_id, i.provider, i.subject, i.email, rfc3339(i.created_at),
-			rfc3339(i.last_login_at)`,
-		n.ID, userID, n.Provider, n.Subject, n.Email)
-}
 
 func (s *IdentityRepository) Find(ctx context.Context, provider, subject string) (*accesstypes.Identity, *accesstypes.User, error) {
 	found, err := postgres.Find(ctx, s.db.From(ctx), constraints, scanIdentityUser, `
@@ -42,7 +32,12 @@ func (s *IdentityRepository) Find(ctx context.Context, provider, subject string)
 }
 
 func (s *IdentityRepository) Insert(ctx context.Context, n accesstypes.NewIdentity) (accesstypes.Identity, error) {
-	return insertIdentity(ctx, s.db.From(ctx), n, n.UserID)
+	return postgres.One(ctx, s.db.From(ctx), constraints, scanIdentity, `
+		INSERT INTO user_identities AS i (id, user_id, provider, subject, email)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING i.id, i.user_id, i.provider, i.subject, i.email, rfc3339(i.created_at),
+			rfc3339(i.last_login_at)`,
+		n.ID, n.UserID, n.Provider, n.Subject, n.Email)
 }
 
 func (s *IdentityRepository) Touch(ctx context.Context, id uuid.UUID, email *string) error {
@@ -62,54 +57,18 @@ func (s *IdentityRepository) ListForUser(ctx context.Context, userID uuid.UUID) 
 		ORDER BY i.created_at, i.id`, userID)
 }
 
-func (s *IdentityRepository) Delete(ctx context.Context, userID, id uuid.UUID) error {
-	err := s.db.InTx(ctx, func(ctx context.Context) error {
-		tx := s.db.From(ctx)
-		hasPassword, err := postgres.Find(ctx, tx, constraints, pgx.RowTo[bool], `
-			SELECT password_hash IS NOT NULL
-			FROM users
-			WHERE id = $1
-			FOR UPDATE`, userID)
-		if err != nil {
-			return err
-		}
-		if hasPassword == nil {
-			return apperr.ErrNotFound
-		}
-		count, err := postgres.One(ctx, tx, constraints, pgx.RowTo[int64], `
-			SELECT count(*)
-			FROM user_identities
-			WHERE user_id = $1`, userID)
-		if err != nil {
-			return err
-		}
-		if err := postgres.ExecFound(ctx, tx, constraints, `
-			DELETE FROM user_identities
-			WHERE id = $1
-				AND user_id = $2`, id, userID); err != nil {
-			return err
-		}
-		if !*hasPassword && count <= 1 {
-			return accesstypes.ConflictLastLoginMethod
-		}
-		return nil
-	})
-	return postgres.Translate(err, constraints)
+func (s *IdentityRepository) CountForUser(ctx context.Context, userID uuid.UUID) (int64, error) {
+	return postgres.One(ctx, s.db.From(ctx), constraints, pgx.RowTo[int64], `
+		SELECT count(*)
+		FROM user_identities
+		WHERE user_id = $1`, userID)
 }
 
-func (s *IdentityRepository) CreateUser(ctx context.Context, u accesstypes.NewUser, n accesstypes.NewIdentity) (accesstypes.User, error) {
-	var user accesstypes.User
-	err := s.db.InTx(ctx, func(ctx context.Context) error {
-		tx := s.db.From(ctx)
-		var err error
-		u.PasswordHash = ""
-		if user, err = insertUser(ctx, tx, u); err != nil {
-			return err
-		}
-		_, err = insertIdentity(ctx, tx, n, user.ID)
-		return err
-	})
-	return user, postgres.Translate(err, constraints)
+func (s *IdentityRepository) Delete(ctx context.Context, userID, id uuid.UUID) error {
+	return postgres.ExecFound(ctx, s.db.From(ctx), constraints, `
+		DELETE FROM user_identities
+		WHERE id = $1
+			AND user_id = $2`, id, userID)
 }
 
 type LoginStateRepository struct{ db *pgtx.DB }
@@ -140,15 +99,14 @@ func (s *LoginStateRepository) Take(ctx context.Context, browserHash [32]byte, s
 			AND provider = $3
 			AND expires_at > now()
 		RETURNING provider, nonce, code_verifier, next, link_user_id`, browserHash[:], state, provider)
-	if err != nil || l != nil {
-		return l, err
-	}
-	if _, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+	return l, err
+}
+
+func (s *LoginStateRepository) DeleteByState(ctx context.Context, state string) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		DELETE FROM oauth_login_states
-		WHERE state = $1`, state); err != nil {
-		return nil, err
-	}
-	return nil, nil
+		WHERE state = $1`, state)
+	return err
 }
 
 func (s *LoginStateRepository) Prune(ctx context.Context) (int64, error) {

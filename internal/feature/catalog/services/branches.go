@@ -9,6 +9,7 @@ import (
 	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/feature/catalog/repositories"
 	catalogtypes "svc-registry/internal/feature/catalog/types"
+	"svc-registry/internal/feature/catalog/usecases"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
 	"svc-registry/pkg/pgtx"
@@ -81,7 +82,7 @@ func (s *BranchesService) DeleteBranch(ctx context.Context, p accesstypes.Princi
 	if err != nil {
 		return apperr.Wrap(err)
 	}
-	return apperr.Wrap(s.branchRepository.Delete(ctx, id, name))
+	return apperr.Wrap(s.deleteBranch.Run(ctx, id, name))
 }
 
 func (s *BranchesService) PruneBranches(ctx context.Context) (int64, error) {
@@ -94,13 +95,14 @@ type BranchesService struct {
 	branchRepository *repositories.BranchRepository
 	cfg              *config.Config
 	access           *AccessService
+	deleteBranch     *usecases.DeleteBranchUseCase
 }
 
 func (s *BranchRecordsService) SetDefaultBranch(ctx context.Context, projectID uuid.UUID, name *string) error {
 	if name != nil && !catalogtypes.BranchFits(*name) {
 		name = nil
 	}
-	return s.branchRepository.SetDefault(ctx, projectID, name)
+	return s.setDefaultBranch.Run(ctx, projectID, name)
 }
 
 func (s *BranchRecordsService) SetDefaultBranchIfEmpty(ctx context.Context, projectID uuid.UUID, name string) error {
@@ -112,7 +114,7 @@ func (s *BranchRecordsService) SetDefaultBranchIfEmpty(ctx context.Context, proj
 		if err != nil || !set {
 			return err
 		}
-		return s.branchRepository.SetDefault(ctx, projectID, &name)
+		return s.setDefaultBranch.Run(ctx, projectID, &name)
 	})
 }
 
@@ -123,33 +125,40 @@ func (s *BranchRecordsService) SyncForgeBranches(ctx context.Context, projectID 
 			kept = append(kept, b)
 		}
 	}
-	return s.branchRepository.SyncForge(ctx, projectID, kept, complete)
+	return s.syncForgeBranches.Run(ctx, projectID, kept, complete)
 }
 
 func (s *BranchRecordsService) RecordIngestBranch(ctx context.Context, projectID uuid.UUID, name string, commit *string, at string) error {
-	return repositories.UpsertIngestBranch(ctx, s.db.From(ctx), projectID, name, commit, at)
+	return s.branchRepository.UpsertIngest(ctx, uuid.Must(uuid.NewV7()), projectID, name, catalogtypes.BranchSHA(commit), at)
 }
 
 func (s *BranchRecordsService) RecordClusterBranch(ctx context.Context, projectID uuid.UUID, name string, commit *string, activity *time.Time) error {
 	if !catalogtypes.BranchFits(name) {
 		return nil
 	}
-	return repositories.UpsertClusterBranch(ctx, s.db.From(ctx), projectID, name, commit, activity)
+	return s.branchRepository.UpsertCluster(ctx, uuid.Must(uuid.NewV7()), projectID, name, catalogtypes.BranchSHA(commit), activity)
 }
 
 func (s *BranchRecordsService) SyncRepositoryBranches(ctx context.Context, projectID uuid.UUID, heads map[string]string, defaultBranch string) error {
-	kept := make(map[string]string, len(heads))
+	kept := make([]catalogtypes.BranchHead, 0, len(heads))
 	for name, head := range heads {
 		if catalogtypes.BranchFits(name) {
-			kept[name] = head
+			kept = append(kept, catalogtypes.BranchHead{ID: uuid.Must(uuid.NewV7()), Name: name, Head: catalogtypes.BranchSHA(&head)})
 		}
 	}
-	heads = kept
-	return repositories.SyncRepositoryBranches(ctx, s.db.From(ctx), projectID, heads, defaultBranch)
+	if err := s.branchRepository.SyncRepository(ctx, projectID, kept); err != nil {
+		return err
+	}
+	if defaultBranch == "" {
+		return nil
+	}
+	return s.branchRepository.MarkRepositoryDefault(ctx, projectID, defaultBranch)
 }
 
 type BranchRecordsService struct {
-	branchRepository *repositories.BranchRepository
-	db               *pgtx.DB
-	nodeRepository   *repositories.NodeRepository
+	branchRepository  *repositories.BranchRepository
+	db                *pgtx.DB
+	nodeRepository    *repositories.NodeRepository
+	setDefaultBranch  *usecases.SetDefaultBranchUseCase
+	syncForgeBranches *usecases.SyncForgeBranchesUseCase
 }

@@ -7,6 +7,7 @@ import (
 	"svc-registry/internal/feature/links/repositories"
 	linkstypes "svc-registry/internal/feature/links/types"
 	"svc-registry/internal/platform/apperr"
+	"svc-registry/pkg/pgtx"
 )
 
 func (s *KindsService) ListLinkKinds(ctx context.Context, _ accesstypes.Principal) ([]linkstypes.Kind, error) {
@@ -67,7 +68,17 @@ func (s *KindsService) ReorderLinkKinds(ctx context.Context, p accesstypes.Princ
 	if err != nil {
 		return nil, apperr.Wrap(err)
 	}
-	if err := s.kindRepository.Reorder(ctx, keys); err != nil {
+	err = s.db.InTx(ctx, func(ctx context.Context) error {
+		current, err := s.kindRepository.LockKeys(ctx)
+		if err != nil {
+			return err
+		}
+		if err := linkstypes.CheckOrderCurrent(current, keys); err != nil {
+			return err
+		}
+		return s.kindRepository.SetOrder(ctx, keys)
+	})
+	if err != nil {
 		return nil, apperr.Wrap(err)
 	}
 	items, err := s.kindRepository.List(ctx)
@@ -75,5 +86,6 @@ func (s *KindsService) ReorderLinkKinds(ctx context.Context, p accesstypes.Princ
 }
 
 type KindsService struct {
+	db             *pgtx.DB
 	kindRepository *repositories.KindRepository
 }

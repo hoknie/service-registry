@@ -59,7 +59,11 @@ func (s *AuthorizationServerService) exchange(ctx context.Context, clientID uuid
 	if req.Code == "" || req.RedirectURI == "" || req.CodeVerifier == "" {
 		return accesstypes.TokenPair{}, accesstypes.OAuthFail("invalid_request", "code, redirect_uri and code_verifier are required")
 	}
-	taken, err := s.authorizationRepository.TakeCode(ctx, auth.TokenHash(req.Code))
+	hash := auth.TokenHash(req.Code)
+	taken, err := s.authorizationRepository.TakeCode(ctx, hash)
+	if err == nil && taken == nil {
+		taken, err = s.authorizationRepository.FindExchanged(ctx, hash)
+	}
 	if err != nil {
 		return accesstypes.TokenPair{}, apperr.Wrap(err)
 	}
@@ -103,7 +107,7 @@ func (s *AuthorizationServerService) issueAccess(ctx context.Context, grantID uu
 		return accesstypes.TokenPair{}, apperr.Internalf("no randomness: %v", err)
 	}
 	ttl := s.cfg.MCPOAuth.AccessTTLSecs
-	if err := s.grantRepository.InsertAccess(ctx, grantID, access.Hash, ttl); err != nil {
+	if err := s.grantRepository.InsertAccess(ctx, uuid.Must(uuid.NewV7()), grantID, access.Hash, ttl); err != nil {
 		return accesstypes.TokenPair{}, err
 	}
 	return accesstypes.TokenPair{Access: access.Secret, Refresh: refresh, ExpiresIn: ttl, Scopes: scopes}, nil

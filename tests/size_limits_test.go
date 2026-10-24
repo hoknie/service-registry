@@ -118,7 +118,7 @@ func sizeProblems(path string, src []byte) ([]string, error) {
 		problems = append(problems, fmt.Sprintf("%s has %d lines, at most %d (%s)", path, n, maxFileLines, sizeLimitsDecision))
 	}
 	inFeature := strings.HasPrefix(path, featureRootForLimit)
-	inServices := inFeature && strings.Contains(path, "/services/")
+	inServices := inFeature && (strings.Contains(path, "/services/") || strings.Contains(path, "/usecases/"))
 	inRepositories := inFeature && strings.Contains(path, "/repositories/")
 	if !inServices && !inRepositories {
 		return problems, nil

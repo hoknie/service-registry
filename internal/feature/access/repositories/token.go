@@ -15,18 +15,6 @@ type TokenRepository struct{ db *pgtx.DB }
 
 func NewTokenRepository(db *pgtx.DB) *TokenRepository { return &TokenRepository{db: db} }
 
-func revokeUserTokens(ctx context.Context, db pgtx.Querier, userID uuid.UUID) error {
-	_, err := postgres.Exec(ctx, db, constraints, `
-		UPDATE personal_access_tokens
-		SET revoked_at = now()
-		WHERE user_id = $1
-			AND revoked_at IS NULL`, userID)
-	if err != nil {
-		return err
-	}
-	return revokeUserGrants(ctx, db, userID)
-}
-
 func likePrefix(prefix string) string {
 	out := make([]rune, 0, len(prefix)+1)
 	for _, r := range prefix {
@@ -124,40 +112,58 @@ func (s *TokenRepository) AddNode(ctx context.Context, id, nodeID uuid.UUID) err
 			AND NOT $2 = ANY (node_ids)`, id, nodeID)
 }
 
+func (s *TokenRepository) RevokeForUser(ctx context.Context, userID uuid.UUID) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		UPDATE personal_access_tokens
+		SET revoked_at = now()
+		WHERE user_id = $1
+			AND revoked_at IS NULL`, userID)
+	return err
+}
+
+func (s *TokenRepository) RevokeUnexpiring(ctx context.Context, userID uuid.UUID) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		UPDATE personal_access_tokens
+		SET revoked_at = now()
+		WHERE user_id = $1
+			AND revoked_at IS NULL
+			AND expires_at IS NULL`, userID)
+	return err
+}
+
 func (s *TokenRepository) FindValid(ctx context.Context, tokenHash [32]byte) (*accesstypes.TokenUser, error) {
-	var stale bool
-	found, err := postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (accesstypes.TokenUser, error) {
+	return postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (accesstypes.TokenUser, error) {
 		var t accesstypes.TokenUser
 		var scopes []string
 		var err error
-		if t.User, err = scanUserWith(r, []any{&t.TokenID, &scopes, &t.Nodes, &t.CatalogAdmin, &stale}, nil); err != nil {
+		if t.User, err = scanUserWith(r, []any{&t.TokenID, &scopes, &t.Nodes, &t.CatalogAdmin}, nil); err != nil {
 			return t, err
 		}
 		t.Scopes, err = parseScopes(scopes)
 		return t, err
 	}, `
-		SELECT t.id, t.scopes, t.node_ids, t.catalog_admin,
-			(t.last_used_at IS NULL OR t.last_used_at < now() - interval '60 seconds') AS stale, u.id, u.email,
-			u.display_name, u.status, u.is_superadmin, u.is_service, u.password_hash IS NOT NULL AS has_password,
-			rfc3339(u.created_at) AS created_at, rfc3339(u.updated_at) AS updated_at
-		FROM personal_access_tokens t
-		JOIN users u ON u.id = t.user_id
-		WHERE t.token_hash = $1
-			AND t.revoked_at IS NULL
-			AND (t.expires_at IS NULL OR t.expires_at > now())
-			AND u.status = 'active'`, tokenHash[:])
-	if err != nil || found == nil {
-		return nil, err
-	}
-	if stale {
-		if _, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
-			UPDATE personal_access_tokens
+		WITH found AS (
+			SELECT t.id AS token_id, t.scopes, t.node_ids, t.catalog_admin,
+				(t.last_used_at IS NULL OR t.last_used_at < now() - interval '60 seconds') AS stale, u.id, u.email,
+				u.display_name, u.status, u.is_superadmin, u.is_service, u.password_hash IS NOT NULL AS has_password,
+				rfc3339(u.created_at) AS created_at, rfc3339(u.updated_at) AS updated_at
+			FROM personal_access_tokens t
+			JOIN users u ON u.id = t.user_id
+			WHERE t.token_hash = $1
+				AND t.revoked_at IS NULL
+				AND (t.expires_at IS NULL OR t.expires_at > now())
+				AND u.status = 'active'
+		),
+		touched AS (
+			UPDATE personal_access_tokens t
 			SET last_used_at = now()
-			WHERE id = $1`, found.TokenID); err != nil {
-			return nil, err
-		}
-	}
-	return found, nil
+			FROM found f
+			WHERE t.id = f.token_id
+				AND f.stale
+		)
+		SELECT token_id, scopes, node_ids, catalog_admin, id, email, display_name, status, is_superadmin, is_service,
+			has_password, created_at, updated_at
+		FROM found`, tokenHash[:])
 }
 
 func (s *TokenRepository) Owner(ctx context.Context, id uuid.UUID) (*uuid.UUID, error) {

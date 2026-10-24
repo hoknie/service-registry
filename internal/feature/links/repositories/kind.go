@@ -46,38 +46,22 @@ func (s *KindRepository) Update(ctx context.Context, key string, c linkstypes.Ki
 			rfc3339(k.updated_at) AS updated_at`, key, names, c.Icon, c.IconURLSet, c.IconURL, c.Position)
 }
 
-func (s *KindRepository) Reorder(ctx context.Context, keys []string) error {
-	err := s.db.InTx(ctx, func(ctx context.Context) error {
-		tx := s.db.From(ctx)
-		current, err := postgres.List(ctx, tx, constraints, pgx.RowTo[string], `
-			SELECT key
-			FROM link_kinds
-			ORDER BY key
-			FOR UPDATE`)
-		if err != nil {
-			return err
-		}
-		if len(current) != len(keys) {
-			return linkstypes.ConflictKindOrderStale
-		}
-		given := make(map[string]bool, len(keys))
-		for _, k := range keys {
-			given[k] = true
-		}
-		for _, k := range current {
-			if !given[k] {
-				return linkstypes.ConflictKindOrderStale
-			}
-		}
-		_, err = postgres.Exec(ctx, tx, constraints, `
-			UPDATE link_kinds AS k
-			SET position = o.ord * 10, updated_at = now()
-			FROM unnest($1::text[]) WITH ORDINALITY AS o(key, ord)
-			WHERE k.key = o.key
-				AND k.position <> o.ord * 10`, keys)
-		return err
-	})
-	return postgres.Translate(err, constraints)
+func (s *KindRepository) LockKeys(ctx context.Context) ([]string, error) {
+	return postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowTo[string], `
+		SELECT key
+		FROM link_kinds
+		ORDER BY key
+		FOR UPDATE`)
+}
+
+func (s *KindRepository) SetOrder(ctx context.Context, keys []string) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		UPDATE link_kinds AS k
+		SET position = o.ord * 10, updated_at = now()
+		FROM unnest($1::text[]) WITH ORDINALITY AS o(key, ord)
+		WHERE k.key = o.key
+			AND k.position <> o.ord * 10`, keys)
+	return err
 }
 
 func (s *KindRepository) Delete(ctx context.Context, key string) error {

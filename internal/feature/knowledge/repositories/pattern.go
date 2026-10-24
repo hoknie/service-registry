@@ -44,45 +44,19 @@ func (s *PatternRepository) Chain(ctx context.Context, nodeID uuid.UUID) ([]know
 	return chain, nil
 }
 
-func (s *PatternRepository) Put(ctx context.Context, nodeID uuid.UUID, in knowledgetypes.NodeSettings) error {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return postgres.Translate(err, constraints)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if in.IsEmpty() {
-		_, err = postgres.Exec(ctx, tx, constraints, `
-			DELETE FROM knowledge_patterns
-			WHERE node_id = $1`, nodeID)
-	} else {
-		include := in.Include
-		if !in.IncludeSet {
-			include = nil
-		}
-		_, err = postgres.Exec(ctx, tx, constraints, `
-			INSERT INTO knowledge_patterns (node_id, include_set, include, exclude, branches, apis, refresh)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
-			ON CONFLICT (node_id)
-			DO UPDATE SET include_set = $2, include = $3, exclude = $4, branches = $5, apis = $6, refresh = $7, updated_at = now()`,
-			nodeID, in.IncludeSet, include, in.Exclude, in.Branches, in.APIs, in.Refresh)
-	}
-	if err != nil {
-		return err
-	}
-	if _, err := postgres.Exec(ctx, tx, constraints, `
-		WITH RECURSIVE down AS (
-			SELECT id
-			FROM nodes
-			WHERE id = $1
-			UNION ALL
-			SELECT n.id
-			FROM nodes n
-			JOIN down ON n.parent_id = down.id
-		)
-		UPDATE knowledge_settings
-		SET next_run_at = now(), updated_at = now()
-		WHERE project_id IN (SELECT id FROM down)`, nodeID); err != nil {
-		return err
-	}
-	return postgres.Translate(tx.Commit(ctx), constraints)
+func (s *PatternRepository) Delete(ctx context.Context, nodeID uuid.UUID) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		DELETE FROM knowledge_patterns
+		WHERE node_id = $1`, nodeID)
+	return err
+}
+
+func (s *PatternRepository) Upsert(ctx context.Context, nodeID uuid.UUID, in knowledgetypes.NodeSettings) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		INSERT INTO knowledge_patterns (node_id, include_set, include, exclude, branches, apis, refresh)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (node_id)
+		DO UPDATE SET include_set = $2, include = $3, exclude = $4, branches = $5, apis = $6, refresh = $7, updated_at = now()`,
+		nodeID, in.IncludeSet, in.Include, in.Exclude, in.Branches, in.APIs, in.Refresh)
+	return err
 }

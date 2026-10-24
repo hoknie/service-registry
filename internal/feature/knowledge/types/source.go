@@ -7,11 +7,13 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
 
 	catalogtypes "svc-registry/internal/feature/catalog/types"
+	forgetypes "svc-registry/internal/feature/forge/types"
 )
 
 type SourceKind string
@@ -224,4 +226,42 @@ func ResolveLocalPath(roots []string, p string) (string, error) {
 		}
 	}
 	return "", FailNotAllowed
+}
+
+type SourceRepoRecord struct {
+	Repo          forgetypes.RemoteRepo
+	DefaultBranch *string
+	License       *string
+	Details       bool
+	Readme        *string
+	Truncated     *bool
+	Languages     map[string]float64
+	ChangedAt     *time.Time
+}
+
+func NewSourceRepoRecord(r forgetypes.RemoteRepo, d *forgetypes.Details) SourceRepoRecord {
+	rec := SourceRepoRecord{Repo: r, Languages: map[string]float64{}}
+	if r.DefaultBranch != "" {
+		rec.DefaultBranch = &r.DefaultBranch
+	}
+	if r.License != "" {
+		rec.License = &r.License
+	}
+	if rec.Repo.Topics == nil {
+		rec.Repo.Topics = []string{}
+	}
+	if rec.Repo.Visibility == "" {
+		rec.Repo.Visibility = forgetypes.VisibilityPublic
+	}
+	if d != nil {
+		rec.Details, rec.Readme, rec.Truncated = true, d.Readme, &d.Truncated
+		if d.Languages != nil {
+			rec.Languages = d.Languages
+		}
+		if l := forgetypes.BoundedLicense(d.License); l != nil {
+			rec.License = l
+		}
+		rec.ChangedAt = r.ChangedAt()
+	}
+	return rec
 }

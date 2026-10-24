@@ -132,7 +132,7 @@ func (s *AuthorizationServerService) StartAuthorization(ctx context.Context, q a
 	id := uuid.Must(uuid.NewV7())
 	err = s.authorizationRepository.Insert(ctx, accesstypes.NewAuthorization{ID: id, ClientID: client.ID,
 		RedirectURI: q.RedirectURI, State: state, CodeChallenge: q.CodeChallenge, Resource: optional(q.Resource),
-		Scopes: accesstypes.Scopes{accesstypes.ScopeMCP}})
+		Scopes: accesstypes.Scopes{accesstypes.ScopeMCP}, TTLSecs: accesstypes.OAuthRequestTTLSecs})
 	if err != nil {
 		return "", apperr.Wrap(err)
 	}
@@ -187,7 +187,7 @@ func (s *AuthorizationServerService) Approve(ctx context.Context, p accesstypes.
 	if err != nil {
 		return "", apperr.Internalf("no randomness: %v", err)
 	}
-	req, err := s.authorizationRepository.Approve(ctx, id, p.UserID, roots, auth.TokenHash(code))
+	req, err := s.authorizationRepository.Approve(ctx, id, p.UserID, roots, auth.TokenHash(code), accesstypes.OAuthCodeTTLSecs)
 	if err != nil {
 		return "", apperr.Wrap(err)
 	}

@@ -17,43 +17,26 @@ func NewDependencyRepository(db *pgtx.DB) *DependencyRepository { return &Depend
 
 var edgeOf = postgres.Struct(edgeRow.edge)
 
-func keyOf(t topologytypes.NewTarget) string {
-	switch {
-	case t.ProjectID != nil:
-		return t.ProjectID.String()
-	case t.External != nil:
-		return "external:" + *t.External
-	}
-	return "ref:" + t.Ref
-}
-
-func (s *DependencyRepository) ReplaceOrigin(ctx context.Context, project uuid.UUID, source topologytypes.Source, origin string, targets []topologytypes.NewTarget) error {
-	q := s.db.From(ctx)
-	keys := make([]string, 0, len(targets))
-	for _, t := range targets {
-		keys = append(keys, keyOf(t))
-	}
-	if _, err := postgres.Exec(ctx, q, constraints, `
+func (s *DependencyRepository) DeleteOriginExcept(ctx context.Context, project uuid.UUID, source topologytypes.Source, origin string, keep []string) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		DELETE FROM service_dependencies
 		WHERE project_id = $1
 			AND source = $2
 			AND origin = $3
 			AND NOT coalesce(target_project_id::text, 'external:' || target_external, 'ref:' || target_ref) = ANY($4::text[])`,
-		project, string(source), origin, keys); err != nil {
-		return err
-	}
-	for _, t := range targets {
-		if _, err := postgres.Exec(ctx, q, constraints, `
-			INSERT INTO service_dependencies (id, project_id, source, origin, target_project_id, target_external, target_ref)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
-			ON CONFLICT (project_id, source, origin,
-				(coalesce(target_project_id::text, 'external:' || target_external, 'ref:' || target_ref)))
-			DO UPDATE SET seen_at = now(), target_ref = EXCLUDED.target_ref`,
-			uuid.Must(uuid.NewV7()), project, string(source), origin, t.ProjectID, t.External, t.Ref); err != nil {
-			return err
-		}
-	}
-	return nil
+		project, string(source), origin, keep)
+	return err
+}
+
+func (s *DependencyRepository) Upsert(ctx context.Context, e topologytypes.NewEdge) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		INSERT INTO service_dependencies (id, project_id, source, origin, target_project_id, target_external, target_ref)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (project_id, source, origin,
+			(coalesce(target_project_id::text, 'external:' || target_external, 'ref:' || target_ref)))
+		DO UPDATE SET seen_at = now(), target_ref = EXCLUDED.target_ref`,
+		e.ID, e.ProjectID, string(e.Source), e.Origin, e.Target.ProjectID, e.Target.External, e.Target.Ref)
+	return err
 }
 
 func (s *DependencyRepository) DropOtherOrigins(ctx context.Context, project uuid.UUID, source topologytypes.Source, origin string) error {
@@ -78,12 +61,11 @@ func (s *DependencyRepository) KeepClusterOrigins(ctx context.Context, cluster u
 	return err
 }
 
-func (s *DependencyRepository) InsertManual(ctx context.Context, project uuid.UUID, t topologytypes.NewTarget, note *string) (uuid.UUID, error) {
-	id := uuid.Must(uuid.NewV7())
+func (s *DependencyRepository) InsertManual(ctx context.Context, e topologytypes.NewEdge) error {
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO service_dependencies (id, project_id, source, origin, target_project_id, target_external, target_ref, note)
-		VALUES ($1, $2, 'manual', '', $3, $4, $5, $6)`, id, project, t.ProjectID, t.External, t.Ref, note)
-	return id, err
+		VALUES ($1, $2, 'manual', '', $3, $4, $5, $6)`, e.ID, e.ProjectID, e.Target.ProjectID, e.Target.External, e.Target.Ref, e.Note)
+	return err
 }
 
 func (s *DependencyRepository) DeleteManual(ctx context.Context, project, id uuid.UUID) error {

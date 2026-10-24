@@ -36,7 +36,7 @@ func (s *SubscriptionsService) PutSubscription(ctx context.Context, p accesstype
 			return notifytypes.Subscription{}, err
 		}
 	}
-	if err := s.subscriptionRepository.Put(ctx, nodeID, n); err != nil {
+	if err := s.put(ctx, nodeID, n); err != nil {
 		return notifytypes.Subscription{}, apperr.Wrap(err)
 	}
 	own, err := s.own(ctx, nodeID, n.Key)
@@ -47,6 +47,22 @@ func (s *SubscriptionsService) PutSubscription(ctx context.Context, p accesstype
 		return notifytypes.Subscription{}, apperr.New(apperr.NotFound)
 	}
 	return *own, nil
+}
+
+func (s *SubscriptionsService) put(ctx context.Context, nodeID uuid.UUID, n notifytypes.NewSubscription) error {
+	return s.db.InTx(ctx, func(ctx context.Context) error {
+		if err := s.subscriptionRepository.LockNode(ctx, nodeID); err != nil {
+			return err
+		}
+		count, err := s.subscriptionRepository.CountOthers(ctx, nodeID, n.Key)
+		if err != nil {
+			return err
+		}
+		if count >= notifytypes.MaxSubscriptions {
+			return notifytypes.TooManySubscriptions
+		}
+		return s.subscriptionRepository.Upsert(ctx, uuid.Must(uuid.NewV7()), nodeID, n)
+	})
 }
 
 func (s *SubscriptionsService) checkSecret(ctx context.Context, nodeID uuid.UUID, channel notifytypes.Channel, id uuid.UUID) error {

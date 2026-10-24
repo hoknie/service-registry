@@ -76,7 +76,7 @@ type DeployServices struct {
 func New(d Deps) *DeployServices {
 	p := newParts(d)
 	f := &DeployServices{
-		AgentTokens:       &AgentTokensService{agentTokenRepository: p.agentTokenRepository, clusterRepository: p.clusterRepository},
+		AgentTokens:       &AgentTokensService{agentTokenRepository: p.agentTokenRepository, clusterRepository: p.clusterRepository, db: p.db},
 		Clusters:          &ClustersService{topology: p.topology, catalog: p.catalog, clusterRepository: p.clusterRepository, db: p.db, k8s: p.k8s, secrets: p.secrets, workloadRepository: p.workloadRepository},
 		EnvironmentStates: &EnvironmentStatesService{catalog: p.catalog, environmentRepository: p.environmentRepository, ingest: p.ingest, workloadRepository: p.workloadRepository},
 		Environments:      &EnvironmentsService{environmentRepository: p.environmentRepository},

@@ -8,31 +8,20 @@ import (
 
 	ingesttypes "svc-registry/internal/feature/ingest/types"
 	"svc-registry/internal/platform/postgres"
-	"svc-registry/pkg/pgtx"
 )
 
-func InsertDeployment(ctx context.Context, tx pgtx.Querier, d ingesttypes.DeploymentRecord) (bool, error) {
-	metadata := d.Metadata
-	if metadata == nil {
-		metadata = map[string]string{}
-	}
-	links := d.Links
-	if links == nil {
-		links = []ingesttypes.DeploymentLink{}
-	}
-	if _, err := postgres.Exec(ctx, tx, constraints, `
+func (s *DeploymentRepository) Insert(ctx context.Context, d ingesttypes.DeploymentRecord) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO service_deployments (id, project_id, event_id, service, environment, version,
 			commit_sha, branch, cluster, namespace, url, deployed_by, metadata, occurred_at, source, links)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14::timestamptz, $15, $16::jsonb)`,
 		d.ID, d.ProjectID, d.EventID, d.Service, d.Environment, d.Version,
-		d.CommitSHA, d.Branch, d.Cluster, d.Namespace, d.URL, d.DeployedBy, metadata, d.OccurredAt, d.Source, links); err != nil {
-		return false, err
-	}
-	envRow := d.EnvironmentID
-	if envRow == uuid.Nil {
-		envRow = uuid.Must(uuid.NewV7())
-	}
-	found, err := postgres.Find(ctx, tx, constraints, pgx.RowTo[uuid.UUID], `
+		d.CommitSHA, d.Branch, d.Cluster, d.Namespace, d.URL, d.DeployedBy, d.Metadata, d.OccurredAt, d.Source, d.Links)
+	return err
+}
+
+func (s *DeploymentRepository) AdvanceEnvironment(ctx context.Context, d ingesttypes.DeploymentRecord) (bool, error) {
+	found, err := postgres.Find(ctx, s.db.From(ctx), constraints, pgx.RowTo[uuid.UUID], `
 		INSERT INTO service_environments AS s (id, project_id, service, environment, deployment_id,
 			occurred_at)
 		VALUES ($1, $2, $3, $4, $5, $6::timestamptz)
@@ -40,13 +29,21 @@ func InsertDeployment(ctx context.Context, tx pgtx.Querier, d ingesttypes.Deploy
 		DO UPDATE SET deployment_id = EXCLUDED.deployment_id, occurred_at = EXCLUDED.occurred_at,
 			updated_at = now()
 		WHERE (s.occurred_at, s.deployment_id) < (EXCLUDED.occurred_at, EXCLUDED.deployment_id)
-		RETURNING s.id`, envRow, d.ProjectID, d.Service, d.Environment, d.ID, d.OccurredAt)
-	if err != nil || found == nil {
-		return false, err
-	}
-	_, err = postgres.Exec(ctx, tx, constraints, `
+		RETURNING s.id`, d.EnvironmentID, d.ProjectID, d.Service, d.Environment, d.ID, d.OccurredAt)
+	return found != nil, err
+}
+
+func (s *DeploymentRepository) MarkCurrent(ctx context.Context, id uuid.UUID) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		UPDATE service_deployments
 		SET became_current = true
-		WHERE id = $1`, d.ID)
-	return err == nil, err
+		WHERE id = $1`, id)
+	return err
+}
+
+func (s *DeploymentRepository) ByEvent(ctx context.Context, eventID uuid.UUID) (*ingesttypes.DeploymentResult, error) {
+	return postgres.Find(ctx, s.db.From(ctx), constraints, pgx.RowToStructByPos[ingesttypes.DeploymentResult], `
+		SELECT id, service, environment, version, became_current
+		FROM service_deployments
+		WHERE event_id = $1`, eventID)
 }

@@ -2,13 +2,11 @@ package repositories
 
 import (
 	"context"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	forgetypes "svc-registry/internal/feature/forge/types"
-	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/postgres"
 	"svc-registry/pkg/pgtx"
 )
@@ -44,35 +42,8 @@ func (s *RepoRepository) LinkGroup(ctx context.Context, connID, nodeID uuid.UUID
 	return err
 }
 
-func (s *RepoRepository) Upsert(ctx context.Context, rec forgetypes.RepoRecord) error {
+func (s *RepoRepository) Upsert(ctx context.Context, rec forgetypes.StoredRepo) error {
 	r := rec.Remote
-	var branch *string
-	if r.DefaultBranch != "" {
-		branch = &r.DefaultBranch
-	}
-	var license *string
-	if r.License != "" {
-		license = &r.License
-	}
-	topics := r.Topics
-	if topics == nil {
-		topics = []string{}
-	}
-	withDetails := rec.Details != nil
-	var readme *string
-	var truncated *bool
-	var languages map[string]float64
-	var changed *time.Time
-	if withDetails {
-		readme, truncated, languages = rec.Details.Readme, &rec.Details.Truncated, rec.Details.Languages
-		if l := forgetypes.BoundedLicense(rec.Details.License); l != nil {
-			license = l
-		}
-		changed = r.ChangedAt()
-	}
-	if languages == nil {
-		languages = map[string]float64{}
-	}
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO forge_repositories AS f (project_id, connection_id, external_id, full_path, web_url,
 			description, topics, default_branch, archived, visibility, stars, license, pushed_at,
@@ -90,8 +61,8 @@ func (s *RepoRepository) Upsert(ctx context.Context, rec forgetypes.RepoRecord) 
 			readme_truncated = CASE WHEN $15 THEN EXCLUDED.readme_truncated ELSE f.readme_truncated END,
 			languages = CASE WHEN $15 THEN EXCLUDED.languages ELSE f.languages END, orphaned_at = NULL,
 			synced_at = now(), updated_at = now()`, rec.ProjectID, rec.ConnectionID, r.ExternalID, r.FullPath, r.WebURL,
-		r.Description, topics, branch, r.Archived, string(r.Visibility), r.Stars, license, r.PushedAt, changed,
-		withDetails, readme, truncated, languages)
+		r.Description, rec.Topics, rec.DefaultBranch, r.Archived, string(r.Visibility), r.Stars, rec.License, r.PushedAt,
+		rec.ChangedAt, rec.WithDetails, rec.Readme, rec.Truncated, rec.Languages)
 	return err
 }
 
@@ -108,7 +79,7 @@ func (s *RepoRepository) Orphan(ctx context.Context, ids []uuid.UUID) error {
 }
 
 func (s *RepoRepository) Find(ctx context.Context, projectID uuid.UUID) (*forgetypes.Repository, error) {
-	r, err := postgres.Find(ctx, s.db.From(ctx), constraints, func(row pgx.CollectableRow) (forgetypes.Repository, error) {
+	return postgres.Find(ctx, s.db.From(ctx), constraints, func(row pgx.CollectableRow) (forgetypes.Repository, error) {
 		var r forgetypes.Repository
 		var vis, kind string
 		err := row.Scan(&r.ConnectionID, &r.ExternalID, &r.FullPath, &r.WebURL, &r.Description, &r.Topics, &r.Languages,
@@ -124,17 +95,6 @@ func (s *RepoRepository) Find(ctx context.Context, projectID uuid.UUID) (*forget
 		FROM forge_repositories f
 		JOIN forge_connections c ON c.id = f.connection_id
 		WHERE f.project_id = $1`, projectID)
-	if r == nil {
-		return nil, err
-	}
-	r.Origin = forgetypes.OriginForge
-	if r.Topics == nil {
-		r.Topics = []string{}
-	}
-	if r.Languages == nil {
-		r.Languages = map[string]float64{}
-	}
-	return r, nil
 }
 
 func (s *RepoRepository) Managed(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
@@ -180,20 +140,7 @@ func (s *RepoRepository) Unlink(ctx context.Context, projectID uuid.UUID) (*forg
 }
 
 func (s *RepoRepository) Link(ctx context.Context, projectID uuid.UUID) (*forgetypes.ProjectLink, error) {
-	return postgres.Find(ctx, s.db.From(ctx), constraints, func(row pgx.CollectableRow) (forgetypes.ProjectLink, error) {
-		var l forgetypes.ProjectLink
-		var kind string
-		var secret *uuid.UUID
-		if err := row.Scan(&l.ConnectionID, &l.NodeID, &l.Owner, &kind, &l.WebURL, &l.APIURL, &secret, &l.SyncedAt); err != nil {
-			return l, err
-		}
-		var ok bool
-		if l.Kind, ok = forgetypes.ParseKind(kind); !ok {
-			return l, apperr.UnknownValue("forge kind", kind)
-		}
-		l.Credentials = credentialsOf(secret)
-		return l, nil
-	}, `
+	return postgres.Find(ctx, s.db.From(ctx), constraints, scanProjectLink, `
 		SELECT f.connection_id, c.node_id, c.owner_path, c.kind, f.web_url, c.api_url, c.credentials_secret_id,
 			rfc3339(f.synced_at)
 		FROM forge_repositories f

@@ -21,7 +21,16 @@ func (s *RecordsService) ReplaceOrigin(ctx context.Context, project uuid.UUID, s
 	if err != nil {
 		return apperr.Wrap(err)
 	}
-	return apperr.Wrap(s.dependencyRepository.ReplaceOrigin(ctx, project, source, origin, targets))
+	if err := s.dependencyRepository.DeleteOriginExcept(ctx, project, source, origin, topologytypes.TargetKeys(targets)); err != nil {
+		return apperr.Wrap(err)
+	}
+	for _, t := range targets {
+		e := topologytypes.NewEdge{ID: uuid.Must(uuid.NewV7()), ProjectID: project, Source: source, Origin: origin, Target: t}
+		if err := s.dependencyRepository.Upsert(ctx, e); err != nil {
+			return apperr.Wrap(err)
+		}
+	}
+	return nil
 }
 
 func (s *RecordsService) ReplaceRepository(ctx context.Context, project uuid.UUID, branch string, refs []topologytypes.Ref) error {

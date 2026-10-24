@@ -25,8 +25,7 @@ func (s *ScansService) ListScans(ctx context.Context, p accesstypes.Principal, q
 	if err != nil {
 		return accesstypes.Page[knowledgetypes.ScanItem]{}, apperr.Wrap(err)
 	}
-	out, err := s.scanRepository.List(ctx, filter, req)
-	return out, apperr.Wrap(err)
+	return s.list(ctx, filter, req)
 }
 
 func (s *ScansService) ListProjectScans(ctx context.Context, p accesstypes.Principal, id uuid.UUID, q knowledgetypes.ScanQuery, page accesstypes.PageQuery) (accesstypes.Page[knowledgetypes.ScanItem], error) {
@@ -43,8 +42,20 @@ func (s *ScansService) ListProjectScans(ctx context.Context, p accesstypes.Princ
 	if err != nil {
 		return accesstypes.Page[knowledgetypes.ScanItem]{}, apperr.Wrap(err)
 	}
+	return s.list(ctx, filter, req)
+}
+
+func (s *ScansService) list(ctx context.Context, filter knowledgetypes.ScanFilter, req accesstypes.PageRequest) (accesstypes.Page[knowledgetypes.ScanItem], error) {
 	out, err := s.scanRepository.List(ctx, filter, req)
-	return out, apperr.Wrap(err)
+	if err != nil {
+		return accesstypes.Page[knowledgetypes.ScanItem]{}, apperr.Wrap(err)
+	}
+	if len(out.Items) == 0 && req.Offset > 0 {
+		if out.Total, err = s.scanRepository.Count(ctx, filter); err != nil {
+			return accesstypes.Page[knowledgetypes.ScanItem]{}, apperr.Wrap(err)
+		}
+	}
+	return out, nil
 }
 
 type ScansService struct {

@@ -8,9 +8,11 @@ import (
 
 	"svc-registry/internal/feature/access/repositories"
 	accesstypes "svc-registry/internal/feature/access/types"
+	"svc-registry/internal/feature/access/usecases"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
 	"svc-registry/pkg/password"
+	"svc-registry/pkg/pgtx"
 )
 
 func prepareUser(hasher *password.Hasher, in accesstypes.CreateUser) (accesstypes.NewUser, error) {
@@ -113,11 +115,11 @@ func (s *UsersService) UpdateUser(ctx context.Context, p accesstypes.Principal, 
 	if in.IsService != nil && *in.IsService && id == p.UserID {
 		return accesstypes.User{}, apperr.Wrap(accesstypes.ConflictSelfService)
 	}
-	user, err := s.userRepository.Update(ctx, id, changes)
+	user, err := s.updateUser.Run(ctx, usecases.UpdateUserInput{ID: id, Changes: changes})
 	if err != nil {
 		return accesstypes.User{}, apperr.Wrap(err)
 	}
-	if changes.Status != nil && *changes.Status == accesstypes.StatusDisabled {
+	if changes.Disables() {
 		if _, err := s.sessionRepository.DeleteForUser(ctx, id, nil); err != nil {
 			return accesstypes.User{}, apperr.Wrap(err)
 		}
@@ -139,7 +141,16 @@ func (s *UsersService) ResetPassword(ctx context.Context, p accesstypes.Principa
 	if err != nil {
 		return apperr.Internalf("%v", err)
 	}
-	if err := s.userRepository.ResetPassword(ctx, id, hash); err != nil {
+	err = s.db.InTx(ctx, func(ctx context.Context) error {
+		if err := s.userRepository.SetPassword(ctx, id, hash); err != nil {
+			return err
+		}
+		if err := s.tokenRepository.RevokeForUser(ctx, id); err != nil {
+			return err
+		}
+		return s.grantRepository.RevokeForUser(ctx, id)
+	})
+	if err != nil {
 		return apperr.Wrap(err)
 	}
 	_, err = s.sessionRepository.DeleteForUser(ctx, id, nil)
@@ -175,6 +186,10 @@ func protectedUser(ctx context.Context, r *repositories.GroupPermissionRepositor
 }
 
 type UsersService struct {
+	db                   *pgtx.DB
+	updateUser           *usecases.UpdateUserUseCase
+	tokenRepository      *repositories.TokenRepository
+	grantRepository      *repositories.OAuthGrantRepository
 	permissionRepository *repositories.GroupPermissionRepository
 	hasher               *password.Hasher
 	sessionRepository    *repositories.SessionRepository
@@ -200,7 +215,11 @@ func (s *BootstrapService) PrepareBootstrapAdmin(admin config.BootstrapAdmin) (a
 }
 
 func (s *BootstrapService) EnsureBootstrapAdmin(ctx context.Context, admin accesstypes.NewUser) (bool, error) {
-	return s.userRepository.InsertIfNone(ctx, admin)
+	inserted, err := s.userRepository.InsertIfNone(ctx, admin)
+	if errors.Is(err, accesstypes.ConflictEmailTaken) {
+		return false, nil
+	}
+	return inserted, err
 }
 
 type BootstrapService struct {

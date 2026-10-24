@@ -38,8 +38,8 @@ func (s *OutboxService) Emit(ctx context.Context, ev notifytypes.Event) error {
 	}
 	return apperr.Wrap(s.db.InTx(ctx, func(ctx context.Context) error {
 		id := uuid.Must(uuid.NewV7())
-		opened, err := s.episodeRepository.Open(ctx, notifytypes.NewEpisode{Key: ev.Episode, Type: ev.Type, NodeID: ev.NodeID,
-			Signature: ev.DedupeKey}, id)
+		opened, err := s.episodeRepository.Open(ctx, notifytypes.NewEpisode{ID: uuid.Must(uuid.NewV7()), Key: ev.Episode,
+			Type: ev.Type, NodeID: ev.NodeID, Signature: ev.DedupeKey}, id)
 		if err != nil || !opened {
 			return err
 		}
@@ -96,8 +96,23 @@ func (s *OutboxService) recordAs(ctx context.Context, id uuid.UUID, ev notifytyp
 	if err != nil || body == nil {
 		return nil, err
 	}
-	deliveries, err := s.outboxRepository.Insert(ctx, notifytypes.NewEvent{ID: id, Type: ev.Type, NodeID: ev.NodeID, Payload: body,
-		DedupeKey: ev.DedupeKey, OccurredAt: ev.OccurredAt}, subscriptions)
+	var deliveries []uuid.UUID
+	err = s.db.InTx(ctx, func(ctx context.Context) error {
+		inserted, err := s.outboxRepository.InsertEvent(ctx, notifytypes.NewEvent{ID: id, Type: ev.Type, NodeID: ev.NodeID,
+			Payload: body, DedupeKey: ev.DedupeKey, OccurredAt: ev.OccurredAt})
+		if err != nil || !inserted {
+			return err
+		}
+		ids := make([]uuid.UUID, len(subscriptions))
+		for i := range ids {
+			ids[i] = uuid.Must(uuid.NewV7())
+		}
+		if err := s.outboxRepository.InsertDeliveries(ctx, id, ids, subscriptions); err != nil {
+			return err
+		}
+		deliveries = ids
+		return nil
+	})
 	return deliveries, apperr.Wrap(err)
 }
 
