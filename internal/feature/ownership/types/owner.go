@@ -59,11 +59,13 @@ type Badge struct {
 }
 
 type Candidate struct {
-	SubjectKind catalogtypes.SubjectKind
-	SubjectID   uuid.UUID
-	Name        string
-	Email       *string
-	Members     *int64
+	SubjectKind      catalogtypes.SubjectKind
+	SubjectID        uuid.UUID
+	Name             string
+	Email            *string
+	Members          *int64
+	OrganizationID   *uuid.UUID
+	OrganizationName *string
 }
 
 type Suggestion struct {

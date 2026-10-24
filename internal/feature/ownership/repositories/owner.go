@@ -32,9 +32,17 @@ func (s *OwnerRepository) Replace(ctx context.Context, nodeID uuid.UUID, owners 
 		resolved, err := postgres.List(ctx, tx, constraints, scanResolved, `
 			SELECT g.id, u.id
 			FROM unnest($1::text[], $2::text[]) WITH ORDINALITY AS x(kind, subject, ord)
-			LEFT JOIN groups g ON x.kind = 'group' AND lower(g.name) = lower(x.subject)
+			LEFT JOIN LATERAL (
+				SELECT g.id
+				FROM groups g
+				WHERE x.kind = 'group'
+					AND lower(g.name) = lower(x.subject)
+					AND (g.organization_id IS NULL OR g.organization_id = node_root($3))
+				ORDER BY g.organization_id IS NULL
+				LIMIT 1
+			) g ON true
 			LEFT JOIN users u ON x.kind = 'user' AND lower(u.email) = lower(x.subject)
-			ORDER BY x.ord`, kinds, subjects)
+			ORDER BY x.ord`, kinds, subjects, nodeID)
 		if err != nil {
 			return err
 		}

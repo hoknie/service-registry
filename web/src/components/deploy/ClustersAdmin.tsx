@@ -19,6 +19,7 @@ import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { Dialog } from "../ui/Dialog";
 import { EmptyState } from "../ui/EmptyState";
 import { validDnsLabel } from "@/lib/tags";
+import { useCan } from "@/lib/useCan";
 
 import { Checkbox, Field, Input, Textarea } from "../ui/Field";
 import { Message, type Note } from "../ui/Message";
@@ -43,6 +44,7 @@ type Draft = {
   ca: string;
   secret: string | null;
   current: string | null;
+  currentName: string | null;
   namespaces: string;
   rules: string;
   interval: string;
@@ -59,6 +61,7 @@ const blank: Draft = {
   ca: "",
   secret: null,
   current: null,
+  currentName: null,
   namespaces: "",
   rules: "",
   interval: "60",
@@ -79,6 +82,7 @@ const parseRules = (text: string) =>
 const rulesText = (rules: Cluster["rules"]) => rules.map((r) => `${r.label}=${r.project}`).join("\n");
 
 export function ClustersAdmin({ locale, labels: t, pager }: Props) {
+  const can = useCan();
   const { errors, common } = useUiText();
   const [items, setItems] = useState<Cluster[] | null>(null);
   const [directory, setDirectory] = useState<DirectoryEnvironment[]>([]);
@@ -127,6 +131,7 @@ export function ClustersAdmin({ locale, labels: t, pager }: Props) {
             ca: c.ca_pem ?? "",
             secret: c.credentials?.kind === "secret" ? c.credentials.secret.id : null,
             current: c.credentials?.kind === "secret" ? c.credentials.secret.id : null,
+            currentName: c.credentials?.kind === "secret" ? c.credentials.secret.name : null,
             namespaces: c.namespaces.join("\n"),
             rules: rulesText(c.rules),
             interval: String(c.interval_secs),
@@ -199,10 +204,12 @@ export function ClustersAdmin({ locale, labels: t, pager }: Props) {
         title={t.title}
         lead={t.lead}
         actions={
-          <Button variant="primary" onClick={() => open()}>
-            <Plus aria-hidden="true" />
-            {t.add}
-          </Button>
+          can("clusters", "create") && (
+            <Button variant="primary" onClick={() => open()}>
+              <Plus aria-hidden="true" />
+              {t.add}
+            </Button>
+          )
         }
       />
       {error && <Message note={{ kind: "error", text: error }} className="mb-4" />}
@@ -279,35 +286,41 @@ export function ClustersAdmin({ locale, labels: t, pager }: Props) {
                   )}
                 </Td>
                 <Td className="text-right whitespace-nowrap">
-                  <Button size="sm" variant="ghost" onClick={() => void test(c)}>
-                    <Plug aria-hidden="true" />
-                    {t.test}
-                  </Button>
-                  {c.mode === "poll" ? (
-                    <Button size="sm" variant="ghost" onClick={() => void poll(c)}>
-                      <RefreshCw aria-hidden="true" />
-                      {t.poll}
-                    </Button>
-                  ) : (
+                  {can("clusters", "update") && (
                     <>
-                      <Button size="sm" variant="ghost" onClick={() => setTokenAction({ cluster: c, kind: "rotate" })}>
-                        <KeyRound aria-hidden="true" />
-                        {t.newToken}
+                      <Button size="sm" variant="ghost" onClick={() => void test(c)}>
+                        <Plug aria-hidden="true" />
+                        {t.test}
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setTokenAction({ cluster: c, kind: "revoke" })}>
-                        <Ban aria-hidden="true" />
-                        {t.revokeTokens}
+                      {c.mode === "poll" ? (
+                        <Button size="sm" variant="ghost" onClick={() => void poll(c)}>
+                          <RefreshCw aria-hidden="true" />
+                          {t.poll}
+                        </Button>
+                      ) : (
+                        <>
+                          <Button size="sm" variant="ghost" onClick={() => setTokenAction({ cluster: c, kind: "rotate" })}>
+                            <KeyRound aria-hidden="true" />
+                            {t.newToken}
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => setTokenAction({ cluster: c, kind: "revoke" })}>
+                            <Ban aria-hidden="true" />
+                            {t.revokeTokens}
+                          </Button>
+                        </>
+                      )}
+                      <Button size="sm" variant="ghost" onClick={() => open(c)}>
+                        <Pencil aria-hidden="true" />
+                        {t.edit}
                       </Button>
                     </>
                   )}
-                  <Button size="sm" variant="ghost" onClick={() => open(c)}>
-                    <Pencil aria-hidden="true" />
-                    {t.edit}
-                  </Button>
-                  <Button size="sm" variant="danger-ghost" onClick={() => setDeleting(c)}>
-                    <Trash aria-hidden="true" />
-                    {t.delete}
-                  </Button>
+                  {can("clusters", "delete") && (
+                    <Button size="sm" variant="danger-ghost" onClick={() => setDeleting(c)}>
+                      <Trash aria-hidden="true" />
+                      {t.delete}
+                    </Button>
+                  )}
                 </Td>
               </Tr>
             ))}
@@ -373,6 +386,8 @@ export function ClustersAdmin({ locale, labels: t, pager }: Props) {
                   onChange={(secret) => setDraft({ ...draft, secret })}
                   manageHref={`/${locale}/admin/secrets`}
                   required={!draft.id}
+                  readable={can("secrets", "read")}
+                  currentName={draft.currentName}
                 />
               </>
             )}

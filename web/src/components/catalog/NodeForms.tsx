@@ -207,9 +207,9 @@ export function MoveDialog({
   node,
   labels,
   fail,
-  superadmin,
+  toTop,
   onMoved,
-}: OpenProps & { node: CatalogNode; labels: CatalogLabels; fail: Fail; superadmin: boolean; onMoved: () => void }) {
+}: OpenProps & { node: CatalogNode; labels: CatalogLabels; fail: Fail; toTop: boolean; onMoved: () => void }) {
   const t = labels.move;
   const [target, setTarget] = useState("");
   const [note, setNote] = useState<Note>(null);
@@ -266,7 +266,7 @@ export function MoveDialog({
               value={target}
               onChange={setTarget}
               placeholder={t.choose}
-              options={[...(superadmin && node.kind === "organization" && node.parent_id !== null ? [{ value: "top", label: t.top }] : []), ...targets]}
+              options={[...(toTop && node.kind === "organization" && node.parent_id !== null ? [{ value: "top", label: t.top }] : []), ...targets]}
             />
           )}
         </Field>

@@ -97,6 +97,8 @@ func New(cfg config.Config, opts ...Option) (*App, error) {
 	a.Compose = composeservices.New(composeservices.Deps{Catalog: a.Catalog, Forge: a.Forge, Knowledge: a.Knowledge, Links: a.Links,
 		Ownership: a.Ownership})
 	a.Access.Use(a.Catalog.Access)
+	a.Access.UseStewards(a.Ownership.Ports)
+	a.Access.UseOrganizations(a.Catalog.Access)
 	a.Catalog.Use(a.Forge.Ports, a.Knowledge.Ports, a.Forge.Ports, a.Deploy.Ports)
 	a.Catalog.UseSecretUsers(a.Forge.Ports, a.Knowledge.Ports, a.Deploy.Ports, a.Notify.Ports)
 	a.Catalog.UseOwners(a.Ownership.Ports)

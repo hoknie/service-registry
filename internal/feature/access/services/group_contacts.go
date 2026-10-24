@@ -11,7 +11,10 @@ import (
 )
 
 func (s *GroupContactsService) SetContacts(ctx context.Context, p accesstypes.Principal, id uuid.UUID, in accesstypes.GroupContacts) (accesstypes.Group, error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionGroups, accesstypes.ActionUpdate); err != nil {
+		return accesstypes.Group{}, err
+	}
+	if err := unprotectedGroup(ctx, s.permissionRepository, p, id); err != nil {
 		return accesstypes.Group{}, err
 	}
 	return s.setContacts(ctx, id, in)
@@ -36,7 +39,10 @@ func (s *GroupContactsService) setContacts(ctx context.Context, id uuid.UUID, in
 }
 
 func (s *GroupContactsService) SetContactEditor(ctx context.Context, p accesstypes.Principal, groupID, userID uuid.UUID, on bool) error {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionGroups, accesstypes.ActionUpdate); err != nil {
+		return err
+	}
+	if err := unprotectedGroup(ctx, s.permissionRepository, p, groupID); err != nil {
 		return err
 	}
 	m, err := s.groupContactRepository.Membership(ctx, groupID, userID)
@@ -79,6 +85,7 @@ func (s *GroupContactsService) SetOwnContacts(ctx context.Context, p accesstypes
 }
 
 type GroupContactsService struct {
+	permissionRepository   *repositories.GroupPermissionRepository
 	groupRepository        *repositories.GroupRepository
 	groupContactRepository *repositories.GroupContactRepository
 }

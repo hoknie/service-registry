@@ -2,6 +2,7 @@ package types
 
 import (
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/google/uuid"
@@ -83,31 +84,161 @@ func TestCatalogRootOfTokens(t *testing.T) {
 	demoted.CatalogAdmin = false
 	without := nodes
 	without.Scopes = Scopes{ScopeWrite}
+	creator := Rights{SectionCatalog: {ActionCreate}}
+	bySession := Principal{UserID: owner, SessionID: session.SessionID, Rights: creator}
+	byToken := Principal{UserID: owner, TokenID: whole.TokenID, Scopes: Scopes{ScopeWrite, ScopeCatalogRoot}, Rights: creator}
+	byNodes := byToken
+	byNodes.Nodes = []uuid.UUID{root}
 	tests := []struct {
-		name string
-		p    Principal
-		node *uuid.UUID
-		want apperr.Kind
+		name   string
+		p      Principal
+		node   *uuid.UUID
+		action Action
+		want   apperr.Kind
 	}{
-		{"superadmin session", session, nil, 0},
-		{"user session", Principal{UserID: owner, SessionID: session.SessionID}, nil, apperr.Forbidden},
-		{"whole token creates", whole, nil, 0},
-		{"whole token moves any root", whole, &other, 0},
-		{"whole token without the scope", Principal{UserID: owner, TokenID: whole.TokenID, Scopes: Scopes{ScopeWrite}, IsSuperadmin: true}, nil, apperr.InsufficientScope},
-		{"node token creates", nodes, nil, 0},
-		{"node token moves its root", nodes, &root, 0},
-		{"node token does not move other roots", nodes, &other, apperr.InsufficientScope},
-		{"node token of a former superadmin", demoted, nil, apperr.Forbidden},
-		{"node token without the scope", without, nil, apperr.InsufficientScope},
+		{"right creates from a session", bySession, nil, ActionCreate, 0},
+		{"right does not delete", bySession, &root, ActionDelete, apperr.Forbidden},
+		{"right creates with a token", byToken, nil, ActionCreate, 0},
+		{"right does not move with a token", byToken, &root, ActionUpdate, apperr.Forbidden},
+		{"right creates with a node token", byNodes, nil, ActionCreate, 0},
+		{"superadmin session", session, nil, ActionCreate, 0},
+		{"user session", Principal{UserID: owner, SessionID: session.SessionID}, nil, ActionCreate, apperr.Forbidden},
+		{"whole token creates", whole, nil, ActionCreate, 0},
+		{"whole token moves any root", whole, &other, ActionUpdate, 0},
+		{"whole token without the scope", Principal{UserID: owner, TokenID: whole.TokenID, Scopes: Scopes{ScopeWrite}, IsSuperadmin: true}, nil, ActionCreate, apperr.InsufficientScope},
+		{"node token creates", nodes, nil, ActionCreate, 0},
+		{"node token moves its root", nodes, &root, ActionUpdate, 0},
+		{"node token does not move other roots", nodes, &other, ActionUpdate, apperr.InsufficientScope},
+		{"node token of a former superadmin", demoted, nil, ActionCreate, apperr.Forbidden},
+		{"node token without the scope", without, nil, ActionCreate, apperr.InsufficientScope},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := kindOf(RequireCatalogRoot(tt.p, tt.node)); got != tt.want {
+			if got := kindOf(RequireCatalogRoot(tt.p, tt.node, tt.action)); got != tt.want {
 				t.Fatalf("kind %d, want %d", got, tt.want)
 			}
 		})
 	}
-	if !nodes.AddsRoots() || whole.AddsRoots() || demoted.AddsRoots() || without.AddsRoots() {
-		t.Fatal("only a node token with catalog.root of a superadmin adds roots")
+	if !nodes.AddsRoots() || whole.AddsRoots() || demoted.AddsRoots() || without.AddsRoots() || !byNodes.AddsRoots() || byToken.AddsRoots() {
+		t.Fatal("only a node token with catalog.root of a superadmin or of a creator adds roots")
+	}
+}
+
+func TestRequireRightAndScopeIntersection(t *testing.T) {
+	t.Parallel()
+	ops := Rights{SectionClusters: {ActionRead, ActionUpdate}, SectionScans: {ActionRead}, SectionTokens: {ActionRead}}
+	for _, tt := range []struct {
+		name    string
+		p       Principal
+		section Section
+		action  Action
+		ok      bool
+	}{
+		{"superadmin", Principal{IsSuperadmin: true}, SectionUsers, ActionCreate, true},
+		{"held right", Principal{Rights: ops}, SectionClusters, ActionUpdate, true},
+		{"other action", Principal{Rights: ops}, SectionClusters, ActionDelete, false},
+		{"other section", Principal{Rights: ops}, SectionSecrets, ActionRead, false},
+		{"no rights", Principal{}, SectionScans, ActionRead, false},
+	} {
+		err := RequireRight(tt.p, tt.section, tt.action)
+		if (err == nil) != tt.ok || (err != nil && kindOf(err) != apperr.Forbidden) {
+			t.Errorf("%s: %v", tt.name, err)
+		}
+	}
+	got := ops.ForScopes(Scopes{ScopeClustersRead, ScopeSettingsWrite})
+	if len(got) != 1 || !got.Has(SectionClusters, ActionRead) || got.Has(SectionClusters, ActionUpdate) || got.Has(SectionTokens, ActionRead) {
+		t.Errorf("ForScopes = %v", got)
+	}
+	for _, tt := range []struct {
+		scope Scope
+		ok    bool
+	}{{ScopeClustersRead, true}, {ScopeClustersWrite, true}, {ScopeSettingsRead, true}, {ScopeSettingsWrite, false}, {ScopeUsersRead, false}} {
+		if ops.AllowsScope(tt.scope) != tt.ok {
+			t.Errorf("AllowsScope(%s) != %v", tt.scope, tt.ok)
+		}
+	}
+	token := Principal{TokenID: uuid.Must(uuid.NewV7()), IsSuperadmin: true, Scopes: Scopes{ScopeUsersRead}}
+	if r := token.EffectiveRights(); len(r) != 1 || !r.Has(SectionUsers, ActionRead) {
+		t.Errorf("superadmin token rights = %v", r)
+	}
+	if r := (Principal{IsSuperadmin: true}).EffectiveRights(); len(r) != len(Sections) {
+		t.Errorf("superadmin rights = %v", r)
+	}
+}
+
+func TestValidateRights(t *testing.T) {
+	t.Parallel()
+	got, err := ValidateRights(map[string][]string{"clusters": {"update", "read"}, "users": {}})
+	if err != nil || len(got) != 1 || got[SectionClusters][0] != ActionRead || got[SectionClusters][1] != ActionUpdate {
+		t.Fatalf("got %v, %v", got, err)
+	}
+	for _, bad := range []map[string][]string{
+		{"scans": {"delete"}}, {"billing": {"read"}}, {"clusters": {"read", "read"}}, {"link_kinds": {"read"}}, {"users": {"remove"}},
+	} {
+		if _, err := ValidateRights(bad); !errors.Is(err, InvalidPermissions) {
+			t.Errorf("%v: %v", bad, err)
+		}
+	}
+}
+
+func TestTokenActsPerActionOfOwner(t *testing.T) {
+	t.Parallel()
+	for _, section := range Sections {
+		pair, ok := sectionScopes[section]
+		if !ok {
+			continue
+		}
+		for _, held := range SectionActions[section] {
+			owner := Rights{section: {held}}
+			for _, scopes := range []Scopes{{pair[0]}, {pair[1]}, {pair[0], pair[1]}} {
+				p := Principal{TokenID: uuid.Must(uuid.NewV7()), Scopes: scopes, Rights: owner.ForScopes(scopes)}
+				for _, action := range SectionActions[section] {
+					want := action == held && scopes.Has(pair[scopeHalf(action)])
+					if got := RequireRight(p, section, action) == nil; got != want {
+						t.Errorf("%s: owner holds %s, scopes %v, %s allowed = %v, want %v", section, held, scopes, action, got, want)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestCatalogScopeIssuedByAnyCatalogRight(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		rights Rights
+		ok     bool
+	}{
+		{Rights{SectionCatalog: {ActionCreate}}, true},
+		{Rights{SectionCatalog: {ActionDelete}}, true},
+		{Rights{SectionCatalog: {ActionRead}}, false},
+		{Rights{SectionClusters: {ActionCreate}}, false},
+		{nil, false},
+	} {
+		if got := (Grantor{Rights: tt.rights}).mayIssue(ScopeCatalogRoot); got != tt.ok {
+			t.Errorf("mayIssue(catalog.root) with %v = %v, want %v", tt.rights, got, tt.ok)
+		}
+	}
+}
+
+func TestCatalogReadFollowsTheReadScope(t *testing.T) {
+	t.Parallel()
+	held := Rights{SectionCatalog: {ActionRead, ActionUpdate}}
+	for _, tt := range []struct {
+		name   string
+		scopes Scopes
+		want   []Action
+	}{
+		{"read scope keeps read", Scopes{ScopeRead}, []Action{ActionRead}},
+		{"catalog.root keeps the writes", Scopes{ScopeCatalogRoot}, []Action{ActionUpdate}},
+		{"both keep both", Scopes{ScopeRead, ScopeCatalogRoot}, []Action{ActionRead, ActionUpdate}},
+		{"mcp keeps nothing", Scopes{ScopeMCP}, nil},
+	} {
+		if got := held.ForScopes(tt.scopes)[SectionCatalog]; !slices.Equal(got, tt.want) {
+			t.Errorf("%s: %v, want %v", tt.name, got, tt.want)
+		}
+	}
+	if _, err := ValidateRights(map[string][]string{"catalog": {"read"}}); err != nil {
+		t.Errorf("catalog read refused: %v", err)
 	}
 }

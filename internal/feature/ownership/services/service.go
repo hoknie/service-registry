@@ -29,6 +29,6 @@ func New(d Deps) *OwnershipServices {
 	p := newParts(d)
 	return &OwnershipServices{
 		Owners: &OwnersService{catalog: p.catalog, ownerRepository: p.ownerRepository},
-		Ports:  &PortsService{ownerRepository: p.ownerRepository},
+		Ports:  &PortsService{catalog: p.catalog, ownerRepository: p.ownerRepository},
 	}
 }

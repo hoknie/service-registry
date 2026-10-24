@@ -11,6 +11,7 @@ import { errorText } from "@/i18n/errors";
 import { format } from "@/i18n/format";
 import type { Messages } from "@/i18n/messages";
 import { apiGet, apiSend, errorCode, type Page, type User } from "@/lib/api";
+import { useCan, useSuperadmin } from "@/lib/useCan";
 
 import { useUiText } from "../UiText";
 import { Badge } from "../ui/Badge";
@@ -37,6 +38,7 @@ export function StatusBadge({ status, labels }: { status: User["status"]; labels
 }
 
 export function UsersAdmin({ locale, labels }: { locale: Locale; labels: Labels }) {
+  const can = useCan();
   const { errors, common } = useUiText();
   const router = useRouter();
   const t = labels.users;
@@ -64,7 +66,7 @@ export function UsersAdmin({ locale, labels }: { locale: Locale; labels: Labels 
     void load(offset);
   }, [load, offset]);
 
-  const newUser = (
+  const newUser = can("users", "create") && (
     <Button variant="primary" onClick={() => setCreating(true)}>
       <Plus aria-hidden="true" />
       {t.create.title}
@@ -165,6 +167,7 @@ function CreateUser({
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [superadmin, setSuperadmin] = useState(false);
+  const viewerSuperadmin = useSuperadmin();
   const [service, setService] = useState(false);
   const [note, setNote] = useState<Note>(null);
   const [busy, setBusy] = useState(false);
@@ -221,7 +224,7 @@ function CreateUser({
             <Input {...p} type="password" required={!service} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
           )}
         </Field>
-        <Checkbox label={t.superadmin} checked={superadmin} onChange={(e) => setSuperadmin(e.target.checked)} />
+        {viewerSuperadmin && <Checkbox label={t.superadmin} checked={superadmin} onChange={(e) => setSuperadmin(e.target.checked)} />}
         <div className="grid gap-1">
           <Checkbox label={labels.users.page.serviceToggle} checked={service} onChange={(e) => setService(e.target.checked)} />
           <p className="pl-6.5 text-xs text-muted">{labels.users.page.serviceCreateHint}</p>

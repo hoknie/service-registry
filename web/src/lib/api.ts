@@ -1,3 +1,5 @@
+import type { Rights } from "./rights";
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -21,7 +23,7 @@ export type User = {
   updated_at: string;
 };
 
-export type Me = User & { login_method: string };
+export type Me = User & { login_method: string; rights: Rights };
 
 export type Provider = { key: string; display_name: string };
 
@@ -51,9 +53,12 @@ export type Page<T> = { items: T[]; total: number; limit: number; offset: number
 export type ContactKind = "email" | "chat" | "url" | "phone";
 export type Contact = { kind: ContactKind; value: string; label: string | null };
 
+export type GroupOrganization = { id: string; name: string };
+
 export type Group = {
   id: string;
   name: string;
+  organization: GroupOrganization | null;
   member_count: number;
   contacts: Contact[];
   on_call_url: string | null;
@@ -75,7 +80,7 @@ export type Owner = {
 };
 export type OwnerSet = { items: Owner[]; from: string | null; own: boolean; none: boolean };
 export type OwnerBadge = { subject_kind: SubjectKind; subject_id: string; name: string };
-export type OwnerCandidate = OwnerBadge & { email: string | null; members: number | null };
+export type OwnerCandidate = OwnerBadge & { email: string | null; members: number | null; organization: GroupOrganization | null };
 export type OwnerSuggestion = OwnerBadge & { count: number };
 
 export type Member = Pick<User, "id" | "email" | "display_name" | "status"> & {
@@ -86,7 +91,23 @@ export type Member = Pick<User, "id" | "email" | "display_name" | "status"> & {
 
 export type OwnGroup = Group & { can_edit_contacts: boolean };
 
-export type GroupDetails = Group & { members: Member[] };
+export type MembersLock = "rights" | "bindings" | null;
+
+export type GroupDetails = Group & {
+  members: Member[];
+  permissions: Rights;
+  members_lock: MembersLock;
+  can_manage_members: boolean;
+  members_hidden: boolean;
+};
+
+export type OrganizationGroups = Page<Group> & { organization: GroupOrganization; can_manage: boolean };
+
+export type ManagedGroup = Group & { nodes: TokenNode[] };
+
+export type ManagedGroupDetails = Group & { members: Member[]; members_lock: MembersLock; can_manage_members: boolean };
+
+export type MemberCandidate = { id: string; display_name: string; email: string };
 
 export type NodeKind = "organization" | "folder" | "project";
 
@@ -111,6 +132,7 @@ export type CatalogNode = {
   managed?: boolean;
   repository?: Repository | null;
   cluster_observation?: boolean;
+  visibility?: "open" | "closed";
 };
 
 export type ProcessKind = "collect" | "index" | "forge" | "clusters";

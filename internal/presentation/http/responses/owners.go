@@ -49,15 +49,24 @@ func OwnerBadgesOf(in []ownershiptypes.Badge) []OwnerBadge {
 }
 
 type OwnerCandidate struct {
-	SubjectKind string    `json:"subject_kind"`
-	SubjectID   uuid.UUID `json:"subject_id"`
-	Name        string    `json:"name"`
-	Email       *string   `json:"email"`
-	Members     *int64    `json:"members"`
+	SubjectKind  string             `json:"subject_kind"`
+	SubjectID    uuid.UUID          `json:"subject_id"`
+	Name         string             `json:"name"`
+	Email        *string            `json:"email"`
+	Members      *int64             `json:"members"`
+	Organization *GroupOrganization `json:"organization"`
 }
 
 func OwnerCandidateOf(c ownershiptypes.Candidate) OwnerCandidate {
-	return OwnerCandidate{SubjectKind: string(c.SubjectKind), SubjectID: c.SubjectID, Name: c.Name, Email: c.Email, Members: c.Members}
+	var org *GroupOrganization
+	if c.OrganizationID != nil {
+		org = &GroupOrganization{ID: *c.OrganizationID}
+		if c.OrganizationName != nil {
+			org.Name = *c.OrganizationName
+		}
+	}
+	return OwnerCandidate{SubjectKind: string(c.SubjectKind), SubjectID: c.SubjectID, Name: c.Name, Email: c.Email, Members: c.Members,
+		Organization: org}
 }
 
 type OwnerSuggestion struct {

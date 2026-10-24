@@ -78,9 +78,10 @@ type NodePath struct {
 }
 
 type Viewer struct {
-	UserID uuid.UUID
-	Nodes  []uuid.UUID
-	Admin  bool
+	UserID   uuid.UUID
+	Nodes    []uuid.UUID
+	Admin    bool
+	TopLevel bool
 }
 
 type Walk struct {

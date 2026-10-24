@@ -97,6 +97,26 @@ func (a *Handlers) UpdateNode(c fiber.Ctx) error {
 	return a.sendNode(c, http.StatusOK, responses.ReadNode(node))
 }
 
+func (a *Handlers) SetNodeVisibility(c fiber.Ctx) error {
+	p, _, err := a.currentUser(c)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	var in requests.NodeVisibility
+	if err := bindJSON(c, &in); err != nil {
+		return responses.Fail(c, err)
+	}
+	id, err := parseID(c, "id")
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	node, err := a.Catalog.Nodes.SetVisibility(c.Context(), p, id, in.Visibility)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	return a.sendNode(c, http.StatusOK, responses.ReadNode(node))
+}
+
 func (a *Handlers) MoveNode(c fiber.Ctx) error {
 	p, _, err := a.currentUser(c)
 	if err != nil {

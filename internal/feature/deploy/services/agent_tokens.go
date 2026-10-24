@@ -37,7 +37,7 @@ func (s *AgentTokensService) RevokeAgentTokens(ctx context.Context, p accesstype
 }
 
 func (s *AgentTokensService) agentCluster(ctx context.Context, p accesstypes.Principal, id uuid.UUID) error {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionClusters, accesstypes.ActionUpdate); err != nil {
 		return err
 	}
 	c, err := s.clusterRepository.Get(ctx, id)

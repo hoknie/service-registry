@@ -41,6 +41,7 @@ type User struct {
 type Me struct {
 	User
 	LoginMethod string `json:"login_method"`
+	Rights      Rights `json:"rights"`
 }
 
 func UserOf(u accesstypes.User) User {

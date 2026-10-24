@@ -12,7 +12,7 @@ import (
 )
 
 func (s *NodesService) CreateNode(ctx context.Context, p accesstypes.Principal, in catalogtypes.CreateNode, source catalogports.SourceFactoryPort) (catalogtypes.Node, *IssuedKey, error) {
-	parent, err := s.access.AuthorizeContainer(ctx, p, in.ParentID, nil)
+	parent, err := s.access.AuthorizeContainer(ctx, p, in.ParentID, nil, accesstypes.ActionCreate)
 	if err != nil {
 		return catalogtypes.Node{}, nil, err
 	}
@@ -141,7 +141,7 @@ func (s *NodesService) MoveNode(ctx context.Context, p accesstypes.Principal, id
 	if err != nil {
 		return catalogtypes.Node{}, err
 	}
-	if _, err := s.access.AuthorizeContainer(ctx, p, scoped.Node.ParentID, &id); err != nil {
+	if _, err := s.access.AuthorizeContainer(ctx, p, scoped.Node.ParentID, &id, accesstypes.ActionUpdate); err != nil {
 		return catalogtypes.Node{}, err
 	}
 	if err := s.refuseManaged(ctx, id); err != nil {
@@ -150,7 +150,7 @@ func (s *NodesService) MoveNode(ctx context.Context, p accesstypes.Principal, id
 	if parent != nil && *parent == id {
 		return catalogtypes.Node{}, apperr.Wrap(catalogtypes.ConflictCycle)
 	}
-	target, err := s.access.AuthorizeContainer(ctx, p, parent, &id)
+	target, err := s.access.AuthorizeContainer(ctx, p, parent, &id, accesstypes.ActionUpdate)
 	if err != nil {
 		return catalogtypes.Node{}, err
 	}
@@ -176,7 +176,7 @@ func (s *NodesService) DeleteNode(ctx context.Context, p accesstypes.Principal, 
 	if err != nil {
 		return err
 	}
-	if _, err := s.access.AuthorizeContainer(ctx, p, scoped.Node.ParentID, &id); err != nil {
+	if _, err := s.access.AuthorizeContainer(ctx, p, scoped.Node.ParentID, &id, accesstypes.ActionDelete); err != nil {
 		return err
 	}
 	if err := s.refuseManaged(ctx, id); err != nil {
@@ -186,11 +186,13 @@ func (s *NodesService) DeleteNode(ctx context.Context, p accesstypes.Principal, 
 }
 
 func (s *NodesService) insert(ctx context.Context, p accesstypes.Principal, row catalogtypes.NewNode) (catalogtypes.Node, error) {
-	if row.ParentID != nil || !p.AddsRoots() {
+	top := row.ParentID == nil
+	creatorAdmin := top && !p.IsSuperadmin && !p.CatalogAdmin
+	if !top || (!p.AddsRoots() && !creatorAdmin) {
 		node, err := s.nodeRepository.Insert(ctx, row)
 		return node, apperr.Wrap(err)
 	}
-	if len(p.Nodes) >= accesstypes.TokenMaxNodes {
+	if p.AddsRoots() && len(p.Nodes) >= accesstypes.TokenMaxNodes {
 		return catalogtypes.Node{}, apperr.Wrap(catalogtypes.ConflictTokenNodesFull)
 	}
 	var node catalogtypes.Node
@@ -198,6 +200,14 @@ func (s *NodesService) insert(ctx context.Context, p accesstypes.Principal, row 
 		var err error
 		if node, err = s.nodeRepository.Insert(ctx, row); err != nil {
 			return err
+		}
+		if creatorAdmin {
+			if err := s.bindingRepository.GrantUser(ctx, uuid.Must(uuid.NewV7()), node.ID, p.UserID, catalogtypes.RoleAdmin); err != nil {
+				return err
+			}
+		}
+		if !p.AddsRoots() {
+			return nil
 		}
 		added, err := s.tokenRoots.AddTokenRoot(ctx, p.TokenID, node.ID)
 		if err != nil {

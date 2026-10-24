@@ -136,7 +136,8 @@ func (s *GroupContactRepository) SetEditor(ctx context.Context, groupID, userID 
 func (s *GroupContactRepository) OwnGroups(ctx context.Context, userID uuid.UUID) ([]accesstypes.OwnGroup, error) {
 	rows, err := postgres.List(ctx, s.db.From(ctx), constraints, scanOwnGroup, `
 		SELECT g.id, g.name, (SELECT count(*) FROM group_members m WHERE m.group_id = g.id) AS member_count, g.on_call_url,
-			rfc3339(g.created_at) AS created_at, rfc3339(g.updated_at) AS updated_at,
+			rfc3339(g.created_at) AS created_at, rfc3339(g.updated_at) AS updated_at, g.organization_id,
+			(SELECT o.name FROM nodes o WHERE o.id = g.organization_id) AS organization_name,
 			EXISTS (SELECT 1 FROM group_contact_editors e WHERE e.group_id = g.id AND e.user_id = $1) AS can_edit
 		FROM groups g
 		JOIN group_members gm ON gm.group_id = g.id
@@ -157,4 +158,88 @@ func (s *GroupContactRepository) OwnGroups(ctx context.Context, userID uuid.UUID
 		rows[i].Group = groups[i]
 	}
 	return rows, nil
+}
+
+type GroupPermissionRepository struct{ db *pgtx.DB }
+
+func NewGroupPermissionRepository(db *pgtx.DB) *GroupPermissionRepository {
+	return &GroupPermissionRepository{db: db}
+}
+
+func (s *GroupPermissionRepository) rights(ctx context.Context, sql string, args ...any) (accesstypes.Rights, error) {
+	pairs, err := postgres.Pairs[string, []string](ctx, s.db.From(ctx), constraints, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	out := accesstypes.Rights{}
+	for section, actions := range pairs {
+		for _, a := range actions {
+			out[accesstypes.Section(section)] = append(out[accesstypes.Section(section)], accesstypes.Action(a))
+		}
+	}
+	return out.Union(nil), nil
+}
+
+func (s *GroupPermissionRepository) ForGroup(ctx context.Context, groupID uuid.UUID) (accesstypes.Rights, error) {
+	return s.rights(ctx, `
+		SELECT section, actions
+		FROM group_permissions
+		WHERE group_id = $1`, groupID)
+}
+
+func (s *GroupPermissionRepository) ForUser(ctx context.Context, userID uuid.UUID) (accesstypes.Rights, error) {
+	return s.rights(ctx, `
+		SELECT p.section, array_agg(DISTINCT a)
+		FROM group_permissions p
+		JOIN group_members m ON m.group_id = p.group_id
+		JOIN users u ON u.id = m.user_id
+		CROSS JOIN LATERAL unnest(p.actions) AS a
+		WHERE m.user_id = $1
+			AND u.status = 'active'
+		GROUP BY p.section`, userID)
+}
+
+func (s *GroupPermissionRepository) Replace(ctx context.Context, groupID uuid.UUID, rights accesstypes.Rights) error {
+	return s.db.InTx(ctx, func(ctx context.Context) error {
+		tx := s.db.From(ctx)
+		if err := postgres.ExecFound(ctx, tx, constraints, `
+			SELECT 1 FROM groups WHERE id = $1 FOR UPDATE`, groupID); err != nil {
+			return err
+		}
+		if _, err := postgres.Exec(ctx, tx, constraints, `
+			DELETE FROM group_permissions
+			WHERE group_id = $1`, groupID); err != nil {
+			return err
+		}
+		for section, actions := range rights {
+			if len(actions) == 0 {
+				continue
+			}
+			names := make([]string, len(actions))
+			for i, a := range actions {
+				names[i] = string(a)
+			}
+			if _, err := postgres.Exec(ctx, tx, constraints, `
+				INSERT INTO group_permissions (group_id, section, actions)
+				VALUES ($1, $2, $3)`, groupID, string(section), names); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (s *GroupPermissionRepository) GroupHasAny(ctx context.Context, groupID uuid.UUID) (bool, error) {
+	return postgres.One(ctx, s.db.From(ctx), constraints, pgx.RowTo[bool], `
+		SELECT EXISTS (SELECT 1 FROM group_permissions WHERE group_id = $1)`, groupID)
+}
+
+func (s *GroupPermissionRepository) UserHasAny(ctx context.Context, userID uuid.UUID) (bool, error) {
+	return postgres.One(ctx, s.db.From(ctx), constraints, pgx.RowTo[bool], `
+		SELECT EXISTS (
+			SELECT 1
+			FROM group_permissions p
+			JOIN group_members m ON m.group_id = p.group_id
+			WHERE m.user_id = $1
+		)`, userID)
 }

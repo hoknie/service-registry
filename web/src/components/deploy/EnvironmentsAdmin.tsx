@@ -9,6 +9,7 @@ import { errorText } from "@/i18n/errors";
 import { format } from "@/i18n/format";
 import type { Messages } from "@/i18n/messages";
 import { apiGet, apiSend, errorCode, type DirectoryEnvironment, type Items } from "@/lib/api";
+import { useCan } from "@/lib/useCan";
 
 import { useUiText } from "../UiText";
 import { Button } from "../ui/Button";
@@ -27,6 +28,7 @@ type Draft = { mode: "create" | "edit"; key: string; names: Record<Locale, strin
 const emptyNames = () => Object.fromEntries(locales.map((l) => [l, ""])) as Record<Locale, string>;
 
 export function EnvironmentsAdmin({ locale, labels: t }: { locale: Locale; labels: Labels }) {
+  const can = useCan();
   const { errors, common } = useUiText();
   const [items, setItems] = useState<DirectoryEnvironment[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,10 +87,12 @@ export function EnvironmentsAdmin({ locale, labels: t }: { locale: Locale; label
         title={t.title}
         lead={t.lead}
         actions={
-          <Button variant="primary" onClick={() => open()}>
-            <Plus aria-hidden="true" />
-            {t.add}
-          </Button>
+          can("environments", "create") && (
+            <Button variant="primary" onClick={() => open()}>
+              <Plus aria-hidden="true" />
+              {t.add}
+            </Button>
+          )
         }
       />
       {error && <Message note={{ kind: "error", text: error }} className="mb-4" />}
@@ -115,14 +119,18 @@ export function EnvironmentsAdmin({ locale, labels: t }: { locale: Locale; label
                 <Td className="text-ink">{e.names[locale]}</Td>
                 <Td numeric className="text-ink-2">{e.position}</Td>
                 <Td className="text-right whitespace-nowrap">
-                  <Button size="sm" variant="ghost" onClick={() => open(e)}>
-                    <Pencil aria-hidden="true" />
-                    {t.edit}
-                  </Button>
-                  <Button size="sm" variant="danger-ghost" onClick={() => setDeleting(e)}>
-                    <Trash aria-hidden="true" />
-                    {t.delete}
-                  </Button>
+                  {can("environments", "update") && (
+                    <Button size="sm" variant="ghost" onClick={() => open(e)}>
+                      <Pencil aria-hidden="true" />
+                      {t.edit}
+                    </Button>
+                  )}
+                  {can("environments", "delete") && (
+                    <Button size="sm" variant="danger-ghost" onClick={() => setDeleting(e)}>
+                      <Trash aria-hidden="true" />
+                      {t.delete}
+                    </Button>
+                  )}
                 </Td>
               </Tr>
             ))}

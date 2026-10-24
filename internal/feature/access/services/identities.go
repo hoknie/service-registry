@@ -36,7 +36,7 @@ func (s *IdentitiesService) OwnIdentities(ctx context.Context, p accesstypes.Pri
 }
 
 func (s *IdentitiesService) UserIdentities(ctx context.Context, p accesstypes.Principal, userID uuid.UUID) ([]IdentityView, error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionUsers, accesstypes.ActionRead); err != nil {
 		return nil, err
 	}
 	user, err := s.userRepository.Find(ctx, userID)

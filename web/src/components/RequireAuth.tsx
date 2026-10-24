@@ -7,6 +7,7 @@ import { useEffect, type ReactNode } from "react";
 import type { Locale } from "@/i18n/config";
 import type { Messages } from "@/i18n/messages";
 import { loginHref } from "@/lib/oauthApps";
+import { adminVisible } from "@/lib/rights";
 
 import { useSession } from "./SessionProvider";
 import { EmptyState } from "./ui/EmptyState";
@@ -16,10 +17,11 @@ type Props = {
   locale: Locale;
   labels: Messages["guard"];
   superadmin?: boolean;
+  admin?: boolean;
   children: ReactNode;
 };
 
-export function RequireAuth({ locale, labels, superadmin = false, children }: Props) {
+export function RequireAuth({ locale, labels, superadmin = false, admin = false, children }: Props) {
   const { session } = useSession();
   const router = useRouter();
   const pathname = usePathname() ?? `/${locale}`;
@@ -44,7 +46,7 @@ export function RequireAuth({ locale, labels, superadmin = false, children }: Pr
       </div>
     );
   }
-  if (superadmin && !session.user.is_superadmin) {
+  if ((superadmin && !session.user.is_superadmin) || (admin && !adminVisible(session.user))) {
     return (
       <div role="alert">
         <EmptyState icon={ShieldAlert} title={labels.forbidden} className="mx-auto mt-8 max-w-lg" />

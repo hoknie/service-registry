@@ -123,21 +123,53 @@ func (s *OwnerRepository) Suggest(ctx context.Context, v catalogtypes.Viewer, al
 		LIMIT 20`, v.UserID, all, prefix, v.Nodes, v.Admin)
 }
 
-func (s *OwnerRepository) Candidates(ctx context.Context, prefix string) ([]ownershiptypes.Candidate, error) {
+func (s *OwnerRepository) Candidates(ctx context.Context, nodeID uuid.UUID, prefix string) ([]ownershiptypes.Candidate, error) {
 	return postgres.List(ctx, s.db.From(ctx), constraints, scanCandidate, `
-		SELECT c.is_group, c.id, c.name, c.email, c.members
+		SELECT c.is_group, c.id, c.name, c.email, c.members, c.organization_id,
+			(SELECT o.name FROM nodes o WHERE o.id = c.organization_id) AS organization_name
 		FROM (
 			SELECT true AS is_group, g.id, g.name, NULL::text AS email,
-				(SELECT count(*) FROM group_members m WHERE m.group_id = g.id) AS members
+				(SELECT count(*) FROM group_members m WHERE m.group_id = g.id) AS members, g.organization_id
 			FROM groups g
 			WHERE g.name ILIKE $1 ESCAPE '\'
+				AND (g.organization_id IS NULL OR g.organization_id = node_root($2))
 			UNION ALL
-			SELECT false, u.id, u.display_name, u.email, NULL::bigint
+			SELECT false, u.id, u.display_name, u.email, NULL::bigint, NULL::uuid
 			FROM users u
 			WHERE u.status = 'active'
 				AND NOT u.is_service
 				AND (u.email ILIKE $1 ESCAPE '\' OR u.display_name ILIKE $1 ESCAPE '\')
 		) c
-		ORDER BY c.is_group DESC, lower(c.name), c.id
-		LIMIT 20`, prefix)
+		ORDER BY c.is_group DESC, c.organization_id IS NULL, lower(c.name), c.id
+		LIMIT 20`, prefix, nodeID)
+}
+
+func (s *OwnerRepository) OwnedAmong(ctx context.Context, userID uuid.UUID, nodeIDs []uuid.UUID) ([]uuid.UUID, error) {
+	return postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowTo[uuid.UUID], `
+		WITH RECURSIVE up AS (
+			SELECT n.id AS target, n.id, n.parent_id, 0 AS lvl
+			FROM nodes n
+			WHERE n.id = ANY($2)
+			UNION ALL
+			SELECT up.target, p.id, p.parent_id, up.lvl + 1
+			FROM nodes p
+			JOIN up ON p.id = up.parent_id
+		),
+		src AS (
+			SELECT DISTINCT ON (up.target) up.target, up.id
+			FROM up
+			WHERE EXISTS (SELECT 1 FROM node_owners o WHERE o.node_id = up.id)
+				OR EXISTS (SELECT 1 FROM node_owner_clears x WHERE x.node_id = up.id)
+			ORDER BY up.target, up.lvl
+		)
+		SELECT src.target
+		FROM src
+		WHERE EXISTS (
+			SELECT 1
+			FROM node_owners o
+			WHERE o.node_id = src.id
+				AND (o.user_id = $1
+					OR o.group_id IN (SELECT m.group_id FROM group_members m WHERE m.user_id = $1))
+		)
+		ORDER BY src.target`, userID, nodeIDs)
 }

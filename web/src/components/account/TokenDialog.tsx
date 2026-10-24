@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 
 import { format } from "@/i18n/format";
 import { apiSend, type PersonalToken, type Scope } from "@/lib/api";
+import { scopeAllowed } from "@/lib/rights";
 import {
   BASE_SCOPES,
   canSubmitNodes,
@@ -18,6 +19,7 @@ import {
   type TokenAccess,
 } from "@/lib/tokenNodes";
 
+import { useSession } from "../SessionProvider";
 import { useUiText } from "../UiText";
 import { Button } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
@@ -80,13 +82,18 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
   const [note, setNote] = useState<Note>(null);
   const [busy, setBusy] = useState(false);
 
+  const { session } = useSession();
+  const viewer = session.status === "signed-in" ? session.user : null;
+  const allowed = (scope: Scope) => superadmin || (endpoint === "/v1/account/tokens" && scopeAllowed(viewer, scope));
+  const offerGlobal = superadmin || allowed(CATALOG_ROOT) || GLOBAL_AREAS.some((area) => allowed(`${area}:read`) || allowed(`${area}:write`));
   const global = scopes.some(isGlobalScope);
   const scoped = access === "nodes";
   const changeAccess = (next: TokenAccess) => {
     setAccess(next);
     setScopes((current) => scopesForAccess(next, current));
   };
-  const toggle = (scope: Scope, on: boolean) => setScopes((current) => toggleScope(current, scope, on));
+  const toggle = (scope: Scope, on: boolean) =>
+    setScopes((current) => toggleScope(current, scope, on).filter((s) => !isGlobalScope(s) || allowed(s)));
 
   const reset = () => {
     setName("");
@@ -142,16 +149,17 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
           ))}
           {superadmin && !scoped && !global && <p className="text-xs text-muted">{t.wholeSuperadmin}</p>}
         </fieldset>
-        {superadmin && (
+        {offerGlobal && (
           <fieldset className="grid gap-2">
             <legend className="mb-1.5 text-sm font-medium text-ink-2">{t.globalScopes}</legend>
-            {GLOBAL_AREAS.map((area) => (
+            {GLOBAL_AREAS.filter((area) => allowed(`${area}:read`) || allowed(`${area}:write`)).map((area) => (
               <div key={area} className="grid gap-1 sm:grid-cols-[1fr_auto_auto] sm:items-center sm:gap-4">
                 <span className="text-sm">
                   <span className="font-medium text-ink">{labels.scopeAreas[area]}</span>
                 </span>
                 {(["read", "write"] as const).map((action) => {
                   const scope: Scope = `${area}:${action}`;
+                  if (!allowed(scope)) return <span key={scope} />;
                   return (
                     <Checkbox
                       key={scope}
@@ -165,12 +173,14 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
                 })}
               </div>
             ))}
-            <ScopeBox
-              scope={CATALOG_ROOT}
-              hint={labels.scopeHints[CATALOG_ROOT]}
-              checked={scopes.includes(CATALOG_ROOT)}
-              onChange={(on) => toggle(CATALOG_ROOT, on)}
-            />
+            {allowed(CATALOG_ROOT) && (
+              <ScopeBox
+                scope={CATALOG_ROOT}
+                hint={labels.scopeHints[CATALOG_ROOT]}
+                checked={scopes.includes(CATALOG_ROOT)}
+                onChange={(on) => toggle(CATALOG_ROOT, on)}
+              />
+            )}
             {scoped && <p className="text-xs text-muted">{t.nodesGlobal}</p>}
           </fieldset>
         )}

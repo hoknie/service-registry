@@ -262,7 +262,11 @@
       "recovery_without_failure": "恢复事件需要对应的故障事件：请同时选择故障类型。",
       "invalid_dependency": "目标不是您可读取的项目，也不是有效的外部系统名称。",
       "invalid_dependency_depth": "深度必须为 1、2 或 3。",
-      "not_group_member": "只能将此权限授予群组成员。"
+      "not_group_member": "只能将此权限授予群组成员。",
+      "invalid_visibility": "可见性必须为公开或不公开。",
+      "visibility_top_level": "只有顶级组织可以公开。",
+      "organization_top_level": "群组属于顶级组织。",
+      "organization_group_rights": "组织群组不能拥有管理权限。"
     },
     "conflict": {
       "email_taken": "该邮箱已被其他用户使用。",
@@ -299,7 +303,9 @@
       "cluster_disabled": "集群已停用。",
       "agent_report_in_progress": "正在处理此集群的一份报告。",
       "dependency_exists": "该依赖已手动添加。",
-      "token_nodes_full": "该令牌已包含 20 个节点，无法再加入新组织。"
+      "token_nodes_full": "该令牌已包含 20 个节点，无法再加入新组织。",
+      "organization_has_groups": "有群组的组织不能移到其他节点下。请先删除其群组。",
+      "organization_groups_bound": "该组织的群组在此处拥有角色或所有权。将节点移出组织前请先移除它们。"
     },
     "ingest": {
       "unknown_event_type": "未知的事件类型。",
@@ -418,7 +424,17 @@
       "edit": "编辑联系方式",
       "noContacts": "暂无联系方式。",
       "contacts": "联系方式",
-      "onCall": "值班"
+      "onCall": "值班",
+      "managedTitle": "我管理的组",
+      "managedLead": "在您拥有的节点上具有角色的组。您可以添加和移除其成员。",
+      "managedNodes": "角色所在",
+      "members": "成员",
+      "remove": "移除",
+      "add": "添加成员",
+      "search": "开始输入姓名或邮箱，或从列表中选择",
+      "noMembers": "暂无成员。",
+      "fromProvider": "来自 {provider}",
+      "organization": "组织：{name}"
     }
   },
   "tokens": {
@@ -641,14 +657,14 @@
         "empty": "暂无成员。",
         "remove": "移除",
         "add": "添加成员",
-        "choose": "选择用户",
-        "submit": "添加",
         "manual": "手动",
         "fromProvider": "来自 {provider}",
         "managedHint": "由身份提供方管理：用户登录时更新。",
         "contactEditor": "联系方式编辑者",
         "contactEditorHint": "该成员可以在自己的账户中修改群组的联系方式和值班链接。",
-        "editorFromProvider": "由 {provider} 授予"
+        "editorFromProvider": "由 {provider} 授予",
+        "lockedBindings": "该组在目录中拥有角色：其成员只能由超级管理员和拥有这些角色的节点的所有者更改。",
+        "search": "开始输入姓名或邮箱，或从列表中选择"
       },
       "lead": "用户组代表其全部成员在目录中获得角色。",
       "page": {
@@ -680,7 +696,33 @@
         "saved": "联系方式已保存。",
         "empty": "没有联系方式。",
         "onCallBadge": "值班"
-      }
+      },
+      "permissions": {
+        "title": "管理权限",
+        "lead": "该组成员可以管理这些部分。只有超级管理员可以更改权限。",
+        "sections": {
+          "users": "用户",
+          "groups": "组",
+          "tokens": "令牌",
+          "clusters": "集群",
+          "environments": "环境",
+          "link_kinds": "链接类型",
+          "secrets": "全局密钥",
+          "scans": "扫描",
+          "catalog": "目录顶层"
+        },
+        "actions": {
+          "create": "创建",
+          "read": "读取",
+          "update": "修改",
+          "delete": "删除"
+        },
+        "section": "部分",
+        "save": "保存权限",
+        "saved": "权限已保存。",
+        "protected": "该组拥有管理权限：只有超级管理员可以更改它。"
+      },
+      "organization": "组织：{name}"
     },
     "tokens": {
       "title": "令牌",
@@ -1033,7 +1075,8 @@
       "remove": "移除",
       "removed": "绑定已移除。",
       "lead": "此处授予的角色适用于该项及其包含的全部内容。",
-      "add": "授予角色"
+      "add": "授予角色",
+      "orgGroup": "组织群组"
     },
     "deployments": {
       "current": "当前版本",
@@ -1663,7 +1706,8 @@
         "scans": "扫描历史",
         "owners": "负责人",
         "notifications": "通知",
-        "dependencies": "依赖"
+        "dependencies": "依赖",
+        "groups": "群组"
       }
     },
     "linkIcons": {
@@ -1716,7 +1760,8 @@
       "noOwners": "无负责人",
       "here": "在此设置",
       "clear": "无负责人",
-      "clearConfirm": "在此节点停止继承负责人？在下级设置自己的负责人之前，该节点及其内部所有内容都没有负责人。该节点自己的负责人将被移除。"
+      "clearConfirm": "在此节点停止继承负责人？在下级设置自己的负责人之前，该节点及其内部所有内容都没有负责人。该节点自己的负责人将被移除。",
+      "orgGroup": "组织群组"
     },
     "dependencies": {
       "dependsOn": "依赖于",
@@ -1768,6 +1813,42 @@
       "removed": "已删除依赖。",
       "origin": "来源位置",
       "graphLabel": "依赖图"
+    },
+    "visibility": {
+      "title": "可见性",
+      "open": "公开组织",
+      "hint": "所有已登录用户都能看到公开组织及其全部内容。只有拥有角色的人才能修改它。",
+      "stateOpen": "公开——所有已登录用户都可以读取。",
+      "stateClosed": "不公开——只有拥有角色的人可以看到。",
+      "opened": "组织已公开。",
+      "closed": "组织已设为不公开。",
+      "badge": "公开"
+    },
+    "orgGroups": {
+      "title": "群组",
+      "lead": "该组织的群组只能在组织内部获得角色和所有权，由组织管理员管理。",
+      "empty": "该组织还没有群组。",
+      "name": "名称",
+      "members": "成员",
+      "create": "创建群组",
+      "created": "群组已创建。",
+      "newName": "新群组名称",
+      "open": "成员",
+      "rename": "重命名",
+      "renamed": "已重命名。",
+      "delete": "删除群组",
+      "confirmDelete": "删除群组“{name}”？它在组织中的角色和所有权将一并删除，用户保留。",
+      "deleted": "群组已删除。",
+      "back": "全部群组",
+      "membersTitle": "{name} 的成员",
+      "membersEmpty": "没有成员。",
+      "membersHidden": "只有管理组织群组的人可以看到成员。",
+      "addMember": "添加成员",
+      "search": "输入姓名或邮箱的至少三个字符",
+      "remove": "移除",
+      "added": "成员已添加。",
+      "removed": "成员已移除。",
+      "readOnly": "只有组织管理员可以管理其群组。"
     }
   },
   "notFound": {
@@ -2058,7 +2139,9 @@
     "none": "不使用令牌",
     "manage": "管理密钥",
     "create": "创建密钥",
-    "noneAvailable": "没有可用的密钥。"
+    "noneAvailable": "没有可用的密钥。",
+    "unreadable": "没有读取密钥的权限，无法使用该密钥。",
+    "current": "当前密钥：{name}"
   },
   "docSpace": {
     "title": "文档",

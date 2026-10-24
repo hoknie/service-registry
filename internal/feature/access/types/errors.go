@@ -19,6 +19,9 @@ var (
 	InvalidTokenPrefix      = apperr.Invalid("validation.invalid_token_prefix", "prefix must be at most 12 characters")
 	InvalidContacts         = apperr.Invalid("validation.invalid_contacts", "contacts must be at most 10 items of kind email, chat, url or phone with a valid value and a label of 1 to 100 characters or null")
 	InvalidNotGroupMember   = apperr.Invalid("validation.not_group_member", "the right can be granted only to a member of the group")
+	InvalidPermissions      = apperr.Invalid("validation.invalid_permissions", "permissions must map known sections to distinct actions that apply to them")
+	InvalidOrgTopLevel      = apperr.Invalid("validation.organization_top_level", "groups are created and changed on a top-level organization")
+	InvalidOrgGroupRights   = apperr.Invalid("validation.organization_group_rights", "a group of an organization cannot hold administration rights")
 	InvalidOnCallURL        = apperr.Invalid("validation.invalid_on_call_url", "on_call_url must be null or an absolute https:// address of at most 2048 characters")
 )
 

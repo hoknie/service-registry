@@ -14,6 +14,7 @@ import { useChildrenView } from "@/lib/childrenView";
 import { cn } from "@/lib/cn";
 import { resolveTab, sectionsOf, tabsOf, type NodeTab, type Section } from "@/lib/nodeSettings";
 import { forgetRecentNode, recordRecentNode } from "@/lib/recentNodes";
+import { can as holds } from "@/lib/rights";
 
 import { ForgeTab } from "../forge/ForgeTab";
 import { DocsTab } from "../knowledge/DocsTab";
@@ -54,6 +55,7 @@ import { DependencySettings } from "../dependencies/DependencySettings";
 import { SecretsTable } from "../secrets/SecretsTable";
 import { NodeDetails } from "./NodeDetails";
 import { NodeSettings } from "./NodeSettings";
+import { OrganizationGroups } from "./OrganizationGroups";
 import { ProjectKeys } from "./ProjectKeys";
 import { ProjectEvents } from "./ProjectEvents";
 import { ProjectSummary } from "./ProjectSummary";
@@ -211,16 +213,19 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
   }
 
   const shownActivity = pending ? null : activity;
-  const superadmin = session.status === "signed-in" && session.user.is_superadmin;
-  const can = (p: string) => (node ? (node.permissions ?? []).includes(p) : superadmin);
+  const viewer = session.status === "signed-in" ? session.user : null;
+  const superadmin = !!viewer?.is_superadmin;
+  const rootCan = (action: "create" | "update" | "delete") => holds(viewer, "catalog", action);
+  const can = (p: string) => (node ? (node.permissions ?? []).includes(p) : p === "catalog.write" && rootCan("create"));
   const readable = !node || node.access === "read";
   const kinds = childKinds(node ? node.kind : null);
   const project = node?.kind === "project";
   const canWrite = can("catalog.write");
   const canCreate = canWrite && kinds.length > 0;
   const managed = !!node?.managed;
-  const canMove = !!node && !managed && ((node.permissions ?? []).includes("catalog.write") || superadmin);
-  const canDelete = !!node && !managed && (node.permissions ?? []).includes("catalog.write");
+  const topLevel = node?.parent_id === null;
+  const canMove = !!node && !managed && ((node.permissions ?? []).includes("catalog.write") || superadmin) && (!topLevel || rootCan("update"));
+  const canDelete = !!node && !managed && (node.permissions ?? []).includes("catalog.write") && (!topLevel || rootCan("delete"));
 
   const tabs = tabsOf(node);
   const tab: NodeTab = resolved.tab;
@@ -304,6 +309,11 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
                   {t.navigateOnly}
                 </Badge>
               )}
+              {c.visibility === "open" && (
+                <Badge tone="cobalt" className="mt-3">
+                  {t.visibility.badge}
+                </Badge>
+              )}
               <span className="mt-3 block empty:hidden">{childActivity(c)}</span>
               {c.links.length > 0 && <LinkIconRow links={c.links} locale={locale} labels={t.linkIcons} max={6} inert className="mt-3" />}
               {labels.length > 0 && (
@@ -343,6 +353,11 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
               {c.access === "navigate" && (
                 <Badge tone="outline" className="mt-1">
                   {t.navigateOnly}
+                </Badge>
+              )}
+              {c.visibility === "open" && (
+                <Badge tone="cobalt" className="mt-1">
+                  {t.visibility.badge}
                 </Badge>
               )}
             </Td>
@@ -467,6 +482,7 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
                   {node.slug}
                 </code>
                 {!readable && <Badge tone="outline">{t.navigateOnly}</Badge>}
+                {node.visibility === "open" && <Badge tone="cobalt">{t.visibility.badge}</Badge>}
                 {readable && shownActivity?.processes && <ProcessBadges processes={shownActivity.processes} labels={t.activity} locale={locale} />}
                 {readable && shownActivity?.summary && <SummaryBadges summary={shownActivity.summary} labels={t.activity} />}
                 {project && readable && <BranchPicker key={node.id} projectId={node.id} current={branch} labels={t.branches} onSelect={selectBranch} />}
@@ -568,7 +584,8 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
                       canWrite={canWrite}
                       canMove={canMove}
                       canDelete={canDelete}
-                      superadmin={superadmin}
+                      toTop={rootCan("update")}
+                      canSwitchVisibility={can("catalog.access") || rootCan("update")}
                       onSaved={changed}
                       onDeleted={() => {
                         router.push(catalogHref(locale, node.parent_id));
@@ -577,6 +594,7 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
                     />
                   )}
                   {section === "owners" && <OwnersSettings node={node} locale={locale} labels={t} canWrite={canWrite} fail={fail} />}
+                  {section === "groups" && <OrganizationGroups node={node} labels={t} fail={fail} />}
                   {section === "branches" && <BranchesTab projectId={node.id} locale={locale} labels={t} canWrite={canWrite} managed={managed} onDefault={changed} />}
                   {section === "links" && <LinksTab node={node} branch={branch} locale={locale} labels={t} canWrite={canWrite} />}
                   {section === "dependencies" && <DependencySettings node={node} locale={locale} labels={t} fail={fail} />}

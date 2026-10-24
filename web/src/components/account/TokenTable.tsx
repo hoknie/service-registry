@@ -21,7 +21,7 @@ type Props = {
   locale: Locale;
   labels: TokenLabels;
   showOwner?: boolean;
-  onRevoke: (token: PersonalToken) => void;
+  onRevoke?: (token: PersonalToken) => void;
 };
 
 export function TokenTable({ tokens, locale, labels, showOwner, onRevoke }: Props) {
@@ -99,7 +99,7 @@ export function TokenTable({ tokens, locale, labels, showOwner, onRevoke }: Prop
               </Badge>
             </Td>
             <Td className="text-right">
-              {tok.status === "active" && (
+              {tok.status === "active" && onRevoke && (
                 <Button size="sm" variant="danger-ghost" onClick={() => onRevoke(tok)}>
                   {labels.revoke}
                 </Button>

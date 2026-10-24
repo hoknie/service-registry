@@ -139,6 +139,7 @@ export function OwnersSettings({ node, locale, labels, canWrite, fail }: Props) 
               label={t.add}
               placeholder={t.addPlaceholder}
               membersLabel={t.members}
+              orgLabel={t.orgGroup}
               exclude={rows}
               disabled={rows.length >= 10}
               onPick={(o) => !rows.some((r) => sameSubject(r, o)) && setDraft([...rows, o])}

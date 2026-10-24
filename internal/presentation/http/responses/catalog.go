@@ -21,6 +21,7 @@ type Node struct {
 	RepoURL            **string             `json:"repo_url,omitempty"`
 	DefaultBranch      **string             `json:"default_branch,omitempty"`
 	ClusterObservation *bool                `json:"cluster_observation,omitempty"`
+	Visibility         *string              `json:"visibility,omitempty"`
 	CreatedAt          *string              `json:"created_at,omitempty"`
 	UpdatedAt          *string              `json:"updated_at,omitempty"`
 	Depth              *int32               `json:"depth,omitempty"`
@@ -43,6 +44,9 @@ func NodeOf(n catalogtypes.Node, readable bool) Node {
 	}
 	body.Description, body.Labels, body.CreatedAt, body.UpdatedAt = &description, &labels, &created, &updated
 	body.Managed = new(n.Managed)
+	if n.ParentID == nil && n.Visibility != "" {
+		body.Visibility = new(string(n.Visibility))
+	}
 	if n.Kind == catalogtypes.KindProject {
 		var forge *string
 		if n.Repo.Forge != nil {

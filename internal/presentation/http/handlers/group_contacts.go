@@ -87,3 +87,47 @@ func (a *Handlers) SetOwnGroupContacts(c fiber.Ctx) error {
 	}
 	return c.Status(http.StatusOK).JSON(responses.OwnGroupOf(g))
 }
+
+func (a *Handlers) ManagedGroups(c fiber.Ctx) error {
+	p, _, err := a.currentUser(c)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	groups, err := a.Access.Groups.ManagedGroups(c.Context(), p)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	return c.Status(http.StatusOK).JSON(responses.ItemsOf(groups, responses.ManagedGroupOf))
+}
+
+func (a *Handlers) ManagedGroup(c fiber.Ctx) error {
+	p, _, err := a.currentUser(c)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	id, err := parseID(c, "id")
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	g, err := a.Access.Groups.ManagedGroup(c.Context(), p, id)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	return c.Status(http.StatusOK).JSON(responses.ManagedGroupDetailsOf(g))
+}
+
+func (a *Handlers) MemberCandidates(c fiber.Ctx) error {
+	p, _, err := a.currentUser(c)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	at, err := groupAt(c)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	out, err := a.Access.Groups.MemberCandidates(c.Context(), p, at, c.Query("q"))
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	return c.Status(http.StatusOK).JSON(responses.ItemsOf(out, responses.MemberCandidateOf))
+}

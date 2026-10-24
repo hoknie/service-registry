@@ -16,3 +16,12 @@ type NodeRootsPort interface {
 type ClientMetadataPort interface {
 	Fetch(ctx context.Context, url string) (accesstypes.FetchedMetadata, error)
 }
+
+type GroupStewardsPort interface {
+	GroupNodes(ctx context.Context, groupIDs []uuid.UUID) (map[uuid.UUID][]uuid.UUID, error)
+	OwnedAmong(ctx context.Context, userID uuid.UUID, nodeIDs []uuid.UUID) ([]uuid.UUID, error)
+}
+
+type OrganizationsPort interface {
+	OrganizationAccess(ctx context.Context, p accesstypes.Principal, nodeID uuid.UUID) (accesstypes.OrganizationAccess, error)
+}

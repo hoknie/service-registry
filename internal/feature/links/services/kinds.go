@@ -15,7 +15,7 @@ func (s *KindsService) ListLinkKinds(ctx context.Context, _ accesstypes.Principa
 }
 
 func (s *KindsService) CreateLinkKind(ctx context.Context, p accesstypes.Principal, in linkstypes.CreateKind) (linkstypes.Kind, error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionLinkKinds, accesstypes.ActionCreate); err != nil {
 		return linkstypes.Kind{}, err
 	}
 	k, err := linkstypes.ValidateNewKind(in)
@@ -27,7 +27,7 @@ func (s *KindsService) CreateLinkKind(ctx context.Context, p accesstypes.Princip
 }
 
 func (s *KindsService) UpdateLinkKind(ctx context.Context, p accesstypes.Principal, rawKey string, in linkstypes.UpdateKind) (linkstypes.Kind, error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionLinkKinds, accesstypes.ActionUpdate); err != nil {
 		return linkstypes.Kind{}, err
 	}
 	key, err := linkstypes.ValidateKey(rawKey)
@@ -49,7 +49,7 @@ func (s *KindsService) UpdateLinkKind(ctx context.Context, p accesstypes.Princip
 }
 
 func (s *KindsService) DeleteLinkKind(ctx context.Context, p accesstypes.Principal, rawKey string) error {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionLinkKinds, accesstypes.ActionDelete); err != nil {
 		return err
 	}
 	key, err := linkstypes.ValidateKey(rawKey)
@@ -60,7 +60,7 @@ func (s *KindsService) DeleteLinkKind(ctx context.Context, p accesstypes.Princip
 }
 
 func (s *KindsService) ReorderLinkKinds(ctx context.Context, p accesstypes.Principal, rawKeys []string) ([]linkstypes.Kind, error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionLinkKinds, accesstypes.ActionUpdate); err != nil {
 		return nil, err
 	}
 	keys, err := linkstypes.ValidateOrder(rawKeys)

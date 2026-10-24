@@ -83,12 +83,13 @@ type CatalogServices struct {
 func New(d Deps) *CatalogServices {
 	p := newParts(d)
 	f := &CatalogServices{
-		Access:         &AccessService{nodeRepository: p.nodeRepository},
-		Activity:       &ActivityService{activityRepository: p.activityRepository, sources: p.sources},
-		Bindings:       &BindingsService{bindingRepository: p.bindingRepository},
-		Branches:       &BranchesService{branchRepository: p.branchRepository, cfg: p.cfg},
-		Labels:         &LabelsService{nodeRepository: p.nodeRepository},
-		Nodes:          &NodesService{branchRepository: p.branchRepository, managed: p.managed, nodeRepository: p.nodeRepository, db: p.db},
+		Access:   &AccessService{nodeRepository: p.nodeRepository},
+		Activity: &ActivityService{activityRepository: p.activityRepository, sources: p.sources},
+		Bindings: &BindingsService{bindingRepository: p.bindingRepository},
+		Branches: &BranchesService{branchRepository: p.branchRepository, cfg: p.cfg},
+		Labels:   &LabelsService{nodeRepository: p.nodeRepository},
+		Nodes: &NodesService{branchRepository: p.branchRepository, managed: p.managed, nodeRepository: p.nodeRepository, db: p.db,
+			bindingRepository: p.bindingRepository},
 		ProjectKeys:    &ProjectKeysService{projectKeyRepository: p.projectKeyRepository},
 		Secrets:        &SecretsService{box: p.box, secretUsers: p.secretUsers, secretRepository: p.secretRepository},
 		SecretResolver: &SecretResolverService{box: p.box, secretRepository: p.secretRepository},

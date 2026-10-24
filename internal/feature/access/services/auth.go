@@ -90,7 +90,18 @@ func (s *AuthService) Authenticate(ctx context.Context, token string) (accesstyp
 		return accesstypes.Principal{}, accesstypes.User{}, apperr.New(apperr.Unauthenticated)
 	}
 	p := accesstypes.Principal{UserID: found.User.ID, SessionID: found.SessionID, IsSuperadmin: found.User.IsSuperadmin, Method: found.Method}
+	if p.Rights, err = s.rightsOf(ctx, found.User); err != nil {
+		return accesstypes.Principal{}, accesstypes.User{}, err
+	}
 	return p, found.User, nil
+}
+
+func (s *AuthService) rightsOf(ctx context.Context, user accesstypes.User) (accesstypes.Rights, error) {
+	if user.IsSuperadmin {
+		return nil, nil
+	}
+	rights, err := s.permissionRepository.ForUser(ctx, user.ID)
+	return rights, apperr.Wrap(err)
 }
 
 func (s *AuthService) authenticateApp(ctx context.Context, hash [32]byte) (accesstypes.Principal, accesstypes.User, error) {
@@ -134,6 +145,11 @@ func (s *AuthService) AuthenticateToken(ctx context.Context, secret string) (acc
 		CatalogAdmin: found.CatalogAdmin && found.User.IsSuperadmin && !superadmin,
 		Method:       "token",
 	}
+	rights, err := s.rightsOf(ctx, found.User)
+	if err != nil {
+		return accesstypes.Principal{}, accesstypes.User{}, err
+	}
+	p.Rights = rights.ForScopes(found.Scopes)
 	return p, found.User, nil
 }
 
@@ -166,11 +182,12 @@ func (s *AuthService) ChangePassword(ctx context.Context, p accesstypes.Principa
 }
 
 type AuthService struct {
-	cfg               *config.Config
-	hasher            *password.Hasher
-	loginLimiter      *auth.LoginLimiter
-	sessionRepository *repositories.SessionRepository
-	tokenRepository   *repositories.TokenRepository
-	grantRepository   *repositories.OAuthGrantRepository
-	userRepository    *repositories.UserRepository
+	permissionRepository *repositories.GroupPermissionRepository
+	cfg                  *config.Config
+	hasher               *password.Hasher
+	loginLimiter         *auth.LoginLimiter
+	sessionRepository    *repositories.SessionRepository
+	tokenRepository      *repositories.TokenRepository
+	grantRepository      *repositories.OAuthGrantRepository
+	userRepository       *repositories.UserRepository
 }

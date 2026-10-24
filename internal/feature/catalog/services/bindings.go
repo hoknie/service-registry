@@ -62,3 +62,8 @@ type BindingsService struct {
 	bindingRepository *repositories.BindingRepository
 	access            *AccessService
 }
+
+func (s *BindingsService) GroupNodes(ctx context.Context, groupIDs []uuid.UUID) (map[uuid.UUID][]uuid.UUID, error) {
+	out, err := s.bindingRepository.GroupNodes(ctx, groupIDs)
+	return out, apperr.Wrap(err)
+}

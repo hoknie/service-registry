@@ -16,6 +16,7 @@ type Principal struct {
 	Nodes        []uuid.UUID
 	IsSuperadmin bool
 	CatalogAdmin bool
+	Rights       Rights
 	App          bool
 	Method       string
 }
@@ -84,17 +85,35 @@ func RequireSuperadmin(p Principal) error {
 	return apperr.New(apperr.Forbidden)
 }
 
-func RequireCatalogRoot(p Principal, node *uuid.UUID) error {
+func RequireRight(p Principal, section Section, action Action) error {
+	if p.IsSuperadmin || p.Rights.Has(section, action) {
+		return nil
+	}
+	return apperr.New(apperr.Forbidden)
+}
+
+func (p Principal) EffectiveRights() Rights {
+	base := p.Rights
+	if p.IsSuperadmin {
+		base = FullRights()
+	}
+	if p.ByToken() {
+		return base.ForScopes(p.Scopes)
+	}
+	return base.Union(nil)
+}
+
+func RequireCatalogRoot(p Principal, node *uuid.UUID, action Action) error {
 	if !p.ByToken() {
-		return RequireSuperadmin(p)
+		return RequireRight(p, SectionCatalog, action)
 	}
 	if !p.Scopes.Has(ScopeCatalogRoot) {
 		return apperr.New(apperr.InsufficientScope)
 	}
 	if p.Nodes == nil {
-		return RequireSuperadmin(p)
+		return RequireRight(p, SectionCatalog, action)
 	}
-	if !p.CatalogAdmin {
+	if !p.CatalogAdmin && !p.Rights.Has(SectionCatalog, action) {
 		return apperr.New(apperr.Forbidden)
 	}
 	if node != nil && !slices.Contains(p.Nodes, *node) {
@@ -104,5 +123,6 @@ func RequireCatalogRoot(p Principal, node *uuid.UUID) error {
 }
 
 func (p Principal) AddsRoots() bool {
-	return p.ByToken() && !p.App && p.Nodes != nil && p.CatalogAdmin && p.Scopes.Has(ScopeCatalogRoot)
+	return p.ByToken() && !p.App && p.Nodes != nil && p.Scopes.Has(ScopeCatalogRoot) &&
+		(p.CatalogAdmin || p.Rights.Has(SectionCatalog, ActionCreate))
 }

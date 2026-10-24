@@ -42,7 +42,7 @@ func (s *OwnersService) OwnerCandidates(ctx context.Context, p accesstypes.Princ
 	if err != nil {
 		return nil, apperr.Wrap(err)
 	}
-	out, err := s.ownerRepository.Candidates(ctx, catalogtypes.LikePrefix(q))
+	out, err := s.ownerRepository.Candidates(ctx, id, catalogtypes.LikePrefix(q))
 	return out, apperr.Wrap(err)
 }
 

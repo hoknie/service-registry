@@ -9,6 +9,7 @@ import { Button } from "../ui/Button";
 import { Panel } from "../ui/Panel";
 import { DeleteDialog, EditForm, MoveDialog } from "./NodeForms";
 import { UnlinkForgeButton } from "./UnlinkForgeDialog";
+import { VisibilityPanel } from "./VisibilityPanel";
 import type { CatalogLabels } from "./shared";
 
 type Props = {
@@ -18,12 +19,13 @@ type Props = {
   canWrite: boolean;
   canMove: boolean;
   canDelete: boolean;
-  superadmin: boolean;
+  toTop: boolean;
+  canSwitchVisibility: boolean;
   onSaved: () => void;
   onDeleted: () => void;
 };
 
-export function SettingsGeneral({ node, labels, fail, canWrite, canMove, canDelete, superadmin, onSaved, onDeleted }: Props) {
+export function SettingsGeneral({ node, labels, fail, canWrite, canMove, canDelete, toTop, canSwitchVisibility, onSaved, onDeleted }: Props) {
   const t = labels.settings;
   const [dialog, setDialog] = useState<"move" | "delete" | null>(null);
   const canUnlink = canWrite && node.kind === "project" && !!node.managed;
@@ -32,6 +34,9 @@ export function SettingsGeneral({ node, labels, fail, canWrite, canMove, canDele
       <Panel title={t.general}>
         <EditForm key={node.updated_at} node={node} labels={labels} fail={fail} onSaved={onSaved} readOnly={!canWrite} />
       </Panel>
+      {node.visibility && (
+        <VisibilityPanel key={node.updated_at} node={node} labels={labels} fail={fail} canSwitch={canSwitchVisibility} onSaved={onSaved} />
+      )}
       {(canMove || canDelete || canUnlink) && (
         <Panel title={t.danger}>
           <div className="grid gap-4">
@@ -69,7 +74,7 @@ export function SettingsGeneral({ node, labels, fail, canWrite, canMove, canDele
           node={node}
           labels={labels}
           fail={fail}
-          superadmin={superadmin}
+          toTop={toTop}
           onMoved={onSaved}
         />
       )}

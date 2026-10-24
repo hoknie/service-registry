@@ -73,7 +73,7 @@ export function AccountView({ locale, labels, tokenLabels, contactLabels, supera
         <AppsTab locale={locale} labels={tokenLabels} />
       </TabsContent>
       <TabsContent value="groups">
-        <GroupsTab labels={labels.groups} contactLabels={contactLabels} />
+        <GroupsTab locale={locale} labels={labels.groups} contactLabels={contactLabels} />
       </TabsContent>
     </Tabs>
   );

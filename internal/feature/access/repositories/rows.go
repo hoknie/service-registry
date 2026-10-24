@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	accesstypes "svc-registry/internal/feature/access/types"
@@ -70,17 +71,30 @@ func scanToken(row pgx.CollectableRow) (accesstypes.Token, error) {
 
 func scanGroup(row pgx.CollectableRow) (accesstypes.Group, error) {
 	var g accesstypes.Group
-	err := row.Scan(&g.ID, &g.Name, &g.MemberCount, &g.OnCallURL, &g.CreatedAt, &g.UpdatedAt)
+	var orgID *uuid.UUID
+	var orgName *string
+	err := row.Scan(&g.ID, &g.Name, &g.MemberCount, &g.OnCallURL, &g.CreatedAt, &g.UpdatedAt, &orgID, &orgName)
 	g.Contacts = []accesstypes.Contact{}
+	g.Organization = organizationOf(orgID, orgName)
 	return g, err
 }
 
 func scanOwnGroup(row pgx.CollectableRow) (accesstypes.OwnGroup, error) {
 	var o accesstypes.OwnGroup
+	var orgID *uuid.UUID
+	var orgName *string
 	g := &o.Group
-	err := row.Scan(&g.ID, &g.Name, &g.MemberCount, &g.OnCallURL, &g.CreatedAt, &g.UpdatedAt, &o.CanEditContacts)
+	err := row.Scan(&g.ID, &g.Name, &g.MemberCount, &g.OnCallURL, &g.CreatedAt, &g.UpdatedAt, &orgID, &orgName, &o.CanEditContacts)
 	g.Contacts = []accesstypes.Contact{}
+	g.Organization = organizationOf(orgID, orgName)
 	return o, err
+}
+
+func organizationOf(id *uuid.UUID, name *string) *accesstypes.NodeRef {
+	if id == nil {
+		return nil
+	}
+	return &accesstypes.NodeRef{ID: *id, Name: name}
 }
 
 func scanMembership(row pgx.CollectableRow) (accesstypes.Membership, error) {

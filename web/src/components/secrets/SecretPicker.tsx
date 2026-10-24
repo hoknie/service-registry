@@ -5,13 +5,14 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { errorText } from "@/i18n/errors";
+import { format } from "@/i18n/format";
 import { apiGet, errorCode, type Items, type Secret } from "@/lib/api";
 import { NO_SECRET, secretOptions, secretsPath } from "@/lib/secrets";
 
 import { useUiText } from "../UiText";
 import { Button } from "../ui/Button";
 import { Combobox } from "../ui/Combobox";
-import { Field } from "../ui/Field";
+import { Field, Input } from "../ui/Field";
 import { SecretDialog } from "./SecretDialog";
 
 type Props = {
@@ -22,9 +23,11 @@ type Props = {
   manageHref: string;
   allowNone?: boolean;
   required?: boolean;
+  readable?: boolean;
+  currentName?: string | null;
 };
 
-export function SecretPicker({ listOn, createOn, value, onChange, manageHref, allowNone, required }: Props) {
+export function SecretPicker({ listOn, createOn, value, onChange, manageHref, allowNone, required, readable = true, currentName }: Props) {
   const { secrets: t, errors } = useUiText();
   const [items, setItems] = useState<Secret[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,9 +43,18 @@ export function SecretPicker({ listOn, createOn, value, onChange, manageHref, al
   }, [listOn, errors]);
 
   useEffect(() => {
+    if (!readable) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
-  }, [load]);
+  }, [load, readable]);
+
+  if (!readable) {
+    return (
+      <Field label={t.picker} hint={currentName ? undefined : t.unreadable}>
+        {(p) => <Input {...p} disabled readOnly value={currentName ? format(t.current, { name: currentName }) : ""} placeholder={t.unreadable} />}
+      </Field>
+    );
+  }
 
   const options = secretOptions(items ?? [], t, allowNone ?? false);
   return (

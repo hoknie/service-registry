@@ -62,6 +62,24 @@ To open or close an organization, use **Settings → General → Visibility**. T
 An open organization carries an **Open** badge in its header, in the catalog cards and in the tree. An organization moved
 under another node becomes closed.
 
+## Groups of an organization
+
+An organization can keep its own groups of people under **Settings → Groups**, so its admins can hand out roles to whole
+teams without asking a superadmin. These groups give roles and ownership only inside the organization; see
+[access.md](access.md#groups-of-an-organization) for the rest.
+
+- **Who manages them.** Superadmins, the organization's admins and members of groups with rights on **Groups** who can see the organization create,
+  rename and delete them and change their members. An organization admin may add themselves too.
+- **Who sees them.** Everyone who reads anything in the organization sees its groups and how many members they have. The
+  members themselves are shown only to those who manage the groups.
+- **Adding people.** Start typing at least three letters of a name or email; the field offers up to ten people.
+- **Using them.** In **Settings → Access** and in the owners of any node in the organization, the organization's groups
+  are offered first and marked as organization groups. A group name given there means the organization's group, even if
+  a registry-wide group has the same name.
+- **Moving.** An organization with groups cannot be moved under another node: delete its groups first. A folder or
+  project where the organization's groups have roles or ownership cannot be moved to another organization until those
+  roles and owners are removed.
+
 ## Branches
 
 Every project keeps a list of branches. They come from three places:

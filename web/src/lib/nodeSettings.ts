@@ -1,6 +1,6 @@
 import type { NodeKind } from "./api";
 
-export const SECTIONS = ["general", "owners", "branches", "links", "dependencies", "docs", "keys", "access", "notifications", "connect", "forge", "secrets", "scans"] as const;
+export const SECTIONS = ["general", "owners", "groups", "branches", "links", "dependencies", "docs", "keys", "access", "notifications", "connect", "forge", "secrets", "scans"] as const;
 export type Section = (typeof SECTIONS)[number];
 
 export const PROJECT_TABS = ["overview", "docs", "details", "releases", "dependencies", "settings"] as const;
@@ -23,7 +23,7 @@ export const RENAMED_TABS: Record<string, NodeTab> = {
   events: "overview",
 };
 
-type NodeLike = { kind: NodeKind; access: "read" | "navigate"; permissions?: string[] };
+type NodeLike = { kind: NodeKind; parent_id?: string | null; access: "read" | "navigate"; permissions?: string[] };
 
 export function tabsOf(node: NodeLike | null): NodeTab[] {
   if (!node) return ["overview"];
@@ -48,7 +48,16 @@ export function sectionsOf(node: NodeLike | null): Section[] {
       "connect",
     ];
   }
-  return ["general", "owners", "forge", "secrets", "links", "docs", ...(can("catalog.access") ? (["access", "notifications"] as const) : [])];
+  return [
+    "general",
+    "owners",
+    ...(node.parent_id ? [] : (["groups"] as const)),
+    "forge",
+    "secrets",
+    "links",
+    "docs",
+    ...(can("catalog.access") ? (["access", "notifications"] as const) : []),
+  ];
 }
 
 export function resolveTab(

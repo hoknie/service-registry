@@ -82,6 +82,10 @@ func (r UpdateNode) Changes() catalogtypes.UpdateNode {
 		ClusterObservation: flag(r.ClusterObservation, catalogtypes.InvalidClusterObservation)}
 }
 
+type NodeVisibility struct {
+	Visibility *string `json:"visibility"`
+}
+
 type MoveNode struct {
 	ParentID Optional[string] `json:"parent_id"`
 }

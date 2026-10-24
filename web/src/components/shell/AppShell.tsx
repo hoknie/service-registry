@@ -10,6 +10,7 @@ import { Toaster } from "sonner";
 import type { Locale } from "@/i18n/config";
 import type { Messages } from "@/i18n/messages";
 import { cn } from "@/lib/cn";
+import { adminVisible } from "@/lib/rights";
 import { saveSidebar, sidebarCollapsed, watchSidebar } from "@/lib/sidebar";
 
 import { LanguageSwitcher } from "../LanguageSwitcher";
@@ -51,7 +52,7 @@ export function AppShell({ locale, labels, children }: { locale: Locale; labels:
   const shortcut = useShortcutLabel();
   const h = labels.header;
   const signedIn = session.status === "signed-in";
-  const items = navItems(locale, h.nav, signedIn && session.user.is_superadmin);
+  const items = navItems(locale, h.nav, signedIn && adminVisible(session.user));
 
   useEffect(() => {
     const onKey = (e: globalThis.KeyboardEvent) => {

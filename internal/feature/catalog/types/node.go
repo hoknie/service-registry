@@ -33,6 +33,23 @@ func (k NodeKind) MayBeUnder(parent *NodeKind) bool {
 	return false
 }
 
+type OrgVisibility string
+
+const (
+	OrgOpen   OrgVisibility = "open"
+	OrgClosed OrgVisibility = "closed"
+)
+
+func ParseOrgVisibility(s *string) (OrgVisibility, error) {
+	if s != nil {
+		switch v := OrgVisibility(*s); v {
+		case OrgOpen, OrgClosed:
+			return v, nil
+		}
+	}
+	return "", InvalidVisibility
+}
+
 type Forge string
 
 const (
@@ -66,6 +83,7 @@ type Node struct {
 	Labels             Labels
 	Repo               Repo
 	ClusterObservation bool
+	Visibility         OrgVisibility
 	CreatedAt          string
 	UpdatedAt          string
 	Managed            bool

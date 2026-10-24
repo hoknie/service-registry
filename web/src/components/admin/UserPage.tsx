@@ -10,6 +10,7 @@ import type { Locale } from "@/i18n/config";
 import { errorText } from "@/i18n/errors";
 import type { Messages } from "@/i18n/messages";
 import { apiGet, apiSend, errorCode, type Group, type Items, type User } from "@/lib/api";
+import { useCan, useSuperadmin } from "@/lib/useCan";
 
 import type { TokenLabels } from "../account/TokenTable";
 import { useUiText } from "../UiText";
@@ -45,6 +46,8 @@ export function UserPage({ locale, labels, tokenLabels }: { locale: Locale; labe
   const [password, setPassword] = useState("");
   const [note, setNote] = useState<Note>(null);
   const [resetNote, setResetNote] = useState<Note>(null);
+  const editable = useCan()("users", "update");
+  const viewerSuperadmin = useSuperadmin();
 
   const show = (u: User) => {
     setUser(u);
@@ -77,7 +80,8 @@ export function UserPage({ locale, labels, tokenLabels }: { locale: Locale; labe
     event.preventDefault();
     setNote(null);
     try {
-      show(await apiSend<User>("PATCH", `/v1/users/${id}`, { display_name: name, status, is_superadmin: superadmin, is_service: service }));
+      const body = { display_name: name, status, is_service: service, ...(viewerSuperadmin ? { is_superadmin: superadmin } : {}) };
+      show(await apiSend<User>("PATCH", `/v1/users/${id}`, body));
       toast.success(t.done);
     } catch (e) {
       setNote({ kind: "error", text: fail(e) });
@@ -126,21 +130,23 @@ export function UserPage({ locale, labels, tokenLabels }: { locale: Locale; labe
                 </Select>
               )}
             </Field>
-            <Checkbox label={t.superadmin} checked={superadmin} onChange={(e) => setSuperadmin(e.target.checked)} />
+            {viewerSuperadmin && <Checkbox label={t.superadmin} checked={superadmin} onChange={(e) => setSuperadmin(e.target.checked)} />}
             <div className="grid gap-1">
               <Checkbox label={p.serviceToggle} checked={service} onChange={(e) => setService(e.target.checked)} />
               <p className="pl-6.5 text-xs text-muted">{p.serviceHint}</p>
             </div>
             <Message note={note} />
-            <div>
-              <Button type="submit" variant="primary">
-                {t.submit}
-              </Button>
-            </div>
+            {editable && (
+              <div>
+                <Button type="submit" variant="primary">
+                  {t.submit}
+                </Button>
+              </div>
+            )}
           </form>
         </Panel>
         <div className="grid gap-6">
-          {!user.is_service && (
+          {!user.is_service && editable && (
             <Panel title={r.title}>
               <form className="grid gap-3" onSubmit={reset}>
                 <div className="flex flex-wrap items-end gap-2">
@@ -177,21 +183,25 @@ export function UserPage({ locale, labels, tokenLabels }: { locale: Locale; labe
         <Panel title={labels.users.identities.title}>
           <UserIdentities userId={user.id} locale={locale} labels={labels.users.identities} fail={fail} />
         </Panel>
-        <div className="rounded-card border border-line bg-surface p-5 shadow-elev-1">
-          <UserTokens
-            userId={user.id}
-            locale={locale}
-            title={labels.tokens.userTokens}
-            empty={labels.tokens.userTokensEmpty}
-            labels={tokenLabels}
-            fail={fail}
-            canIssue={user.status === "active"}
-            superadmin={user.is_superadmin}
-          />
-        </div>
-        <div className="rounded-card border border-line bg-surface p-5 shadow-elev-1">
-          <UserApps userId={user.id} locale={locale} labels={tokenLabels} fail={fail} />
-        </div>
+        {viewerSuperadmin && (
+          <>
+            <div className="rounded-card border border-line bg-surface p-5 shadow-elev-1">
+              <UserTokens
+                userId={user.id}
+                locale={locale}
+                title={labels.tokens.userTokens}
+                empty={labels.tokens.userTokensEmpty}
+                labels={tokenLabels}
+                fail={fail}
+                canIssue={user.status === "active"}
+                superadmin={user.is_superadmin}
+              />
+            </div>
+            <div className="rounded-card border border-line bg-surface p-5 shadow-elev-1">
+              <UserApps userId={user.id} locale={locale} labels={tokenLabels} fail={fail} />
+            </div>
+          </>
+        )}
       </div>
     </>
   );

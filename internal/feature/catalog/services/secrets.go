@@ -50,7 +50,7 @@ func (s *SecretsService) DeleteNodeSecret(ctx context.Context, p accesstypes.Pri
 }
 
 func (s *SecretsService) ListGlobalSecrets(ctx context.Context, p accesstypes.Principal) ([]catalogtypes.Secret, error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionSecrets, accesstypes.ActionRead); err != nil {
 		return nil, err
 	}
 	items, err := s.secretRepository.Global(ctx)
@@ -61,7 +61,7 @@ func (s *SecretsService) ListGlobalSecrets(ctx context.Context, p accesstypes.Pr
 }
 
 func (s *SecretsService) GetGlobalSecret(ctx context.Context, p accesstypes.Principal, id uuid.UUID) (catalogtypes.Secret, error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionSecrets, accesstypes.ActionRead); err != nil {
 		return catalogtypes.Secret{}, err
 	}
 	found, err := s.secretRepository.Get(ctx, id)
@@ -79,21 +79,21 @@ func (s *SecretsService) GetGlobalSecret(ctx context.Context, p accesstypes.Prin
 }
 
 func (s *SecretsService) CreateGlobalSecret(ctx context.Context, p accesstypes.Principal, in catalogtypes.SecretInput) (catalogtypes.Secret, error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionSecrets, accesstypes.ActionCreate); err != nil {
 		return catalogtypes.Secret{}, err
 	}
 	return s.createSecret(ctx, nil, in)
 }
 
 func (s *SecretsService) UpdateGlobalSecret(ctx context.Context, p accesstypes.Principal, id uuid.UUID, in catalogtypes.SecretInput) (catalogtypes.Secret, error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionSecrets, accesstypes.ActionUpdate); err != nil {
 		return catalogtypes.Secret{}, err
 	}
 	return s.updateSecret(ctx, nil, id, in)
 }
 
 func (s *SecretsService) DeleteGlobalSecret(ctx context.Context, p accesstypes.Principal, id uuid.UUID) error {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionSecrets, accesstypes.ActionDelete); err != nil {
 		return err
 	}
 	return s.deleteSecret(ctx, nil, id)

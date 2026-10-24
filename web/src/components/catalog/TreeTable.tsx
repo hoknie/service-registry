@@ -415,6 +415,7 @@ export function TreeTable({ rootId, locale, labels }: Props) {
                         )}
                       </Link>
                       {row.access === "navigate" && <Badge tone="outline">{labels.navigateOnly}</Badge>}
+                      {row.visibility === "open" && <Badge tone="cobalt">{labels.visibility.badge}</Badge>}
                     </span>
                   </Td>
                   <Td className="hidden sm:table-cell">

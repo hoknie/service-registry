@@ -8,7 +8,7 @@ import (
 )
 
 func TestValidTokensAreNormalized(t *testing.T) {
-	got, err := ValidateCreateToken(CreateToken{Name: "  ci  ", Scopes: []string{"mcp", "read"}, ExpiresInDays: new(int64(90))}, false, 365)
+	got, err := ValidateCreateToken(CreateToken{Name: "  ci  ", Scopes: []string{"mcp", "read"}, ExpiresInDays: new(int64(90))}, Grantor{}, 365)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func TestTokenRules(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ValidateCreateToken(tt.in, tt.superadmin, 365)
+			got, err := ValidateCreateToken(tt.in, Grantor{Superadmin: tt.superadmin}, 365)
 			if err != tt.want {
 				t.Fatalf("got %v, want %v", err, tt.want)
 			}
@@ -79,7 +79,7 @@ func TestTokenNodeRules(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ValidateCreateToken(CreateToken{Name: "t", Scopes: tt.scopes, ExpiresInDays: new(int64(1)), Nodes: tt.nodes}, true, 365)
+			got, err := ValidateCreateToken(CreateToken{Name: "t", Scopes: tt.scopes, ExpiresInDays: new(int64(1)), Nodes: tt.nodes}, Grantor{Superadmin: true}, 365)
 			if err != tt.want {
 				t.Fatalf("got %v, want %v", err, tt.want)
 			}

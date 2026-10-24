@@ -18,6 +18,9 @@ var constraints = postgres.Constraints{
 	"forge_connections_credentials_secret_id_fkey": catalogtypes.ConflictSecretInUse,
 	"knowledge_sources_credentials_secret_id_fkey": catalogtypes.ConflictSecretInUse,
 	"clusters_credentials_secret_id_fkey":          catalogtypes.ConflictSecretInUse,
+	"role_bindings_group_organization_check":       catalogtypes.InvalidUnknownSubject,
+	"nodes_organization_groups_check":              catalogtypes.ConflictOrganizationHasGroups,
+	"nodes_group_organization_check":               catalogtypes.ConflictOrganizationGroupsBound,
 }
 
 var nodeDeleteConstraints = func() postgres.Constraints {

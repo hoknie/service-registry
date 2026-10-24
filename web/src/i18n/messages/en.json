@@ -262,7 +262,11 @@
       "recovery_without_failure": "A recovery event needs its failure event: choose the failure type as well.",
       "invalid_dependency": "The target is not a project you can read or a valid external system name.",
       "invalid_dependency_depth": "Depth must be 1, 2 or 3.",
-      "not_group_member": "This right can be granted only to a member of the group."
+      "not_group_member": "This right can be granted only to a member of the group.",
+      "invalid_visibility": "Visibility must be open or closed.",
+      "visibility_top_level": "Only top-level organizations can be open.",
+      "organization_top_level": "Groups belong to a top-level organization.",
+      "organization_group_rights": "A group of an organization cannot have administration rights."
     },
     "conflict": {
       "email_taken": "A user with this email already exists.",
@@ -299,7 +303,9 @@
       "cluster_disabled": "The cluster is disabled.",
       "agent_report_in_progress": "A report of this cluster is being processed.",
       "dependency_exists": "This dependency has already been added manually.",
-      "token_nodes_full": "The token already names 20 nodes; a new organization cannot be added to it."
+      "token_nodes_full": "The token already names 20 nodes; a new organization cannot be added to it.",
+      "organization_has_groups": "An organization with groups cannot be moved under another node. Delete its groups first.",
+      "organization_groups_bound": "Groups of this organization have roles or ownership here. Remove them before moving the node out of the organization."
     },
     "ingest": {
       "unknown_event_type": "Unknown event type.",
@@ -418,7 +424,17 @@
       "edit": "Edit contacts",
       "noContacts": "No contacts yet.",
       "contacts": "Contacts",
-      "onCall": "On call"
+      "onCall": "On call",
+      "managedTitle": "Groups I manage",
+      "managedLead": "Groups with roles on nodes you own. You can add and remove their members.",
+      "managedNodes": "Roles on",
+      "members": "Members",
+      "remove": "Remove",
+      "add": "Add member",
+      "search": "Start typing a name or email, or pick from the list",
+      "noMembers": "No members.",
+      "fromProvider": "From {provider}",
+      "organization": "Organization: {name}"
     }
   },
   "tokens": {
@@ -641,14 +657,14 @@
         "empty": "No members.",
         "remove": "Remove",
         "add": "Add member",
-        "choose": "Choose a user",
-        "submit": "Add",
         "manual": "Manual",
         "fromProvider": "From {provider}",
         "managedHint": "Managed by the provider: it changes when the user signs in.",
         "contactEditor": "Contact editor",
         "contactEditorHint": "The member can change the group’s contacts and on-call link from their account.",
-        "editorFromProvider": "Granted by {provider}"
+        "editorFromProvider": "Granted by {provider}",
+        "lockedBindings": "This group has roles in the catalog: its members are changed by superadmins and by owners of the nodes with these roles.",
+        "search": "Start typing a name or email, or pick from the list"
       },
       "lead": "Groups receive roles in the catalog on behalf of all their members.",
       "page": {
@@ -680,7 +696,33 @@
         "saved": "Contacts saved.",
         "empty": "No contacts.",
         "onCallBadge": "On call"
-      }
+      },
+      "permissions": {
+        "title": "Administration rights",
+        "lead": "Members of the group may administer these sections. Only a superadmin changes the rights.",
+        "sections": {
+          "users": "Users",
+          "groups": "Groups",
+          "tokens": "Tokens",
+          "clusters": "Clusters",
+          "environments": "Environments",
+          "link_kinds": "Link kinds",
+          "secrets": "Global secrets",
+          "scans": "Scans",
+          "catalog": "Catalog top level"
+        },
+        "actions": {
+          "create": "Create",
+          "read": "Read",
+          "update": "Update",
+          "delete": "Delete"
+        },
+        "section": "Section",
+        "save": "Save rights",
+        "saved": "Rights saved.",
+        "protected": "This group has administration rights: only a superadmin can change it."
+      },
+      "organization": "Organization: {name}"
     },
     "tokens": {
       "title": "Tokens",
@@ -1033,7 +1075,8 @@
       "remove": "Remove",
       "removed": "Binding removed.",
       "lead": "A role granted here applies to this item and everything inside it.",
-      "add": "Grant a role"
+      "add": "Grant a role",
+      "orgGroup": "organization group"
     },
     "deployments": {
       "current": "Current versions",
@@ -1663,7 +1706,8 @@
         "scans": "Scan history",
         "owners": "Owners",
         "notifications": "Notifications",
-        "dependencies": "Dependencies"
+        "dependencies": "Dependencies",
+        "groups": "Groups"
       }
     },
     "linkIcons": {
@@ -1716,7 +1760,8 @@
       "noOwners": "No owners",
       "here": "Set here",
       "clear": "No owners",
-      "clearConfirm": "Stop inheriting owners here? The node and everything inside it will have no owners until a set is defined below. The node’s own owners are removed."
+      "clearConfirm": "Stop inheriting owners here? The node and everything inside it will have no owners until a set is defined below. The node’s own owners are removed.",
+      "orgGroup": "organization group"
     },
     "dependencies": {
       "dependsOn": "Depends on",
@@ -1768,6 +1813,42 @@
       "removed": "Dependency removed.",
       "origin": "Origin",
       "graphLabel": "Dependency graph"
+    },
+    "visibility": {
+      "title": "Visibility",
+      "open": "Open organization",
+      "hint": "Every signed-in user sees an open organization with all its content. Only people with roles can change it.",
+      "stateOpen": "Open — every signed-in user can read it.",
+      "stateClosed": "Closed — only people with roles see it.",
+      "opened": "The organization is open.",
+      "closed": "The organization is closed.",
+      "badge": "Open"
+    },
+    "orgGroups": {
+      "title": "Groups",
+      "lead": "Groups of this organization get roles and ownership only inside it. Its admins manage them.",
+      "empty": "The organization has no groups yet.",
+      "name": "Name",
+      "members": "Members",
+      "create": "Create group",
+      "created": "Group created.",
+      "newName": "New group name",
+      "open": "Members",
+      "rename": "Rename",
+      "renamed": "Renamed.",
+      "delete": "Delete group",
+      "confirmDelete": "Delete the group “{name}”? Its roles and ownership in the organization go with it; users stay.",
+      "deleted": "Group deleted.",
+      "back": "All groups",
+      "membersTitle": "Members of {name}",
+      "membersEmpty": "No members.",
+      "membersHidden": "Members are shown to those who manage the organization's groups.",
+      "addMember": "Add a member",
+      "search": "Type at least three letters of a name or email",
+      "remove": "Remove",
+      "added": "Member added.",
+      "removed": "Member removed.",
+      "readOnly": "Only admins of the organization manage its groups."
     }
   },
   "notFound": {
@@ -2058,7 +2139,9 @@
     "none": "No token",
     "manage": "Manage secrets",
     "create": "Create secret",
-    "noneAvailable": "No secrets available."
+    "noneAvailable": "No secrets available.",
+    "unreadable": "The secret is not available without the right to read secrets.",
+    "current": "Current secret: {name}"
   },
   "docSpace": {
     "title": "Documentation",

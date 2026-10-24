@@ -24,7 +24,7 @@ func (s *NodeRepository) Insert(ctx context.Context, n catalogtypes.NewNode) (ca
 			default_branch, cluster_observation)
 		VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, COALESCE($11, true))
 		RETURNING n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url,
-			n.default_branch, n.cluster_observation, rfc3339(n.created_at) AS created_at,
+			n.default_branch, n.cluster_observation, n.visibility, rfc3339(n.created_at) AS created_at,
 			rfc3339(n.updated_at) AS updated_at`, n.ID, string(n.Kind), n.ParentID, n.Slug, n.Name,
 		n.Description, labelsParam(n.Labels), forgeText(n.Repo.Forge), n.Repo.RepoURL, n.Repo.DefaultBranch, n.ClusterObservation)
 }
@@ -43,7 +43,7 @@ func (s *NodeRepository) Update(ctx context.Context, id uuid.UUID, c catalogtype
 			cluster_observation = COALESCE($12, n.cluster_observation), updated_at = now()
 		WHERE n.id = $1
 		RETURNING n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url,
-			n.default_branch, n.cluster_observation, rfc3339(n.created_at) AS created_at,
+			n.default_branch, n.cluster_observation, n.visibility, rfc3339(n.created_at) AS created_at,
 			rfc3339(n.updated_at) AS updated_at`, id, c.Slug, c.Name, c.Description, labels,
 		c.Forge.Set, forgeText(c.Forge.Value), c.RepoURL.Set, c.RepoURL.Value,
 		c.DefaultBranch.Set, c.DefaultBranch.Value, c.ClusterObservation)
@@ -91,10 +91,10 @@ func (s *NodeRepository) Move(ctx context.Context, id uuid.UUID, parent *uuid.UU
 	}
 	moved, err := foundNode(postgres.Find(ctx, tx, constraints, scanNode, `
 		UPDATE nodes AS n
-		SET parent_id = $2, updated_at = now()
+		SET parent_id = $2, visibility = CASE WHEN $2::uuid IS NULL THEN n.visibility ELSE 'closed' END, updated_at = now()
 		WHERE n.id = $1
 		RETURNING n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url,
-			n.default_branch, n.cluster_observation, rfc3339(n.created_at) AS created_at,
+			n.default_branch, n.cluster_observation, n.visibility, rfc3339(n.created_at) AS created_at,
 			rfc3339(n.updated_at) AS updated_at`, id, parent))
 	if err != nil {
 		return catalogtypes.Node{}, err
@@ -103,6 +103,17 @@ func (s *NodeRepository) Move(ctx context.Context, id uuid.UUID, parent *uuid.UU
 		return catalogtypes.Node{}, postgres.Translate(err, constraints)
 	}
 	return moved, nil
+}
+
+func (s *NodeRepository) SetVisibility(ctx context.Context, id uuid.UUID, v catalogtypes.OrgVisibility) (catalogtypes.Node, error) {
+	return foundNode(postgres.Find(ctx, s.db.From(ctx), constraints, scanNode, `
+		UPDATE nodes AS n
+		SET visibility = $2, updated_at = now()
+		WHERE n.id = $1
+			AND n.parent_id IS NULL
+		RETURNING n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url,
+			n.default_branch, n.cluster_observation, n.visibility, rfc3339(n.created_at) AS created_at,
+			rfc3339(n.updated_at) AS updated_at`, id, string(v)))
 }
 
 func (s *NodeRepository) FillDefaultBranch(ctx context.Context, id uuid.UUID, name string) (bool, error) {

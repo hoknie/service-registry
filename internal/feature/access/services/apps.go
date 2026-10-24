@@ -99,3 +99,12 @@ func (s *AppsService) RevokeUserApp(ctx context.Context, p accesstypes.Principal
 	}
 	return apperr.Wrap(s.grantRepository.Revoke(ctx, id, new(userID)))
 }
+
+func allIn(list []uuid.UUID, set map[uuid.UUID]bool) bool {
+	for _, n := range list {
+		if !set[n] {
+			return false
+		}
+	}
+	return len(list) > 0
+}

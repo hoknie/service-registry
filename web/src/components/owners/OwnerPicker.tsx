@@ -17,6 +17,7 @@ type Props = {
   label: string;
   placeholder: string;
   membersLabel: string;
+  orgLabel?: string;
   exclude: DraftOwner[];
   onPick: (o: DraftOwner) => void;
   disabled?: boolean;
@@ -28,7 +29,7 @@ function draftOfValue(s: Suggestion): DraftOwner {
   return { subject_kind: kind, subject: s.value.slice(at + 1), name: s.label, detail: kind === "user" ? (s.detail ?? null) : null };
 }
 
-export function OwnerPicker({ nodeId, label, placeholder, membersLabel, exclude, onPick, disabled }: Props) {
+export function OwnerPicker({ nodeId, label, placeholder, membersLabel, orgLabel, exclude, onPick, disabled }: Props) {
   const { common } = useUiText();
   const [draft, setDraft] = useState("");
   const [focused, setFocused] = useState(false);
@@ -38,10 +39,13 @@ export function OwnerPicker({ nodeId, label, placeholder, membersLabel, exclude,
         .map((c) => ({
           value: `${c.subject_kind}:${c.subject_kind === "group" ? c.name : (c.email ?? c.name)}`,
           label: c.name,
-          detail: c.subject_kind === "group" ? format(membersLabel, { n: String(c.members ?? 0) }) : (c.email ?? undefined),
+          detail:
+            c.subject_kind === "group"
+              ? [format(membersLabel, { n: String(c.members ?? 0) }), c.organization && orgLabel].filter(Boolean).join(" · ")
+              : (c.email ?? undefined),
         }))
         .filter((s) => !exclude.some((o) => sameSubject(o, draftOfValue(s)))),
-    [nodeId, membersLabel, exclude],
+    [nodeId, membersLabel, orgLabel, exclude],
   );
   const hints = useSuggestions(draft, suggest, focused);
   const choose = (s: Suggestion) => {

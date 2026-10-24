@@ -15,7 +15,7 @@ func (s *EnvironmentsService) ListEnvironmentDirectory(ctx context.Context, _ ac
 }
 
 func (s *EnvironmentsService) CreateEnvironment(ctx context.Context, p accesstypes.Principal, in deploytypes.CreateEnvironment) (deploytypes.Environment, error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionEnvironments, accesstypes.ActionCreate); err != nil {
 		return deploytypes.Environment{}, err
 	}
 	e, err := deploytypes.ValidateNewEnvironment(in)
@@ -27,7 +27,7 @@ func (s *EnvironmentsService) CreateEnvironment(ctx context.Context, p accesstyp
 }
 
 func (s *EnvironmentsService) UpdateEnvironment(ctx context.Context, p accesstypes.Principal, rawKey string, in deploytypes.UpdateEnvironment) (deploytypes.Environment, error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionEnvironments, accesstypes.ActionUpdate); err != nil {
 		return deploytypes.Environment{}, err
 	}
 	key, err := deploytypes.EnvironmentKey(rawKey)
@@ -49,7 +49,7 @@ func (s *EnvironmentsService) UpdateEnvironment(ctx context.Context, p accesstyp
 }
 
 func (s *EnvironmentsService) DeleteEnvironment(ctx context.Context, p accesstypes.Principal, rawKey string) error {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionEnvironments, accesstypes.ActionDelete); err != nil {
 		return err
 	}
 	key, err := deploytypes.EnvironmentKey(rawKey)

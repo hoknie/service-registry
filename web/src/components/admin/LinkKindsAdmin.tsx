@@ -10,6 +10,7 @@ import { format } from "@/i18n/format";
 import type { Messages } from "@/i18n/messages";
 import { apiGet, apiSend, errorCode, type Items, type LinkKind } from "@/lib/api";
 import { copySource, moveKey, namesBody } from "@/lib/linkKindForm";
+import { useCan } from "@/lib/useCan";
 
 import { Glyph } from "../links/LinkIcons";
 import { kindGlyph } from "../links/shared";
@@ -36,6 +37,7 @@ type Draft = { mode: "create" | "edit"; key: string; names: Record<Locale, strin
 const emptyNames = () => Object.fromEntries(locales.map((l) => [l, ""])) as Record<Locale, string>;
 
 export function LinkKindsAdmin({ locale, labels: t }: Props) {
+  const can = useCan();
   const { errors, common } = useUiText();
   const [items, setItems] = useState<LinkKind[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -169,10 +171,12 @@ export function LinkKindsAdmin({ locale, labels: t }: Props) {
         title={t.title}
         lead={t.lead}
         actions={
-          <Button variant="primary" onClick={() => open()}>
-            <Plus aria-hidden="true" />
-            {t.add}
-          </Button>
+          can("link_kinds", "create") && (
+            <Button variant="primary" onClick={() => open()}>
+              <Plus aria-hidden="true" />
+              {t.add}
+            </Button>
+          )
         }
       />
       {error && <Message note={{ kind: "error", text: error }} className="mb-4" />}
@@ -202,28 +206,30 @@ export function LinkKindsAdmin({ locale, labels: t }: Props) {
                 className={dragged === k.key ? "opacity-50" : undefined}
               >
                 <Td className="w-0">
-                  <button
-                    type="button"
-                    draggable={!ordering}
-                    aria-disabled={ordering || undefined}
-                    onDragStart={(e) => onDragStart(e, k.key)}
-                    onDragEnd={onDragEnd}
-                    onKeyDown={(e) => {
-                      const to = e.key === "ArrowUp" ? i - 1 : e.key === "ArrowDown" ? i + 1 : -1;
-                      if (to < 0 || to >= items.length) return;
-                      e.preventDefault();
-                      move(i, to);
-                    }}
-                    title={t.drag}
-                    aria-label={format(t.dragKey, { key: k.key })}
-                    className={
-                      ordering
-                        ? "grid size-7 cursor-not-allowed place-items-center rounded-md text-muted"
-                        : "motion-control grid size-7 cursor-grab place-items-center rounded-md text-muted hover:bg-surface-3 hover:text-ink active:cursor-grabbing"
-                    }
-                  >
-                    <GripVertical aria-hidden="true" className="size-4" />
-                  </button>
+                  {can("link_kinds", "update") && (
+                    <button
+                      type="button"
+                      draggable={!ordering}
+                      aria-disabled={ordering || undefined}
+                      onDragStart={(e) => onDragStart(e, k.key)}
+                      onDragEnd={onDragEnd}
+                      onKeyDown={(e) => {
+                        const to = e.key === "ArrowUp" ? i - 1 : e.key === "ArrowDown" ? i + 1 : -1;
+                        if (to < 0 || to >= items.length) return;
+                        e.preventDefault();
+                        move(i, to);
+                      }}
+                      title={t.drag}
+                      aria-label={format(t.dragKey, { key: k.key })}
+                      className={
+                        ordering
+                          ? "grid size-7 cursor-not-allowed place-items-center rounded-md text-muted"
+                          : "motion-control grid size-7 cursor-grab place-items-center rounded-md text-muted hover:bg-surface-3 hover:text-ink active:cursor-grabbing"
+                      }
+                    >
+                      <GripVertical aria-hidden="true" className="size-4" />
+                    </button>
+                  )}
                 </Td>
                 <Td>
                   <span className="flex items-center gap-2 text-ink-2">
@@ -236,14 +242,18 @@ export function LinkKindsAdmin({ locale, labels: t }: Props) {
                 </Td>
                 <Td className="text-ink">{k.names[locale]}</Td>
                 <Td className="text-right whitespace-nowrap">
-                  <Button size="sm" variant="ghost" onClick={() => open(k)}>
-                    <Pencil aria-hidden="true" />
-                    {t.edit}
-                  </Button>
-                  <Button size="sm" variant="danger-ghost" onClick={() => setDeleting(k)}>
-                    <Trash aria-hidden="true" />
-                    {t.delete}
-                  </Button>
+                  {can("link_kinds", "update") && (
+                    <Button size="sm" variant="ghost" onClick={() => open(k)}>
+                      <Pencil aria-hidden="true" />
+                      {t.edit}
+                    </Button>
+                  )}
+                  {can("link_kinds", "delete") && (
+                    <Button size="sm" variant="danger-ghost" onClick={() => setDeleting(k)}>
+                      <Trash aria-hidden="true" />
+                      {t.delete}
+                    </Button>
+                  )}
                 </Td>
               </Tr>
             ))}

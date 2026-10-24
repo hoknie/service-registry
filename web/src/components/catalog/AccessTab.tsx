@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { errorText } from "@/i18n/errors";
 import { format } from "@/i18n/format";
 import { apiGet, apiSend, errorCode, type Binding, type Group, type Items, type Page, type Role, type User } from "@/lib/api";
+import { organizationGroups } from "@/lib/organizationGroups";
 
 import { useSession } from "../SessionProvider";
 import { useUiText } from "../UiText";
@@ -154,26 +155,35 @@ function GrantDialog({
   const superadmin = !!useSession().session.user?.is_superadmin;
   const [users, setUsers] = useState<User[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
+  const [orgGroups, setOrgGroups] = useState<Group[]>([]);
 
   useEffect(() => {
-    if (!open || !superadmin) return;
+    if (!open) return;
     let live = true;
-    Promise.all([apiGet<Page<User>>("/v1/users?limit=200"), apiGet<Page<Group>>("/v1/groups?limit=200")])
-      .then(([u, g]) => {
-        if (!live) return;
-        setUsers(u.items);
-        setGroups(g.items);
-      })
+    organizationGroups(nodeId)
+      .then((g) => live && setOrgGroups(g.items))
       .catch(() => undefined);
+    if (superadmin) {
+      Promise.all([apiGet<Page<User>>("/v1/users?limit=200"), apiGet<Page<Group>>("/v1/groups?limit=200")])
+        .then(([u, g]) => {
+          if (!live) return;
+          setUsers(u.items);
+          setGroups(g.items.filter((x) => !x.organization));
+        })
+        .catch(() => undefined);
+    }
     return () => {
       live = false;
     };
-  }, [open, superadmin]);
+  }, [open, superadmin, nodeId]);
 
   const subjects =
     kind === "user"
       ? users.map((u) => ({ value: u.email, label: u.email, detail: u.display_name, keywords: [u.display_name] }))
-      : groups.map((g) => ({ value: g.name, label: g.name }));
+      : [
+          ...orgGroups.map((g) => ({ value: g.name, label: g.name, detail: t.orgGroup })),
+          ...groups.filter((g) => !orgGroups.some((o) => o.name.toLowerCase() === g.name.toLowerCase())).map((g) => ({ value: g.name, label: g.name })),
+        ];
   const [role, setRole] = useState<Role>("viewer");
   const [note, setNote] = useState<Note>(null);
 
@@ -219,7 +229,7 @@ function GrantDialog({
         </Field>
         <Field label={t.subject}>
           {(p) => (
-            superadmin ? (
+            subjects.length > 0 ? (
               <Combobox
                 {...p}
                 required

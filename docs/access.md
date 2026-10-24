@@ -48,6 +48,21 @@ manage these groups under **Account → Groups → Groups I manage**: each group
 members with **Remove**, and a field to add people. On the group's page in the administration a note explains why the
 members are locked.
 
+### Groups of an organization
+
+A group can belong to a top-level organization instead of the whole registry. Such a group is managed from the
+organization itself, under **Settings → Groups** ([catalog.md](catalog.md#groups-of-an-organization)), and works only
+inside it:
+- it gets roles and ownership only on nodes of its organization;
+- it never holds administration rights;
+- login providers never add people to it: provider groups are always registry-wide groups;
+- its name is unique within the organization; a registry-wide group or a group of another organization may have the
+  same name;
+- deleting the organization deletes its groups.
+
+The administration list of groups shows organization groups too, marked with their organization, and so does
+**Account → Groups**.
+
 ## Administration rights for groups
 
 A superadmin can let a group run parts of the administration without making its members superadmins.

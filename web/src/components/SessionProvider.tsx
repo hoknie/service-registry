@@ -44,7 +44,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     () => ({
       session,
       refresh,
-      signedIn: (user) => setSession({ status: "signed-in", user: { ...user, login_method: "password" } }),
+      signedIn: (user) => {
+        setSession({ status: "signed-in", user: { ...user, login_method: "password", rights: {} } });
+        void refresh();
+      },
       signOut: async () => {
         try {
           await apiSend("POST", "/v1/auth/logout");

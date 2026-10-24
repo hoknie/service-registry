@@ -65,9 +65,10 @@ func routeNeed(method, route string) accesstypes.Need {
 	case route == "/api/mcp":
 		return accesstypes.NeedAny
 	case route == "/api/v1/knowledge/search", route == "/api/v1/knowledge/search/modes", route == "/api/v1/link-icons/:id",
-		route == "/api/v1/docs/space", route == "/api/v1/account/groups":
+		route == "/api/v1/docs/space", route == "/api/v1/account/groups", route == "/api/v1/account/managed-groups",
+		route == "/api/v1/account/managed-groups/:id", route == "/api/v1/account/managed-groups/:id/candidates":
 		return accesstypes.NeedRead
-	case route == "/api/v1/account/groups/:id/contacts":
+	case route == "/api/v1/account/groups/:id/contacts", route == "/api/v1/account/managed-groups/:id/members/:user_id":
 		return accesstypes.NeedWriteWhole
 	case strings.HasPrefix(route, "/api/v1/catalog/"):
 		if method == fiber.MethodGet || method == fiber.MethodHead {

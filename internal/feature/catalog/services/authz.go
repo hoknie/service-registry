@@ -26,7 +26,8 @@ type Scoped struct {
 }
 
 func viewerOf(p accesstypes.Principal) catalogtypes.Viewer {
-	return catalogtypes.Viewer{UserID: p.UserID, Nodes: p.Nodes, Admin: p.CatalogAdmin}
+	return catalogtypes.Viewer{UserID: p.UserID, Nodes: p.Nodes, Admin: p.CatalogAdmin,
+		TopLevel: p.Nodes == nil && p.Rights.Has(accesstypes.SectionCatalog, accesstypes.ActionRead)}
 }
 
 func newScoped(p accesstypes.Principal, chain catalogtypes.NodeChain) (Scoped, bool) {
@@ -100,9 +101,9 @@ func (s *AccessService) Authorize(ctx context.Context, p accesstypes.Principal, 
 	return sc, nil
 }
 
-func (s *AccessService) AuthorizeContainer(ctx context.Context, p accesstypes.Principal, parent, node *uuid.UUID) (*Scoped, error) {
+func (s *AccessService) AuthorizeContainer(ctx context.Context, p accesstypes.Principal, parent, node *uuid.UUID, action accesstypes.Action) (*Scoped, error) {
 	if parent == nil {
-		return nil, accesstypes.RequireCatalogRoot(p, node)
+		return nil, accesstypes.RequireCatalogRoot(p, node, action)
 	}
 	sc, err := s.Authorize(ctx, p, catalogtypes.PermWrite, *parent)
 	if err != nil {
@@ -145,6 +146,24 @@ func (s *AccessService) ReadableProjects(ctx context.Context, p accesstypes.Prin
 	}
 	out, err := s.nodeRepository.Readable(ctx, viewerOf(p), p.IsSuperadmin, ids)
 	return out, apperr.Wrap(err)
+}
+
+func (s *AccessService) OrganizationAccess(ctx context.Context, p accesstypes.Principal, nodeID uuid.UUID) (accesstypes.OrganizationAccess, error) {
+	sc, err := s.Authorize(ctx, p, catalogtypes.PermRead, nodeID)
+	if err != nil {
+		return accesstypes.OrganizationAccess{}, err
+	}
+	root := sc
+	if len(sc.Path) > 0 {
+		if root, err = s.Scope(ctx, p, sc.Path[0].Node.ID); err != nil {
+			return accesstypes.OrganizationAccess{}, err
+		}
+	}
+	return accesstypes.OrganizationAccess{
+		Org:      accesstypes.NodeRef{ID: root.Node.ID, Kind: new(string(root.Node.Kind)), Name: new(root.Node.Name)},
+		TopLevel: len(sc.Path) == 0,
+		Admin:    root.Allows(catalogtypes.PermAccess),
+	}, nil
 }
 
 type AccessService struct {

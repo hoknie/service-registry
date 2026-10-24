@@ -104,7 +104,20 @@ type ValidatedToken struct {
 	Nodes         []uuid.UUID
 }
 
-func ValidateCreateToken(in CreateToken, superadmin bool, maxDays uint32) (ValidatedToken, error) {
+type Grantor struct {
+	Superadmin bool
+	Rights     Rights
+}
+
+func (g Grantor) mayIssue(sc Scope) bool {
+	if !sc.Global() || g.Superadmin {
+		return true
+	}
+	return g.Rights.AllowsScope(sc)
+}
+
+func ValidateCreateToken(in CreateToken, grantor Grantor, maxDays uint32) (ValidatedToken, error) {
+	superadmin := grantor.Superadmin
 	name, ok := validName(in.Name)
 	if !ok {
 		return ValidatedToken{}, InvalidTokenName
@@ -115,7 +128,7 @@ func ValidateCreateToken(in CreateToken, superadmin bool, maxDays uint32) (Valid
 	seen := map[Scope]bool{}
 	for _, raw := range in.Scopes {
 		sc, ok := ParseScope(raw)
-		if !ok || seen[sc] || (sc.Global() && !superadmin) {
+		if !ok || seen[sc] || !grantor.mayIssue(sc) {
 			return ValidatedToken{}, InvalidScopes
 		}
 		seen[sc] = true
@@ -183,4 +196,10 @@ func ValidateTokenQuery(q TokenQuery) (TokenFilter, error) {
 
 func ValidateGrantNodes(raw *[]string) ([]uuid.UUID, error) {
 	return validateTokenNodes(raw, Scopes{ScopeMCP})
+}
+
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
+func LikeContains(q string) string {
+	return "%" + likeEscaper.Replace(trim(q)) + "%"
 }

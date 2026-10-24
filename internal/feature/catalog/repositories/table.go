@@ -28,7 +28,7 @@ func (s *NodeRepository) Table(ctx context.Context, w catalogtypes.Walk) ([]cata
 		lineage AS (
 			SELECT n.id, n.parent_id
 			FROM nodes n
-			WHERE n.id IN (SELECT node_id FROM bound)
+			WHERE n.id IN (SELECT node_id FROM bound) OR ($8::boolean AND n.parent_id IS NULL)
 			UNION
 			SELECT p.id, p.parent_id
 			FROM nodes p
@@ -51,12 +51,12 @@ func (s *NodeRepository) Table(ctx context.Context, w catalogtypes.Walk) ([]cata
 						AND (n.readable OR c.id IN (SELECT node_id FROM bound) OR c.id IN (SELECT id FROM lineage))
 				) AS children,
 				n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url, n.default_branch,
-				n.cluster_observation, rfc3339(n.created_at) AS created_at, rfc3339(n.updated_at) AS updated_at
+				n.cluster_observation, n.visibility, rfc3339(n.created_at) AS created_at, rfc3339(n.updated_at) AS updated_at
 			FROM visible n
 			ORDER BY CASE n.kind WHEN 'organization' THEN 0 WHEN 'folder' THEN 1 ELSE 2 END, lower(n.name), n.id
 			LIMIT $4
 			OFFSET $5
-		) p ON true`, w.Viewer.UserID, w.RootReadable, w.Root, int64(w.Limit), bigint(w.Offset), w.Viewer.Nodes, w.Viewer.Admin))
+		) p ON true`, w.Viewer.UserID, w.RootReadable, w.Root, int64(w.Limit), bigint(w.Offset), w.Viewer.Nodes, w.Viewer.Admin, w.Viewer.TopLevel))
 }
 
 func (s *NodeRepository) Search(ctx context.Context, q catalogtypes.Search) ([]catalogtypes.TableNode, uint64, error) {
@@ -87,7 +87,7 @@ func (s *NodeRepository) Search(ctx context.Context, q catalogtypes.Search) ([]c
 		lineage AS (
 			SELECT n.id, n.parent_id
 			FROM nodes n
-			WHERE n.id IN (SELECT node_id FROM bound)
+			WHERE n.id IN (SELECT node_id FROM bound) OR ($11::boolean AND n.parent_id IS NULL)
 			UNION
 			SELECT p.id, p.parent_id
 			FROM nodes p
@@ -146,11 +146,11 @@ func (s *NodeRepository) Search(ctx context.Context, q catalogtypes.Search) ([]c
 					AND (v.readable OR c.id IN (SELECT node_id FROM bound) OR c.id IN (SELECT id FROM lineage))
 			) AS children,
 			v.id, v.kind, v.parent_id, v.slug, v.name, v.description, v.labels, v.forge, v.repo_url, v.default_branch,
-			v.cluster_observation, rfc3339(v.created_at) AS created_at, rfc3339(v.updated_at) AS updated_at
+			v.cluster_observation, v.visibility, rfc3339(v.created_at) AS created_at, rfc3339(v.updated_at) AS updated_at
 		FROM visible v
 		WHERE v.id IN (SELECT id FROM shown)
 		ORDER BY v.path`, q.Viewer.UserID, q.RootReadable, q.Root, string(q.Filter.Kind), string(pairs), keys, q.Only,
-		int64(q.Limit), q.Viewer.Nodes, q.Viewer.Admin))
+		int64(q.Limit), q.Viewer.Nodes, q.Viewer.Admin, q.Viewer.TopLevel))
 }
 
 func (s *NodeRepository) searchNames(ctx context.Context, q catalogtypes.Search, pairs string, keys []string) ([]catalogtypes.TableNode, uint64, error) {
@@ -162,7 +162,7 @@ func (s *NodeRepository) searchNames(ctx context.Context, q catalogtypes.Search,
 		lineage AS (
 			SELECT n.id, n.parent_id
 			FROM nodes n
-			WHERE n.id IN (SELECT node_id FROM bound)
+			WHERE n.id IN (SELECT node_id FROM bound) OR ($12::boolean AND n.parent_id IS NULL)
 			UNION
 			SELECT p.id, p.parent_id
 			FROM nodes p
@@ -232,11 +232,11 @@ func (s *NodeRepository) searchNames(ctx context.Context, q catalogtypes.Search,
 					AND (v.readable OR c.id IN (SELECT node_id FROM bound) OR c.id IN (SELECT id FROM lineage))
 			) AS children,
 			v.id, v.kind, v.parent_id, v.slug, v.name, v.description, v.labels, v.forge, v.repo_url, v.default_branch,
-			v.cluster_observation, rfc3339(v.created_at) AS created_at, rfc3339(v.updated_at) AS updated_at
+			v.cluster_observation, v.visibility, rfc3339(v.created_at) AS created_at, rfc3339(v.updated_at) AS updated_at
 		FROM visible v
 		WHERE v.id IN (SELECT id FROM shown)
 		ORDER BY v.path`, q.Viewer.UserID, q.RootReadable, q.Root, catalogtypes.LikeContains(q.Filter.Q), string(q.Filter.Kind),
-		pairs, keys, q.Only, int64(q.Limit), q.Viewer.Nodes, q.Viewer.Admin))
+		pairs, keys, q.Only, int64(q.Limit), q.Viewer.Nodes, q.Viewer.Admin, q.Viewer.TopLevel))
 }
 
 func tableNodes(found []tableRow, err error) ([]catalogtypes.TableNode, uint64, error) {

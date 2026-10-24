@@ -32,6 +32,7 @@ type parts struct {
 	sessionRepository       *repositories.SessionRepository
 	groupRepository         *repositories.GroupRepository
 	groupContactRepository  *repositories.GroupContactRepository
+	permissionRepository    *repositories.GroupPermissionRepository
 	tokenRepository         *repositories.TokenRepository
 	identityRepository      *repositories.IdentityRepository
 	loginStateRepository    *repositories.LoginStateRepository
@@ -54,6 +55,7 @@ func newParts(d Deps) *parts {
 		sessionRepository:       repositories.NewSessionRepository(d.DB),
 		groupRepository:         repositories.NewGroupRepository(d.DB),
 		groupContactRepository:  repositories.NewGroupContactRepository(d.DB),
+		permissionRepository:    repositories.NewGroupPermissionRepository(d.DB),
 		tokenRepository:         repositories.NewTokenRepository(d.DB),
 		identityRepository:      repositories.NewIdentityRepository(d.DB),
 		loginStateRepository:    repositories.NewLoginStateRepository(d.DB),
@@ -84,14 +86,16 @@ func New(d Deps) *AccessServices {
 			fetches: p.fetches, metadata: p.metadata,
 			clientRepository: p.clientRepository, authorizationRepository: p.authorizationRepository, grantRepository: p.grantRepository},
 		Auth: &AuthService{cfg: p.cfg, hasher: p.hasher, loginLimiter: p.loginLimiter, sessionRepository: p.sessionRepository,
-			tokenRepository: p.tokenRepository, grantRepository: p.grantRepository, userRepository: p.userRepository},
-		Bootstrap:     &BootstrapService{hasher: p.hasher, userRepository: p.userRepository},
-		GroupContacts: &GroupContactsService{groupRepository: p.groupRepository, groupContactRepository: p.groupContactRepository},
-		Groups:        &GroupsService{groupRepository: p.groupRepository, userRepository: p.userRepository},
-		Identities:    &IdentitiesService{identityRepository: p.identityRepository, userRepository: p.userRepository},
-		OAuth:         &OAuthService{cfg: p.cfg, groupRepository: p.groupRepository, identityRepository: p.identityRepository, loginStateRepository: p.loginStateRepository, oauth: p.oauth, userRepository: p.userRepository},
-		Tokens:        &TokensService{cfg: p.cfg, tokenRepository: p.tokenRepository, userRepository: p.userRepository},
-		Users:         &UsersService{hasher: p.hasher, sessionRepository: p.sessionRepository, userRepository: p.userRepository},
+			tokenRepository: p.tokenRepository, grantRepository: p.grantRepository, userRepository: p.userRepository,
+			permissionRepository: p.permissionRepository},
+		Bootstrap: &BootstrapService{hasher: p.hasher, userRepository: p.userRepository},
+		GroupContacts: &GroupContactsService{groupRepository: p.groupRepository, groupContactRepository: p.groupContactRepository,
+			permissionRepository: p.permissionRepository},
+		Groups:     &GroupsService{groupRepository: p.groupRepository, userRepository: p.userRepository, permissionRepository: p.permissionRepository},
+		Identities: &IdentitiesService{identityRepository: p.identityRepository, userRepository: p.userRepository},
+		OAuth:      &OAuthService{cfg: p.cfg, groupRepository: p.groupRepository, identityRepository: p.identityRepository, loginStateRepository: p.loginStateRepository, oauth: p.oauth, userRepository: p.userRepository},
+		Tokens:     &TokensService{cfg: p.cfg, tokenRepository: p.tokenRepository, userRepository: p.userRepository, permissionRepository: p.permissionRepository},
+		Users:      &UsersService{hasher: p.hasher, sessionRepository: p.sessionRepository, userRepository: p.userRepository, permissionRepository: p.permissionRepository},
 	}
 	f.Identities.oauthService = f.OAuth
 	f.OAuth.auth = f.Auth
@@ -102,4 +106,13 @@ func (f *AccessServices) Use(roots accessports.NodeRootsPort) {
 	f.Tokens.roots = roots
 	f.Apps.roots = roots
 	f.AuthorizationServer.roots = roots
+	f.Groups.roots = roots
+}
+
+func (f *AccessServices) UseStewards(stewards accessports.GroupStewardsPort) {
+	f.Groups.stewards = stewards
+}
+
+func (f *AccessServices) UseOrganizations(organizations accessports.OrganizationsPort) {
+	f.Groups.organizations = organizations
 }

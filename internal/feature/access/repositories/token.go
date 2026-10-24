@@ -159,3 +159,10 @@ func (s *TokenRepository) FindValid(ctx context.Context, tokenHash [32]byte) (*a
 	}
 	return found, nil
 }
+
+func (s *TokenRepository) Owner(ctx context.Context, id uuid.UUID) (*uuid.UUID, error) {
+	return postgres.Find(ctx, s.db.From(ctx), constraints, pgx.RowTo[uuid.UUID], `
+		SELECT user_id
+		FROM personal_access_tokens
+		WHERE id = $1`, id)
+}

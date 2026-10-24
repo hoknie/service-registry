@@ -262,7 +262,11 @@
       "recovery_without_failure": "Un evento de recuperación necesita su evento de fallo: elige también el tipo de fallo.",
       "invalid_dependency": "El destino no es un proyecto que pueda leer ni un nombre válido de sistema externo.",
       "invalid_dependency_depth": "La profundidad debe ser 1, 2 o 3.",
-      "not_group_member": "Este permiso solo se puede conceder a un miembro del grupo."
+      "not_group_member": "Este permiso solo se puede conceder a un miembro del grupo.",
+      "invalid_visibility": "La visibilidad debe ser abierta o cerrada.",
+      "visibility_top_level": "Solo las organizaciones de nivel superior pueden ser abiertas.",
+      "organization_top_level": "Los grupos pertenecen a una organización de nivel superior.",
+      "organization_group_rights": "Un grupo de una organización no puede tener derechos de administración."
     },
     "conflict": {
       "email_taken": "Ya existe un usuario con este correo.",
@@ -299,7 +303,9 @@
       "cluster_disabled": "El clúster está desactivado.",
       "agent_report_in_progress": "Se está procesando un informe de este clúster.",
       "dependency_exists": "Esta dependencia ya se ha añadido manualmente.",
-      "token_nodes_full": "El token ya incluye 20 nodos; no se le puede añadir una nueva organización."
+      "token_nodes_full": "El token ya incluye 20 nodos; no se le puede añadir una nueva organización.",
+      "organization_has_groups": "Una organización con grupos no se puede mover dentro de otro nodo. Elimine antes sus grupos.",
+      "organization_groups_bound": "Los grupos de esta organización tienen roles o propiedad aquí. Quítelos antes de sacar el nodo de la organización."
     },
     "ingest": {
       "unknown_event_type": "Tipo de evento desconocido.",
@@ -418,7 +424,17 @@
       "edit": "Editar contactos",
       "noContacts": "Todavía no hay contactos.",
       "contacts": "Contactos",
-      "onCall": "Guardia"
+      "onCall": "Guardia",
+      "managedTitle": "Grupos que gestiono",
+      "managedLead": "Grupos con roles en nodos de los que es propietario. Puede añadir y quitar sus miembros.",
+      "managedNodes": "Roles en",
+      "members": "Miembros",
+      "remove": "Quitar",
+      "add": "Añadir miembro",
+      "search": "Empiece a escribir un nombre o correo, o elija de la lista",
+      "noMembers": "Sin miembros.",
+      "fromProvider": "De {provider}",
+      "organization": "Organización: {name}"
     }
   },
   "tokens": {
@@ -641,14 +657,14 @@
         "empty": "Sin miembros.",
         "remove": "Quitar",
         "add": "Añadir miembro",
-        "choose": "Elige un usuario",
-        "submit": "Añadir",
         "manual": "Manual",
         "fromProvider": "De {provider}",
         "managedHint": "Gestionado por el proveedor: cambia cuando el usuario inicia sesión.",
         "contactEditor": "Editor de contactos",
         "contactEditorHint": "El miembro puede cambiar los contactos y el enlace de guardia del grupo desde su cuenta.",
-        "editorFromProvider": "Otorgado por {provider}"
+        "editorFromProvider": "Otorgado por {provider}",
+        "lockedBindings": "Este grupo tiene roles en el catálogo: sus miembros los cambian los superadministradores y los propietarios de los nodos con esos roles.",
+        "search": "Empiece a escribir un nombre o correo, o elija de la lista"
       },
       "lead": "Los grupos reciben roles en el catálogo en nombre de todos sus miembros.",
       "page": {
@@ -680,7 +696,33 @@
         "saved": "Contactos guardados.",
         "empty": "No hay contactos.",
         "onCallBadge": "Guardia"
-      }
+      },
+      "permissions": {
+        "title": "Permisos de administración",
+        "lead": "Los miembros del grupo pueden administrar estas secciones. Solo un superadministrador cambia los permisos.",
+        "sections": {
+          "users": "Usuarios",
+          "groups": "Grupos",
+          "tokens": "Tokens",
+          "clusters": "Clústeres",
+          "environments": "Entornos",
+          "link_kinds": "Tipos de enlace",
+          "secrets": "Secretos globales",
+          "scans": "Escaneos",
+          "catalog": "Nivel superior del catálogo"
+        },
+        "actions": {
+          "create": "Crear",
+          "read": "Leer",
+          "update": "Modificar",
+          "delete": "Eliminar"
+        },
+        "section": "Sección",
+        "save": "Guardar permisos",
+        "saved": "Permisos guardados.",
+        "protected": "Este grupo tiene permisos de administración: solo un superadministrador puede cambiarlo."
+      },
+      "organization": "Organización: {name}"
     },
     "tokens": {
       "title": "Tokens",
@@ -1033,7 +1075,8 @@
       "remove": "Quitar",
       "removed": "Asignación eliminada.",
       "lead": "Un rol asignado aquí se aplica a este elemento y a todo lo que contiene.",
-      "add": "Asignar un rol"
+      "add": "Asignar un rol",
+      "orgGroup": "grupo de la organización"
     },
     "deployments": {
       "current": "Versiones actuales",
@@ -1663,7 +1706,8 @@
         "scans": "Historial de escaneos",
         "owners": "Responsables",
         "notifications": "Notificaciones",
-        "dependencies": "Dependencias"
+        "dependencies": "Dependencias",
+        "groups": "Grupos"
       }
     },
     "linkIcons": {
@@ -1716,7 +1760,8 @@
       "noOwners": "Sin responsables",
       "here": "Definido aquí",
       "clear": "Sin responsables",
-      "clearConfirm": "¿Dejar de heredar responsables aquí? El nodo y todo lo que contiene no tendrán responsables hasta que se defina un conjunto más abajo. Se eliminan los responsables propios del nodo."
+      "clearConfirm": "¿Dejar de heredar responsables aquí? El nodo y todo lo que contiene no tendrán responsables hasta que se defina un conjunto más abajo. Se eliminan los responsables propios del nodo.",
+      "orgGroup": "grupo de la organización"
     },
     "dependencies": {
       "dependsOn": "Depende de",
@@ -1768,6 +1813,42 @@
       "removed": "Dependencia eliminada.",
       "origin": "Origen",
       "graphLabel": "Grafo de dependencias"
+    },
+    "visibility": {
+      "title": "Visibilidad",
+      "open": "Organización abierta",
+      "hint": "Todo usuario con sesión iniciada ve una organización abierta con todo su contenido. Solo quienes tienen roles pueden cambiarla.",
+      "stateOpen": "Abierta: todo usuario con sesión iniciada puede leerla.",
+      "stateClosed": "Cerrada: solo la ven quienes tienen roles.",
+      "opened": "La organización está abierta.",
+      "closed": "La organización está cerrada.",
+      "badge": "Abierta"
+    },
+    "orgGroups": {
+      "title": "Grupos",
+      "lead": "Los grupos de esta organización reciben roles y propiedad solo dentro de ella. Los gestionan sus administradores.",
+      "empty": "La organización aún no tiene grupos.",
+      "name": "Nombre",
+      "members": "Miembros",
+      "create": "Crear grupo",
+      "created": "Grupo creado.",
+      "newName": "Nombre del nuevo grupo",
+      "open": "Miembros",
+      "rename": "Renombrar",
+      "renamed": "Renombrado.",
+      "delete": "Eliminar grupo",
+      "confirmDelete": "¿Eliminar el grupo «{name}»? Sus roles y su propiedad en la organización desaparecen; los usuarios se conservan.",
+      "deleted": "Grupo eliminado.",
+      "back": "Todos los grupos",
+      "membersTitle": "Miembros de {name}",
+      "membersEmpty": "Sin miembros.",
+      "membersHidden": "Los miembros solo se muestran a quienes gestionan los grupos de la organización.",
+      "addMember": "Añadir miembro",
+      "search": "Escriba al menos tres letras del nombre o del correo",
+      "remove": "Quitar",
+      "added": "Miembro añadido.",
+      "removed": "Miembro quitado.",
+      "readOnly": "Solo los administradores de la organización gestionan sus grupos."
     }
   },
   "notFound": {
@@ -2058,7 +2139,9 @@
     "none": "Sin token",
     "manage": "Gestionar secretos",
     "create": "Crear secreto",
-    "noneAvailable": "No hay secretos disponibles."
+    "noneAvailable": "No hay secretos disponibles.",
+    "unreadable": "El secreto no está disponible sin el permiso de leer secretos.",
+    "current": "Secreto actual: {name}"
   },
   "docSpace": {
     "title": "Documentación",

@@ -8,8 +8,10 @@ import { toast } from "sonner";
 
 import type { Locale } from "@/i18n/config";
 import { errorText } from "@/i18n/errors";
+import { format } from "@/i18n/format";
 import type { Messages } from "@/i18n/messages";
 import { apiGet, apiSend, errorCode, type Group, type Page } from "@/lib/api";
+import { useCan } from "@/lib/useCan";
 
 import { useUiText } from "../UiText";
 import { Badge } from "../ui/Badge";
@@ -25,6 +27,7 @@ import { Table, Td, Th, Tr } from "../ui/Table";
 type Labels = Messages["admin"];
 
 export function GroupsAdmin({ locale, labels }: { locale: Locale; labels: Labels }) {
+  const can = useCan();
   const { errors, common } = useUiText();
   const router = useRouter();
   const t = labels.groups;
@@ -48,7 +51,7 @@ export function GroupsAdmin({ locale, labels }: { locale: Locale; labels: Labels
     void load();
   }, [load]);
 
-  const newGroup = (
+  const newGroup = can("groups", "create") && (
     <Button variant="primary" onClick={() => setCreating(true)}>
       <Plus aria-hidden="true" />
       {t.create.title}
@@ -80,6 +83,11 @@ export function GroupsAdmin({ locale, labels }: { locale: Locale; labels: Labels
                     <UsersRound aria-hidden="true" className="size-4 text-muted" />
                     {g.name}
                   </Link>
+                  {g.organization && (
+                    <Badge tone="neutral" className="mt-1">
+                      {format(t.organization, { name: g.organization.name })}
+                    </Badge>
+                  )}
                   {g.on_call_url && (
                     <Badge tone="cobalt" className="mt-1">
                       <Siren aria-hidden="true" className="size-3" />

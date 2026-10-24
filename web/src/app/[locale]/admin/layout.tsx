@@ -11,8 +11,8 @@ export default async function AdminLayout({ children, params }: { children: Reac
   if (!isLocale(locale)) notFound();
   const m = getMessages(locale);
   return (
-    <RequireAuth locale={locale} labels={m.guard} superadmin>
-      <AdminShell locale={locale} nav={m.header.nav} menu={m.admin.menu}>
+    <RequireAuth locale={locale} labels={m.guard} admin>
+      <AdminShell locale={locale} nav={m.header.nav} menu={m.admin.menu} forbidden={m.guard.forbidden}>
         {children}
       </AdminShell>
     </RequireAuth>

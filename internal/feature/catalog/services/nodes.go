@@ -83,6 +83,45 @@ func (s *NodesService) GetNode(ctx context.Context, p accesstypes.Principal, id 
 	return scoped, nil
 }
 
+func (s *NodesService) SetVisibility(ctx context.Context, p accesstypes.Principal, id uuid.UUID, value *string) (catalogtypes.Node, error) {
+	node, err := s.visibilityTarget(ctx, p, id)
+	if err != nil {
+		return catalogtypes.Node{}, err
+	}
+	if node.ParentID != nil {
+		return catalogtypes.Node{}, apperr.Wrap(catalogtypes.VisibilityTopLevel)
+	}
+	v, err := catalogtypes.ParseOrgVisibility(value)
+	if err != nil {
+		return catalogtypes.Node{}, apperr.Wrap(err)
+	}
+	updated, err := s.nodeRepository.SetVisibility(ctx, id, v)
+	if err != nil {
+		return catalogtypes.Node{}, apperr.Wrap(err)
+	}
+	if err := s.mark(ctx, &updated); err != nil {
+		return catalogtypes.Node{}, err
+	}
+	return updated, nil
+}
+
+func (s *NodesService) visibilityTarget(ctx context.Context, p accesstypes.Principal, id uuid.UUID) (catalogtypes.Node, error) {
+	if accesstypes.RequireCatalogRoot(p, &id, accesstypes.ActionUpdate) == nil {
+		node, err := s.nodeRepository.Get(ctx, id)
+		if err != nil {
+			return catalogtypes.Node{}, apperr.Wrap(err)
+		}
+		if node != nil && node.ParentID == nil {
+			return *node, nil
+		}
+	}
+	sc, err := s.access.Authorize(ctx, p, catalogtypes.PermAccess, id)
+	if err != nil {
+		return catalogtypes.Node{}, err
+	}
+	return sc.Node, nil
+}
+
 func (s *NodesService) mark(ctx context.Context, node *catalogtypes.Node) error {
 	managed, err := s.managed.Managed(ctx, []uuid.UUID{node.ID})
 	if err != nil {
@@ -120,4 +159,5 @@ type NodesService struct {
 	projectKeysService *ProjectKeysService
 	db                 *pgtx.DB
 	tokenRoots         catalogports.TokenRootsPort
+	bindingRepository  *repositories.BindingRepository
 }

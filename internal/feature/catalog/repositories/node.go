@@ -35,7 +35,7 @@ func (s *NodeRepository) one(ctx context.Context, query string, args ...any) (*c
 func (s *NodeRepository) Get(ctx context.Context, id uuid.UUID) (*catalogtypes.Node, error) {
 	return s.one(ctx, `
 		SELECT n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url,
-			n.default_branch, n.cluster_observation, rfc3339(n.created_at) AS created_at,
+			n.default_branch, n.cluster_observation, n.visibility, rfc3339(n.created_at) AS created_at,
 			rfc3339(n.updated_at) AS updated_at
 		FROM nodes n
 		WHERE n.id = $1`, id)
@@ -44,7 +44,7 @@ func (s *NodeRepository) Get(ctx context.Context, id uuid.UUID) (*catalogtypes.N
 func (s *NodeRepository) ChildBySlug(ctx context.Context, parent *uuid.UUID, slug string) (*catalogtypes.Node, error) {
 	return s.one(ctx, `
 		SELECT n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url,
-			n.default_branch, n.cluster_observation, rfc3339(n.created_at) AS created_at,
+			n.default_branch, n.cluster_observation, n.visibility, rfc3339(n.created_at) AS created_at,
 			rfc3339(n.updated_at) AS updated_at
 		FROM nodes n
 		WHERE n.parent_id IS NOT DISTINCT FROM $1
@@ -60,7 +60,7 @@ func (s *NodeRepository) Chain(ctx context.Context, v catalogtypes.Viewer, id uu
 		lineage AS (
 			SELECT n.id, n.parent_id
 			FROM nodes n
-			WHERE n.id IN (SELECT node_id FROM bound)
+			WHERE n.id IN (SELECT node_id FROM bound) OR ($5::boolean AND n.parent_id IS NULL)
 			UNION
 			SELECT p.id, p.parent_id
 			FROM nodes p
@@ -76,14 +76,14 @@ func (s *NodeRepository) Chain(ctx context.Context, v catalogtypes.Viewer, id uu
 			JOIN up ON p.id = up.parent_id
 		)
 		SELECT n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url,
-			n.default_branch, n.cluster_observation, rfc3339(n.created_at) AS created_at,
+			n.default_branch, n.cluster_observation, n.visibility, rfc3339(n.created_at) AS created_at,
 			rfc3339(n.updated_at) AS updated_at, (
 			SELECT max(CASE b.role WHEN 'admin' THEN 3 WHEN 'editor' THEN 2 ELSE 1 END)
 			FROM bound b
 			WHERE b.node_id = n.id
 		) AS bound_rank, EXISTS (SELECT 1 FROM lineage WHERE lineage.id = $2) AS navigable
 		FROM up n
-		ORDER BY n.lvl`, v.UserID, id, v.Nodes, v.Admin)
+		ORDER BY n.lvl`, v.UserID, id, v.Nodes, v.Admin, v.TopLevel)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (s *NodeRepository) Walk(ctx context.Context, w catalogtypes.Walk) ([]catal
 		lineage AS (
 			SELECT n.id, n.parent_id
 			FROM nodes n
-			WHERE n.id IN (SELECT node_id FROM bound)
+			WHERE n.id IN (SELECT node_id FROM bound) OR ($9::boolean AND n.parent_id IS NULL)
 			UNION
 			SELECT p.id, p.parent_id
 			FROM nodes p
@@ -138,14 +138,15 @@ func (s *NodeRepository) Walk(ctx context.Context, w catalogtypes.Walk) ([]catal
 		FROM (SELECT count(*) AS total FROM visible) t
 		LEFT JOIN LATERAL (
 			SELECT n.depth, n.readable, n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels,
-				n.forge, n.repo_url, n.default_branch, n.cluster_observation, rfc3339(n.created_at) AS created_at,
+				n.forge, n.repo_url, n.default_branch, n.cluster_observation, n.visibility, rfc3339(n.created_at) AS created_at,
 				rfc3339(n.updated_at) AS updated_at
 			FROM visible n
 			ORDER BY n.depth, CASE n.kind WHEN 'organization' THEN 0 WHEN 'folder' THEN 1 ELSE 2 END,
 				lower(n.name), n.id
 			LIMIT $5
 			OFFSET $6
-		) p ON true`, w.Viewer.UserID, w.RootReadable, w.Root, depth, int64(w.Limit), bigint(w.Offset), w.Viewer.Nodes, w.Viewer.Admin)
+		) p ON true`, w.Viewer.UserID, w.RootReadable, w.Root, depth, int64(w.Limit), bigint(w.Offset), w.Viewer.Nodes, w.Viewer.Admin,
+		w.Viewer.TopLevel)
 	if err != nil {
 		return nil, 0, err
 	}

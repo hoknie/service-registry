@@ -18,7 +18,7 @@ import (
 )
 
 func (s *ClustersService) ListClusters(ctx context.Context, p accesstypes.Principal) ([]deploytypes.Cluster, error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionClusters, accesstypes.ActionRead); err != nil {
 		return nil, err
 	}
 	items, err := s.clusterRepository.List(ctx)
@@ -29,7 +29,7 @@ func (s *ClustersService) ListClusters(ctx context.Context, p accesstypes.Princi
 }
 
 func (s *ClustersService) GetCluster(ctx context.Context, p accesstypes.Principal, id uuid.UUID) (deploytypes.Cluster, error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionClusters, accesstypes.ActionRead); err != nil {
 		return deploytypes.Cluster{}, err
 	}
 	c, err := s.loadCluster(ctx, id)
@@ -51,7 +51,7 @@ func (s *ClustersService) loadCluster(ctx context.Context, id uuid.UUID) (deploy
 }
 
 func (s *ClustersService) CreateCluster(ctx context.Context, p accesstypes.Principal, in deploytypes.ClusterInput) (deploytypes.Cluster, *IssuedAgentToken, error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionClusters, accesstypes.ActionCreate); err != nil {
 		return deploytypes.Cluster{}, nil, err
 	}
 	settings, secret, err := deploytypes.ValidateCluster(deploytypes.DefaultSettings(), false, in)
@@ -78,7 +78,7 @@ func (s *ClustersService) CreateCluster(ctx context.Context, p accesstypes.Princ
 }
 
 func (s *ClustersService) UpdateCluster(ctx context.Context, p accesstypes.Principal, id uuid.UUID, in deploytypes.ClusterInput) (deploytypes.Cluster, *IssuedAgentToken, error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionClusters, accesstypes.ActionUpdate); err != nil {
 		return deploytypes.Cluster{}, nil, err
 	}
 	current, err := s.loadCluster(ctx, id)
@@ -130,7 +130,7 @@ func (s *ClustersService) saveCluster(ctx context.Context, from, to deploytypes.
 }
 
 func (s *ClustersService) DeleteCluster(ctx context.Context, p accesstypes.Principal, id uuid.UUID) error {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionClusters, accesstypes.ActionDelete); err != nil {
 		return err
 	}
 	return apperr.Wrap(s.db.InTx(ctx, func(ctx context.Context) error {
@@ -142,7 +142,7 @@ func (s *ClustersService) DeleteCluster(ctx context.Context, p accesstypes.Princ
 }
 
 func (s *ClustersService) PollCluster(ctx context.Context, p accesstypes.Principal, id uuid.UUID) error {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionClusters, accesstypes.ActionUpdate); err != nil {
 		return err
 	}
 	c, err := s.loadCluster(ctx, id)
@@ -163,7 +163,7 @@ type ClusterTest struct {
 }
 
 func (s *ClustersService) TestCluster(ctx context.Context, p accesstypes.Principal, id uuid.UUID) (ClusterTest, error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionClusters, accesstypes.ActionUpdate); err != nil {
 		return ClusterTest{}, err
 	}
 	c, err := s.loadCluster(ctx, id)
@@ -199,7 +199,7 @@ func reportedTest(r *deploytypes.ReportSummary) ClusterTest {
 }
 
 func (s *ClustersService) UnmatchedWorkloads(ctx context.Context, p accesstypes.Principal, id uuid.UUID, q accesstypes.PageQuery) (accesstypes.Page[deploytypes.Unmatched], error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionClusters, accesstypes.ActionRead); err != nil {
 		return accesstypes.Page[deploytypes.Unmatched]{}, err
 	}
 	page, err := accesstypes.ValidatePage(q)

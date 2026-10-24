@@ -11,6 +11,7 @@ import { errorText } from "@/i18n/errors";
 import { apiGet, apiSend, errorCode, type CatalogNode, type NodeKind, type SourceCheck } from "@/lib/api";
 import { catalogChanged } from "@/lib/catalogEvents";
 import { labelsOf } from "@/lib/tags";
+import { can as holds } from "@/lib/rights";
 
 import { useSession } from "../SessionProvider";
 import { Crumbs } from "../shell/crumbs";
@@ -116,7 +117,7 @@ export function CreateNodePage({ locale, labels }: { locale: Locale; labels: Cat
     [check, labels.branches.badges.default],
   );
 
-  const superadmin = session.status === "signed-in" && session.user.is_superadmin;
+  const mayCreateTop = holds(session.status === "signed-in" ? session.user : null, "catalog", "create");
   const rootCrumb = { label: labels.root, href: catalogHref(locale, null), node: "root" };
   const backHref = catalogHref(locale, parentId);
 
@@ -126,7 +127,7 @@ export function CreateNodePage({ locale, labels }: { locale: Locale; labels: Cat
     !!kind &&
     !loadError &&
     childKinds(parent ? parent.kind : null).includes(kind) &&
-    (parent ? parent.access === "read" && (parent.permissions ?? []).includes("catalog.write") : superadmin);
+    (parent ? parent.access === "read" && (parent.permissions ?? []).includes("catalog.write") : mayCreateTop);
 
   const crumbs = [
     rootCrumb,

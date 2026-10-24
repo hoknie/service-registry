@@ -121,6 +121,19 @@ func TestViewerBindingsCatalogAdmin(t *testing.T) {
 	}
 }
 
+func TestViewerBindingsOpenOrganizations(t *testing.T) {
+	t.Parallel()
+	w := newBindingWorld(t)
+	execSQL(t, w.tdb, "UPDATE nodes SET visibility = 'open' WHERE id = $1", w.acme)
+	eq(t, w.bindings(t, nil), "acme:viewer")
+	eq(t, w.bindings(t, []uuid.UUID{w.api}), "api:viewer")
+	eq(t, w.bindings(t, []uuid.UUID{w.globex}), "")
+	w.bind(t, w.backend, "editor")
+	eq(t, w.bindings(t, []uuid.UUID{w.api}), "api:editor,api:viewer")
+	_, err := w.tdb.Pool.Exec(context.Background(), "UPDATE nodes SET visibility = 'open' WHERE id = $1", w.backend)
+	eq(t, err != nil, true)
+}
+
 func TestViewerBindingsSpecScenario(t *testing.T) {
 	t.Parallel()
 	w := newBindingWorld(t)

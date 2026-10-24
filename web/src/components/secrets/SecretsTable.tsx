@@ -23,7 +23,9 @@ import { Table, Td, Th, Tr } from "../ui/Table";
 import { Tooltip } from "../ui/Tooltip";
 import { SecretDialog } from "./SecretDialog";
 
-type Props = { locale: Locale; nodeId: string | null; canManage: boolean };
+type Manage = boolean | Partial<Record<"create" | "update" | "delete", boolean>>;
+
+type Props = { locale: Locale; nodeId: string | null; canManage: Manage };
 
 export function SecretsTable({ locale, nodeId, canManage }: Props) {
   const { secrets: t, errors, common } = useUiText();
@@ -47,7 +49,8 @@ export function SecretsTable({ locale, nodeId, canManage }: Props) {
     void load();
   }, [load]);
 
-  const own = (s: Secret) => canManage && s.own;
+  const may = (action: "create" | "update" | "delete") => canManage === true || (typeof canManage === "object" && canManage[action] === true);
+  const own = (s: Secret) => s.own && (may("update") || may("delete"));
   return (
     <>
       <PageHeader
@@ -55,7 +58,7 @@ export function SecretsTable({ locale, nodeId, canManage }: Props) {
         title={t.title}
         lead={nodeId ? t.nodeIntro : t.globalIntro}
         actions={
-          canManage && (
+          may("create") && (
             <Button variant="primary" onClick={() => setEditing("new")}>
               <Plus aria-hidden="true" />
               {t.newSecret}
@@ -112,18 +115,22 @@ export function SecretsTable({ locale, nodeId, canManage }: Props) {
                 <Td className="text-right whitespace-nowrap">
                   {own(s) && (
                     <>
-                      <Button size="sm" variant="ghost" onClick={() => setEditing(s)}>
-                        <Pencil aria-hidden="true" />
-                        {t.edit}
-                      </Button>
-                      <Tooltip content={s.used_by > 0 ? format(t.inUse, { n: String(s.used_by) }) : null}>
-                        <span>
-                          <Button size="sm" variant="danger-ghost" disabled={s.used_by > 0} onClick={() => setDeleting(s)}>
-                            <Trash aria-hidden="true" />
-                            {t.delete}
-                          </Button>
-                        </span>
-                      </Tooltip>
+                      {may("update") && (
+                        <Button size="sm" variant="ghost" onClick={() => setEditing(s)}>
+                          <Pencil aria-hidden="true" />
+                          {t.edit}
+                        </Button>
+                      )}
+                      {may("delete") && (
+                        <Tooltip content={s.used_by > 0 ? format(t.inUse, { n: String(s.used_by) }) : null}>
+                          <span>
+                            <Button size="sm" variant="danger-ghost" disabled={s.used_by > 0} onClick={() => setDeleting(s)}>
+                              <Trash aria-hidden="true" />
+                              {t.delete}
+                            </Button>
+                          </span>
+                        </Tooltip>
+                      )}
                     </>
                   )}
                 </Td>

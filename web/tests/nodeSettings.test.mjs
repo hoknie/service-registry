@@ -4,7 +4,8 @@ import { test } from "node:test";
 import { resolveTab, sectionsOf, tabsOf } from "../src/lib/nodeSettings.ts";
 
 const project = (permissions = []) => ({ kind: "project", access: "read", permissions });
-const folder = (permissions = []) => ({ kind: "folder", access: "read", permissions });
+const folder = (permissions = []) => ({ kind: "folder", parent_id: "parent", access: "read", permissions });
+const organization = (permissions = []) => ({ kind: "organization", parent_id: null, access: "read", permissions });
 
 test("tabs of a project and of a container", () => {
   assert.deepEqual(tabsOf(project()), ["overview", "docs", "details", "releases", "dependencies", "settings"]);
@@ -19,6 +20,7 @@ test("sections follow permissions", () => {
   assert.deepEqual(sectionsOf(project(["catalog.write"])), ["general", "owners", "branches", "links", "dependencies", "docs", "scans", "connect"]);
   assert.deepEqual(sectionsOf(folder(["catalog.access"])), ["general", "owners", "forge", "secrets", "links", "docs", "access", "notifications"]);
   assert.deepEqual(sectionsOf(folder(["catalog.read"])), ["general", "owners", "forge", "secrets", "links", "docs"]);
+  assert.deepEqual(sectionsOf(organization(["catalog.read"])), ["general", "owners", "groups", "forge", "secrets", "links", "docs"]);
 });
 
 test("old tabs move into settings", () => {

@@ -21,6 +21,7 @@ type nodeRow struct {
 	RepoURL       *string             `db:"repo_url"`
 	DefaultBranch *string             `db:"default_branch"`
 	ClusterObs    *bool               `db:"cluster_observation"`
+	Visibility    *string             `db:"visibility"`
 	CreatedAt     *string             `db:"created_at"`
 	UpdatedAt     *string             `db:"updated_at"`
 }
@@ -46,6 +47,7 @@ func (r nodeRow) node() (catalogtypes.Node, error) {
 		ID: *r.ID, Kind: kind, ParentID: r.ParentID, Slug: ptr.Value(r.Slug), Name: ptr.Value(r.Name),
 		Description: ptr.Value(r.Description), Labels: labels, Repo: repo,
 		ClusterObservation: r.ClusterObs == nil || *r.ClusterObs,
+		Visibility:         catalogtypes.OrgVisibility(ptr.Value(r.Visibility)),
 		CreatedAt:          ptr.Value(r.CreatedAt), UpdatedAt: ptr.Value(r.UpdatedAt),
 	}, nil
 }

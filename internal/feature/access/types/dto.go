@@ -28,7 +28,18 @@ type UpdateUser struct {
 }
 
 type GroupName struct {
-	Name string
+	Name         string
+	Organization *uuid.UUID
+}
+
+type GroupQuery struct {
+	Page         PageQuery
+	Organization *uuid.UUID
+}
+
+type GroupAt struct {
+	ID           uuid.UUID
+	Organization *uuid.UUID
 }
 
 type PageQuery struct {
@@ -73,8 +84,9 @@ type NewSession struct {
 }
 
 type NewGroup struct {
-	ID   uuid.UUID
-	Name string
+	ID           uuid.UUID
+	Name         string
+	Organization *uuid.UUID
 }
 
 type CreateToken struct {

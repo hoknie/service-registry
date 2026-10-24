@@ -37,7 +37,7 @@ func (s *TokensService) IssueToken(ctx context.Context, p accesstypes.Principal,
 	if err := requireSession(p); err != nil {
 		return IssuedToken{}, err
 	}
-	return s.issueFor(ctx, p.UserID, p.IsSuperadmin, in)
+	return s.issueFor(ctx, accesstypes.User{ID: p.UserID, IsSuperadmin: p.IsSuperadmin}, in)
 }
 
 func (s *TokensService) IssueUserToken(ctx context.Context, p accesstypes.Principal, userID uuid.UUID, in accesstypes.CreateToken) (IssuedToken, error) {
@@ -57,11 +57,20 @@ func (s *TokensService) IssueUserToken(ctx context.Context, p accesstypes.Princi
 	if user.Status != accesstypes.StatusActive {
 		return IssuedToken{}, apperr.Wrap(accesstypes.ConflictUserDisabled)
 	}
-	return s.issueFor(ctx, user.ID, user.IsSuperadmin, in)
+	return s.issueFor(ctx, *user, in)
 }
 
-func (s *TokensService) issueFor(ctx context.Context, userID uuid.UUID, superadmin bool, in accesstypes.CreateToken) (IssuedToken, error) {
-	valid, err := accesstypes.ValidateCreateToken(in, superadmin, s.cfg.Pat.MaxLifetimeDays)
+func (s *TokensService) issueFor(ctx context.Context, owner accesstypes.User, in accesstypes.CreateToken) (IssuedToken, error) {
+	userID, superadmin := owner.ID, owner.IsSuperadmin
+	grantor := accesstypes.Grantor{Superadmin: superadmin}
+	if !superadmin {
+		rights, err := s.permissionRepository.ForUser(ctx, userID)
+		if err != nil {
+			return IssuedToken{}, apperr.Wrap(err)
+		}
+		grantor.Rights = rights
+	}
+	valid, err := accesstypes.ValidateCreateToken(in, grantor, s.cfg.Pat.MaxLifetimeDays)
 	if err != nil {
 		return IssuedToken{}, apperr.Wrap(err)
 	}
@@ -144,7 +153,7 @@ func (s *TokensService) ListUserTokens(ctx context.Context, p accesstypes.Princi
 }
 
 func (s *TokensService) ListTokens(ctx context.Context, p accesstypes.Principal, q accesstypes.TokenQuery) (accesstypes.Page[accesstypes.Token], error) {
-	if err := requireSuperadminSession(p); err != nil {
+	if err := requireRightSession(p, accesstypes.ActionRead); err != nil {
 		return accesstypes.Page[accesstypes.Token]{}, err
 	}
 	filter, err := accesstypes.ValidateTokenQuery(q)
@@ -160,17 +169,42 @@ func (s *TokensService) ListTokens(ctx context.Context, p accesstypes.Principal,
 }
 
 func (s *TokensService) RevokeToken(ctx context.Context, p accesstypes.Principal, id uuid.UUID) error {
-	if err := requireSuperadminSession(p); err != nil {
+	if err := requireRightSession(p, accesstypes.ActionDelete); err != nil {
 		return err
+	}
+	if !p.IsSuperadmin {
+		if err := s.unprotectedOwner(ctx, id); err != nil {
+			return err
+		}
 	}
 	return apperr.Wrap(s.tokenRepository.Revoke(ctx, id, nil))
 }
 
+func (s *TokensService) unprotectedOwner(ctx context.Context, id uuid.UUID) error {
+	owner, err := s.tokenRepository.Owner(ctx, id)
+	if err != nil || owner == nil {
+		return apperr.Wrap(err)
+	}
+	user, err := s.userRepository.Find(ctx, *owner)
+	if err != nil || user == nil {
+		return apperr.Wrap(err)
+	}
+	return protectedUser(ctx, s.permissionRepository, *user)
+}
+
+func requireRightSession(p accesstypes.Principal, action accesstypes.Action) error {
+	if err := requireSession(p); err != nil {
+		return err
+	}
+	return accesstypes.RequireRight(p, accesstypes.SectionTokens, action)
+}
+
 type TokensService struct {
-	cfg             *config.Config
-	roots           accessports.NodeRootsPort
-	tokenRepository *repositories.TokenRepository
-	userRepository  *repositories.UserRepository
+	permissionRepository *repositories.GroupPermissionRepository
+	cfg                  *config.Config
+	roots                accessports.NodeRootsPort
+	tokenRepository      *repositories.TokenRepository
+	userRepository       *repositories.UserRepository
 }
 
 func (s *TokensService) AddTokenRoot(ctx context.Context, tokenID, nodeID uuid.UUID) (bool, error) {

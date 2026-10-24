@@ -2,12 +2,14 @@ package services
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
 
 	"svc-registry/internal/feature/access/repositories"
 	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/platform/apperr"
+	"svc-registry/internal/platform/config"
 	"svc-registry/pkg/password"
 )
 
@@ -46,14 +48,17 @@ func (s *UsersService) InsertUser(ctx context.Context, in accesstypes.CreateUser
 }
 
 func (s *UsersService) CreateUser(ctx context.Context, p accesstypes.Principal, in accesstypes.CreateUser) (accesstypes.User, error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionUsers, accesstypes.ActionCreate); err != nil {
 		return accesstypes.User{}, err
+	}
+	if !p.IsSuperadmin && in.IsSuperadmin {
+		return accesstypes.User{}, apperr.New(apperr.Forbidden)
 	}
 	return s.InsertUser(ctx, in)
 }
 
 func (s *UsersService) ListUsers(ctx context.Context, p accesstypes.Principal, q accesstypes.PageQuery) (accesstypes.Page[accesstypes.User], error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionUsers, accesstypes.ActionRead); err != nil {
 		return accesstypes.Page[accesstypes.User]{}, err
 	}
 	page, err := accesstypes.ValidatePage(q)
@@ -65,7 +70,7 @@ func (s *UsersService) ListUsers(ctx context.Context, p accesstypes.Principal, q
 }
 
 func (s *UsersService) GetUser(ctx context.Context, p accesstypes.Principal, id uuid.UUID) (accesstypes.User, error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionUsers, accesstypes.ActionRead); err != nil {
 		return accesstypes.User{}, err
 	}
 	user, err := s.userRepository.Find(ctx, id)
@@ -79,7 +84,13 @@ func (s *UsersService) GetUser(ctx context.Context, p accesstypes.Principal, id 
 }
 
 func (s *UsersService) UpdateUser(ctx context.Context, p accesstypes.Principal, id uuid.UUID, in accesstypes.UpdateUser) (accesstypes.User, error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionUsers, accesstypes.ActionUpdate); err != nil {
+		return accesstypes.User{}, err
+	}
+	if !p.IsSuperadmin && in.IsSuperadmin != nil {
+		return accesstypes.User{}, apperr.New(apperr.Forbidden)
+	}
+	if err := s.mayChange(ctx, p, id); err != nil {
 		return accesstypes.User{}, err
 	}
 	var changes accesstypes.UserChanges
@@ -115,7 +126,10 @@ func (s *UsersService) UpdateUser(ctx context.Context, p accesstypes.Principal, 
 }
 
 func (s *UsersService) ResetPassword(ctx context.Context, p accesstypes.Principal, id uuid.UUID, password string) error {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionUsers, accesstypes.ActionUpdate); err != nil {
+		return err
+	}
+	if err := s.mayChange(ctx, p, id); err != nil {
 		return err
 	}
 	if err := accesstypes.ValidatePassword(password); err != nil {
@@ -132,8 +146,64 @@ func (s *UsersService) ResetPassword(ctx context.Context, p accesstypes.Principa
 	return apperr.Wrap(err)
 }
 
+func (s *UsersService) mayChange(ctx context.Context, p accesstypes.Principal, id uuid.UUID) error {
+	if p.IsSuperadmin {
+		return nil
+	}
+	if id == p.UserID {
+		return apperr.New(apperr.Forbidden)
+	}
+	user, err := s.userRepository.Find(ctx, id)
+	if err != nil || user == nil {
+		return apperr.Wrap(err)
+	}
+	return protectedUser(ctx, s.permissionRepository, *user)
+}
+
+func protectedUser(ctx context.Context, r *repositories.GroupPermissionRepository, user accesstypes.User) error {
+	if user.IsSuperadmin {
+		return apperr.New(apperr.Forbidden)
+	}
+	privileged, err := r.UserHasAny(ctx, user.ID)
+	if err != nil {
+		return apperr.Wrap(err)
+	}
+	if privileged {
+		return apperr.New(apperr.Forbidden)
+	}
+	return nil
+}
+
 type UsersService struct {
-	hasher            *password.Hasher
-	sessionRepository *repositories.SessionRepository
-	userRepository    *repositories.UserRepository
+	permissionRepository *repositories.GroupPermissionRepository
+	hasher               *password.Hasher
+	sessionRepository    *repositories.SessionRepository
+	userRepository       *repositories.UserRepository
+}
+
+const BootstrapAdminName = "Administrator"
+
+func CheckBootstrapAdmin(admin config.BootstrapAdmin) error {
+	if _, err := accesstypes.ValidateEmail(admin.Email); err != nil {
+		return errors.New("BOOTSTRAP_ADMIN_EMAIL " + err.Error())
+	}
+	if err := accesstypes.ValidatePassword(admin.Password); err != nil {
+		return errors.New("BOOTSTRAP_ADMIN_PASSWORD " + err.Error())
+	}
+	return nil
+}
+
+func (s *BootstrapService) PrepareBootstrapAdmin(admin config.BootstrapAdmin) (accesstypes.NewUser, error) {
+	return prepareUser(s.hasher, accesstypes.CreateUser{
+		Email: admin.Email, DisplayName: BootstrapAdminName, Password: admin.Password, IsSuperadmin: true,
+	})
+}
+
+func (s *BootstrapService) EnsureBootstrapAdmin(ctx context.Context, admin accesstypes.NewUser) (bool, error) {
+	return s.userRepository.InsertIfNone(ctx, admin)
+}
+
+type BootstrapService struct {
+	hasher         *password.Hasher
+	userRepository *repositories.UserRepository
 }

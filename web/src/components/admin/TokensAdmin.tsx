@@ -9,6 +9,7 @@ import { errorText } from "@/i18n/errors";
 import { format } from "@/i18n/format";
 import type { Messages } from "@/i18n/messages";
 import { apiGet, apiSend, errorCode, type Page, type PersonalToken } from "@/lib/api";
+import { useCan } from "@/lib/useCan";
 
 import { TokenTable, type TokenLabels } from "../account/TokenTable";
 import { useUiText } from "../UiText";
@@ -27,6 +28,7 @@ const PREFIX_MAX = 12;
 type Props = { locale: Locale; labels: Messages["admin"]; tokenLabels: TokenLabels };
 
 export function TokensAdmin({ locale, labels, tokenLabels }: Props) {
+  const can = useCan();
   const { errors, common } = useUiText();
   const t = labels.tokens;
   const [offset, setOffset] = useState(0);
@@ -96,7 +98,7 @@ export function TokensAdmin({ locale, labels, tokenLabels }: Props) {
       {page && page.items.length === 0 && <EmptyState icon={KeyRound} title={t.empty} />}
       {page && page.items.length > 0 && (
         <>
-          <TokenTable tokens={page.items} locale={locale} labels={tokenLabels} showOwner onRevoke={setRevoking} />
+          <TokenTable tokens={page.items} locale={locale} labels={tokenLabels} showOwner onRevoke={can("tokens", "delete") ? setRevoking : undefined} />
           <Pager offset={offset} shown={page.items.length} total={page.total} size={PAGE_SIZE} labels={labels.users.pager} onChange={setOffset} />
         </>
       )}

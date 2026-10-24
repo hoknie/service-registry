@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Building2, GitBranch, KeyRound, Link2, LockKeyhole, Network, Plug, ScanSearch, Settings2, ShieldCheck, SlidersHorizontal, UsersRound } from "lucide-react";
+import { Bell, Building2, Contact, GitBranch, KeyRound, Link2, LockKeyhole, Network, Plug, ScanSearch, Settings2, ShieldCheck, SlidersHorizontal, UsersRound } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { Locale } from "@/i18n/config";
@@ -13,6 +13,7 @@ import { catalogHref, type CatalogLabels } from "./shared";
 const icons = {
   general: SlidersHorizontal,
   owners: UsersRound,
+  groups: Contact,
   branches: GitBranch,
   links: Link2,
   dependencies: Network,

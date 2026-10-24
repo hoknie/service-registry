@@ -14,7 +14,7 @@ import (
 )
 
 func (s *ScansService) ListScans(ctx context.Context, p accesstypes.Principal, q knowledgetypes.ScanQuery, page accesstypes.PageQuery) (accesstypes.Page[knowledgetypes.ScanItem], error) {
-	if err := accesstypes.RequireSuperadmin(p); err != nil {
+	if err := accesstypes.RequireRight(p, accesstypes.SectionScans, accesstypes.ActionRead); err != nil {
 		return accesstypes.Page[knowledgetypes.ScanItem]{}, err
 	}
 	filter, err := knowledgetypes.ValidateScanFilter(q)
