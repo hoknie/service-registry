@@ -28,7 +28,7 @@ func (s *SecretResolverService) SecretFor(ctx context.Context, nodeID *uuid.UUID
 	if nodeID == nil {
 		return catalogtypes.SecretRef{}, apperr.Wrap(catalogtypes.InvalidSecretNotAvailable)
 	}
-	available, err := s.secretRepository.Available(ctx, *nodeID)
+	available, err := s.secretRepository.Available(ctx, *nodeID, true)
 	if err != nil {
 		return catalogtypes.SecretRef{}, apperr.Wrap(err)
 	}

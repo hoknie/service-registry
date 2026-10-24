@@ -89,7 +89,7 @@ func (s *GroupsService) RenameGroup(ctx context.Context, p accesstypes.Principal
 	if _, _, err := s.locate(ctx, p, at, accesstypes.ActionUpdate); err != nil {
 		return accesstypes.Group{}, err
 	}
-	if err := s.unprotected(ctx, p, at.ID); err != nil {
+	if err := protectGroupWrite(ctx, s.groupRepository, s.permissionRepository, s.stewards, p, at); err != nil {
 		return accesstypes.Group{}, err
 	}
 	name, err := accesstypes.ValidateGroupName(in.Name)
@@ -104,7 +104,7 @@ func (s *GroupsService) DeleteGroup(ctx context.Context, p accesstypes.Principal
 	if _, _, err := s.locate(ctx, p, at, accesstypes.ActionDelete); err != nil {
 		return err
 	}
-	if err := s.unprotected(ctx, p, at.ID); err != nil {
+	if err := protectGroupWrite(ctx, s.groupRepository, s.permissionRepository, s.stewards, p, at); err != nil {
 		return err
 	}
 	return apperr.Wrap(s.groupRepository.Delete(ctx, at.ID))
@@ -131,17 +131,27 @@ func (s *GroupsService) SetGroupPermissions(ctx context.Context, p accesstypes.P
 	return rights, nil
 }
 
-func (s *GroupsService) unprotected(ctx context.Context, p accesstypes.Principal, groupID uuid.UUID) error {
-	return unprotectedGroup(ctx, s.permissionRepository, p, groupID)
-}
-
-func unprotectedGroup(ctx context.Context, r *repositories.GroupPermissionRepository, p accesstypes.Principal, groupID uuid.UUID) error {
-	if p.IsSuperadmin {
+func protectGroupWrite(ctx context.Context, groups *repositories.GroupRepository, perms *repositories.GroupPermissionRepository, stewards accessports.GroupStewardsPort, p accesstypes.Principal, at accesstypes.GroupAt) error {
+	if at.Organization != nil || p.IsSuperadmin {
 		return nil
 	}
-	protected, err := r.GroupHasAny(ctx, groupID)
+	g, err := groups.Find(ctx, at.ID)
 	if err != nil {
 		return apperr.Wrap(err)
+	}
+	if g == nil || g.Group.Organization != nil {
+		return apperr.New(apperr.NotFound)
+	}
+	protected, err := perms.GroupHasAny(ctx, at.ID)
+	if err != nil {
+		return apperr.Wrap(err)
+	}
+	if !protected && stewards != nil {
+		bound, err := stewards.GroupNodes(ctx, []uuid.UUID{at.ID})
+		if err != nil {
+			return apperr.Wrap(err)
+		}
+		protected = len(bound[at.ID]) > 0
 	}
 	if protected {
 		return apperr.New(apperr.Forbidden)
@@ -174,7 +184,8 @@ func (s *GroupsService) locate(ctx context.Context, p accesstypes.Principal, at 
 	if err != nil {
 		return nil, nil, apperr.Wrap(err)
 	}
-	if g == nil || (org != nil && (g.Group.Organization == nil || g.Group.Organization.ID != org.Org.ID)) {
+	if g == nil || (org == nil && !p.IsSuperadmin && g.Group.Organization != nil) ||
+		(org != nil && (g.Group.Organization == nil || g.Group.Organization.ID != org.Org.ID)) {
 		return nil, nil, apperr.New(apperr.NotFound)
 	}
 	return g, org, nil

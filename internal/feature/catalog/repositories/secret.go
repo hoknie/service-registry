@@ -108,7 +108,7 @@ func (s *SecretRepository) Global(ctx context.Context) ([]catalogtypes.Secret, e
 		ORDER BY lower(s.name), s.id`)
 }
 
-func (s *SecretRepository) Available(ctx context.Context, nodeID uuid.UUID) ([]catalogtypes.Secret, error) {
+func (s *SecretRepository) Available(ctx context.Context, nodeID uuid.UUID, includeGlobal bool) ([]catalogtypes.Secret, error) {
 	return postgres.List(ctx, s.db.From(ctx), constraints, postgres.Struct(secretRow.secret), `
 		WITH RECURSIVE up AS (
 			SELECT id, parent_id, 0 AS depth
@@ -124,9 +124,9 @@ func (s *SecretRepository) Available(ctx context.Context, nodeID uuid.UUID) ([]c
 			rfc3339(s.created_at) AS created_at, rfc3339(s.updated_at) AS updated_at
 		FROM secrets s
 		LEFT JOIN nodes n ON n.id = s.node_id
-		WHERE s.node_id IS NULL
+		WHERE ($2 AND s.node_id IS NULL)
 			OR s.node_id IN (SELECT id FROM up)
-		ORDER BY lower(s.name), s.node_id NULLS LAST, s.id`, nodeID)
+		ORDER BY lower(s.name), s.node_id NULLS LAST, s.id`, nodeID, includeGlobal)
 }
 
 func (s *SecretRepository) Stored(ctx context.Context, id uuid.UUID) (*catalogtypes.StoredSecret, error) {

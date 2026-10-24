@@ -11,7 +11,7 @@ import { errorText } from "@/i18n/errors";
 import { format } from "@/i18n/format";
 import type { Messages } from "@/i18n/messages";
 import { apiGet, apiSend, errorCode, type Group, type Page } from "@/lib/api";
-import { useCan } from "@/lib/useCan";
+import { useCan, useSuperadmin } from "@/lib/useCan";
 
 import { useUiText } from "../UiText";
 import { Badge } from "../ui/Badge";
@@ -28,6 +28,7 @@ type Labels = Messages["admin"];
 
 export function GroupsAdmin({ locale, labels }: { locale: Locale; labels: Labels }) {
   const can = useCan();
+  const superadmin = useSuperadmin();
   const { errors, common } = useUiText();
   const router = useRouter();
   const t = labels.groups;
@@ -76,13 +77,22 @@ export function GroupsAdmin({ locale, labels }: { locale: Locale; labels: Labels
             </tr>
           </thead>
           <tbody>
-            {groups.items.map((g) => (
+            {groups.items.map((g) => {
+              const manageable = superadmin || !g.organization;
+              return (
               <Tr key={g.id}>
                 <Td>
-                  <Link href={`/${locale}/admin/groups/group?id=${g.id}`} className="flex items-center gap-3 font-medium text-ink hover:text-signal hover:underline">
-                    <UsersRound aria-hidden="true" className="size-4 text-muted" />
-                    {g.name}
-                  </Link>
+                  {manageable ? (
+                    <Link href={`/${locale}/admin/groups/group?id=${g.id}`} className="flex items-center gap-3 font-medium text-ink hover:text-signal hover:underline">
+                      <UsersRound aria-hidden="true" className="size-4 text-muted" />
+                      {g.name}
+                    </Link>
+                  ) : (
+                    <span className="flex items-center gap-3 font-medium text-ink">
+                      <UsersRound aria-hidden="true" className="size-4 text-muted" />
+                      {g.name}
+                    </span>
+                  )}
                   {g.organization && (
                     <Badge tone="neutral" className="mt-1">
                       {format(t.organization, { name: g.organization.name })}
@@ -97,12 +107,15 @@ export function GroupsAdmin({ locale, labels }: { locale: Locale; labels: Labels
                 </Td>
                 <Td numeric>{g.member_count}</Td>
                 <Td className="text-right">
-                  <Link href={`/${locale}/admin/groups/group?id=${g.id}`} className="text-sm text-signal hover:underline">
-                    {t.table.edit}
-                  </Link>
+                  {manageable && (
+                    <Link href={`/${locale}/admin/groups/group?id=${g.id}`} className="text-sm text-signal hover:underline">
+                      {t.table.edit}
+                    </Link>
+                  )}
                 </Td>
               </Tr>
-            ))}
+              );
+            })}
           </tbody>
         </Table>
       )}

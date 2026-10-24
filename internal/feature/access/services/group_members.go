@@ -170,7 +170,8 @@ func (s *GroupsService) memberGroup(ctx context.Context, p accesstypes.Principal
 	if g == nil && org == nil {
 		return &accesstypes.GroupDetails{Group: accesstypes.Group{ID: at.ID}}, nil
 	}
-	if g == nil || (org != nil && (g.Group.Organization == nil || g.Group.Organization.ID != org.Org.ID)) {
+	if g == nil || (org == nil && !p.IsSuperadmin && g.Group.Organization != nil) ||
+		(org != nil && (g.Group.Organization == nil || g.Group.Organization.ID != org.Org.ID)) {
 		return nil, apperr.New(apperr.NotFound)
 	}
 	return g, nil

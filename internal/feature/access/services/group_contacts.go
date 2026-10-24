@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	accessports "svc-registry/internal/feature/access/ports"
 	"svc-registry/internal/feature/access/repositories"
 	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/platform/apperr"
@@ -14,7 +15,7 @@ func (s *GroupContactsService) SetContacts(ctx context.Context, p accesstypes.Pr
 	if err := accesstypes.RequireRight(p, accesstypes.SectionGroups, accesstypes.ActionUpdate); err != nil {
 		return accesstypes.Group{}, err
 	}
-	if err := unprotectedGroup(ctx, s.permissionRepository, p, id); err != nil {
+	if err := protectGroupWrite(ctx, s.groupRepository, s.permissionRepository, s.stewards, p, accesstypes.GroupAt{ID: id}); err != nil {
 		return accesstypes.Group{}, err
 	}
 	return s.setContacts(ctx, id, in)
@@ -42,7 +43,7 @@ func (s *GroupContactsService) SetContactEditor(ctx context.Context, p accesstyp
 	if err := accesstypes.RequireRight(p, accesstypes.SectionGroups, accesstypes.ActionUpdate); err != nil {
 		return err
 	}
-	if err := unprotectedGroup(ctx, s.permissionRepository, p, groupID); err != nil {
+	if err := protectGroupWrite(ctx, s.groupRepository, s.permissionRepository, s.stewards, p, accesstypes.GroupAt{ID: groupID}); err != nil {
 		return err
 	}
 	m, err := s.groupContactRepository.Membership(ctx, groupID, userID)
@@ -88,4 +89,5 @@ type GroupContactsService struct {
 	permissionRepository   *repositories.GroupPermissionRepository
 	groupRepository        *repositories.GroupRepository
 	groupContactRepository *repositories.GroupContactRepository
+	stewards               accessports.GroupStewardsPort
 }

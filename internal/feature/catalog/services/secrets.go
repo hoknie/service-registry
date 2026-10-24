@@ -14,10 +14,12 @@ import (
 )
 
 func (s *SecretsService) ListNodeSecrets(ctx context.Context, p accesstypes.Principal, nodeID uuid.UUID) ([]catalogtypes.Secret, error) {
-	if _, err := s.access.Authorize(ctx, p, catalogtypes.PermRead, nodeID); err != nil {
+	sc, err := s.access.Authorize(ctx, p, catalogtypes.PermRead, nodeID)
+	if err != nil {
 		return nil, err
 	}
-	items, err := s.secretRepository.Available(ctx, nodeID)
+	includeGlobal := sc.Allows(catalogtypes.PermWrite) || p.Rights.Has(accesstypes.SectionSecrets, accesstypes.ActionRead)
+	items, err := s.secretRepository.Available(ctx, nodeID, includeGlobal)
 	if err != nil {
 		return nil, apperr.Wrap(err)
 	}

@@ -111,6 +111,7 @@ func (f *AccessServices) Use(roots accessports.NodeRootsPort) {
 
 func (f *AccessServices) UseStewards(stewards accessports.GroupStewardsPort) {
 	f.Groups.stewards = stewards
+	f.GroupContacts.stewards = stewards
 }
 
 func (f *AccessServices) UseOrganizations(organizations accessports.OrganizationsPort) {

@@ -11,8 +11,10 @@ instead of holding the value itself. Change the value once, and every record usi
 | **Settings → Secrets** of an organization or folder | admins of the node | records of that node and everything below it |
 | **Administration → Secrets → Global secrets** | superadmins and groups with rights on **Global secrets** | any record; clusters may use global secrets only |
 
-The list of a node also shows the secrets of its ancestors and the global ones, each marked with where it comes
-from.
+The list of a node also shows the secrets of its ancestors, each marked with where it comes from. Global secrets appear
+in a node's list only to those who can configure the node — an editor of the node and above, or a holder of **Global
+secrets: read** — so a plain reader of a node (including any signed-in reader of an open organization) never sees the
+names of the registry's global infrastructure secrets. The value is never shown to anyone.
 
 ## Creating a secret
 

@@ -62,7 +62,9 @@ inside it:
 - deleting the organization deletes its groups.
 
 The administration list of groups shows organization groups too, marked with their organization, and so does
-**Account → Groups**.
+**Account → Groups**. An organization group is opened and changed only from its organization's **Settings → Groups**:
+in the registry-wide administration a non-superadmin cannot open, rename, delete or change the members of a group that
+belongs to an organization. Only a superadmin reaches it from the administration list.
 
 ## Administration rights for groups
 
@@ -105,6 +107,10 @@ Group rights never raise anyone's rights. Without being a superadmin you cannot:
 - grant the superadmin flag;
 - change the password of a superadmin, of someone who holds rights, or your own through the administration;
 - change a group that holds rights;
+- rename or delete a group that has roles in the catalog or owns a node — only a superadmin may, since deleting it would
+  drop those roles and ownership;
+- reach a group that belongs to an organization through the registry-wide group routes — manage it from the
+  organization instead;
 - change the members of a group with roles in the catalog unless you own every node it has roles on;
 - add yourself to a group;
 - revoke the tokens of superadmins or of people who hold rights.
