@@ -15,6 +15,7 @@ import (
 	ownershipservices "svc-registry/internal/feature/ownership/services"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
+	"svc-registry/internal/platform/metrics"
 	"svc-registry/pkg/pgtx"
 )
 
@@ -165,4 +166,25 @@ type OutboxService struct {
 	ownership              *ownershipservices.OwnershipServices
 	outboxRepository       *repositories.OutboxRepository
 	subscriptionRepository *repositories.SubscriptionRepository
+}
+
+var metricShapes = map[string]metrics.Shape{
+	"subscriptions": {Name: "svcr_notification_subscriptions", Labels: []string{"channel"}},
+	"queue":         {Name: "svcr_job_queue", Labels: []string{"job", "state"}},
+}
+
+func (s *OutboxService) MetricSamples(ctx context.Context) ([]metrics.Sample, error) {
+	counts, err := s.subscriptionRepository.MetricCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return metrics.FromPairs(metrics.Zero(counts, "subscriptions:webhook", "subscriptions:slack"), metricShapes), nil
+}
+
+func (s *OutboxService) QueueSamples(ctx context.Context) ([]metrics.Sample, error) {
+	counts, err := s.outboxRepository.QueueCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return metrics.FromPairs(metrics.Zero(counts, "queue:notify_deliveries/due", "queue:notify_deliveries/leased"), metricShapes), nil
 }

@@ -24,6 +24,7 @@ import (
 	topologyservices "svc-registry/internal/feature/topology/services"
 	"svc-registry/internal/platform/auth"
 	"svc-registry/internal/platform/config"
+	"svc-registry/internal/platform/metrics"
 	"svc-registry/internal/platform/postgres"
 	"svc-registry/pkg/outbound"
 	"svc-registry/pkg/password"
@@ -50,6 +51,8 @@ type App struct {
 	Knowledge *knowledgeservices.KnowledgeServices
 	Apis      *apisservices.ApisServices
 	Compose   *composeservices.ComposeServices
+	Metrics   *metrics.Metrics
+	Sampler   *metrics.Sampler
 	search    search
 }
 
@@ -59,7 +62,8 @@ func New(cfg config.Config, opts ...Option) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	srch, err := buildSearch(cfg, pool)
+	m := newMetrics(cfg)
+	srch, err := buildSearch(cfg, pool, m)
 	if err != nil {
 		pool.Close()
 		return nil, err
@@ -70,25 +74,26 @@ func New(cfg config.Config, opts ...Option) (*App, error) {
 		DB:      db,
 		Hasher:  password.NewHasher(cfg.PasswordHash.Params()),
 		Secrets: secretbox.New(cfg.Secrets.Keys),
+		Metrics: m,
 		search:  srch,
 	}
-	forges := forgeclient.NewFactoryClient(outbound.New(cfg.Outbound.Options()))
+	forges := forgeclient.NewFactoryClient(m.Client("forge", outbound.New(cfg.Outbound.Options())))
 	a.Access = accessservices.New(accessservices.Deps{DB: db, Config: &cfg, Hasher: a.Hasher,
-		OAuth:          oidc.NewOIDCClient(cfg.OAuth, cfg.Web.PublicURL, outbound.New(cfg.Outbound.Options())),
-		ClientMetadata: clientMetadata(o, cfg), LoginLimiter: auth.NewLoginLimiter(cfg.LoginLimit)})
+		OAuth:          oidc.NewOIDCClient(cfg.OAuth, cfg.Web.PublicURL, m.Client("oidc", outbound.New(cfg.Outbound.Options()))),
+		ClientMetadata: instrument(m, "client_metadata", clientMetadata(o, cfg)), LoginLimiter: auth.NewLoginLimiter(cfg.LoginLimit)})
 	a.Catalog = catalogservices.New(catalogservices.Deps{DB: db, Config: &cfg, Secrets: a.Secrets})
 	a.Ownership = ownershipservices.New(ownershipservices.Deps{DB: db, Catalog: a.Catalog})
 	a.Notify = notifyservices.New(notifyservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Ownership: a.Ownership,
-		Sender: notifySender(o, cfg), Secrets: a.Secrets, Version: Version})
-	a.Links = linksservices.New(linksservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Checker: linkChecker(o, cfg),
+		Sender: instrument(m, "notify", notifySender(o, cfg)), Secrets: a.Secrets, Version: Version})
+	a.Links = linksservices.New(linksservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Checker: instrument(m, "link_check", linkChecker(o, cfg)),
 		Icons: uploads.New(cfg.Uploads.Dir), Notify: a.Notify})
 	a.Topology = topologyservices.New(topologyservices.Deps{DB: db, Catalog: a.Catalog})
 	a.Ingest = ingestservices.New(ingestservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Limiter: auth.NewIngestLimiter(cfg.Ingest),
-		Notify: a.Notify, Topology: a.Topology})
+		Notify: a.Notify, Topology: a.Topology, Metrics: m})
 	a.Forge = forgeservices.New(forgeservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Clients: forges, Secrets: a.Secrets,
 		Notify: a.Notify})
 	a.Deploy = deployservices.New(deployservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Ingest: a.Ingest,
-		K8s: k8sFactory(o, cfg.Outbound, cfg.K8s.K8sClientConfig), Secrets: a.Secrets, Notify: a.Notify, Topology: a.Topology})
+		K8s: instrument(m, "kubernetes", k8sFactory(o, cfg.Outbound, cfg.K8s.K8sClientConfig)), Secrets: a.Secrets, Notify: a.Notify, Topology: a.Topology})
 	a.Knowledge = knowledgeservices.New(knowledgeservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Forge: a.Forge,
 		Engine: srch.engine, External: srch.external, Embedder: srch.embedder, Secrets: a.Secrets, Topology: a.Topology,
 		Readers: &source.FactoryClient{Roots: cfg.Knowledge.LocalRoots, Forges: forges,
@@ -105,6 +110,7 @@ func New(cfg config.Config, opts ...Option) (*App, error) {
 	a.Catalog.UseTokenRoots(a.Access.Tokens)
 	a.Forge.Use(a.Knowledge.Sources, a.Knowledge.Ports)
 	a.Ingest.Use(a.Knowledge.Ports)
+	a.Sampler = a.newSampler(o.metricSources)
 	if !a.Catalog.Wired() {
 		pool.Close()
 		return nil, ErrNotWired

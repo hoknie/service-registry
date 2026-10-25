@@ -179,3 +179,26 @@ func (s *TargetRepository) Prune(ctx context.Context, ttlDays uint32) (int64, er
 		DELETE FROM link_targets
 		WHERE last_seen_at < now() - make_interval(days => $1::int)`, int(ttlDays))
 }
+
+func (s *TargetRepository) MetricCounts(ctx context.Context) (map[string]int64, error) {
+	return postgres.Pairs[string, int64](ctx, s.db.From(ctx), constraints, `
+		SELECT 'targets:' || CASE
+				WHEN last_status IS NULL THEN 'unchecked'
+				WHEN last_status = 'ok' THEN 'ok'
+				ELSE 'broken'
+			END, count(*)
+		FROM link_targets
+		GROUP BY 1
+		UNION ALL
+		SELECT 'covered:links', count(DISTINCT project_id)
+		FROM link_target_projects`)
+}
+
+func (s *TargetRepository) QueueCounts(ctx context.Context) (map[string]int64, error) {
+	return postgres.Pairs[string, int64](ctx, s.db.From(ctx), constraints, `
+		SELECT 'queue:link_checks/' || CASE WHEN lease_until > now() THEN 'leased' ELSE 'due' END, count(*)
+		FROM link_targets
+		WHERE lease_until > now()
+			OR next_run_at <= now()
+		GROUP BY 1`)
+}

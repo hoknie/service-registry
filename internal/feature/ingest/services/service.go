@@ -9,6 +9,7 @@ import (
 	topologyservices "svc-registry/internal/feature/topology/services"
 	"svc-registry/internal/platform/auth"
 	"svc-registry/internal/platform/config"
+	"svc-registry/internal/platform/metrics"
 	"svc-registry/pkg/pgtx"
 )
 
@@ -19,6 +20,7 @@ type Deps struct {
 	Limiter  *auth.IngestLimiter
 	Notify   *notifyservices.NotifyServices
 	Topology *topologyservices.TopologyServices
+	Metrics  *metrics.Metrics
 }
 
 type parts struct {
@@ -30,6 +32,7 @@ type parts struct {
 	catalog              *catalogservices.CatalogServices
 	notify               *notifyservices.NotifyServices
 	topology             *topologyservices.TopologyServices
+	metrics              *metrics.Metrics
 }
 
 func newParts(d Deps) *parts {
@@ -42,6 +45,7 @@ func newParts(d Deps) *parts {
 		catalog:              d.Catalog,
 		notify:               d.Notify,
 		topology:             d.Topology,
+		metrics:              d.Metrics,
 	}
 }
 
@@ -57,7 +61,7 @@ func (f *IngestServices) Use(docs ingestports.DocsTriggerPort) {
 
 func New(d Deps) *IngestServices {
 	p := newParts(d)
-	record := usecases.NewRecordDeployment(p.db, p.deploymentRepository, p.notify)
+	record := usecases.NewRecordDeployment(p.db, p.deploymentRepository, p.notify, p.metrics)
 	accept := usecases.NewAcceptEvent(usecases.AcceptEventDeps{DB: p.db, Events: p.eventRepository, Deployments: p.deploymentRepository,
 		RecordDeployment: record, Catalog: p.catalog, Topology: p.topology})
 	f := &IngestServices{

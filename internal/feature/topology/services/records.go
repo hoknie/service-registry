@@ -8,6 +8,7 @@ import (
 	"svc-registry/internal/feature/topology/repositories"
 	topologytypes "svc-registry/internal/feature/topology/types"
 	"svc-registry/internal/platform/apperr"
+	"svc-registry/internal/platform/metrics"
 )
 
 type ClusterRefs struct {
@@ -64,4 +65,12 @@ func (s *RecordsService) ClearCluster(ctx context.Context, cluster uuid.UUID) er
 type RecordsService struct {
 	resolver
 	dependencyRepository *repositories.DependencyRepository
+}
+
+func (s *RecordsService) MetricSamples(ctx context.Context) ([]metrics.Sample, error) {
+	counts, err := s.dependencyRepository.MetricCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return metrics.FromPairs(counts, map[string]metrics.Shape{"covered": {Name: "svcr_projects_covered", Labels: []string{"aspect"}}}), nil
 }

@@ -71,3 +71,31 @@ func (s *ConnectionRepository) Release(ctx context.Context, id uuid.UUID, next *
 		WHERE id = $1`, id, next)
 	return err
 }
+
+func (s *ConnectionRepository) MetricCounts(ctx context.Context) (map[string]int64, error) {
+	return postgres.Pairs[string, int64](ctx, s.db.From(ctx), constraints, `
+		SELECT 'connections:' || c.kind || '/' || CASE WHEN l.status = 'failed' THEN 'failed' ELSE 'ok' END, count(*)
+		FROM forge_connections c
+		LEFT JOIN LATERAL (
+			SELECT w.status
+			FROM forge_sync_runs w
+			WHERE w.connection_id = c.id
+				AND w.status <> 'running'
+			ORDER BY w.started_at DESC, w.id DESC
+			LIMIT 1
+		) l ON true
+		GROUP BY 1
+		UNION ALL
+		SELECT 'covered:forge', count(*)
+		FROM forge_repositories
+		WHERE orphaned_at IS NULL`)
+}
+
+func (s *ConnectionRepository) QueueCounts(ctx context.Context) (map[string]int64, error) {
+	return postgres.Pairs[string, int64](ctx, s.db.From(ctx), constraints, `
+		SELECT 'queue:forge_sync/' || CASE WHEN lease_until > now() THEN 'leased' ELSE 'due' END, count(*)
+		FROM forge_connections
+		WHERE lease_until > now()
+			OR next_run_at <= now()
+		GROUP BY 1`)
+}

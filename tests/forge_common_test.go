@@ -46,7 +46,7 @@ func (a *testApp) runDue() int {
 		a.t.Fatal(err)
 	}
 	for _, c := range claimed {
-		a.services.Forge.Sync.RunClaimedSync(ctx, c)
+		_ = a.services.Forge.Sync.RunClaimedSync(ctx, c)
 	}
 	return len(claimed)
 }

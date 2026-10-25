@@ -99,6 +99,13 @@ func TestMigrateReadsOnlyTheDatabaseSlice(t *testing.T) {
 	lacks(t, errOut, "HTTP_ADDR")
 }
 
+func TestMigrateIgnoresMetricsSettings(t *testing.T) {
+	code, _, errOut := run(t, []string{"db:migrate"}, "", "METRICS_REFRESH_SECS", "1", "METRICS_TOKEN", "short")
+	eq(t, code, 1)
+	contains(t, errOut, "DATABASE_URL is required")
+	lacks(t, errOut, "METRICS")
+}
+
 func TestUserCreateRefusesAPasswordArgument(t *testing.T) {
 	for _, args := range [][]string{
 		{"user:create", "--email", "a@example.com", "--name", "A", "--password", "secret"},

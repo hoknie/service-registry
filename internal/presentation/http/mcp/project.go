@@ -18,6 +18,7 @@ func resolveProject(ctx context.Context, deps Deps, p accesstypes.Principal, ref
 	if s.Node.Kind != catalogtypes.KindProject {
 		return catalogservices.Scoped{}, apperr.New(apperr.NotFound)
 	}
+	remember(ctx, s)
 	return s, nil
 }
 

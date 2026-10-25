@@ -26,10 +26,16 @@ func (s *SyncService) ExtendForgeRun(ctx context.Context, c forgetypes.Claimed, 
 	return s.connectionRepository.Extend(ctx, c.ID, leaseSecs)
 }
 
-func (s *SyncService) RunClaimedSync(ctx context.Context, c forgetypes.Claimed) {
-	if _, err := s.runSync(ctx, c.ID, c.Trigger); err != nil {
+func (s *SyncService) RunClaimedSync(ctx context.Context, c forgetypes.Claimed) error {
+	run, err := s.runSync(ctx, c.ID, c.Trigger)
+	if err != nil {
 		slog.Error("forge sync failed", "connection", c.ID, "error", err)
+		return err
 	}
+	if run.Status == forgetypes.RunFailed {
+		return forgetypes.ErrRunFailed
+	}
+	return nil
 }
 
 func (s *SyncService) RunSyncNow(ctx context.Context, id uuid.UUID) (forgetypes.Run, error) {

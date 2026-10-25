@@ -15,7 +15,7 @@ func SpawnOAuthRetention(ctx context.Context, deps Deps) <-chan struct{} {
 		tick := time.NewTicker(OAuthRetentionEvery)
 		defer tick.Stop()
 		for {
-			switch n, err := deps.Access.AuthorizationServer.Prune(ctx); {
+			switch n, err := observeCount(deps, "oauth_retention", func() (int64, error) { return deps.Access.AuthorizationServer.Prune(ctx) }); {
 			case ctx.Err() != nil:
 				return
 			case err != nil:

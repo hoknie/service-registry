@@ -61,3 +61,17 @@ func (s *DeploymentRepository) Environments(ctx context.Context, projectID uuid.
 		WHERE s.project_id = $1
 		ORDER BY s.service, s.environment`, projectID)
 }
+
+func (s *DeploymentRepository) MetricCounts(ctx context.Context) (map[string]int64, error) {
+	return postgres.Pairs[string, int64](ctx, s.db.From(ctx), constraints, `
+		SELECT 'environments', count(*)
+		FROM service_environments
+		UNION ALL
+		SELECT 'covered:deployments', count(DISTINCT project_id)
+		FROM service_environments
+		UNION ALL
+		SELECT 'recent:' || w.name, count(d.id)
+		FROM (VALUES ('1d', 1), ('7d', 7)) w (name, days)
+		LEFT JOIN service_deployments d ON d.occurred_at >= now() - make_interval(days => w.days)
+		GROUP BY w.name`)
+}

@@ -11,6 +11,7 @@ import (
 	ingesttypes "svc-registry/internal/feature/ingest/types"
 	notifyservices "svc-registry/internal/feature/notify/services"
 	notifytypes "svc-registry/internal/feature/notify/types"
+	"svc-registry/internal/platform/metrics"
 	"svc-registry/pkg/pgtx"
 )
 
@@ -19,10 +20,12 @@ type RecordDeploymentUseCase struct {
 	deploymentRepository *repositories.DeploymentRepository
 	notify               *notifyservices.NotifyServices
 	docs                 ingestports.DocsTriggerPort
+	metrics              *metrics.Metrics
 }
 
-func NewRecordDeployment(db *pgtx.DB, deployments *repositories.DeploymentRepository, notify *notifyservices.NotifyServices) *RecordDeploymentUseCase {
-	return &RecordDeploymentUseCase{db: db, deploymentRepository: deployments, notify: notify}
+func NewRecordDeployment(db *pgtx.DB, deployments *repositories.DeploymentRepository, notify *notifyservices.NotifyServices,
+	m *metrics.Metrics) *RecordDeploymentUseCase {
+	return &RecordDeploymentUseCase{db: db, deploymentRepository: deployments, notify: notify, metrics: m}
 }
 
 func (u *RecordDeploymentUseCase) Use(docs ingestports.DocsTriggerPort) { u.docs = docs }
@@ -54,6 +57,9 @@ func (u *RecordDeploymentUseCase) Run(ctx context.Context, d ingesttypes.Deploym
 		}
 		return u.emit(ctx, d, current, at)
 	})
+	if err == nil {
+		u.metrics.Deployment(d.Source)
+	}
 	return current, err
 }
 

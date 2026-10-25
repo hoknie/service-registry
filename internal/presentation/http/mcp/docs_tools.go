@@ -70,6 +70,7 @@ func (t *tools) searchDocs(ctx context.Context, _ *sdk.CallToolRequest, in searc
 		q.Project = &s.Node.ID
 	}
 	res, err := t.deps.Knowledge.Search.SearchKnowledge(ctx, t.p, q)
+	t.deps.Metrics.Search(searchMode(t.deps, in.Mode), "mcp", err != nil)
 	if err != nil {
 		return failed(err)
 	}

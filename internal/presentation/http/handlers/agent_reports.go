@@ -168,6 +168,7 @@ func (c *cappedReader) mark(err error) error {
 }
 
 func (a *Handlers) AgentReportTooLarge(c fiber.Ctx, clusterSegment string) error {
+	a.Metrics.AgentReport(false)
 	if _, err := a.authenticateAgent(c, clusterSegment); err != nil {
 		return responses.Fail(c, err)
 	}

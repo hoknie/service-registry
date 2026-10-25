@@ -128,3 +128,12 @@ func (s *OutboxRepository) Prune(ctx context.Context, retentionDays uint32) (int
 		}
 	}
 }
+
+func (s *OutboxRepository) QueueCounts(ctx context.Context) (map[string]int64, error) {
+	return postgres.Pairs[string, int64](ctx, s.db.From(ctx), constraints, `
+		SELECT 'queue:notify_deliveries/' || CASE WHEN lease_until > now() THEN 'leased' ELSE 'due' END, count(*)
+		FROM notification_deliveries
+		WHERE status = 'pending'
+			AND (lease_until > now() OR next_run_at <= now())
+		GROUP BY 1`)
+}

@@ -48,6 +48,9 @@ func ServeUntil(ctx context.Context, cfg config.Config) error {
 	if !dist.HasExport() {
 		slog.Warn("no web UI export (404.html missing); run `just web-build` or set WEB_DIST_DIR", "web_dist", dist.Root())
 	}
+	if cfg.Metrics.Enabled && cfg.Metrics.Token == "" {
+		slog.Warn("metrics are exposed at /metrics without METRICS_TOKEN")
+	}
 	if cfg.Notify.UseProxy {
 		slog.Warn("NOTIFY_USE_PROXY=true: notifications go through the outbound proxy; the receiver's IP behind the proxy is not checked")
 	}
@@ -77,6 +80,9 @@ func ServeUntil(ctx context.Context, cfg config.Config) error {
 	knowledgeDone := jobs.SpawnKnowledgeCollection(tasks, deps)
 	indexDone := jobs.SpawnKnowledgeIndex(tasks, deps)
 	notifyDone := jobs.SpawnNotifyDeliveries(tasks, deps)
+	if registry.Sampler != nil {
+		go registry.Sampler.Serve(tasks)
+	}
 	if cfg.Bootstrap.Admin != nil {
 		jobs.SpawnBootstrapAdmin(tasks, deps, *cfg.Bootstrap.Admin)
 	}

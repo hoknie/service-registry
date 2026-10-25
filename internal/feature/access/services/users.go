@@ -11,6 +11,7 @@ import (
 	"svc-registry/internal/feature/access/usecases"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
+	"svc-registry/internal/platform/metrics"
 	"svc-registry/pkg/password"
 	"svc-registry/pkg/pgtx"
 )
@@ -225,4 +226,21 @@ func (s *BootstrapService) EnsureBootstrapAdmin(ctx context.Context, admin acces
 type BootstrapService struct {
 	hasher         *password.Hasher
 	userRepository *repositories.UserRepository
+}
+
+var metricShapes = map[string]metrics.Shape{
+	"users":       {Name: "svcr_users", Labels: []string{"state"}},
+	"groups":      {Name: "svcr_groups"},
+	"sessions":    {Name: "svcr_sessions_active"},
+	"credentials": {Name: "svcr_credentials_active", Labels: []string{"kind"}},
+	"active":      {Name: "svcr_users_active", Labels: []string{"window"}},
+}
+
+func (s *UsersService) MetricSamples(ctx context.Context) ([]metrics.Sample, error) {
+	counts, err := s.sessionRepository.MetricCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	metrics.Zero(counts, "users:active", "users:disabled", "users:service")
+	return metrics.FromPairs(counts, metricShapes), nil
 }

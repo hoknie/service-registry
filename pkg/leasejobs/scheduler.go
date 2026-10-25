@@ -19,6 +19,7 @@ type Scheduler[T any] struct {
 	Concurrency int
 	Tick        time.Duration
 	Lease       time.Duration
+	OnPanic     func(time.Duration)
 }
 
 func (s *Scheduler[T]) Serve(ctx context.Context) {
@@ -75,9 +76,13 @@ func (s *Scheduler[T]) runOne(ctx context.Context, item T, lease time.Duration) 
 		}
 	}()
 	defer close(done)
+	start := time.Now()
 	defer func() {
 		if r := recover(); r != nil {
 			slog.Error("background job panicked", "job", s.Name, "panic", r)
+			if s.OnPanic != nil {
+				s.OnPanic(time.Since(start))
+			}
 		}
 	}()
 	s.Run(ctx, item)

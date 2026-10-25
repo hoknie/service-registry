@@ -80,3 +80,14 @@ func TestAPanickingJobDoesNotStopTheScheduler(t *testing.T) {
 		t.Fatalf("ran %d of 2", done.Load())
 	}
 }
+
+func TestAPanicIsReportedToTheHook(t *testing.T) {
+	var reported atomic.Int32
+	s := &Scheduler[int]{Name: "test", Source: &queue{}, Lease: time.Second,
+		Run:     func(context.Context, int) { panic("boom") },
+		OnPanic: func(d time.Duration) { reported.Add(1) }}
+	s.runOne(context.Background(), 1, time.Second)
+	if reported.Load() != 1 {
+		t.Fatalf("hook called %d times", reported.Load())
+	}
+}

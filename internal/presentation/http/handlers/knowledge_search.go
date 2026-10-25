@@ -34,6 +34,13 @@ func (a *Handlers) SearchKnowledge(c fiber.Ctx) error {
 		in.Limit = &n
 	}
 	res, err := a.Knowledge.Search.SearchKnowledge(c.Context(), p, in)
+	if a.Metrics != nil {
+		mode := in.Mode
+		if mode == "" {
+			mode = string(a.Knowledge.Search.DefaultSearchMode())
+		}
+		a.Metrics.Search(mode, "api", err != nil)
+	}
 	if err != nil {
 		return responses.Fail(c, err)
 	}

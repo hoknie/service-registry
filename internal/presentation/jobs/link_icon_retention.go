@@ -15,7 +15,7 @@ func SpawnLinkIconRetention(ctx context.Context, deps Deps) <-chan struct{} {
 		tick := time.NewTicker(LinkIconRetentionEvery)
 		defer tick.Stop()
 		for {
-			switch n, err := deps.Links.Icons.PruneLinkIcons(ctx); {
+			switch n, err := observeCount(deps, "link_icon_retention", func() (int, error) { return deps.Links.Icons.PruneLinkIcons(ctx) }); {
 			case ctx.Err() != nil:
 				return
 			case err != nil:

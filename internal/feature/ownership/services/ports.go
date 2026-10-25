@@ -11,6 +11,7 @@ import (
 	"svc-registry/internal/feature/ownership/repositories"
 	ownershiptypes "svc-registry/internal/feature/ownership/types"
 	"svc-registry/internal/platform/apperr"
+	"svc-registry/internal/platform/metrics"
 )
 
 func (s *PortsService) OwnedProjects(ctx context.Context, caller uuid.UUID, f catalogtypes.OwnerFilter) ([]uuid.UUID, error) {
@@ -56,3 +57,13 @@ type PortsService struct {
 	catalog         *catalogservices.CatalogServices
 	ownerRepository *repositories.OwnerRepository
 }
+
+func (s *PortsService) MetricSamples(ctx context.Context) ([]metrics.Sample, error) {
+	counts, err := s.ownerRepository.MetricCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return metrics.FromPairs(metrics.Zero(counts, "covered:owners"), coveredShape), nil
+}
+
+var coveredShape = map[string]metrics.Shape{"covered": {Name: "svcr_projects_covered", Labels: []string{"aspect"}}}

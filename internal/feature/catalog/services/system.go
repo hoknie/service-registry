@@ -8,6 +8,7 @@ import (
 	"svc-registry/internal/feature/catalog/repositories"
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	"svc-registry/internal/feature/catalog/usecases"
+	"svc-registry/internal/platform/metrics"
 )
 
 func (s *SystemService) FindNode(ctx context.Context, id uuid.UUID) (*catalogtypes.Node, error) {
@@ -39,6 +40,33 @@ func (s *SystemService) RemoveNode(ctx context.Context, id uuid.UUID) error {
 }
 
 type SystemService struct {
-	nodeRepository *repositories.NodeRepository
-	moveNode       *usecases.MoveNodeUseCase
+	nodeRepository     *repositories.NodeRepository
+	activityRepository *repositories.ActivityRepository
+	moveNode           *usecases.MoveNodeUseCase
+	staleDays          uint32
+}
+
+var metricShapes = map[string]metrics.Shape{
+	"nodes":       {Name: "svcr_catalog_nodes", Labels: []string{"kind"}},
+	"branches":    {Name: "svcr_branches", Labels: []string{"state"}},
+	"credentials": {Name: "svcr_credentials_active", Labels: []string{"kind"}},
+}
+
+func (s *SystemService) MetricSamples(ctx context.Context) ([]metrics.Sample, error) {
+	counts, err := s.activityRepository.MetricCounts(ctx, s.staleDays)
+	if err != nil {
+		return nil, err
+	}
+	metrics.Zero(counts, "nodes:organization", "nodes:folder", "nodes:project", "branches:active", "branches:stale", "branches:gone",
+		"credentials:project_key")
+	paths, err := s.activityRepository.ProjectPaths(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := metrics.FromPairs(counts, metricShapes)
+	for _, p := range paths {
+		out = append(out, metrics.Sample{Name: "svcr_project_info", Value: 1,
+			Labels: map[string]string{"project_id": p[0], "organization_id": p[1], "path": p[2]}})
+	}
+	return out, nil
 }

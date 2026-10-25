@@ -54,3 +54,40 @@ func (s *ActivityRepository) Containers(ctx context.Context, v catalogtypes.View
 	}
 	return out, nil
 }
+
+func (s *ActivityRepository) MetricCounts(ctx context.Context, staleDays uint32) (map[string]int64, error) {
+	return postgres.Pairs[string, int64](ctx, s.db.From(ctx), constraints, `
+		SELECT 'nodes:' || kind, count(*)
+		FROM nodes
+		GROUP BY kind
+		UNION ALL
+		SELECT 'branches:' || CASE
+				WHEN gone_at IS NOT NULL THEN 'gone'
+				WHEN last_activity_at < now() - make_interval(days => $1::int) THEN 'stale'
+				ELSE 'active'
+			END, count(*)
+		FROM branches
+		GROUP BY 1
+		UNION ALL
+		SELECT 'credentials:project_key', count(*)
+		FROM project_keys
+		WHERE revoked_at IS NULL
+			AND (expires_at IS NULL OR expires_at > now())`, int(staleDays))
+}
+
+func (s *ActivityRepository) ProjectPaths(ctx context.Context) ([][]string, error) {
+	return postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowTo[[]string], `
+		WITH RECURSIVE tree AS (
+			SELECT id, kind, id AS organization_id, slug::text AS path
+			FROM nodes
+			WHERE parent_id IS NULL
+			UNION ALL
+			SELECT n.id, n.kind, t.organization_id, t.path || '/' || n.slug
+			FROM nodes n
+			JOIN tree t ON n.parent_id = t.id
+		)
+		SELECT ARRAY[id::text, organization_id::text, path]
+		FROM tree
+		WHERE kind = 'project'
+		ORDER BY path`)
+}

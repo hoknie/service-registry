@@ -101,3 +101,9 @@ func (s *DependencyRepository) SubtreeProjects(ctx context.Context, root uuid.UU
 		WHERE d.kind = 'project'
 			AND EXISTS (SELECT 1 FROM service_dependencies s WHERE s.project_id = d.id)`, root)
 }
+
+func (s *DependencyRepository) MetricCounts(ctx context.Context) (map[string]int64, error) {
+	return postgres.Pairs[string, int64](ctx, s.db.From(ctx), constraints, `
+		SELECT 'covered:dependencies', count(DISTINCT project_id)
+		FROM service_dependencies`)
+}

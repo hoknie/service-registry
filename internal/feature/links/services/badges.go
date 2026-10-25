@@ -12,6 +12,7 @@ import (
 	notifyservices "svc-registry/internal/feature/notify/services"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
+	"svc-registry/internal/platform/metrics"
 	"svc-registry/pkg/pgtx"
 )
 
@@ -45,4 +46,26 @@ type ProjectsService struct {
 	notify             *notifyservices.NotifyServices
 	targetRepository   *repositories.TargetRepository
 	templateRepository *repositories.TemplateRepository
+}
+
+var metricShapes = map[string]metrics.Shape{
+	"targets": {Name: "svcr_link_targets", Labels: []string{"state"}},
+	"covered": {Name: "svcr_projects_covered", Labels: []string{"aspect"}},
+	"queue":   {Name: "svcr_job_queue", Labels: []string{"job", "state"}},
+}
+
+func (s *ProjectsService) MetricSamples(ctx context.Context) ([]metrics.Sample, error) {
+	counts, err := s.targetRepository.MetricCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return metrics.FromPairs(metrics.Zero(counts, "targets:ok", "targets:broken", "targets:unchecked"), metricShapes), nil
+}
+
+func (s *ProjectsService) QueueSamples(ctx context.Context) ([]metrics.Sample, error) {
+	counts, err := s.targetRepository.QueueCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return metrics.FromPairs(metrics.Zero(counts, "queue:link_checks/due", "queue:link_checks/leased"), metricShapes), nil
 }

@@ -8,6 +8,7 @@ import (
 	knowledgeservices "svc-registry/internal/feature/knowledge/services"
 	linksservices "svc-registry/internal/feature/links/services"
 	topologyservices "svc-registry/internal/feature/topology/services"
+	"svc-registry/internal/platform/metrics"
 )
 
 type Deps struct {
@@ -18,5 +19,6 @@ type Deps struct {
 	Compose        *composeservices.ComposeServices
 	Topology       *topologyservices.TopologyServices
 	Apis           *apisservices.ApisServices
+	Metrics        *metrics.Metrics
 	MaxResultBytes int
 }

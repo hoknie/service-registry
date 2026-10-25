@@ -15,7 +15,7 @@ func SpawnBranchRetention(ctx context.Context, deps Deps) <-chan struct{} {
 		tick := time.NewTicker(BranchRetentionEvery)
 		defer tick.Stop()
 		for {
-			switch n, err := deps.Catalog.Branches.PruneBranches(ctx); {
+			switch n, err := observeCount(deps, "branch_retention", func() (int64, error) { return deps.Catalog.Branches.PruneBranches(ctx) }); {
 			case ctx.Err() != nil:
 				return
 			case err != nil:

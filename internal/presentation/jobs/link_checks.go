@@ -31,10 +31,11 @@ func SpawnLinkChecks(ctx context.Context, deps Deps) <-chan struct{} {
 		return done
 	}
 	s := &leasejobs.Scheduler[linkstypes.Target]{
-		Name:   "link-check",
-		Source: linkSource{deps: deps},
+		Name:    "link-check",
+		Source:  linkSource{deps: deps},
+		OnPanic: panicked(deps, "link_checks"),
 		Run: func(ctx context.Context, t linkstypes.Target) {
-			if err := deps.Links.Checks.RunLinkCheck(ctx, t); err != nil {
+			if err := observe(deps, "link_checks", func() error { return deps.Links.Checks.RunLinkCheck(ctx, t) }); err != nil {
 				slog.Warn("link check not recorded", "error", err)
 			}
 		},
@@ -58,10 +59,10 @@ func refreshLinks(ctx context.Context, deps Deps) {
 	tick := time.NewTicker(LinkRefreshEvery)
 	defer tick.Stop()
 	for {
-		if _, err := deps.Links.Checks.RefreshLinkTargets(ctx); err != nil && ctx.Err() == nil {
+		if _, err := observeCount(deps, "link_refresh", func() (int, error) { return deps.Links.Checks.RefreshLinkTargets(ctx) }); err != nil && ctx.Err() == nil {
 			slog.Warn("link refresh failed; retrying at the next tick", "error", err)
 		}
-		switch n, err := deps.Links.Checks.PruneLinkTargets(ctx); {
+		switch n, err := observeCount(deps, "link_target_retention", func() (int64, error) { return deps.Links.Checks.PruneLinkTargets(ctx) }); {
 		case ctx.Err() != nil:
 			return
 		case err != nil:

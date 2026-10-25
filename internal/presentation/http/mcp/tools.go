@@ -93,22 +93,22 @@ func (t *tools) register(s *sdk.Server) {
 	tool := func(name, description string) *sdk.Tool {
 		return &sdk.Tool{Name: name, Description: description + dataNote, Annotations: &sdk.ToolAnnotations{ReadOnlyHint: true}}
 	}
-	sdk.AddTool(s, tool("list_projects", "List projects you can read, with their slug paths; filter by text or by a subtree."), t.listProjects)
-	sdk.AddTool(s, tool("get_project", "Metadata of a project: description, labels, repository, default branch and the collected documentation."), t.getProject)
-	sdk.AddTool(s, tool("list_branches", "Branches of a project with head commits, sources and activity."), t.listBranches)
-	sdk.AddTool(s, tool("get_deployments", "Current version of every service in every environment of a project, with what Kubernetes clusters observe and drift."), t.getDeployments)
-	sdk.AddTool(s, tool("get_links", "Observability links of a project (logs, dashboards, alerts) per environment, with their last availability check."), t.getLinks)
-	sdk.AddTool(s, tool("get_dependencies", "Dependencies of a project: what it depends on, which projects depend on it, with sources, and the graph around it."), t.getDependencies)
-	sdk.AddTool(s, tool("list_docs", "Files of the documentation snapshot of a project's branch."), t.listDocs)
-	sdk.AddTool(s, tool("get_doc", "Content of a documentation file of a project, with the commit of its snapshot."), t.getDoc)
-	sdk.AddTool(s, tool("search_docs", "Search the documentation of the projects you can read by words or by meaning, with matching fragments."), t.searchDocs)
-	sdk.AddTool(s, tool("list_specs", "OpenSpec specifications (capabilities) of a project with their purpose and requirement names."), t.listSpecs)
-	sdk.AddTool(s, tool("get_spec", "The OpenSpec specification of a capability of a project."), t.getSpec)
-	sdk.AddTool(s, tool("list_changes", "OpenSpec changes of a project — active and archived — with their artifacts."), t.listChanges)
-	sdk.AddTool(s, tool("list_adrs", "Architecture decision records of a project (OpenSpec decisions) with status and supersession."), t.listADRs)
-	sdk.AddTool(s, tool("get_adr", "One architecture decision record of a project by number."), t.getADR)
-	sdk.AddTool(s, tool("list_apis", "API descriptions (OpenAPI, Swagger, protobuf) in the documentation snapshot of a project, with a summary of each."), t.listAPIs)
-	sdk.AddTool(s, tool("get_api", "An API description of a project in Markdown: overview and list of operations, or one operation, proto service or message with the schemas it uses."), t.getAPI)
+	sdk.AddTool(s, tool("list_projects", "List projects you can read, with their slug paths; filter by text or by a subtree."), observe(t, "list_projects", t.listProjects))
+	sdk.AddTool(s, tool("get_project", "Metadata of a project: description, labels, repository, default branch and the collected documentation."), observe(t, "get_project", t.getProject))
+	sdk.AddTool(s, tool("list_branches", "Branches of a project with head commits, sources and activity."), observe(t, "list_branches", t.listBranches))
+	sdk.AddTool(s, tool("get_deployments", "Current version of every service in every environment of a project, with what Kubernetes clusters observe and drift."), observe(t, "get_deployments", t.getDeployments))
+	sdk.AddTool(s, tool("get_links", "Observability links of a project (logs, dashboards, alerts) per environment, with their last availability check."), observe(t, "get_links", t.getLinks))
+	sdk.AddTool(s, tool("get_dependencies", "Dependencies of a project: what it depends on, which projects depend on it, with sources, and the graph around it."), observe(t, "get_dependencies", t.getDependencies))
+	sdk.AddTool(s, tool("list_docs", "Files of the documentation snapshot of a project's branch."), observe(t, "list_docs", t.listDocs))
+	sdk.AddTool(s, tool("get_doc", "Content of a documentation file of a project, with the commit of its snapshot."), observe(t, "get_doc", t.getDoc))
+	sdk.AddTool(s, tool("search_docs", "Search the documentation of the projects you can read by words or by meaning, with matching fragments."), observe(t, "search_docs", t.searchDocs))
+	sdk.AddTool(s, tool("list_specs", "OpenSpec specifications (capabilities) of a project with their purpose and requirement names."), observe(t, "list_specs", t.listSpecs))
+	sdk.AddTool(s, tool("get_spec", "The OpenSpec specification of a capability of a project."), observe(t, "get_spec", t.getSpec))
+	sdk.AddTool(s, tool("list_changes", "OpenSpec changes of a project — active and archived — with their artifacts."), observe(t, "list_changes", t.listChanges))
+	sdk.AddTool(s, tool("list_adrs", "Architecture decision records of a project (OpenSpec decisions) with status and supersession."), observe(t, "list_adrs", t.listADRs))
+	sdk.AddTool(s, tool("get_adr", "One architecture decision record of a project by number."), observe(t, "get_adr", t.getADR))
+	sdk.AddTool(s, tool("list_apis", "API descriptions (OpenAPI, Swagger, protobuf) in the documentation snapshot of a project, with a summary of each."), observe(t, "list_apis", t.listAPIs))
+	sdk.AddTool(s, tool("get_api", "An API description of a project in Markdown: overview and list of operations, or one operation, proto service or message with the schemas it uses."), observe(t, "get_api", t.getAPI))
 }
 
 type projectSummary struct {

@@ -98,3 +98,7 @@ func reasonOf(err error) string {
 		return accesstypes.ReasonConnection
 	}
 }
+
+func (c *FetcherClient) Instrument(wrap func(http.RoundTripper) http.RoundTripper) {
+	c.client.Transport = wrap(c.client.Transport)
+}

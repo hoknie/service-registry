@@ -14,6 +14,7 @@ import (
 	knowledgeports "svc-registry/internal/feature/knowledge/ports"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/config"
+	"svc-registry/internal/platform/metrics"
 	"svc-registry/pkg/outbound"
 )
 
@@ -30,7 +31,7 @@ func secretValue(raw string) (string, error) {
 	return raw, nil
 }
 
-func buildSearch(all config.Config, pool *pgxpool.Pool) (search, error) {
+func buildSearch(all config.Config, pool *pgxpool.Pool, m *metrics.Metrics) (search, error) {
 	cfg := all.Search
 	if cfg.Engine == "postgres" {
 		return search{engine: knowledgetypes.TextOnly{}}, nil
@@ -42,13 +43,13 @@ func buildSearch(all config.Config, pool *pgxpool.Pool) (search, error) {
 			return search{}, fmt.Errorf("EMBEDDINGS_API_KEY: %w", err)
 		}
 		out.embedder = embeddings.New(cfg.EmbeddingsURL, key, cfg.EmbeddingsModel, cfg.EmbeddingsDims, cfg.EmbeddingsBatch,
-			outbound.New(all.Outbound.Options()))
+			m.Client("embeddings", outbound.New(all.Outbound.Options())))
 	}
 	switch cfg.Engine {
 	case "pgvector":
 		out.engine = pgvector.New(pool, cfg.EmbeddingsModel)
 	default:
-		if err := buildExternal(all, &out); err != nil {
+		if err := buildExternal(all, &out, m); err != nil {
 			return search{}, err
 		}
 	}

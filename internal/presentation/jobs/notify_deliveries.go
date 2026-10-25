@@ -41,10 +41,11 @@ func SpawnNotifyDeliveries(ctx context.Context, deps Deps) <-chan struct{} {
 		return done
 	}
 	s := &leasejobs.Scheduler[uuid.UUID]{
-		Name:   "notify-delivery",
-		Source: deliverySource{deps: deps},
+		Name:    "notify-delivery",
+		Source:  deliverySource{deps: deps},
+		OnPanic: panicked(deps, "notify_deliveries"),
 		Run: func(ctx context.Context, id uuid.UUID) {
-			if err := deps.Notify.Deliveries.RunDelivery(ctx, id); err != nil {
+			if err := observe(deps, "notify_deliveries", func() error { return deps.Notify.Deliveries.RunDelivery(ctx, id) }); err != nil {
 				slog.Warn("notification delivery not recorded", "delivery", id, "error", err)
 			}
 		},
@@ -64,7 +65,7 @@ func pruneNotifications(ctx context.Context, deps Deps) {
 	tick := time.NewTicker(NotifyRetentionEvery)
 	defer tick.Stop()
 	for {
-		switch n, err := deps.Notify.Deliveries.PruneNotifications(ctx); {
+		switch n, err := observeCount(deps, "notify_retention", func() (int64, error) { return deps.Notify.Deliveries.PruneNotifications(ctx) }); {
 		case ctx.Err() != nil:
 			return
 		case err != nil:

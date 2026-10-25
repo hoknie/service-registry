@@ -123,6 +123,6 @@ func mcpPrecheck(body []byte) *mcpError {
 }
 
 func (a *Handlers) mcpDeps() mcp.Deps {
-	return mcp.Deps{Catalog: a.Catalog, Deploy: a.Deploy, Knowledge: a.Knowledge, Links: a.Links, Compose: a.Compose, Topology: a.Topology, Apis: a.Apis,
+	return mcp.Deps{Catalog: a.Catalog, Deploy: a.Deploy, Knowledge: a.Knowledge, Links: a.Links, Compose: a.Compose, Topology: a.Topology, Apis: a.Apis, Metrics: a.Metrics,
 		MaxResultBytes: a.Config.Knowledge.MCPMaxResultBytes}
 }

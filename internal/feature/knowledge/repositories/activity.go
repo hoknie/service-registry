@@ -89,3 +89,29 @@ func (s *CollectionRepository) Signals(ctx context.Context, projects []uuid.UUID
 	}
 	return catalogtypes.SignalsByProject(found), nil
 }
+
+func (s *CollectionRepository) MetricCounts(ctx context.Context) (map[string]int64, error) {
+	return postgres.Pairs[string, int64](ctx, s.db.From(ctx), constraints, `
+		SELECT 'snapshots', count(*)
+		FROM knowledge_snapshots
+		UNION ALL
+		SELECT 'covered:docs', count(DISTINCT project_id)
+		FROM knowledge_snapshots
+		WHERE status <> 'failed'
+			AND files > 0`)
+}
+
+func (s *CollectionRepository) QueueCounts(ctx context.Context) (map[string]int64, error) {
+	return postgres.Pairs[string, int64](ctx, s.db.From(ctx), constraints, `
+		SELECT 'queue:knowledge_collection/' || CASE WHEN lease_until > now() THEN 'leased' ELSE 'due' END, count(*)
+		FROM knowledge_settings
+		WHERE lease_until > now()
+			OR next_run_at <= now()
+		GROUP BY 1
+		UNION ALL
+		SELECT 'queue:knowledge_index/' || CASE WHEN lease_until > now() THEN 'leased' ELSE 'due' END, count(*)
+		FROM knowledge_index_state
+		WHERE lease_until > now()
+			OR next_run_at <= now()
+		GROUP BY 1`)
+}

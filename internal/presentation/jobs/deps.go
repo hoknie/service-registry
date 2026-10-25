@@ -10,6 +10,7 @@ import (
 	linksservices "svc-registry/internal/feature/links/services"
 	notifyservices "svc-registry/internal/feature/notify/services"
 	"svc-registry/internal/platform/config"
+	"svc-registry/internal/platform/metrics"
 )
 
 type Deps struct {
@@ -22,4 +23,5 @@ type Deps struct {
 	Deploy    *deployservices.DeployServices
 	Knowledge *knowledgeservices.KnowledgeServices
 	Notify    *notifyservices.NotifyServices
+	Metrics   *metrics.Metrics
 }

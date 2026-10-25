@@ -1,6 +1,10 @@
 package types
 
-import "github.com/google/uuid"
+import (
+	"errors"
+
+	"github.com/google/uuid"
+)
 
 type Trigger string
 
@@ -19,6 +23,8 @@ const (
 	RunFailed      RunStatus = "failed"
 	RunRateLimited RunStatus = "rate_limited"
 )
+
+var ErrRunFailed = errors.New("forge sync run failed")
 
 type Problem struct {
 	FullPath string `json:"full_path"`

@@ -11,6 +11,7 @@ import (
 	"svc-registry/internal/feature/notify/clients/sender"
 	notifyports "svc-registry/internal/feature/notify/ports"
 	"svc-registry/internal/platform/config"
+	"svc-registry/internal/platform/metrics"
 )
 
 type Option func(*overrides)
@@ -20,6 +21,7 @@ type overrides struct {
 	k8s            deployports.ClientFactoryPort
 	notifySender   notifyports.SenderPort
 	clientMetadata accessports.ClientMetadataPort
+	metricSources  []metrics.Source
 }
 
 func WithLinkChecker(c linksports.CheckerPort) Option {
@@ -70,4 +72,8 @@ func overridesOf(opts []Option) overrides {
 		opt(&o)
 	}
 	return o
+}
+
+func WithMetricsSource(s metrics.Source) Option {
+	return func(o *overrides) { o.metricSources = append(o.metricSources, s) }
 }

@@ -9,6 +9,7 @@ import (
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	"svc-registry/internal/feature/deploy/repositories"
 	deploytypes "svc-registry/internal/feature/deploy/types"
+	"svc-registry/internal/platform/metrics"
 	"svc-registry/pkg/secretbox"
 )
 
@@ -61,4 +62,28 @@ func (s *PortsService) SecretUsage(ctx context.Context, secrets []uuid.UUID) (ma
 type PortsService struct {
 	clusterRepository *repositories.ClusterRepository
 	secrets           *secretbox.Box
+}
+
+var metricShapes = map[string]metrics.Shape{
+	"clusters":    {Name: "svcr_clusters", Labels: []string{"mode", "state"}},
+	"workloads":   {Name: "svcr_cluster_workloads"},
+	"credentials": {Name: "svcr_credentials_active", Labels: []string{"kind"}},
+	"drifts":      {Name: "svcr_drifts"},
+	"queue":       {Name: "svcr_job_queue", Labels: []string{"job", "state"}},
+}
+
+func (s *PortsService) MetricSamples(ctx context.Context) ([]metrics.Sample, error) {
+	counts, err := s.clusterRepository.MetricCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return metrics.FromPairs(counts, metricShapes), nil
+}
+
+func (s *PortsService) QueueSamples(ctx context.Context) ([]metrics.Sample, error) {
+	counts, err := s.clusterRepository.QueueCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return metrics.FromPairs(metrics.Zero(counts, "queue:cluster_polls/due", "queue:cluster_polls/leased"), metricShapes), nil
 }

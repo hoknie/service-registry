@@ -13,6 +13,7 @@ import (
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/auth"
 	"svc-registry/internal/platform/config"
+	"svc-registry/internal/platform/metrics"
 )
 
 type Authenticated struct {
@@ -67,4 +68,18 @@ type AcceptService struct {
 	limiter              *auth.IngestLimiter
 	acceptEvent          *usecases.AcceptEventUseCase
 	recordDeployment     *usecases.RecordDeploymentUseCase
+}
+
+var metricShapes = map[string]metrics.Shape{
+	"environments": {Name: "svcr_service_environments"},
+	"covered":      {Name: "svcr_projects_covered", Labels: []string{"aspect"}},
+	"recent":       {Name: "svcr_deployments_recent", Labels: []string{"window"}},
+}
+
+func (s *AcceptService) MetricSamples(ctx context.Context) ([]metrics.Sample, error) {
+	counts, err := s.deploymentRepository.MetricCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return metrics.FromPairs(counts, metricShapes), nil
 }

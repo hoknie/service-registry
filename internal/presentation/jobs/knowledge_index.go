@@ -36,10 +36,11 @@ func SpawnKnowledgeIndex(ctx context.Context, deps Deps) <-chan struct{} {
 		return done
 	}
 	s := &leasejobs.Scheduler[uuid.UUID]{
-		Name:   "knowledge-index",
-		Source: indexSource{deps: deps},
+		Name:    "knowledge-index",
+		Source:  indexSource{deps: deps},
+		OnPanic: panicked(deps, "knowledge_index"),
 		Run: func(ctx context.Context, id uuid.UUID) {
-			err := deps.Knowledge.Index.RunKnowledgeIndex(ctx, id)
+			err := observe(deps, "knowledge_index", func() error { return deps.Knowledge.Index.RunKnowledgeIndex(ctx, id) })
 			if failure, ok := errors.AsType[*knowledgetypes.IndexFailure](err); ok {
 				slog.Warn("documentation indexing failed", "project", id, "code", failure.Code, "detail", failure.Detail)
 			} else if err != nil {
@@ -70,7 +71,7 @@ func retainLoop(ctx context.Context, deps Deps) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			if err := deps.Knowledge.Index.RetainExternalIndex(ctx); err != nil {
+			if err := observe(deps, "knowledge_index_retention", func() error { return deps.Knowledge.Index.RetainExternalIndex(ctx) }); err != nil {
 				slog.Warn("search index cleanup failed", "error", err)
 			}
 		}

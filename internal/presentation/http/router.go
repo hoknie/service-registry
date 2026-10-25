@@ -15,19 +15,22 @@ import (
 func NewRouter(d Deps, dist webui.Dist) *fiber.App {
 	api := d.handlers()
 	app := newApp(api)
+	if d.Metrics != nil {
+		app.Use(middleware.Metrics(d.Metrics))
+	}
 	app.Use(middleware.RequestLog())
 	r := routes{app: app}
 
 	r.add("/api/health", false, get(api.Health))
 	r.add("/api/ready", false, get(api.Ready))
 
-	r.add("/api/v1/auth/login", true, post(api.Login))
+	r.add("/api/v1/auth/login", true, post(api.CountLogin(api.Login)))
 	r.add("/api/v1/auth/logout", true, post(api.Logout))
 	r.add("/api/v1/auth/me", true, get(api.Me))
 	r.add("/api/v1/auth/password", true, post(api.ChangePassword))
 	r.add("/api/v1/providers", false, get(api.Providers))
 	r.add("/api/v1/auth/oauth/:provider/start", false, get(api.OAuthStart))
-	r.add("/api/v1/auth/oauth/:provider/callback", false, get(api.OAuthCallback))
+	r.add("/api/v1/auth/oauth/:provider/callback", false, get(api.CountOAuthLogin(api.OAuthCallback)))
 	r.add("/api/v1/users", true, get(api.ListUsers), post(api.CreateUser))
 	r.add("/api/v1/users/:id", true, get(api.GetUser), patch(api.UpdateUser))
 	r.add("/api/v1/users/:id/password", true, post(api.ResetPassword))
@@ -156,11 +159,14 @@ func NewRouter(d Deps, dist webui.Dist) *fiber.App {
 	r.add("/api/v1/catalog/nodes/:id/forge/connections/:cid/exclusions", true, get(api.ListExclusions))
 	r.add("/api/v1/catalog/nodes/:id/forge/connections/:cid/exclusions/:external_id", true, del(api.DeleteExclusion))
 	r.add("/api/v1/catalog/nodes/:id/forge/unlink", true, post(api.UnlinkProject))
-	r.add("/api/v1/ingest/projects/:project_id/events", false, post(api.IngestEvent))
+	r.add("/api/v1/ingest/projects/:project_id/events", false, post(api.CountIngest(api.IngestEvent)))
 	r.add("/api/v1/ingest/clusters/:id/config", false, get(api.AgentConfig))
-	r.add("/api/v1/ingest/clusters/:id/reports", false, post(api.AgentReport))
-	r.add("/api/v1/forge/hooks/:connection_id", false, post(api.ForgeHook))
+	r.add("/api/v1/ingest/clusters/:id/reports", false, post(api.CountAgentReport(api.AgentReport)))
+	r.add("/api/v1/forge/hooks/:connection_id", false, post(api.CountForgeHook(api.ForgeHook)))
 
+	if d.Metrics != nil {
+		r.add("/metrics", false, get(api.MetricsPage()))
+	}
 	app.All("/api", handlers.APINotFound)
 	app.All("/api/*", handlers.APINotFound)
 	app.Use(webui.Serve(dist))

@@ -27,9 +27,12 @@ func SpawnForgeSync(ctx context.Context, deps Deps) <-chan struct{} {
 		return done
 	}
 	s := &leasejobs.Scheduler[forgetypes.Claimed]{
-		Name:        "forge-sync",
-		Source:      forgeSource{deps: deps},
-		Run:         func(ctx context.Context, c forgetypes.Claimed) { deps.Forge.Sync.RunClaimedSync(ctx, c) },
+		Name:   "forge-sync",
+		Source: forgeSource{deps: deps},
+		Run: func(ctx context.Context, c forgetypes.Claimed) {
+			_ = observe(deps, "forge_sync", func() error { return deps.Forge.Sync.RunClaimedSync(ctx, c) })
+		},
+		OnPanic:     panicked(deps, "forge_sync"),
 		Concurrency: int(deps.Config.Jobs.ForgeConcurrency),
 		Tick:        ForgeTick,
 	}

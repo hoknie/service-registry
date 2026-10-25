@@ -15,7 +15,7 @@ func SpawnLoginStateRetention(ctx context.Context, deps Deps) <-chan struct{} {
 		tick := time.NewTicker(LoginStateRetentionEvery)
 		defer tick.Stop()
 		for {
-			switch n, err := deps.Access.OAuth.PruneLoginStates(ctx); {
+			switch n, err := observeCount(deps, "login_state_retention", func() (int64, error) { return deps.Access.OAuth.PruneLoginStates(ctx) }); {
 			case ctx.Err() != nil:
 				return
 			case err != nil:

@@ -10,6 +10,7 @@ import (
 	"svc-registry/internal/feature/knowledge/repositories"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/platform/apperr"
+	"svc-registry/internal/platform/metrics"
 )
 
 type SearchResult struct {
@@ -31,6 +32,8 @@ func (s *SearchService) engine() knowledgeports.EnginePort {
 	}
 	return s.searchEngine
 }
+
+func (s *SearchService) DefaultSearchMode() knowledgetypes.Mode { return s.engine().DefaultMode() }
 
 func (s *SearchService) KnowledgeSearchModes(ctx context.Context) (SearchModes, error) {
 	e := s.engine()
@@ -157,8 +160,41 @@ func offers(e knowledgeports.EnginePort, m knowledgetypes.Mode) bool {
 }
 
 type SearchService struct {
-	indexRepository  *repositories.IndexRepository
-	searchRepository *repositories.SearchRepository
-	embedder         knowledgeports.EmbedderPort
-	searchEngine     knowledgeports.EnginePort
+	collectionRepository *repositories.CollectionRepository
+	indexRepository      *repositories.IndexRepository
+	searchRepository     *repositories.SearchRepository
+	embedder             knowledgeports.EmbedderPort
+	searchEngine         knowledgeports.EnginePort
+}
+
+var metricShapes = map[string]metrics.Shape{
+	"snapshots": {Name: "svcr_knowledge_snapshots"},
+	"pending":   {Name: "svcr_knowledge_files_pending"},
+	"covered":   {Name: "svcr_projects_covered", Labels: []string{"aspect"}},
+	"queue":     {Name: "svcr_job_queue", Labels: []string{"job", "state"}},
+}
+
+func (s *SearchService) MetricSamples(ctx context.Context) ([]metrics.Sample, error) {
+	counts, err := s.collectionRepository.MetricCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if s.embedder != nil {
+		pending, _, err := s.indexRepository.Counts(ctx, s.embedder.Model())
+		if err != nil {
+			return nil, err
+		}
+		counts["pending"] = int64(pending)
+	}
+	return metrics.FromPairs(metrics.Zero(counts, "covered:docs"), metricShapes), nil
+}
+
+func (s *SearchService) QueueSamples(ctx context.Context) ([]metrics.Sample, error) {
+	counts, err := s.collectionRepository.QueueCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	metrics.Zero(counts, "queue:knowledge_collection/due", "queue:knowledge_collection/leased",
+		"queue:knowledge_index/due", "queue:knowledge_index/leased")
+	return metrics.FromPairs(counts, metricShapes), nil
 }

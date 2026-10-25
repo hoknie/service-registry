@@ -22,12 +22,13 @@ type Config struct {
 	Search       SearchConfig
 	OAuth        OAuthConfig
 	MCPOAuth     MCPOAuthConfig
+	Metrics      MetricsConfig
 	Bootstrap    BootstrapConfig
 }
 
 func (c *Config) check() Errors {
 	var errs Errors
-	for _, s := range []checker{&c.DB, &c.Web, &c.Log, &c.Session, &c.Bootstrap, &c.Secrets, &c.Outbound, &c.LinkCheck, &c.Notify, &c.OAuth, &c.MCPOAuth, &c.Knowledge, &c.Search, &c.Uploads} {
+	for _, s := range []checker{&c.DB, &c.Web, &c.Log, &c.Session, &c.Bootstrap, &c.Secrets, &c.Outbound, &c.LinkCheck, &c.Notify, &c.OAuth, &c.MCPOAuth, &c.Knowledge, &c.Search, &c.Uploads, &c.Metrics} {
 		errs = append(errs, s.check()...)
 	}
 	if c.MCPOAuth.Enabled && c.Web.PublicURL == "" {

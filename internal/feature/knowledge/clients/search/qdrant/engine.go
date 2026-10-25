@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	qd "github.com/qdrant/go-client/qdrant"
+	"google.golang.org/grpc"
 
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 )
@@ -23,6 +24,7 @@ type EngineClient struct {
 	dims       int
 	mu         sync.Mutex
 	client     *qd.Client
+	dial       []grpc.DialOption
 	ready      bool
 }
 
@@ -53,7 +55,7 @@ func (e *EngineClient) conn(ctx context.Context) (*qd.Client, error) {
 		if err != nil {
 			return nil, unavailable("address", err)
 		}
-		c, err := qd.NewClient(&qd.Config{Host: host, Port: p, APIKey: e.apiKey, SkipCompatibilityCheck: true})
+		c, err := qd.NewClient(&qd.Config{Host: host, Port: p, APIKey: e.apiKey, SkipCompatibilityCheck: true, GrpcOptions: e.dial})
 		if err != nil {
 			return nil, unavailable("connect", err)
 		}
@@ -222,4 +224,10 @@ func (e *EngineClient) Search(ctx context.Context, q knowledgetypes.EngineQuery)
 		hits = hits[:q.Limit]
 	}
 	return hits, more, nil
+}
+
+func (e *EngineClient) Instrument(i grpc.UnaryClientInterceptor) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.dial = append(e.dial, grpc.WithChainUnaryInterceptor(i))
 }

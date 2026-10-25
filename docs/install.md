@@ -143,6 +143,7 @@ variable with its default is in [`.env.example`](../.env.example).
 | `SESSION_IDLE_TIMEOUT_SECS`, `SESSION_ABSOLUTE_TIMEOUT_SECS` | 12 h, 7 days | when a browser session ends |
 | `LOG_LEVEL` | `info` | `off`, `error`, `warn`, `info`, `debug` or `trace`; also per component, e.g. `info,pgx=warn` |
 | `HTTPS_PROXY`, `NO_PROXY`, `HTTP_CA_FILE` | — | outgoing proxy and extra CA certificates |
+| `METRICS_ENABLED`, `METRICS_TOKEN` | `false`, — | Prometheus metrics at `/metrics` and the token they need ([metrics.md](metrics.md)) |
 
 ## Behind a reverse proxy
 

@@ -30,6 +30,7 @@ type FactoryClient struct {
 	timeout   time.Duration
 	limit     int64
 	inCluster func() (*rest.Config, error)
+	wrap      func(http.RoundTripper) http.RoundTripper
 }
 
 func NewFactoryClient(out config.OutboundConfig, k config.K8sClientConfig) *FactoryClient {
@@ -55,6 +56,7 @@ func (f *FactoryClient) Client(a deploytypes.Access) (deployports.ClusterClientP
 	cfg.Timeout = f.timeout
 	cfg.UserAgent = userAgent
 	cfg.Proxy = func(r *http.Request) (*url.URL, error) { return f.proxy(r.URL) }
+	cfg.WrapTransport = f.wrap
 	hc, err := rest.HTTPClientFor(cfg)
 	if err != nil {
 		return nil, failure(err)
@@ -114,3 +116,5 @@ func statusError(code int, body []byte) error {
 	}
 	return fmt.Errorf("GET /version: HTTP %d: %s", code, msg)
 }
+
+func (f *FactoryClient) Instrument(wrap func(http.RoundTripper) http.RoundTripper) { f.wrap = wrap }

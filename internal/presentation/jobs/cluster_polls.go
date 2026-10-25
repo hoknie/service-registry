@@ -32,10 +32,11 @@ func SpawnClusterPolls(ctx context.Context, deps Deps) <-chan struct{} {
 		return done
 	}
 	s := &leasejobs.Scheduler[uuid.UUID]{
-		Name:   "cluster-poll",
-		Source: clusterSource{deps: deps},
+		Name:    "cluster-poll",
+		Source:  clusterSource{deps: deps},
+		OnPanic: panicked(deps, "cluster_polls"),
 		Run: func(ctx context.Context, id uuid.UUID) {
-			if err := deps.Deploy.Poll.RunClusterPoll(ctx, id); err != nil {
+			if err := observe(deps, "cluster_polls", func() error { return deps.Deploy.Poll.RunClusterPoll(ctx, id) }); err != nil {
 				slog.Warn("cluster poll failed", "cluster", id, "error", err)
 			}
 		},
@@ -59,7 +60,7 @@ func pruneWorkloads(ctx context.Context, deps Deps) {
 	tick := time.NewTicker(WorkloadRetentionEvery)
 	defer tick.Stop()
 	for {
-		switch n, err := deps.Deploy.Poll.PruneWorkloads(ctx); {
+		switch n, err := observeCount(deps, "workload_retention", func() (int64, error) { return deps.Deploy.Poll.PruneWorkloads(ctx) }); {
 		case ctx.Err() != nil:
 			return
 		case err != nil:

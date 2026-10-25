@@ -32,7 +32,7 @@ func mimeOf(path string) string {
 func (t *tools) registerResources(s *sdk.Server) {
 	s.AddResourceTemplate(&sdk.ResourceTemplate{Name: "docs", Title: "Project documentation",
 		URITemplate: docsTemplate, Description: "A documentation file of a project; add ?ref=<branch> for another branch." + dataNote},
-		t.readResource)
+		t.observeResource(docsTemplate, t.readResource))
 	s.AddReceivingMiddleware(func(next sdk.MethodHandler) sdk.MethodHandler {
 		return func(ctx context.Context, method string, req sdk.Request) (sdk.Result, error) {
 			if method != "resources/list" {

@@ -29,10 +29,11 @@ func SpawnKnowledgeCollection(ctx context.Context, deps Deps) <-chan struct{} {
 		return done
 	}
 	s := &leasejobs.Scheduler[uuid.UUID]{
-		Name:   "knowledge-collect",
-		Source: knowledgeSource{deps: deps},
+		Name:    "knowledge-collect",
+		Source:  knowledgeSource{deps: deps},
+		OnPanic: panicked(deps, "knowledge_collection"),
 		Run: func(ctx context.Context, id uuid.UUID) {
-			if err := deps.Knowledge.Collect.RunKnowledgeCollect(ctx, id); err != nil {
+			if err := observe(deps, "knowledge_collection", func() error { return deps.Knowledge.Collect.RunKnowledgeCollect(ctx, id) }); err != nil {
 				slog.Warn("documentation collection failed", "project", id, "error", err)
 			}
 		},

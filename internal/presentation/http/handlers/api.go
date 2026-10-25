@@ -18,6 +18,7 @@ import (
 	ownershipservices "svc-registry/internal/feature/ownership/services"
 	topologyservices "svc-registry/internal/feature/topology/services"
 	"svc-registry/internal/platform/config"
+	"svc-registry/internal/platform/metrics"
 )
 
 type Handlers struct {
@@ -35,6 +36,7 @@ type Handlers struct {
 	Topology  *topologyservices.TopologyServices
 	Apis      *apisservices.ApisServices
 	Compose   *composeservices.ComposeServices
+	Metrics   *metrics.Metrics
 	Version   string
 
 	mcpOnce    sync.Once

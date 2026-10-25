@@ -9,6 +9,7 @@ import (
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	"svc-registry/internal/feature/forge/repositories"
 	forgetypes "svc-registry/internal/feature/forge/types"
+	"svc-registry/internal/platform/metrics"
 	"svc-registry/pkg/secretbox"
 )
 
@@ -99,4 +100,26 @@ type PortsService struct {
 	connectionRepository *repositories.ConnectionRepository
 	repoRepository       *repositories.RepoRepository
 	secrets              *secretbox.Box
+}
+
+var metricShapes = map[string]metrics.Shape{
+	"connections": {Name: "svcr_forge_connections", Labels: []string{"forge", "state"}},
+	"covered":     {Name: "svcr_projects_covered", Labels: []string{"aspect"}},
+	"queue":       {Name: "svcr_job_queue", Labels: []string{"job", "state"}},
+}
+
+func (s *PortsService) MetricSamples(ctx context.Context) ([]metrics.Sample, error) {
+	counts, err := s.connectionRepository.MetricCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return metrics.FromPairs(counts, metricShapes), nil
+}
+
+func (s *PortsService) QueueSamples(ctx context.Context) ([]metrics.Sample, error) {
+	counts, err := s.connectionRepository.QueueCounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return metrics.FromPairs(metrics.Zero(counts, "queue:forge_sync/due", "queue:forge_sync/leased"), metricShapes), nil
 }

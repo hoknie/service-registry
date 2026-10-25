@@ -163,3 +163,7 @@ func tlsError(err error) bool {
 	_, ok := errors.AsType[tls.RecordHeaderError](err)
 	return ok
 }
+
+func (c *SenderClient) Instrument(wrap func(http.RoundTripper) http.RoundTripper) {
+	c.client.Transport = wrap(c.client.Transport)
+}

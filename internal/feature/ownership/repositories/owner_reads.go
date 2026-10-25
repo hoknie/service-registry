@@ -166,3 +166,19 @@ func (s *OwnerRepository) OwnedAmong(ctx context.Context, userID uuid.UUID, node
 		)
 		ORDER BY up.target`, userID, nodeIDs)
 }
+
+func (s *OwnerRepository) MetricCounts(ctx context.Context) (map[string]int64, error) {
+	return postgres.Pairs[string, int64](ctx, s.db.From(ctx), constraints, `
+		WITH RECURSIVE reach AS (
+			SELECT DISTINCT node_id AS id
+			FROM node_owners
+			UNION
+			SELECT n.id
+			FROM nodes n
+			JOIN reach r ON n.parent_id = r.id
+		)
+		SELECT 'covered:owners', count(*)
+		FROM nodes
+		WHERE kind = 'project'
+			AND id IN (SELECT id FROM reach)`)
+}

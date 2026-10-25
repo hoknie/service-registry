@@ -135,3 +135,11 @@ func (s *SubscriptionRepository) SecretUsage(ctx context.Context, secrets []uuid
 		WHERE secret_id = ANY($1)
 		GROUP BY secret_id`, secrets)
 }
+
+func (s *SubscriptionRepository) MetricCounts(ctx context.Context) (map[string]int64, error) {
+	return postgres.Pairs[string, int64](ctx, s.db.From(ctx), constraints, `
+		SELECT 'subscriptions:' || channel, count(*)
+		FROM notification_subscriptions
+		WHERE NOT disabled
+		GROUP BY channel`)
+}

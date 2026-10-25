@@ -66,6 +66,7 @@ func (a *Handlers) IngestEvent(c fiber.Ctx) error {
 }
 
 func (a *Handlers) IngestBodyTooLarge(c fiber.Ctx, projectSegment string) error {
+	defer a.recordIngest(c)
 	if _, err := a.authenticateIngest(c, projectSegment); err != nil {
 		return responses.Fail(c, err)
 	}

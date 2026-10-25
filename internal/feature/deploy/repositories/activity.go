@@ -49,3 +49,48 @@ func (s *ClusterRepository) Signals(ctx context.Context, projects []uuid.UUID, b
 	}
 	return catalogtypes.SignalsByProject(found), nil
 }
+
+func (s *ClusterRepository) MetricCounts(ctx context.Context) (map[string]int64, error) {
+	return postgres.Pairs[string, int64](ctx, s.db.From(ctx), constraints, `
+		SELECT 'clusters:' || c.mode || '/' || CASE
+				WHEN c.mode = 'agent' AND COALESCE(c.agent_reported_at, c.updated_at) < now() - make_interval(secs => 3 * GREATEST(
+					c.interval_secs, agent_report_gap(c.interval_secs, c.agent_workloads, $1))) THEN 'silent'
+				WHEN c.status = 'error' THEN 'failed'
+				ELSE 'ok'
+			END, count(*)
+		FROM clusters c
+		GROUP BY 1
+		UNION ALL
+		SELECT 'workloads', count(*)
+		FROM cluster_workloads
+		WHERE gone_at IS NULL
+		UNION ALL
+		SELECT 'credentials:agent_token', count(*)
+		FROM cluster_agent_tokens
+		WHERE revoked_at IS NULL
+			AND (expires_at IS NULL OR expires_at > now())
+		UNION ALL
+		SELECT 'drifts', count(*)
+		FROM service_environments e
+		JOIN service_deployments d ON d.id = e.deployment_id
+		WHERE EXISTS (
+			SELECT 1
+			FROM cluster_workloads w
+			WHERE w.project_id = e.project_id
+				AND w.service = e.service
+				AND w.environment = e.environment
+				AND w.gone_at IS NULL
+				AND w.version IS NOT NULL
+				AND w.version <> d.version
+		)`, s.perGap)
+}
+
+func (s *ClusterRepository) QueueCounts(ctx context.Context) (map[string]int64, error) {
+	return postgres.Pairs[string, int64](ctx, s.db.From(ctx), constraints, `
+		SELECT 'queue:cluster_polls/' || CASE WHEN lease_until > now() THEN 'leased' ELSE 'due' END, count(*)
+		FROM clusters
+		WHERE enabled
+			AND mode = 'poll'
+			AND (lease_until > now() OR next_run_at <= now())
+		GROUP BY 1`)
+}

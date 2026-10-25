@@ -34,6 +34,7 @@
 | [access.md](access.md) | superadmins, users, groups, administration rights for groups, service accounts |
 | [access-tokens.md](access-tokens.md) | personal access tokens: scopes, global rights, tokens for selected nodes |
 | [secrets.md](secrets.md) | named secrets for forges, sources, clusters and notifications; encryption keys |
+| [metrics.md](metrics.md) | Prometheus metrics at `/metrics`: turning them on, the token, what is published, example queries |
 | [search-engines.md](search-engines.md) | choosing and setting up documentation search: Postgres, pgvector, Qdrant, Meilisearch, embeddings |
 
 ## Development

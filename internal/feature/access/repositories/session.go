@@ -77,3 +77,39 @@ func (s *SessionRepository) DeleteExpiredForUser(ctx context.Context, userID uui
 			AND (expires_at <= now() OR last_seen_at <= now() - make_interval(secs => $2))`, userID, secs(idleTimeoutSecs))
 	return uint64(n), err
 }
+
+func (s *SessionRepository) MetricCounts(ctx context.Context) (map[string]int64, error) {
+	return postgres.Pairs[string, int64](ctx, s.db.From(ctx), constraints, `
+		SELECT 'users:' || CASE WHEN is_service THEN 'service' ELSE status END, count(*)
+		FROM users
+		GROUP BY 1
+		UNION ALL
+		SELECT 'groups', count(*)
+		FROM groups
+		UNION ALL
+		SELECT 'sessions', count(*)
+		FROM sessions
+		WHERE expires_at > now()
+		UNION ALL
+		SELECT 'credentials:personal_token', count(*)
+		FROM personal_access_tokens
+		WHERE revoked_at IS NULL
+			AND (expires_at IS NULL OR expires_at > now())
+		UNION ALL
+		SELECT 'credentials:oauth_grant', count(*)
+		FROM oauth_grants
+		WHERE revoked_at IS NULL
+			AND refresh_expires_at > now()
+		UNION ALL
+		SELECT 'active:' || w.name, count(DISTINCT u.user_id)
+		FROM (VALUES ('1d', 1), ('7d', 7), ('30d', 30)) w (name, days)
+		LEFT JOIN (
+			SELECT user_id, last_seen_at AS at
+			FROM sessions
+			UNION ALL
+			SELECT user_id, last_used_at
+			FROM personal_access_tokens
+			WHERE last_used_at IS NOT NULL
+		) u ON u.at >= now() - make_interval(days => w.days)
+		GROUP BY w.name`)
+}
