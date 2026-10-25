@@ -32,6 +32,11 @@ type ProjectSourcesPort interface {
 	DropOwn(ctx context.Context, projectID uuid.UUID) error
 }
 
+const (
+	EventForgeWebhook = "forge.webhook"
+	EventForgeManual  = "forge.manual"
+)
+
 type DocsTriggerPort interface {
-	TriggerCollection(ctx context.Context, projectID uuid.UUID) error
+	TriggerCollection(ctx context.Context, projectID uuid.UUID, event string) error
 }

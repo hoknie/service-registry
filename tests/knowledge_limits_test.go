@@ -5,11 +5,11 @@ import "testing"
 func TestSnapshotLimitsAreExplainedToEditors(t *testing.T) {
 	t.Parallel()
 	d := startDocs(t, map[string]string{
-		"a.md": "a", "b.md": "b", "api/openapi.yaml": "openapi: 3.0.0\n", "proto/Billing.PROTO": "syntax = \"proto3\";\n",
+		"a.md": "a", "b.md": "b", "proto/Billing.PROTO": "syntax = \"proto3\";\n", "zz/openapi.yaml": "openapi: 3.0.0\n",
 	}, "KNOWLEDGE_MAX_FILES", "2")
-	execSQL(t, d.app.db, "INSERT INTO knowledge_patterns (node_id, include_set, include) VALUES ($1, true, $2)", d.id, []string{"*.md"})
+	execSQL(t, d.app.db, "INSERT INTO knowledge_patterns (node_id, include_set, include) VALUES ($1, true, $2)", d.id, []string{"*.md", "proto/**"})
 	d.app.collect()
-	eq(t, d.files("main"), "a.md:,api/openapi.yaml:,b.md:limit,proto/Billing.PROTO:limit")
+	eq(t, d.files("main"), "a.md:,b.md:,proto/Billing.PROTO:limit,zz/openapi.yaml:limit")
 
 	admin := d.app.get(knowledgePath(d.id), d.admin).json(t)
 	snap := at(admin, "branches", 0, "snapshot")
@@ -38,6 +38,13 @@ func TestSnapshotLimitsAreExplainedToEditors(t *testing.T) {
 	branch := at(scans, "items", 0, "branches", 0)
 	eq(t, at(branch, "skipped", "limit"), any(float64(2)))
 	eq(t, at(branch, "api_skipped"), any(float64(1)))
+
+	execSQL(t, d.app.db, "UPDATE knowledge_patterns SET api_paths = $2 WHERE node_id = $1", d.id, []string{"**/*.proto", "**/openapi*.{yaml,yml,json}"})
+	eq(t, d.app.call("POST", knowledgePath(d.id)+"/collect", d.admin).status, 202)
+	d.app.tick()
+	branch = at(d.app.get(knowledgePath(d.id)+"/scans", d.admin).json(t), "items", 0, "branches", 0)
+	eq(t, at(branch, "skipped", "limit"), any(float64(2)))
+	eq(t, at(branch, "api_skipped"), any(float64(2)))
 }
 
 func TestCompleteSnapshotReachesNoLimits(t *testing.T) {

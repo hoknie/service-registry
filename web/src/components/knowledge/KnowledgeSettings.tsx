@@ -19,7 +19,9 @@ import { Segmented } from "../ui/Segmented";
 import { SkeletonPanel } from "../ui/Skeleton";
 import { catalogHref, type CatalogLabels } from "../catalog/shared";
 import { hasInvalidTags } from "../ui/TagInput";
+import { ApiPathsField, type ApiPathsDraft } from "./ApiPathsField";
 import { INCLUDE_EXAMPLES, PatternField, patternError, patternLines } from "./PatternField";
+import { RefreshEventsField, type RefreshEventsDraft } from "./RefreshEventsField";
 
 type Props = {
   nodeId: string;
@@ -34,7 +36,9 @@ const FIELDS: SettingsField[] = ["include", "exclude", "branches"];
 
 type Draft = Record<SettingsField, { set: boolean; text: string }> & {
   apis: { set: boolean; on: boolean };
+  api_paths: ApiPathsDraft;
   refresh: { set: boolean; value: KnowledgeRefresh };
+  refresh_events: RefreshEventsDraft;
 };
 
 function draftOf(s: NodeKnowledgeSettings): Draft {
@@ -44,7 +48,9 @@ function draftOf(s: NodeKnowledgeSettings): Draft {
     exclude: own("exclude"),
     branches: own("branches"),
     apis: { set: "apis" in s.own, on: s.own.apis ?? s.apis },
+    api_paths: { set: "api_paths" in s.own, text: (s.own.api_paths ?? []).join("\n") },
     refresh: { set: "refresh" in s.own, value: s.own.refresh ?? s.refresh },
+    refresh_events: { set: "refresh_events" in s.own, values: s.own.refresh_events ?? s.refresh_events },
   };
 }
 
@@ -83,7 +89,9 @@ export function KnowledgeSettings({ nodeId, project, canWrite, locale, labels: t
       body[f] = f === "include" && lines.length === 0 ? null : lines;
     }
     if (draft.apis.set) body.apis = draft.apis.on;
+    if (draft.api_paths.set) body.api_paths = patternLines(draft.api_paths.text);
     if (draft.refresh.set) body.refresh = draft.refresh.value;
+    if (draft.refresh_events.set) body.refresh_events = draft.refresh_events.values;
     try {
       show(await apiSend<NodeKnowledgeSettings>("PUT", url, body));
       onSaved?.();
@@ -180,6 +188,15 @@ export function KnowledgeSettings({ nodeId, project, canWrite, locale, labels: t
             ) : (
               <p className="text-sm text-ink-2">{settings.apis ? t.apisOn : t.apisOff}</p>
             )}
+            <ApiPathsField
+              labels={t}
+              settings={settings}
+              value={draft.api_paths}
+              canWrite={canWrite}
+              origin={originOf(draft.api_paths.set, settings.from.api_paths)}
+              apisOn={draft.apis.set ? draft.apis.on : settings.apis}
+              onChange={(api_paths) => setDraft({ ...draft, api_paths })}
+            />
             <p className="text-xs text-muted">{t.apisHint}</p>
           </section>
           <section className="grid gap-2" aria-label={t.refresh}>
@@ -218,6 +235,16 @@ export function KnowledgeSettings({ nodeId, project, canWrite, locale, labels: t
                 ? t.refreshEventHint
                 : format(t.refreshIntervalHint, { minutes: String(Math.max(1, Math.round(settings.interval_secs / 60))) })}
             </p>
+            {(draft.refresh.set ? draft.refresh.value : settings.refresh) === "event" && (
+              <RefreshEventsField
+                labels={t}
+                settings={settings}
+                value={draft.refresh_events}
+                canWrite={canWrite}
+                origin={originOf(draft.refresh_events.set, settings.from.refresh_events)}
+                onChange={(refresh_events) => setDraft({ ...draft, refresh_events })}
+              />
+            )}
           </section>
           <Message note={note} />
           {canWrite && (
@@ -226,7 +253,7 @@ export function KnowledgeSettings({ nodeId, project, canWrite, locale, labels: t
                 type="submit"
                 variant="primary"
                 busy={busy}
-                disabled={FIELDS.some((f) => draft[f].set && hasInvalidTags(draft[f].text, (tag) => patternError(tag, "")))}
+                disabled={[...FIELDS, "api_paths" as const].some((f) => draft[f].set && hasInvalidTags(draft[f].text, (tag) => patternError(tag, "")))}
               >
                 {t.save}
               </Button>

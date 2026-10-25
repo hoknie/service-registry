@@ -21,7 +21,11 @@ type docsProject struct {
 
 func startDocs(t *testing.T, files map[string]string, extra ...string) *docsProject {
 	t.Helper()
-	app := startForgeApp(t, extra...)
+	return startDocsOn(t, startForgeApp(t, extra...), files)
+}
+
+func startDocsOn(t *testing.T, app *testApp, files map[string]string) *docsProject {
+	t.Helper()
 	root := app.admin()
 	org := app.nodeID(root, "organization", "", "acme")
 	f := forgefake.Start(t, "github", forgeToken, "acme-inc")

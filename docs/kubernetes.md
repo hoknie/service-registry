@@ -43,7 +43,9 @@ Without annotations, a **cluster rule** can map a label to a project, for exampl
 under the cluster's **Unmatched**.
 
 - **Versions CI never reported.** A version a cluster runs without a matching CI event is recorded as a release
-  with the source *cluster* after `K8S_HISTORY_CONFIRM_SECS` (10 minutes).
+  with the source *cluster* after `K8S_HISTORY_CONFIRM_SECS` (10 minutes). Such a release also refreshes the
+  documentation of a project on events with **Deployment seen in a cluster** selected
+  ([project-documentation.md](project-documentation.md#when-documentation-is-refreshed)).
 - **Opting out.** A project can turn this off with **Observe in clusters** in its settings.
 
 ## Isolated clusters: the agent

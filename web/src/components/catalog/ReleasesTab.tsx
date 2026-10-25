@@ -1,18 +1,17 @@
 "use client";
 
-import { Boxes, ExternalLink, GitBranch, GitCommitHorizontal, Plug, Rocket, RotateCcw, TriangleAlert, UserRound } from "lucide-react";
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { ExternalLink, GitBranch, GitCommitHorizontal, Plug, Rocket, RotateCcw, UserRound } from "lucide-react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import type { Locale } from "@/i18n/config";
 import { errorText } from "@/i18n/errors";
-import { ago, when } from "@/i18n/time";
+import { when } from "@/i18n/time";
 import {
   apiGet,
   errorCode,
   type Deployment,
   type DirectoryEnvironment,
   type Items,
-  type Observation,
   type Page,
   type ServiceEnvironment,
 } from "@/lib/api";
@@ -26,12 +25,19 @@ import { Field, Input } from "../ui/Field";
 import { Message } from "../ui/Message";
 import { Pager } from "../ui/Pager";
 import { SkeletonCards } from "../ui/Skeleton";
+import { EnvironmentCard, Meta, short } from "./EnvironmentCard";
 import type { CatalogLabels } from "./shared";
 
 const PAGE = 50;
 const FILTERS = ["service", "environment", "branch"] as const;
 type Filters = Record<(typeof FILTERS)[number], string>;
 const NO_FILTERS: Filters = { service: "", environment: "", branch: "" };
+
+function byEnvironment(items: ServiceEnvironment[]) {
+  const groups = new Map<string, ServiceEnvironment[]>();
+  for (const c of items) groups.set(c.environment, [...(groups.get(c.environment) ?? []), c]);
+  return [...groups];
+}
 
 type Props = {
   projectId: string;
@@ -41,71 +47,6 @@ type Props = {
   onConnect: () => void;
 };
 
-const short = (sha: string | null) => (sha ? sha.slice(0, 7) : "—");
-
-function Meta({ icon: Icon, children, title }: { icon: typeof GitBranch; children: ReactNode; title: string }) {
-  return (
-    <span className="inline-flex min-w-0 items-center gap-1.5" title={title}>
-      <Icon aria-hidden="true" className="size-3.5 shrink-0 text-muted" />
-      <span className="sr-only">{title}: </span>
-      <span className="truncate">{children}</span>
-    </span>
-  );
-}
-
-type DeploymentLabels = CatalogLabels["deployments"];
-
-const rolloutTone = { complete: "signal", progressing: "cobalt", stalled: "danger" } as const;
-const runTone = { succeeded: "signal", failed: "danger", active: "cobalt" } as const;
-
-function ObservedRow({ o, locale, t }: { o: Observation; locale: Locale; t: DeploymentLabels }) {
-  return (
-    <li className={cn("grid gap-1 px-4 py-2 text-xs text-ink-2", o.gone && "opacity-60")}>
-      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <Boxes aria-hidden="true" className="size-3.5 shrink-0 text-muted" />
-        <span className="min-w-0 truncate font-mono text-ink" title={`${o.cluster} / ${o.namespace} / ${o.kind} ${o.workload}`}>
-          {o.cluster}/{o.namespace}/{o.workload}
-        </span>
-        {o.version && <code className="rounded bg-surface-3 px-1 text-ink">{o.version}</code>}
-        {o.gone && <Badge tone="outline">{t.gone}</Badge>}
-      </span>
-      <span className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-5">
-        {o.replicas && (
-          <span>
-            {t.ready}: <span className="tabular-nums text-ink">{`${o.replicas.ready}/${o.replicas.desired}`}</span>
-          </span>
-        )}
-        {o.rollout && <Badge tone={rolloutTone[o.rollout]}>{t.rollout[o.rollout]}</Badge>}
-        {o.restarts !== undefined && o.restarts > 0 && (
-          <span>
-            {t.restarts}: <span className="tabular-nums text-ink">{o.restarts}</span>
-          </span>
-        )}
-        {o.kind === "CronJob" && (
-          <>
-            {o.schedule && (
-              <span title={t.schedule}>
-                <code>{o.schedule}</code>
-              </span>
-            )}
-            {o.suspended && <Badge tone="outline">{t.suspended}</Badge>}
-            {o.last_run ? (
-              <span className="inline-flex items-center gap-1">
-                {t.lastRun}: <Badge tone={runTone[o.last_run.status]}>{t.runs[o.last_run.status]}</Badge>
-                {o.last_run.started_at && <span title={when(o.last_run.started_at, locale, "")}>{ago(o.last_run.started_at, locale, "")}</span>}
-              </span>
-            ) : (
-              <span>{t.neverRan}</span>
-            )}
-          </>
-        )}
-        <time dateTime={o.observed_at} title={`${t.observedAt}: ${when(o.observed_at, locale, "")}`} className="ml-auto text-muted">
-          {ago(o.observed_at, locale, "")}
-        </time>
-      </span>
-    </li>
-  );
-}
 
 export function ReleasesTab({ projectId, branch, locale, labels, onConnect }: Props) {
   const { errors, common } = useUiText();
@@ -193,93 +134,8 @@ export function ReleasesTab({ projectId, branch, locale, labels, onConnect }: Pr
           <p className="text-sm text-muted">{t.empty}</p>
         ) : (
           <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {current.map((c) => (
-              <li key={`${c.service}/${c.environment}`} className="flex flex-col rounded-lg border border-line bg-surface">
-                <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5">
-                  <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-ink">
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        "size-2 shrink-0 rounded-full",
-                        c.drift ? "bg-amber shadow-[0_0_0_3px_var(--amber-soft)]" : "bg-signal shadow-[0_0_0_3px_var(--signal-soft)]",
-                      )}
-                    />
-                    <span className="truncate" title={c.environment}>
-                      {envName(c.environment)}
-                    </span>
-                  </span>
-                  {c.occurred_at && (
-                    <time dateTime={c.occurred_at} title={when(c.occurred_at, locale, "")} className="shrink-0 text-xs text-muted">
-                      {ago(c.occurred_at, locale, "—")}
-                    </time>
-                  )}
-                </div>
-                <div className="flex flex-1 flex-col gap-3 px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-xs text-muted">
-                      <span className="sr-only">{t.service}: </span>
-                      {c.service}
-                    </p>
-                    {c.version ? (
-                      <p className="truncate font-mono text-xl font-medium text-ink" title={c.version}>
-                        <span className="sr-only">{t.version}: </span>
-                        {c.version}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-muted">{t.noCiDeployment}</p>
-                    )}
-                    {(c.drift || c.source === "cluster") && (
-                      <span className="mt-1.5 flex flex-wrap gap-1">
-                        {c.drift && (
-                          <Badge tone="amber" title={t.driftHint}>
-                            <TriangleAlert aria-hidden="true" className="size-3" />
-                            {t.drift}
-                          </Badge>
-                        )}
-                        {c.source === "cluster" && <Badge tone="cobalt">{t.fromCluster}</Badge>}
-                      </span>
-                    )}
-                  </div>
-                  <div className="grid gap-1 text-xs text-ink-2">
-                    {c.branch && (
-                      <Meta icon={GitBranch} title={t.branch}>
-                        <code>{c.branch}</code>
-                      </Meta>
-                    )}
-                    {c.version && (
-                      <Meta icon={GitCommitHorizontal} title={t.commit}>
-                        <code>{short(c.commit_sha)}</code>
-                      </Meta>
-                    )}
-                    {c.deployed_by && (
-                      <Meta icon={UserRound} title={t.deployedBy}>
-                        {c.deployed_by}
-                      </Meta>
-                    )}
-                  </div>
-                  {c.url && (
-                    <a
-                      href={c.url}
-                      rel="noreferrer noopener"
-                      target="_blank"
-                      className="mt-auto inline-flex items-center gap-1.5 self-start text-sm font-medium text-signal hover:underline"
-                    >
-                      {t.link}
-                      <ExternalLink aria-hidden="true" className="size-3.5" />
-                    </a>
-                  )}
-                </div>
-                {c.observed.length > 0 && (
-                  <div className="border-t border-line">
-                    <p className="px-4 pt-2 text-xs font-medium text-muted">{t.observed}</p>
-                    <ul aria-label={t.observed} className="grid divide-y divide-line">
-                      {c.observed.map((o) => (
-                        <ObservedRow key={`${o.cluster}/${o.namespace}/${o.kind}/${o.workload}`} o={o} locale={locale} t={t} />
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </li>
+            {byEnvironment(current).map(([env, items]) => (
+              <EnvironmentCard key={env} name={envName(env)} environment={env} items={items} locale={locale} t={t} />
             ))}
           </ul>
         )}
@@ -311,63 +167,65 @@ export function ReleasesTab({ projectId, branch, locale, labels, onConnect }: Pr
             {filtered ? t.noMatch : t.empty}
           </p>
         ) : (
-          <ol className="rail grid gap-1">
-            {history.items.map((d) => (
-              <li key={d.id} className="relative grid grid-cols-[1.5rem_minmax(0,1fr)] gap-3">
-                <span aria-hidden="true" className="relative z-10 mt-3.5 grid size-6 place-items-center">
-                  <span
-                    className={cn(
-                      "size-3 rounded-full border-2",
-                      d.current ? "border-signal bg-signal shadow-[0_0_0_4px_var(--signal-soft)]" : "border-line-strong bg-canvas",
-                    )}
-                  />
-                </span>
-                <div className="rounded-lg px-3 py-2.5 transition-colors hover:bg-surface">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <code className="text-sm font-medium text-ink">{d.version}</code>
-                    <span className="text-sm text-ink-2">
-                      <span className="sr-only">{t.service}: </span>
-                      {d.service}
-                    </span>
-                    <Badge tone="outline" title={d.environment}>
-                      <span className="sr-only">{t.environment}: </span>
-                      {envName(d.environment)}
-                    </Badge>
-                    {d.source === "cluster" && <Badge tone="cobalt">{t.fromCluster}</Badge>}
-                    {d.current && (
-                      <Badge tone="signal" dot>
-                        {t.isCurrent}
+          <div className="rounded-lg border border-line bg-surface p-2 sm:p-3">
+            <ol className="rail grid gap-1">
+              {history.items.map((d) => (
+                <li key={d.id} className="relative grid grid-cols-[1.5rem_minmax(0,1fr)] gap-3">
+                  <span aria-hidden="true" className="relative z-10 mt-3.5 grid size-6 place-items-center">
+                    <span
+                      className={cn(
+                        "size-3 rounded-full border-2",
+                        d.current ? "border-signal bg-signal shadow-[0_0_0_4px_var(--signal-soft)]" : "border-line-strong bg-surface",
+                      )}
+                    />
+                  </span>
+                  <div className="rounded-md px-3 py-2.5 transition-colors hover:bg-surface-2">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <code className="text-sm font-medium text-ink">{d.version}</code>
+                      <span className="text-sm text-ink-2">
+                        <span className="sr-only">{t.service}: </span>
+                        {d.service}
+                      </span>
+                      <Badge tone="outline" title={d.environment}>
+                        <span className="sr-only">{t.environment}: </span>
+                        {envName(d.environment)}
                       </Badge>
-                    )}
-                    <time dateTime={d.occurred_at} title={when(d.occurred_at, locale, "")} className="ml-auto text-xs text-muted tabular-nums">
-                      {when(d.occurred_at, locale, "—")}
-                    </time>
-                  </div>
-                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-2">
-                    {d.branch && (
-                      <Meta icon={GitBranch} title={t.branch}>
-                        <code>{d.branch}</code>
+                      {d.source === "cluster" && <Badge tone="cobalt">{t.fromCluster}</Badge>}
+                      {d.current && (
+                        <Badge tone="signal" dot>
+                          {t.isCurrent}
+                        </Badge>
+                      )}
+                      <time dateTime={d.occurred_at} title={when(d.occurred_at, locale, "")} className="ml-auto text-xs text-muted tabular-nums">
+                        {when(d.occurred_at, locale, "—")}
+                      </time>
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-2">
+                      {d.branch && (
+                        <Meta icon={GitBranch} title={t.branch}>
+                          <code>{d.branch}</code>
+                        </Meta>
+                      )}
+                      <Meta icon={GitCommitHorizontal} title={t.commit}>
+                        <code>{short(d.commit_sha)}</code>
                       </Meta>
-                    )}
-                    <Meta icon={GitCommitHorizontal} title={t.commit}>
-                      <code>{short(d.commit_sha)}</code>
-                    </Meta>
-                    {d.deployed_by && (
-                      <Meta icon={UserRound} title={t.deployedBy}>
-                        {d.deployed_by}
-                      </Meta>
-                    )}
-                    {d.url && (
-                      <a href={d.url} rel="noreferrer noopener" target="_blank" className="inline-flex items-center gap-1 text-signal hover:underline">
-                        {t.link}
-                        <ExternalLink aria-hidden="true" className="size-3" />
-                      </a>
-                    )}
+                      {d.deployed_by && (
+                        <Meta icon={UserRound} title={t.deployedBy}>
+                          {d.deployed_by}
+                        </Meta>
+                      )}
+                      {d.url && (
+                        <a href={d.url} rel="noreferrer noopener" target="_blank" className="inline-flex items-center gap-1 text-signal hover:underline">
+                          {t.link}
+                          <ExternalLink aria-hidden="true" className="size-3" />
+                        </a>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </li>
-            ))}
-          </ol>
+                </li>
+              ))}
+            </ol>
+          </div>
         )}
         <Pager offset={offset} shown={history.items.length} total={history.total} size={PAGE} labels={labels.pager} onChange={setOffset} />
       </section>

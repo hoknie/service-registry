@@ -21,24 +21,62 @@ func TestDefaultSettingsCollectTheRootReadme(t *testing.T) {
 func TestDefaultSettingsCollectAPIDescriptions(t *testing.T) {
 	s := DefaultSettings()
 	for p, want := range map[string]bool{
-		"openapi.yaml": true, "api/openapi.v1.json": true, "svc/swagger.yml": true, "proto/pets/v1/pets.proto": true,
-		"apidocs/index.html": true, "docs/api-docs/v1/guide.md": true, "openapi.txt": false, "docs/api.yaml": false,
-		"apidocs.md": false, "OpenAPI.yaml": true, "ApiDocs/Users.md": true, "proto/Billing.PROTO": true, "Swagger.JSON": true,
+		"openapi.yaml": true, "api/openapi.v1.json": true, "svc/swagger.yml": false, "proto/pets/v1/pets.proto": false,
+		"apidocs/index.html": false, "docs/api-docs/v1/guide.md": true, "openapi.txt": false, "docs/api.yaml": false,
+		"OpenAPI.yaml": true, "Api-Docs/Users.md": true, "Swagger.JSON": false,
 	} {
 		if got := s.Collects(p); got != want {
 			t.Errorf("%s: %v", p, got)
 		}
 	}
-	s.Exclude = []string{"third_party/**"}
-	if s.Collects("third_party/google/api/http.proto") {
+	s.Exclude = []string{"generated/**"}
+	if s.Collects("generated/openapi.yaml") {
 		t.Error("exclude applies to API descriptions")
 	}
 	s.APIs = false
-	if s.Collects("openapi.yaml") || !s.Collects("README.md") {
+	if s.Collects("openapi.yaml") || !s.Collects("README.md") || !s.IsAPIPath("openapi.yaml") {
 		t.Error("apis off leaves only the include rule")
 	}
 	if (Settings{Include: []string{"docs/**"}, APIs: true}).Collects("README.md") {
 		t.Error("the include list still replaces the README rule")
+	}
+}
+
+func TestAPIPathsFromSettings(t *testing.T) {
+	s := DefaultSettings()
+	s.APIPaths = []string{"**/*.PROTO", "Contracts/**"}
+	for p, want := range map[string]bool{
+		"proto/pets/v1/pets.proto": true, "api/Billing.Proto": true, "contracts/v1.yaml": true, "CONTRACTS/x.md": true,
+		"openapi.yaml": false, "api-docs/index.md": false,
+	} {
+		if got := s.Collects(p); got != want {
+			t.Errorf("%s: %v", p, got)
+		}
+	}
+	s.APIPaths = []string{}
+	if s.Collects("openapi.yaml") || s.IsAPIPath("openapi.yaml") {
+		t.Error("an empty api_paths collects no API descriptions")
+	}
+}
+
+func TestDefaultSettingsAreCopies(t *testing.T) {
+	s := DefaultSettings()
+	s.APIPaths[0] = "x"
+	s.RefreshEvents[0] = EventForgeManual
+	d := DefaultSettings()
+	if d.APIPaths[0] != DefaultAPIPaths[0] || DefaultAPIPaths[0] != "**/openapi*.{yaml,yml,json}" || d.RefreshEvents[0] != EventServiceDeployed {
+		t.Fatalf("defaults changed: %+v", d)
+	}
+	if len(d.RefreshEvents) != 4 || !d.Listens(EventClusterDeployed) || d.Refresh != RefreshInterval {
+		t.Fatalf("default events: %+v", d.RefreshEvents)
+	}
+	for _, e := range DefaultRefreshEvents {
+		if !e.Valid() {
+			t.Errorf("%s invalid", e)
+		}
+	}
+	if CollectEvent("push").Valid() {
+		t.Error("push is not an event")
 	}
 }
 
@@ -95,7 +133,7 @@ func TestMergeTakesEachFieldFromTheNearestNode(t *testing.T) {
 	if strings.Join(s.Include, ",") != "docs/**" || len(s.Exclude) != 0 || strings.Join(s.Branches, ",") != "release/*" {
 		t.Fatalf("merged: %+v", s)
 	}
-	if from != (From{Include: 1, Exclude: 0, Branches: 2, APIs: -1, Refresh: -1}) {
+	if from != (From{Include: 1, Exclude: 0, Branches: 2, APIs: -1, APIPaths: -1, Refresh: -1, RefreshEvents: -1}) {
 		t.Fatalf("from: %+v", from)
 	}
 
@@ -106,7 +144,7 @@ func TestMergeTakesEachFieldFromTheNearestNode(t *testing.T) {
 	}
 
 	s, from = Merge([]ChainNode{{Name: "api"}, {Name: "acme"}})
-	if s.Include != nil || s.Exclude == nil || len(s.Exclude) != 0 || s.Branches == nil || from != (From{-1, -1, -1, -1, -1}) || !s.APIs || s.Refresh != RefreshInterval {
+	if s.Include != nil || s.Exclude == nil || len(s.Exclude) != 0 || s.Branches == nil || from != (From{-1, -1, -1, -1, -1, -1, -1}) || !s.APIs || s.Refresh != RefreshInterval {
 		t.Fatalf("defaults: %+v %+v", s, from)
 	}
 	off := false
@@ -128,21 +166,55 @@ func TestMergeTakesEachFieldFromTheNearestNode(t *testing.T) {
 		t.Fatalf("own refresh: %+v %+v", s, from)
 	}
 	if !(NodeSettings{}).IsEmpty() || (NodeSettings{IncludeSet: true}).IsEmpty() || (NodeSettings{APIs: &off}).IsEmpty() ||
-		(NodeSettings{Refresh: &event}).IsEmpty() {
+		(NodeSettings{Refresh: &event}).IsEmpty() || (NodeSettings{APIPaths: list()}).IsEmpty() ||
+		(NodeSettings{RefreshEvents: &[]CollectEvent{}}).IsEmpty() {
 		t.Fatal("IsEmpty")
+	}
+}
+
+func TestMergeAPIPathsAndRefreshEvents(t *testing.T) {
+	list := func(s ...string) *[]string { return &s }
+	events := func(e ...CollectEvent) *[]CollectEvent { return &e }
+	project := ChainNode{Name: "api"}
+	folder := ChainNode{Name: "backend"}
+	org := ChainNode{Name: "acme", Own: NodeSettings{APIPaths: list("**/*.proto"), RefreshEvents: events(EventForgeWebhook)}}
+
+	s, from := Merge([]ChainNode{project, folder, org})
+	if strings.Join(s.APIPaths, ",") != "**/*.proto" || from.APIPaths != 2 || len(s.RefreshEvents) != 1 || from.RefreshEvents != 2 {
+		t.Fatalf("inherited: %+v %+v", s, from)
+	}
+	if !s.Listens(EventForgeWebhook) || s.Listens(EventServiceDeployed) {
+		t.Fatalf("listens: %+v", s.RefreshEvents)
+	}
+	folder.Own = NodeSettings{APIPaths: list("**/*.proto", "spec/**")}
+	project.Own = NodeSettings{RefreshEvents: &[]CollectEvent{}}
+	s, from = Merge([]ChainNode{project, folder, org})
+	if strings.Join(s.APIPaths, ",") != "**/*.proto,spec/**" || from.APIPaths != 1 || len(s.RefreshEvents) != 0 || s.RefreshEvents == nil ||
+		from.RefreshEvents != 0 || s.Listens(EventForgeWebhook) {
+		t.Fatalf("overridden: %+v %+v", s, from)
+	}
+	project.Own = NodeSettings{APIPaths: &[]string{}}
+	s, _ = Merge([]ChainNode{project, folder, org})
+	if len(s.APIPaths) != 0 || s.Collects("proto/a.proto") {
+		t.Fatalf("empty paths: %+v", s)
 	}
 }
 
 func TestValidateNodeSettingsChecksTheSetFields(t *testing.T) {
 	bad := []string{"docs/[a-"}
 	hourly := Refresh("hourly")
-	for _, n := range []NodeSettings{{IncludeSet: true, Include: bad}, {Exclude: &bad}, {Branches: &[]string{""}}, {Refresh: &hourly}} {
+	for _, n := range []NodeSettings{{IncludeSet: true, Include: bad}, {Exclude: &bad}, {Branches: &[]string{""}}, {Refresh: &hourly},
+		{APIPaths: &[]string{"api/[a-"}}, {APIPaths: &[]string{""}}, {RefreshEvents: &[]CollectEvent{"push"}},
+		{RefreshEvents: &[]CollectEvent{EventForgeWebhook, EventForgeWebhook}}} {
 		if _, err := ValidateNodeSettings(n); !errors.Is(err, InvalidSettings) {
 			t.Errorf("%+v: %v", n, err)
 		}
 	}
-	if _, err := ValidateNodeSettings(NodeSettings{IncludeSet: true, Exclude: &[]string{}}); err != nil {
-		t.Fatal(err)
+	for _, n := range []NodeSettings{{IncludeSet: true, Exclude: &[]string{}}, {APIPaths: &[]string{}}, {RefreshEvents: &[]CollectEvent{}},
+		{APIPaths: &[]string{"**/*.proto"}, RefreshEvents: &[]CollectEvent{EventForgeManual, EventServiceDeployed}}} {
+		if _, err := ValidateNodeSettings(n); err != nil {
+			t.Fatalf("%+v: %v", n, err)
+		}
 	}
 }
 

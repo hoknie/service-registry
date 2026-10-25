@@ -120,7 +120,7 @@ func (u *AcceptEventUseCase) followUp(ctx context.Context, e ingesttypes.NewEven
 		return err
 	}
 	if u.docs != nil {
-		if err := u.docs.TriggerCollection(ctx, e.ProjectID); err != nil {
+		if err := u.docs.TriggerCollection(ctx, e.ProjectID, ingestports.EventServiceDeployed); err != nil {
 			return err
 		}
 	}

@@ -108,9 +108,9 @@ func (s *PortsService) SecretUsage(ctx context.Context, secrets []uuid.UUID) (ma
 	return s.sourceRepository.SecretUsage(ctx, secrets)
 }
 
-func (s *PortsService) TriggerCollection(ctx context.Context, projectID uuid.UUID) error {
+func (s *PortsService) TriggerCollection(ctx context.Context, projectID uuid.UUID, event string) error {
 	settings, err := s.settingsService.effectiveSettings(ctx, projectID)
-	if err != nil || settings.Refresh != knowledgetypes.RefreshEvent {
+	if err != nil || settings.Refresh != knowledgetypes.RefreshEvent || !settings.Listens(knowledgetypes.CollectEvent(event)) {
 		return err
 	}
 	return apperr.Wrap(s.collectionRepository.Trigger(ctx, projectID))

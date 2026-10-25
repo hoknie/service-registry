@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	ingestports "svc-registry/internal/feature/ingest/ports"
 	"svc-registry/internal/feature/ingest/repositories"
 	ingesttypes "svc-registry/internal/feature/ingest/types"
 	notifyservices "svc-registry/internal/feature/notify/services"
@@ -17,11 +18,14 @@ type RecordDeploymentUseCase struct {
 	db                   *pgtx.DB
 	deploymentRepository *repositories.DeploymentRepository
 	notify               *notifyservices.NotifyServices
+	docs                 ingestports.DocsTriggerPort
 }
 
 func NewRecordDeployment(db *pgtx.DB, deployments *repositories.DeploymentRepository, notify *notifyservices.NotifyServices) *RecordDeploymentUseCase {
 	return &RecordDeploymentUseCase{db: db, deploymentRepository: deployments, notify: notify}
 }
+
+func (u *RecordDeploymentUseCase) Use(docs ingestports.DocsTriggerPort) { u.docs = docs }
 
 func (u *RecordDeploymentUseCase) Run(ctx context.Context, d ingesttypes.DeploymentRecord, at time.Time) (bool, error) {
 	if d.EnvironmentID == uuid.Nil {
@@ -43,6 +47,11 @@ func (u *RecordDeploymentUseCase) Run(ctx context.Context, d ingesttypes.Deploym
 			}
 		}
 		current = advanced
+		if d.Source == "cluster" && u.docs != nil {
+			if err := u.docs.TriggerCollection(ctx, d.ProjectID, ingestports.EventClusterDeployed); err != nil {
+				return err
+			}
+		}
 		return u.emit(ctx, d, current, at)
 	})
 	return current, err

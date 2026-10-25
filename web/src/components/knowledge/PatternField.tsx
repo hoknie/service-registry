@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import { Button } from "../ui/Button";
 import { validPattern } from "@/lib/tags";
 
@@ -8,6 +10,8 @@ import { Field } from "../ui/Field";
 import { TagInput } from "../ui/TagInput";
 
 export const INCLUDE_EXAMPLES = ["*.md", "docs/**", "openspec/**/*.md", "**/*.md"] as const;
+
+export const API_PATH_EXAMPLES = ["**/openapi*.{yaml,yml,json}", "**/swagger*.{yaml,yml,json}", "**/*.proto", "**/apidocs/**", "**/api-docs/**"] as const;
 
 export function patternLines(text: string): string[] {
   return text
@@ -33,6 +37,7 @@ export function PatternField({
   onChange,
   examples,
   examplesLabel,
+  extra,
 }: {
   label: string;
   hint: string;
@@ -40,6 +45,7 @@ export function PatternField({
   onChange: (v: string) => void;
   examples?: readonly string[];
   examplesLabel?: string;
+  extra?: ReactNode;
 }) {
   const { common } = useUiText();
   return (
@@ -47,10 +53,11 @@ export function PatternField({
       <Field label={label} hint={hint}>
         {(p) => <TagInput {...p} value={value} onChange={onChange} validate={(tag) => patternError(tag, common.invalidPattern)} />}
       </Field>
-      {examples && (
+      {(examples || extra) && (
         <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
-          <span>{examplesLabel}</span>
-          {examples.map((x) => (
+          {extra}
+          {examples && <span>{examplesLabel}</span>}
+          {examples?.map((x) => (
             <Button key={x} type="button" size="sm" className="font-mono" onClick={() => onChange(addPattern(value, x))}>
               {x}
             </Button>

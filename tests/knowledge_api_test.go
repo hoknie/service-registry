@@ -22,7 +22,7 @@ func TestKnowledgeSettingsThroughTheAPI(t *testing.T) {
 	bob := d.viewer()
 	r := d.app.get(knowledgePath(d.id)+"/settings", bob)
 	eq(t, r.status, 200, r.text())
-	defaults := `{"include":null,"exclude":[],"branches":[],"apis":true,"refresh":"interval","interval_secs":300,"own":{},"from":{"apis":null,"branches":null,"exclude":null,"include":null,"refresh":null}}`
+	defaults := `{"include":null,"exclude":[],"branches":[],"apis":true,"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh":"interval","refresh_events":["service.deployed","cluster.deployed","forge.webhook","forge.manual"],"interval_secs":300,"defaults":{"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh_events":["service.deployed","cluster.deployed","forge.webhook","forge.manual"]},"own":{},"from":{"api_paths":null,"apis":null,"branches":null,"exclude":null,"include":null,"refresh":null,"refresh_events":null}}`
 	eq(t, r.text(), defaults)
 
 	body := obj{"include": []string{"openspec/**", "docs/**/*.md", "README.md"}, "exclude": []string{"docs/drafts/**"}, "branches": []string{"release/*"}}
@@ -37,7 +37,7 @@ func TestKnowledgeSettingsThroughTheAPI(t *testing.T) {
 	eq(t, code(t, r), any("validation.invalid_knowledge_settings"))
 	eq(t, d.app.send("PUT", knowledgePath(d.id)+"/settings", bob, body).status, 403)
 	r = d.app.send("PUT", knowledgePath(d.id)+"/settings", d.admin, obj{"include": nil})
-	eq(t, r.text(), `{"include":null,"exclude":[],"branches":[],"apis":true,"refresh":"interval","interval_secs":300,"own":{"include":null},"from":{"apis":null,"branches":null,"exclude":null,"include":null,"refresh":null}}`)
+	eq(t, r.text(), `{"include":null,"exclude":[],"branches":[],"apis":true,"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh":"interval","refresh_events":["service.deployed","cluster.deployed","forge.webhook","forge.manual"],"interval_secs":300,"defaults":{"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh_events":["service.deployed","cluster.deployed","forge.webhook","forge.manual"]},"own":{"include":null},"from":{"api_paths":null,"apis":null,"branches":null,"exclude":null,"include":null,"refresh":null,"refresh_events":null}}`)
 	eq(t, d.app.send("PUT", knowledgePath(d.id)+"/settings", d.admin, obj{}).text(), defaults)
 
 	eq(t, d.app.get(knowledgePath(d.org)+"/settings", d.admin).status, 200)

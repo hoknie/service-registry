@@ -215,7 +215,11 @@ func (s *syncer) triggerDocs(ctx context.Context, projectID uuid.UUID, moved boo
 	if !moved || s.trigger == forgetypes.TriggerSchedule || s.svc.docs == nil {
 		return nil
 	}
-	return s.svc.docs.TriggerCollection(ctx, projectID)
+	event := forgeports.EventForgeManual
+	if s.trigger == forgetypes.TriggerWebhook {
+		event = forgeports.EventForgeWebhook
+	}
+	return s.svc.docs.TriggerCollection(ctx, projectID, event)
 }
 
 func (s *syncer) skipDetails(path string, err error) {

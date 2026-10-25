@@ -145,7 +145,7 @@ func (s *CollectService) collectBranch(ctx context.Context, p knowledgetypes.Pro
 			b.Files++
 		} else {
 			b.Skipped[string(f.Skip)]++
-			if knowledgetypes.IsAPIPath(f.Path) {
+			if p.Settings.APIs && p.Settings.IsAPIPath(f.Path) {
 				b.APISkipped++
 			}
 		}

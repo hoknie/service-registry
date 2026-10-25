@@ -545,14 +545,29 @@ export type ProjectLink = {
 
 export type KnowledgeRefresh = "interval" | "event";
 
-export type KnowledgeSettings = { include: string[] | null; exclude: string[]; branches: string[]; apis: boolean; refresh: KnowledgeRefresh };
+export type KnowledgeRefreshEvent = "service.deployed" | "cluster.deployed" | "forge.webhook" | "forge.manual";
+
+export const KNOWLEDGE_REFRESH_EVENTS: readonly KnowledgeRefreshEvent[] = ["service.deployed", "cluster.deployed", "forge.webhook", "forge.manual"];
+
+export type KnowledgeSettings = {
+  include: string[] | null;
+  exclude: string[];
+  branches: string[];
+  apis: boolean;
+  api_paths: string[];
+  refresh: KnowledgeRefresh;
+  refresh_events: KnowledgeRefreshEvent[];
+};
 
 export type SettingsField = "include" | "exclude" | "branches";
 
+export type SettingsOrigin = { id: string; kind: NodeKind; name: string } | null;
+
 export type NodeKnowledgeSettings = KnowledgeSettings & {
   interval_secs: number;
+  defaults: { api_paths: string[]; refresh_events: KnowledgeRefreshEvent[] };
   own: Partial<KnowledgeSettings>;
-  from: Record<SettingsField | "apis" | "refresh", { id: string; kind: NodeKind; name: string } | null>;
+  from: Record<SettingsField | "apis" | "api_paths" | "refresh" | "refresh_events", SettingsOrigin>;
 };
 
 export type Snapshot = {

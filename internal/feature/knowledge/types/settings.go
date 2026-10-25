@@ -12,11 +12,13 @@ import (
 )
 
 type Settings struct {
-	Include  []string
-	Exclude  []string
-	Branches []string
-	APIs     bool
-	Refresh  Refresh
+	Include       []string
+	Exclude       []string
+	Branches      []string
+	APIs          bool
+	APIPaths      []string
+	Refresh       Refresh
+	RefreshEvents []CollectEvent
 }
 
 type Refresh string
@@ -28,11 +30,21 @@ const (
 
 func (r Refresh) Valid() bool { return r == RefreshInterval || r == RefreshEvent }
 
-var APIPatterns = []string{
+type CollectEvent string
+
+const (
+	EventServiceDeployed CollectEvent = "service.deployed"
+	EventClusterDeployed CollectEvent = "cluster.deployed"
+	EventForgeWebhook    CollectEvent = "forge.webhook"
+	EventForgeManual     CollectEvent = "forge.manual"
+)
+
+var DefaultRefreshEvents = []CollectEvent{EventServiceDeployed, EventClusterDeployed, EventForgeWebhook, EventForgeManual}
+
+func (e CollectEvent) Valid() bool { return slices.Contains(DefaultRefreshEvents, e) }
+
+var DefaultAPIPaths = []string{
 	"**/openapi*.{yaml,yml,json}",
-	"**/swagger*.{yaml,yml,json}",
-	"**/*.proto",
-	"**/apidocs/**",
 	"**/api-docs/**",
 }
 
@@ -42,7 +54,8 @@ const (
 )
 
 func DefaultSettings() Settings {
-	return Settings{Exclude: []string{}, Branches: []string{}, APIs: true, Refresh: RefreshInterval}
+	return Settings{Exclude: []string{}, Branches: []string{}, APIs: true, APIPaths: slices.Clone(DefaultAPIPaths),
+		Refresh: RefreshInterval, RefreshEvents: slices.Clone(DefaultRefreshEvents)}
 }
 
 func ValidateSettings(s Settings) (Settings, error) {
@@ -95,7 +108,7 @@ func (s Settings) Collects(p string) bool {
 		}
 	}
 	if !included && s.APIs {
-		included = IsAPIPath(p)
+		included = s.IsAPIPath(p)
 	}
 	if !included {
 		return false
@@ -108,15 +121,17 @@ func (s Settings) Collects(p string) bool {
 	return true
 }
 
-func IsAPIPath(p string) bool {
+func (s Settings) IsAPIPath(p string) bool {
 	p = strings.ToLower(p)
-	for _, pattern := range APIPatterns {
-		if ok, _ := doublestar.Match(pattern, p); ok {
+	for _, pattern := range s.APIPaths {
+		if ok, _ := doublestar.Match(strings.ToLower(pattern), p); ok {
 			return true
 		}
 	}
 	return false
 }
+
+func (s Settings) Listens(e CollectEvent) bool { return slices.Contains(s.RefreshEvents, e) }
 
 func (s Settings) Reads(p string) bool {
 	return s.Collects(p) || slices.Contains(topologytypes.ManifestNames, p)

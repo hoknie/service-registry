@@ -46,8 +46,10 @@ Under **Settings → Documentation settings → Collection settings** of a proje
 | Include | glob patterns of files to collect, e.g. `docs/**/*.md`, `openspec/**/*.md` | only the README at the root |
 | Exclude | patterns to skip | nothing |
 | Extra branches | patterns of branches besides the default one, e.g. `release/*` | none |
-| API descriptions | collect OpenAPI, Swagger and protobuf files wherever they are (below) | on |
+| API descriptions | collect API description files without naming them in Include (below) | on |
+| API description paths | glob patterns of API description files, case-insensitive ([below](#api-descriptions)) | `**/openapi*.{yaml,yml,json}`, `**/api-docs/**` |
 | Refresh | **On a timer** or **On events** ([below](#when-documentation-is-refreshed)) | on a timer |
+| Events | which events start a collection **On events** ([below](#when-documentation-is-refreshed)) | all four |
 
 - **Inheritance.** Each field is inherited from the nearest node that sets it: a folder sets patterns for all its
   projects, and a project overrides one field with **Override**. **Reset** returns a field to inheritance. Every
@@ -62,11 +64,16 @@ Under **Settings → Documentation settings → Collection settings** of a proje
 
 - **On a timer** (the default). Every project is checked every `KNOWLEDGE_INTERVAL_SECS` (5 minutes). A branch whose
   newest commit changed gets a new snapshot. Events do not trigger anything extra.
-- **On events.** There is no timer. A collection starts within seconds when:
-  - CI reports a new deployment of the project ([ci-events.md](ci-events.md)); sending the same event again does not
-    count;
-  - a forge synchronization started by a push webhook, by **Sync now** or from the command line finds a new commit
-    in one of the project's branches. Scheduled synchronizations do not count.
+- **On events.** There is no timer. A collection starts within seconds after an event selected in **Events**:
+  - **Deployment from CI** — CI reports a new deployment of the project ([ci-events.md](ci-events.md)); sending the
+    same event again does not count;
+  - **Deployment seen in a cluster** — a cluster records a version CI never reported ([kubernetes.md](kubernetes.md));
+  - **Forge webhook** — a forge synchronization started by a push webhook finds a new commit in one of the project's
+    branches;
+  - **Manual forge sync** — the same for **Sync now** or the command line.
+
+  Scheduled synchronizations never count. **Events** is inherited like the other fields and kept while the mode is
+  **On a timer**. With no event selected, only the actions below start a collection.
 
 In both modes these start a collection too:
 - **Collect now** on the **Documentation** tab;
@@ -89,12 +96,16 @@ refreshed: a local directory without CI is collected only by **Collect now**.
 OpenAPI 3.x, Swagger 2.0 and `.proto` files are shown as an **API** view: operations or services and messages, with
 **Tree** and **Source** views next to it.
 
-They are collected even if the include patterns do not name them:
-- every `openapi*` and `swagger*` file (`.yaml`, `.yml`, `.json`) and every `*.proto`, in any folder;
-- everything under `apidocs/` or `api-docs/`.
+Files matching **API description paths** are collected even if the include patterns do not name them. By default
+these are:
+- every `openapi*` file (`.yaml`, `.yml`, `.json`), in any folder;
+- everything under `api-docs/`.
 
-These names match regardless of case; your own patterns stay case-sensitive. Exclusions and limits still apply.
-Turn the switch **API descriptions** off to stop this for a node and everything below.
+Swagger files, `.proto` files and `apidocs/` are collected only when you add them: **Override** the paths on an
+organization or folder and use the example buttons (`**/swagger*.{yaml,yml,json}`, `**/*.proto`, `**/apidocs/**`), or
+**Fill in default paths** to start again from the default list. An empty list collects no API descriptions. Paths match
+regardless of case; your other patterns stay case-sensitive. Exclusions and limits still apply. Turn the switch
+**API descriptions** off to stop collecting them for a node and everything below.
 
 Descriptions under `third_party/`, `vendor/` or `node_modules/`, and well-known `.proto` packages (`google/`,
 `buf/validate/`, `gogoproto/`, …) are collected, so imports resolve, but hidden from the list. **Show vendored**

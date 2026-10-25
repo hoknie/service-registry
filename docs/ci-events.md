@@ -112,5 +112,6 @@ with the same key for that service and environment. When another rollout becomes
 
 ## Refreshing documentation on deployment
 
-A project whose documentation refreshes **On events** collects it right after every new event; see
+A project whose documentation refreshes **On events** with **Deployment from CI** selected (the default) collects it
+right after every new event; see
 [project-documentation.md](project-documentation.md#when-documentation-is-refreshed).

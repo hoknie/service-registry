@@ -3,11 +3,13 @@ package requests
 import knowledgetypes "svc-registry/internal/feature/knowledge/types"
 
 type KnowledgeSettings struct {
-	Include  Optional[[]string] `json:"include"`
-	Exclude  Optional[[]string] `json:"exclude"`
-	Branches Optional[[]string] `json:"branches"`
-	APIs     Optional[bool]     `json:"apis"`
-	Refresh  Optional[string]   `json:"refresh"`
+	Include       Optional[[]string] `json:"include"`
+	Exclude       Optional[[]string] `json:"exclude"`
+	Branches      Optional[[]string] `json:"branches"`
+	APIs          Optional[bool]     `json:"apis"`
+	APIPaths      Optional[[]string] `json:"api_paths"`
+	Refresh       Optional[string]   `json:"refresh"`
+	RefreshEvents Optional[[]string] `json:"refresh_events"`
 }
 
 func (r KnowledgeSettings) Settings() (knowledgetypes.NodeSettings, error) {
@@ -18,7 +20,7 @@ func (r KnowledgeSettings) Settings() (knowledgetypes.NodeSettings, error) {
 	for _, f := range []struct {
 		in  Optional[[]string]
 		out **[]string
-	}{{r.Exclude, &out.Exclude}, {r.Branches, &out.Branches}} {
+	}{{r.Exclude, &out.Exclude}, {r.Branches, &out.Branches}, {r.APIPaths, &out.APIPaths}} {
 		if !f.in.Present {
 			continue
 		}
@@ -38,6 +40,16 @@ func (r KnowledgeSettings) Settings() (knowledgetypes.NodeSettings, error) {
 			return knowledgetypes.NodeSettings{}, knowledgetypes.InvalidSettings
 		}
 		out.Refresh = new(knowledgetypes.Refresh(*r.Refresh.Value))
+	}
+	if r.RefreshEvents.Present {
+		if r.RefreshEvents.Value == nil {
+			return knowledgetypes.NodeSettings{}, knowledgetypes.InvalidSettings
+		}
+		events := make([]knowledgetypes.CollectEvent, len(*r.RefreshEvents.Value))
+		for i, e := range *r.RefreshEvents.Value {
+			events[i] = knowledgetypes.CollectEvent(e)
+		}
+		out.RefreshEvents = &events
 	}
 	return out, nil
 }

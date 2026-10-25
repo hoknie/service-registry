@@ -50,7 +50,10 @@ type IngestServices struct {
 	Records *RecordsService
 }
 
-func (f *IngestServices) Use(docs ingestports.DocsTriggerPort) { f.Accept.acceptEvent.Use(docs) }
+func (f *IngestServices) Use(docs ingestports.DocsTriggerPort) {
+	f.Accept.acceptEvent.Use(docs)
+	f.Accept.recordDeployment.Use(docs)
+}
 
 func New(d Deps) *IngestServices {
 	p := newParts(d)

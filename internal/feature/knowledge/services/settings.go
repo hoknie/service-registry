@@ -17,8 +17,10 @@ import (
 
 type KnowledgeSettings struct {
 	Settings                                                      knowledgetypes.Settings
+	Defaults                                                      knowledgetypes.Settings
 	Own                                                           knowledgetypes.NodeSettings
 	IncludeFrom, ExcludeFrom, BranchesFrom, APIsFrom, RefreshFrom *knowledgetypes.ChainNode
+	APIPathsFrom, RefreshEventsFrom                               *knowledgetypes.ChainNode
 	IntervalSecs                                                  uint32
 }
 
@@ -43,9 +45,9 @@ func (s *SettingsService) nodeSettings(ctx context.Context, id uuid.UUID) (Knowl
 		}
 		return &chain[i]
 	}
-	return KnowledgeSettings{Settings: sc, Own: chain[0].Own, IncludeFrom: origin(from.Include), ExcludeFrom: origin(from.Exclude),
-		BranchesFrom: origin(from.Branches), APIsFrom: origin(from.APIs), RefreshFrom: origin(from.Refresh),
-		IntervalSecs: s.cfg.Knowledge.IntervalSecs}, nil
+	return KnowledgeSettings{Settings: sc, Defaults: knowledgetypes.DefaultSettings(), Own: chain[0].Own, IncludeFrom: origin(from.Include),
+		ExcludeFrom: origin(from.Exclude), BranchesFrom: origin(from.Branches), APIsFrom: origin(from.APIs), RefreshFrom: origin(from.Refresh),
+		APIPathsFrom: origin(from.APIPaths), RefreshEventsFrom: origin(from.RefreshEvents), IntervalSecs: s.cfg.Knowledge.IntervalSecs}, nil
 }
 
 func (s *SettingsService) GetKnowledgeSettings(ctx context.Context, p accesstypes.Principal, id uuid.UUID) (KnowledgeSettings, error) {
