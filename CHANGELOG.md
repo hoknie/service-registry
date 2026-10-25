@@ -8,6 +8,21 @@ The versions follow [Semantic Versioning](https://semver.org/).
 
 ### Features
 
+- Added metrics ([66eb02f](https://github.com/hoknie/service-registry/commit/66eb02fb2ff4dd8725c1f3913c37e8d474fef32e))
+- Added apis paths and refresh events ([fda91a1](https://github.com/hoknie/service-registry/commit/fda91a17ababf9e4edceb26f03f97338522e0504))
+- Updated repository methods ([a7dc8c8](https://github.com/hoknie/service-registry/commit/a7dc8c8b132df7d1134eb6f4612d4b41910bb4f5))
+- Sec scan fix ([5ef6a4d](https://github.com/hoknie/service-registry/commit/5ef6a4d28ce5912b8a82834e206866f56c53a757))
+
+### Other
+
+- Bump app version ([7a018fd](https://github.com/hoknie/service-registry/commit/7a018fda905e10c3141a465d7104798e94650ede))
+
+[Full diff](https://github.com/hoknie/service-registry/compare/v0.2.0...HEAD)
+
+## [0.2.0] - 2026-10-24
+
+### Features
+
 - Sec update ([e79bd0b](https://github.com/hoknie/service-registry/commit/e79bd0bcc7c4ff1e9bcf1dac5b6b75a6488574e8))
 - Updated org groups ([b3a903b](https://github.com/hoknie/service-registry/commit/b3a903b3d297e2c131f9ea3a2bde311c3c424ac3))
 - Added org groups ([3c34d5f](https://github.com/hoknie/service-registry/commit/3c34d5f11fec234562e6ab18a91a27e3998a68af))
@@ -41,11 +56,12 @@ The versions follow [Semantic Versioning](https://semver.org/).
 
 ### Other
 
+- Changelog upd ([9035cda](https://github.com/hoknie/service-registry/commit/9035cda4dbf5145cef6c239d2c09106a2cbb4a27))
 - Renew docs ([1ca13c3](https://github.com/hoknie/service-registry/commit/1ca13c3cb78b4078a336b515d1ed8801a4be5a06))
 - Docs update ([c016059](https://github.com/hoknie/service-registry/commit/c0160597774cb88e1aab636e711326d05289c652))
 - Updated changelog ([77c960e](https://github.com/hoknie/service-registry/commit/77c960e719cb5225e95a6a13faabdbedbccab1b0))
 
-[Full diff](https://github.com/hoknie/service-registry/compare/v0.1.1...HEAD)
+[Full diff](https://github.com/hoknie/service-registry/compare/v0.1.1...v0.2.0)
 
 ## [0.1.1] - 2026-10-14
 
