@@ -16,8 +16,13 @@ The versions follow [Semantic Versioning](https://semver.org/).
 - Updated repository methods ([a7dc8c8](https://github.com/hoknie/service-registry/commit/a7dc8c8b132df7d1134eb6f4612d4b41910bb4f5))
 - Sec scan fix ([5ef6a4d](https://github.com/hoknie/service-registry/commit/5ef6a4d28ce5912b8a82834e206866f56c53a757))
 
+### Fixes
+
+- Updated pub docs ui ([dfb6c73](https://github.com/hoknie/service-registry/commit/dfb6c73ee951259840d9d8575c489657f201f5f2))
+
 ### Other
 
+- Update changelog ([9535fb3](https://github.com/hoknie/service-registry/commit/9535fb382f94fd2c1ed48d02eb885fa9191bff3d))
 - Bump app version ([7a018fd](https://github.com/hoknie/service-registry/commit/7a018fda905e10c3141a465d7104798e94650ede))
 
 [Full diff](https://github.com/hoknie/service-registry/compare/v0.2.0...HEAD)
