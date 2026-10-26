@@ -225,8 +225,8 @@ export function DocSpace({ locale, labels }: Props) {
         )}
       >
         <aside
-          aria-label={t.contents}
-          className="sticky top-20 hidden max-h-[calc(100dvh-6rem)] min-w-0 overflow-x-hidden overflow-y-auto rounded-card border border-line bg-surface p-2 shadow-elev-1 lg:block"
+          aria-label={t.structure}
+          className="sticky top-[calc(var(--doc-header,3.5rem)+1.5rem)] hidden max-h-[calc(100dvh-var(--doc-header,3.5rem)-2.5rem)] min-w-0 overflow-x-hidden overflow-y-auto rounded-card border border-line bg-surface p-2 shadow-elev-1 lg:block"
         >
           <div className={cn("flex items-center gap-2", panelOpen ? "mb-1" : "justify-center")}>
             {panelOpen && structureTitle}
@@ -287,7 +287,7 @@ export function DocSpace({ locale, labels }: Props) {
         {hasToc && (
           <aside
             aria-label={t.toc}
-            className="sticky top-20 hidden max-h-[calc(100dvh-6rem)] min-w-0 overflow-x-hidden overflow-y-auto rounded-card border border-line bg-surface p-2 shadow-elev-1 xl:block"
+            className="sticky top-[calc(var(--doc-header,3.5rem)+1.5rem)] hidden max-h-[calc(100dvh-var(--doc-header,3.5rem)-2.5rem)] min-w-0 overflow-x-hidden overflow-y-auto rounded-card border border-line bg-surface p-2 shadow-elev-1 xl:block"
           >
             <div className={cn("flex items-center gap-2", tocOpen ? "mb-1" : "justify-center")}>
               {tocOpen && (

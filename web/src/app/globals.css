@@ -293,6 +293,7 @@
   html {
     background: var(--canvas);
     -webkit-text-size-adjust: 100%;
+    scroll-padding-top: calc(var(--doc-header, 3.5rem) + 1rem);
   }
   body {
     min-height: 100dvh;

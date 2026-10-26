@@ -1,7 +1,7 @@
 "use client";
 
 import { BookOpen, Search } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Toaster } from "sonner";
 
 import type { Locale } from "@/i18n/config";
@@ -38,6 +38,19 @@ export function PublicFrame({ locale, labels, text: t, theme, language, skip }: 
   const [ready, setReady] = useState<{ root: string | null; hosted: boolean } | null>(null);
   const [q, setQ] = useState("");
   const [draft, setDraft] = useState("");
+  const header = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const el = header.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const observer = new ResizeObserver(() => root.style.setProperty("--doc-header", `${el.offsetHeight}px`));
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty("--doc-header");
+    };
+  }, []);
 
   useEffect(() => {
     const { root, base } = publicRoot(window.location.pathname);
@@ -74,7 +87,7 @@ export function PublicFrame({ locale, labels, text: t, theme, language, skip }: 
         {skip}
       </a>
       <div className="flex min-h-dvh flex-col">
-        <header className="sticky top-0 z-30 border-b border-line/80 bg-canvas/80 backdrop-blur-xl">
+        <header ref={header} className="sticky top-0 z-30 border-b border-line/80 bg-canvas/80 backdrop-blur-xl">
           <div className="mx-auto flex w-full max-w-[84rem] [.doc-wide_&]:max-w-none flex-wrap items-center gap-3 px-4 py-2.5 sm:px-8">
             <EntryTitle fallback={t.title} />
             <form onSubmit={search} className="ml-auto flex min-w-0 items-center gap-2" role="search">
@@ -89,14 +102,12 @@ export function PublicFrame({ locale, labels, text: t, theme, language, skip }: 
                 <Search aria-hidden="true" />
               </Button>
             </form>
+            {ready && (ready.root || ready.hosted) && <ProjectPicker label={t.project} />}
             <LanguageSwitcher current={locale} label={language} cookieOnly={!!ready?.hosted} />
             <ThemeSwitcher labels={theme} />
           </div>
-          <div className="mx-auto flex w-full max-w-[84rem] [.doc-wide_&]:max-w-none flex-wrap items-center gap-3 px-4 pb-2 sm:px-8">
-            <div className="min-w-0 flex-1">
-              <Trail />
-            </div>
-            {ready && (ready.root || ready.hosted) && <ProjectPicker label={t.project} />}
+          <div className="mx-auto w-full max-w-[84rem] [.doc-wide_&]:max-w-none px-4 pb-2 sm:px-8">
+            <Trail />
           </div>
         </header>
         <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[84rem] [.doc-wide_&]:max-w-none min-w-0 flex-1 px-4 py-6 focus:outline-none sm:px-8">
@@ -142,7 +153,7 @@ function ProjectPicker({ label }: { label: string }) {
   const selected = projects.find((p) => p.path && (current === p.path || current.startsWith(`${p.path}/`)))?.path ?? "";
   if (projects.length < 2) return null;
   return (
-    <Select aria-label={label} value={selected} placeholder={label} onChange={(e) => navigateDoc(docHref(splitPath(e.target.value)))} className="h-8 w-56 text-sm">
+    <Select aria-label={label} value={selected} placeholder={label} onChange={(e) => navigateDoc(docHref(splitPath(e.target.value)))} className="w-48 sm:w-56">
       {projects.map((p) => (
         <option key={p.path} value={p.path}>
           {p.name}
