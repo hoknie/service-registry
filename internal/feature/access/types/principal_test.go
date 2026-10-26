@@ -274,3 +274,32 @@ func TestRequireMetrics(t *testing.T) {
 		})
 	}
 }
+
+func TestPublicationRightAndScope(t *testing.T) {
+	t.Parallel()
+	owner := uuid.Must(uuid.NewV7())
+	tok := func(nodes []uuid.UUID, s ...Scope) Principal {
+		return Principal{UserID: owner, TokenID: uuid.Must(uuid.NewV7()), Scopes: s, Nodes: nodes}
+	}
+	if err := RequireScope(tok(nil, ScopeRead, ScopePublication), NeedPublicationWrite); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []Principal{tok(nil, ScopeRead, ScopeWrite), tok(nil, ScopePublication), tok([]uuid.UUID{owner}, ScopeRead, ScopePublication)} {
+		if err := RequireScope(p, NeedPublicationWrite); apperr.From(err) == nil || apperr.From(err).Kind != apperr.InsufficientScope {
+			t.Errorf("%v: %v", p.Scopes, err)
+		}
+	}
+	if err := RequireScope(Principal{UserID: owner}, NeedPublicationWrite); err != nil {
+		t.Fatal("sessions are not limited by scopes")
+	}
+	rights, err := ValidateRights(map[string][]string{"publication": {"update"}})
+	if err != nil || !rights.Has(SectionPublication, ActionUpdate) || !rights.AllowsScope(ScopePublication) {
+		t.Fatalf("%v %v", rights, err)
+	}
+	if _, err := ValidateRights(map[string][]string{"publication": {"read"}}); !errors.Is(err, InvalidPermissions) {
+		t.Fatal(err)
+	}
+	if got := rights.ForScopes(Scopes{ScopeRead}); got.Has(SectionPublication, ActionUpdate) {
+		t.Fatal("read does not open publication")
+	}
+}

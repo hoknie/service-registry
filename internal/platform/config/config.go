@@ -23,6 +23,7 @@ type Config struct {
 	OAuth        OAuthConfig
 	MCPOAuth     MCPOAuthConfig
 	Metrics      MetricsConfig
+	DocsPublic   DocsPublicConfig
 	Bootstrap    BootstrapConfig
 }
 

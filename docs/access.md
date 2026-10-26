@@ -84,6 +84,7 @@ A superadmin can let a group run parts of the administration without making its 
 | Global secrets | create, read, update, delete |
 | Scans | read |
 | Catalog top level | create, read, update, delete |
+| Publication | update |
 
 Everyone who is signed in can already read the lists of environments and link kinds.
 
@@ -94,6 +95,10 @@ organization to or from the top and opens or closes an organization ([catalog.md
 owner ([owners.md](owners.md#what-owners-can-do)); without being a superadmin they also become its admin, so they can
 see and set it up. The role can be removed under the organization's
 **Settings → Access**.
+
+**Publication** lets members change the publication settings of documentation on any node they can read
+([project-documentation.md](project-documentation.md#publication)). Editing a node does not give it. Tokens need the
+scopes `read` and `publication:write` for it.
 
 How the rights work:
 - Every active member gets the union of the rights of all their groups. Groups assigned by a login provider count

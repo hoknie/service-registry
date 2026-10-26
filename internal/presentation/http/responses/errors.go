@@ -53,6 +53,7 @@ var statuses = map[apperr.Kind]int{
 	apperr.InsufficientScope:       http.StatusForbidden,
 	apperr.SessionRequired:         http.StatusForbidden,
 	apperr.UpstreamRateLimited:     http.StatusTooManyRequests,
+	apperr.PublicRateLimited:       http.StatusTooManyRequests,
 	apperr.BadGateway:              http.StatusBadGateway,
 	apperr.InvalidWebhookSignature: http.StatusUnauthorized,
 	apperr.InvalidAgentToken:       http.StatusUnauthorized,
@@ -68,7 +69,7 @@ func FromApp(e *apperr.Error) *APIError {
 	code, message := e.Public()
 	api := &APIError{Status: status, Code: code, Message: message}
 	switch e.Kind {
-	case apperr.RateLimited, apperr.IngestRateLimited, apperr.UpstreamRateLimited:
+	case apperr.RateLimited, apperr.IngestRateLimited, apperr.UpstreamRateLimited, apperr.PublicRateLimited:
 		api.RetryAfter = e.RetryAfterSecs
 	case apperr.InvalidProjectKey, apperr.InvalidToken, apperr.InvalidAgentToken:
 		api.Challenge = "Bearer"

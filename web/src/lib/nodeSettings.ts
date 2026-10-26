@@ -1,6 +1,6 @@
 import type { NodeKind } from "./api";
 
-export const SECTIONS = ["general", "owners", "groups", "branches", "links", "dependencies", "docs", "keys", "access", "notifications", "connect", "forge", "secrets", "scans"] as const;
+export const SECTIONS = ["general", "owners", "groups", "branches", "links", "dependencies", "docs", "keys", "access", "notifications", "connect", "forge", "secrets", "scans", "publication"] as const;
 export type Section = (typeof SECTIONS)[number];
 
 export const PROJECT_TABS = ["overview", "docs", "details", "releases", "dependencies", "settings"] as const;
@@ -42,6 +42,7 @@ export function sectionsOf(node: NodeLike | null): Section[] {
       "links",
       ...(can("catalog.write") ? (["dependencies"] as const) : []),
       "docs",
+      "publication",
       ...(can("catalog.write") ? (["scans"] as const) : []),
       ...(can("catalog.keys") ? (["keys"] as const) : []),
       ...(can("catalog.access") ? (["access", "notifications"] as const) : []),
@@ -56,6 +57,7 @@ export function sectionsOf(node: NodeLike | null): Section[] {
     "secrets",
     "links",
     "docs",
+    "publication",
     ...(can("catalog.access") ? (["access", "notifications"] as const) : []),
   ];
 }

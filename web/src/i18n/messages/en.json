@@ -270,7 +270,8 @@
       "organization_top_level": "Groups belong to a top-level organization.",
       "organization_group_rights": "A group of an organization cannot have administration rights.",
       "invalid_ref": "Choose a branch, a tag or the current release — only one.",
-      "knowledge_branches_replaced": "The branches field is replaced by branch and tag patterns."
+      "knowledge_branches_replaced": "The branches field is replaced by branch and tag patterns.",
+      "invalid_publication": "Check the publication fields."
     },
     "conflict": {
       "email_taken": "A user with this email already exists.",
@@ -309,7 +310,9 @@
       "dependency_exists": "This dependency has already been added manually.",
       "token_nodes_full": "The token already names 20 nodes; a new organization cannot be added to it.",
       "organization_has_groups": "An organization with groups cannot be moved under another node. Delete its groups first.",
-      "organization_groups_bound": "Groups of this organization have roles or ownership here. Remove them before moving the node out of the organization."
+      "organization_groups_bound": "Groups of this organization have roles or ownership here. Remove them before moving the node out of the organization.",
+      "publication_name_taken": "This public name is already used.",
+      "publication_host_taken": "This host is already used."
     },
     "ingest": {
       "unknown_event_type": "Unknown event type.",
@@ -369,7 +372,8 @@
       "schema_too_deep": "A schema is nested too deeply and was cut.",
       "file_skipped": "The file was skipped during collection.",
       "too_large": "The description is too large; only the first 5000 items are shown."
-    }
+    },
+    "rate_limited": "Too many requests, try again later."
   },
   "guard": {
     "loading": "Loading…",
@@ -481,7 +485,8 @@
       "clusters:write": "Change clusters and agent tokens",
       "settings:read": "View global secrets and scan history",
       "settings:write": "Change link kinds, environments and global secrets",
-      "catalog.root": "Create top-level organizations; move and delete them"
+      "catalog.root": "Create top-level organizations; move and delete them",
+      "publication:write": "Change publication settings of documentation"
     },
     "scopeAreas": {
       "users": "Users",
@@ -713,7 +718,8 @@
           "link_kinds": "Link kinds",
           "secrets": "Global secrets",
           "scans": "Scans",
-          "catalog": "Catalog top level"
+          "catalog": "Catalog top level",
+          "publication": "Documentation publication"
         },
         "actions": {
           "create": "Create",
@@ -1841,7 +1847,8 @@
         "owners": "Owners",
         "notifications": "Notifications",
         "dependencies": "Dependencies",
-        "groups": "Groups"
+        "groups": "Groups",
+        "publication": "Publication"
       }
     },
     "linkIcons": {
@@ -1978,6 +1985,39 @@
       "added": "Member added.",
       "removed": "Member removed.",
       "readOnly": "Only admins of the organization manage its groups."
+    },
+    "publication": {
+      "title": "Publication",
+      "lead": "Show this documentation without signing in. Each field is taken from the nearest node where it is set.",
+      "readOnly": "Only holders of the publication right change these settings.",
+      "publish": "Publish",
+      "versions": "Published versions",
+      "versionsHint": "Only collected versions are published. Patterns: * — any characters except /, ** — any.",
+      "defaultBranch": "Default branch",
+      "currentRelease": "Current release",
+      "name": "Public name",
+      "nameHint": "Address /public/docs/<name>: a-z, 0-9 and -, up to 63 characters.",
+      "host": "Host",
+      "hostHint": "Serve this node's public documentation on its own host, e.g. docs.example.com. DNS and TLS are set up outside.",
+      "addresses": "Public addresses",
+      "unreachable": "Published but has no address: set a public name or publish a parent.",
+      "notPublished": "Not published.",
+      "here": "Set here",
+      "inherited": "Inherited from {name}",
+      "default": "Default",
+      "override": "Override",
+      "reset": "Reset",
+      "yes": "Yes",
+      "no": "No",
+      "pattern": "Pattern",
+      "kind": "For",
+      "branches": "Branches",
+      "tags": "Tags",
+      "add": "Add pattern",
+      "remove": "Remove",
+      "noVersions": "No patterns",
+      "save": "Save",
+      "saved": "Publication settings saved."
     }
   },
   "notFound": {
@@ -2304,7 +2344,13 @@
     "toc": "On this page",
     "structure": "Structure",
     "panelHide": "Collapse the panel",
-    "panelShow": "Expand the panel"
+    "panelShow": "Expand the panel",
+    "filesCount": "{n} files",
+    "dirEmpty": "This folder is empty.",
+    "tocHide": "Hide the outline",
+    "tocShow": "Show the outline",
+    "wideView": "Wide view",
+    "normalView": "Normal width"
   },
   "oauth": {
     "title": "Allow access to the registry",
@@ -2480,5 +2526,13 @@
         "subscription_disabled": "The subscription is disabled"
       }
     }
+  },
+  "publicDocs": {
+    "title": "Documentation",
+    "project": "Project",
+    "search": "Search the documentation",
+    "results": "Search results",
+    "noResults": "Nothing found.",
+    "noRoot": "Open a published documentation address."
   }
 }

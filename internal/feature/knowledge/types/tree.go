@@ -1,8 +1,10 @@
 package types
 
 import (
+	"regexp"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 type TreeDir struct {
@@ -83,4 +85,69 @@ func Level(files []FileInfo, dir string) (TreeLevel, bool) {
 	sort.Slice(out.Dirs, func(i, j int) bool { return out.Dirs[i].Name < out.Dirs[j].Name })
 	sort.Slice(out.Files, func(i, j int) bool { return out.Files[i].Path < out.Files[j].Path })
 	return out, true
+}
+
+const maxTitleRunes = 200
+
+var titleMarkup = regexp.MustCompile("!?\\[([^\\]]*)\\]\\([^)]*\\)|[*_`]")
+
+func IsMarkdown(path string) bool {
+	p := strings.ToLower(path)
+	return strings.HasSuffix(p, ".md") || strings.HasSuffix(p, ".markdown")
+}
+
+func MarkdownTitle(content string) string {
+	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
+	fence := ""
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if fence != "" {
+			if strings.HasPrefix(trimmed, fence) {
+				fence = ""
+			}
+			continue
+		}
+		if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
+			fence = trimmed[:3]
+			continue
+		}
+		if rest, ok := strings.CutPrefix(trimmed, "# "); ok {
+			return cleanTitle(strings.TrimRight(strings.TrimSpace(rest), "# "))
+		}
+		if trimmed != "" && i+1 < len(lines) && isSetextRule(lines[i+1]) && !strings.HasPrefix(trimmed, "#") {
+			return cleanTitle(trimmed)
+		}
+	}
+	return ""
+}
+
+func isSetextRule(line string) bool {
+	t := strings.TrimSpace(line)
+	return t != "" && strings.Trim(t, "=") == ""
+}
+
+func cleanTitle(s string) string {
+	s = strings.TrimSpace(titleMarkup.ReplaceAllString(s, "$1"))
+	if utf8.RuneCountInString(s) > maxTitleRunes {
+		s = string([]rune(s)[:maxTitleRunes])
+	}
+	return s
+}
+
+func (l TreeLevel) MarkdownPaths() []string {
+	var out []string
+	for _, f := range l.Files {
+		if f.Skip == nil && IsMarkdown(f.Path) {
+			out = append(out, f.Path)
+		}
+	}
+	return out
+}
+
+func (l *TreeLevel) SetTitles(contents map[string]string) {
+	for i := range l.Files {
+		if c, ok := contents[l.Files[i].Path]; ok {
+			l.Files[i].Title = MarkdownTitle(c)
+		}
+	}
 }

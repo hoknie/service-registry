@@ -37,6 +37,7 @@ func (d *Dist) WriteExport(t testing.TB) {
 			`<script src="/_next/static/chunks/app.js" async=""></script></head><body>`+l+` login</body></html>`)
 		d.Write(t, l+"/404.html", `<!DOCTYPE html><html lang="`+l+`"><body>`+l+` not found</body></html>`)
 		d.Write(t, l+"/doc.html", `<!DOCTYPE html><html lang="`+l+`"><body>`+l+` docs</body></html>`)
+		d.Write(t, l+"/public/docs.html", `<!DOCTYPE html><html lang="`+l+`"><body>`+l+` public docs</body></html>`)
 	}
 	d.WriteBytes(t, "en/login.html.br", BrBody)
 	d.Write(t, "ru/catalog.html", `<!DOCTYPE html><html lang="ru"><body>ru catalog</body></html>`)

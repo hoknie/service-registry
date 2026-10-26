@@ -249,7 +249,7 @@ export type ProjectKey = {
 
 export type GlobalArea = "users" | "groups" | "clusters" | "settings";
 
-export type GlobalScope = `${GlobalArea}:${"read" | "write"}` | "catalog.root";
+export type GlobalScope = `${GlobalArea}:${"read" | "write"}` | "catalog.root" | "publication:write";
 
 export type Scope = "read" | "write" | "mcp" | GlobalScope;
 
@@ -646,7 +646,7 @@ export type SkipReason = "too_large" | "binary" | "limit";
 
 export type GitStatus = "untracked" | "ignored";
 
-export type KnowledgeFile = { path: string; kind: DocKind; bytes: number; skip_reason: SkipReason | null; git_status?: GitStatus | null };
+export type KnowledgeFile = { path: string; kind: DocKind; bytes: number; skip_reason: SkipReason | null; git_status?: GitStatus | null; title?: string | null };
 
 export type KnowledgeFiles = { snapshot: Snapshot; items: KnowledgeFile[] };
 
@@ -792,12 +792,15 @@ export type DocSpace = {
   node: DocSpaceNode | null;
   ancestors: DocSpaceNode[];
   children: DocSpaceNode[];
+  node_path?: string[];
+  entry?: { name: string; title: string; host: string | null; projects: { path: string; name: string }[] };
   docs: {
     source: string | null;
     default_branch: string;
     branches: { name: string; collected_at: string }[];
     tags?: { name: string; collected_at: string; release: boolean }[];
     release?: string | null;
+    default_key?: string | null;
   } | null;
   doc_path: string | null;
 };

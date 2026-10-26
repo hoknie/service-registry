@@ -122,6 +122,89 @@ func (s *SearchRepository) Search(ctx context.Context, v knowledgetypes.Viewer, 
 		q.Limit, q.Offset, t.Prefix, t.Negative, t.Excluded, v.Nodes, v.Admin, q.Release)
 }
 
+func (s *SearchRepository) SearchIn(ctx context.Context, targets []knowledgetypes.SearchTarget, q knowledgetypes.Search, t knowledgetypes.TextQuery) ([]knowledgetypes.Hit, error) {
+	words := make([]string, 0, len(t.PathWords))
+	for _, w := range t.PathWords {
+		words = append(words, "%"+like(w)+"%")
+	}
+	projects := make([]uuid.UUID, len(targets))
+	keys := make([]string, len(targets))
+	for i, x := range targets {
+		projects[i], keys[i] = x.Project, x.Key
+	}
+	return postgres.List(ctx, s.db.From(ctx), constraints, postgres.Struct(publicHitRow.hit), `
+		WITH want AS (
+			SELECT *
+			FROM unnest($1::uuid[], $2::text[]) AS w(project_id, branch)
+		),
+		latest AS (
+			SELECT DISTINCT ON (s.project_id, w.branch) s.id, s.project_id, w.branch, s.commit_sha
+			FROM knowledge_snapshots s
+			JOIN want w ON w.project_id = s.project_id
+				AND w.branch = CASE WHEN s.ref_kind = 'tag' THEN 'tag:' || s.branch ELSE s.branch END
+			WHERE s.status <> 'failed'
+			ORDER BY s.project_id, w.branch, s.collected_at DESC, s.id DESC
+		),
+		stems AS (
+			SELECT websearch_to_tsquery('russian', $3) AS q
+		),
+		q AS (
+			SELECT CASE WHEN numnode(s.q) = 0 THEN websearch_to_tsquery('simple', $3) ELSE s.q END AS q,
+				(CASE WHEN numnode(s.q) = 0 THEN 'simple' ELSE 'russian' END)::regconfig AS cfg
+			FROM stems s
+		),
+		pref AS (
+			SELECT CASE WHEN $8::text = '' THEN NULL ELSE to_tsquery('simple', $8) END AS pos,
+				CASE WHEN $9::text = '' THEN NULL ELSE to_tsquery('simple', $9) END AS neg,
+				CASE WHEN $10::text = '' THEN NULL ELSE websearch_to_tsquery('russian', $10) END AS stem_neg
+		),
+		hits AS (
+			SELECT l.project_id, l.branch, l.commit_sha, f.path, f.kind, f.sha256,
+				(cardinality($5::text[]) > 0 AND (SELECT bool_and(lower(f.path) LIKE w ESCAPE '\') FROM unnest($5::text[]) w)) AS in_path,
+				COALESCE(b.tsv @@ q.q, false) AS in_stems,
+				COALESCE(b.tsv @@ q.q, false) OR COALESCE(b.tsv @@ pref.pos, false) AS in_text,
+				COALESCE(b.tsv @@ pref.neg, false) OR COALESCE(b.tsv @@ pref.stem_neg, false) AS excluded,
+				GREATEST(COALESCE(ts_rank_cd(b.tsv, q.q), 0), COALESCE(ts_rank_cd(b.tsv, pref.pos), 0)) AS rank
+			FROM latest l
+			JOIN knowledge_files f ON f.snapshot_id = l.id
+			LEFT JOIN knowledge_blobs b ON b.sha256 = f.sha256, q, pref
+			WHERE f.path LIKE $4 ESCAPE '\'
+		),
+		page AS (
+			SELECT *
+			FROM hits
+			WHERE (in_path OR in_text)
+				AND NOT excluded
+			ORDER BY in_path DESC, rank DESC, project_id, branch, path
+			LIMIT $6
+			OFFSET $7
+		)
+		SELECT p.project_id, n.name, (
+			WITH RECURSIVE up AS (
+				SELECT id, parent_id, slug, 0 AS lvl
+				FROM nodes
+				WHERE id = p.project_id
+				UNION ALL
+				SELECT x.id, x.parent_id, x.slug, up.lvl + 1
+				FROM nodes x
+				JOIN up ON x.id = up.parent_id
+			)
+			SELECT string_agg(slug, '/' ORDER BY lvl DESC)
+			FROM up
+		) AS project_path, p.branch, p.commit_sha, p.path, p.kind,
+			CASE
+				WHEN p.in_stems THEN ts_headline(q.cfg, b.content, q.q,
+					'StartSel=' || chr(57344) || ', StopSel=' || chr(57345) || ', MaxWords=40, MinWords=15, MaxFragments=1')
+				WHEN p.in_text THEN ts_headline('simple', b.content, pref.pos,
+					'StartSel=' || chr(57344) || ', StopSel=' || chr(57345) || ', MaxWords=40, MinWords=15, MaxFragments=1')
+				ELSE left(COALESCE(b.content, ''), 300) END AS fragment,
+			CASE WHEN lower(p.path) ~ '\.(md|markdown)$' THEN left(COALESCE(b.content, ''), 4000) END AS head
+		FROM page p
+		JOIN nodes n ON n.id = p.project_id
+		LEFT JOIN knowledge_blobs b ON b.sha256 = p.sha256, q, pref
+		ORDER BY p.in_path DESC, p.rank DESC, p.project_id, p.branch, p.path`,
+		projects, keys, q.Q, like(q.Path)+"%", words, q.Limit, q.Offset, t.Prefix, t.Negative, t.Excluded)
+}
 func (s *SearchRepository) Readable(ctx context.Context, v knowledgetypes.Viewer, project *uuid.UUID) ([]uuid.UUID, error) {
 	return postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowTo[uuid.UUID], `
 		WITH RECURSIVE bound AS (

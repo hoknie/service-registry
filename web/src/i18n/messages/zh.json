@@ -270,7 +270,8 @@
       "organization_top_level": "群组属于顶级组织。",
       "organization_group_rights": "组织群组不能拥有管理权限。",
       "invalid_ref": "只能选择一项：分支、标签或当前发布。",
-      "knowledge_branches_replaced": "branches 字段已由分支和标签模式取代。"
+      "knowledge_branches_replaced": "branches 字段已由分支和标签模式取代。",
+      "invalid_publication": "请检查发布字段。"
     },
     "conflict": {
       "email_taken": "该邮箱已被其他用户使用。",
@@ -309,7 +310,9 @@
       "dependency_exists": "该依赖已手动添加。",
       "token_nodes_full": "该令牌已包含 20 个节点，无法再加入新组织。",
       "organization_has_groups": "有群组的组织不能移到其他节点下。请先删除其群组。",
-      "organization_groups_bound": "该组织的群组在此处拥有角色或所有权。将节点移出组织前请先移除它们。"
+      "organization_groups_bound": "该组织的群组在此处拥有角色或所有权。将节点移出组织前请先移除它们。",
+      "publication_name_taken": "该公开名称已被使用。",
+      "publication_host_taken": "该主机已被使用。"
     },
     "ingest": {
       "unknown_event_type": "未知的事件类型。",
@@ -369,7 +372,8 @@
       "schema_too_deep": "模式嵌套过深，已截断。",
       "file_skipped": "收集时已跳过该文件。",
       "too_large": "描述过大，仅显示前 5000 项。"
-    }
+    },
+    "rate_limited": "请求过多，请稍后再试。"
   },
   "guard": {
     "loading": "加载中…",
@@ -481,7 +485,8 @@
       "clusters:write": "修改集群和代理令牌",
       "settings:read": "查看全局密钥和扫描历史",
       "settings:write": "修改链接类型、环境和全局密钥",
-      "catalog.root": "创建顶层组织，以及移动和删除它们"
+      "catalog.root": "创建顶层组织，以及移动和删除它们",
+      "publication:write": "更改文档发布设置"
     },
     "scopeAreas": {
       "users": "用户",
@@ -713,7 +718,8 @@
           "link_kinds": "链接类型",
           "secrets": "全局密钥",
           "scans": "扫描",
-          "catalog": "目录顶层"
+          "catalog": "目录顶层",
+          "publication": "文档发布"
         },
         "actions": {
           "create": "创建",
@@ -1841,7 +1847,8 @@
         "owners": "负责人",
         "notifications": "通知",
         "dependencies": "依赖",
-        "groups": "群组"
+        "groups": "群组",
+        "publication": "发布"
       }
     },
     "linkIcons": {
@@ -1978,6 +1985,39 @@
       "added": "成员已添加。",
       "removed": "成员已移除。",
       "readOnly": "只有组织管理员可以管理其群组。"
+    },
+    "publication": {
+      "title": "发布",
+      "lead": "无需登录即可查看此文档。每个字段取自设置了它的最近节点。",
+      "readOnly": "只有拥有发布权限的人可以更改这些设置。",
+      "publish": "发布",
+      "versions": "发布的版本",
+      "versionsHint": "只发布已收集的版本。模式：* — 除 / 外的任意字符，** — 任意。",
+      "defaultBranch": "默认分支",
+      "currentRelease": "当前发布",
+      "name": "公开名称",
+      "nameHint": "地址 /public/docs/<名称>：a-z、0-9 和 -，最多 63 个字符。",
+      "host": "主机",
+      "hostHint": "在自己的主机上提供该节点的公开文档，例如 docs.example.com。DNS 和 TLS 需在外部配置。",
+      "addresses": "公开地址",
+      "unreachable": "已发布但没有地址：请设置公开名称或发布上级节点。",
+      "notPublished": "未发布。",
+      "here": "在此设置",
+      "inherited": "继承自 {name}",
+      "default": "默认",
+      "override": "覆盖",
+      "reset": "重置",
+      "yes": "是",
+      "no": "否",
+      "pattern": "模式",
+      "kind": "用于",
+      "branches": "分支",
+      "tags": "标签",
+      "add": "添加模式",
+      "remove": "删除",
+      "noVersions": "没有模式",
+      "save": "保存",
+      "saved": "发布设置已保存。"
     }
   },
   "notFound": {
@@ -2304,7 +2344,13 @@
     "toc": "本页内容",
     "structure": "结构",
     "panelHide": "收起面板",
-    "panelShow": "展开面板"
+    "panelShow": "展开面板",
+    "filesCount": "{n} 个文件",
+    "dirEmpty": "此文件夹为空。",
+    "tocHide": "隐藏目录",
+    "tocShow": "显示目录",
+    "wideView": "宽屏视图",
+    "normalView": "正常宽度"
   },
   "oauth": {
     "title": "允许访问注册中心",
@@ -2480,5 +2526,13 @@
         "subscription_disabled": "订阅已停用"
       }
     }
+  },
+  "publicDocs": {
+    "title": "文档",
+    "project": "项目",
+    "search": "搜索文档",
+    "results": "搜索结果",
+    "noResults": "未找到任何内容。",
+    "noRoot": "请打开已发布文档的地址。"
   }
 }

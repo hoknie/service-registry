@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Building2, Contact, GitBranch, KeyRound, Link2, LockKeyhole, Network, Plug, ScanSearch, Settings2, ShieldCheck, SlidersHorizontal, UsersRound } from "lucide-react";
+import { Bell, Building2, Globe, Contact, GitBranch, KeyRound, Link2, LockKeyhole, Network, Plug, ScanSearch, Settings2, ShieldCheck, SlidersHorizontal, UsersRound } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { Locale } from "@/i18n/config";
@@ -25,6 +25,7 @@ const icons = {
   forge: Building2,
   secrets: LockKeyhole,
   scans: ScanSearch,
+  publication: Globe,
 } as const;
 
 type Props = {

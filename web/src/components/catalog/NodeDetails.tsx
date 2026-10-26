@@ -4,6 +4,8 @@ import type { CatalogNode } from "@/lib/api";
 import type { ReactNode } from "react";
 
 import { LinksDetails } from "../links/LinksDetails";
+import { OwnersBlock } from "../owners/OwnersBlock";
+import { PublicAddresses } from "../publication/PublicAddresses";
 import { Panel } from "../ui/Panel";
 import type { CatalogLabels } from "./shared";
 
@@ -30,6 +32,8 @@ export function NodeDetails({ node, locale, labels: t, branch, canWrite, childre
         </dd>
       </dl>
     </Panel>
+    <OwnersBlock node={node} locale={locale} labels={t} />
+    <PublicAddresses node={node} labels={t} />
     {children}
     <Panel>
       <LinksDetails node={node} locale={locale} labels={t} branch={branch} canWrite={canWrite} />

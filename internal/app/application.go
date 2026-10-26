@@ -21,6 +21,7 @@ import (
 	linksservices "svc-registry/internal/feature/links/services"
 	notifyservices "svc-registry/internal/feature/notify/services"
 	ownershipservices "svc-registry/internal/feature/ownership/services"
+	publishingservices "svc-registry/internal/feature/publishing/services"
 	topologyservices "svc-registry/internal/feature/topology/services"
 	"svc-registry/internal/platform/auth"
 	"svc-registry/internal/platform/config"
@@ -35,25 +36,26 @@ import (
 var ErrNotWired = errors.New("catalog ports are not wired")
 
 type App struct {
-	Config    *config.Config
-	DB        *pgtx.DB
-	Hasher    *password.Hasher
-	Secrets   *secretbox.Box
-	Access    *accessservices.AccessServices
-	Catalog   *catalogservices.CatalogServices
-	Links     *linksservices.LinksServices
-	Ownership *ownershipservices.OwnershipServices
-	Notify    *notifyservices.NotifyServices
-	Topology  *topologyservices.TopologyServices
-	Ingest    *ingestservices.IngestServices
-	Forge     *forgeservices.ForgeServices
-	Deploy    *deployservices.DeployServices
-	Knowledge *knowledgeservices.KnowledgeServices
-	Apis      *apisservices.ApisServices
-	Compose   *composeservices.ComposeServices
-	Metrics   *metrics.Metrics
-	Sampler   *metrics.Sampler
-	search    search
+	Config     *config.Config
+	DB         *pgtx.DB
+	Hasher     *password.Hasher
+	Secrets    *secretbox.Box
+	Access     *accessservices.AccessServices
+	Catalog    *catalogservices.CatalogServices
+	Links      *linksservices.LinksServices
+	Ownership  *ownershipservices.OwnershipServices
+	Notify     *notifyservices.NotifyServices
+	Topology   *topologyservices.TopologyServices
+	Ingest     *ingestservices.IngestServices
+	Forge      *forgeservices.ForgeServices
+	Deploy     *deployservices.DeployServices
+	Knowledge  *knowledgeservices.KnowledgeServices
+	Publishing *publishingservices.PublishingServices
+	Apis       *apisservices.ApisServices
+	Compose    *composeservices.ComposeServices
+	Metrics    *metrics.Metrics
+	Sampler    *metrics.Sampler
+	search     search
 }
 
 func New(cfg config.Config, opts ...Option) (*App, error) {
@@ -100,6 +102,8 @@ func New(cfg config.Config, opts ...Option) (*App, error) {
 		Readers: &source.FactoryClient{Roots: cfg.Knowledge.LocalRoots, Forges: forges,
 			MaxFileBytes: cfg.Knowledge.MaxFileBytes, MaxBranches: int(cfg.Branches.SyncMaxPerRepo)}})
 	a.Apis = apisservices.New(apisservices.Deps{Knowledge: a.Knowledge})
+	a.Publishing = publishingservices.New(publishingservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Knowledge: a.Knowledge,
+		Limiter: auth.NewPublicDocsLimiter(cfg.DocsPublic.RatePerMinute)})
 	a.Compose = composeservices.New(composeservices.Deps{Catalog: a.Catalog, Forge: a.Forge, Knowledge: a.Knowledge, Links: a.Links,
 		Ownership: a.Ownership})
 	a.Access.Use(a.Catalog.Access)

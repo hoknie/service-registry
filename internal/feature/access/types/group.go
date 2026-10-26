@@ -95,6 +95,7 @@ const (
 	SectionSecrets      Section = "secrets"
 	SectionScans        Section = "scans"
 	SectionCatalog      Section = "catalog"
+	SectionPublication  Section = "publication"
 )
 
 type Action string
@@ -109,7 +110,7 @@ const (
 var Actions = []Action{ActionCreate, ActionRead, ActionUpdate, ActionDelete}
 
 var Sections = []Section{SectionUsers, SectionGroups, SectionTokens, SectionClusters, SectionEnvironments, SectionLinkKinds,
-	SectionSecrets, SectionScans, SectionCatalog}
+	SectionSecrets, SectionScans, SectionCatalog, SectionPublication}
 
 var SectionActions = map[Section][]Action{
 	SectionUsers:        {ActionCreate, ActionRead, ActionUpdate},
@@ -121,6 +122,7 @@ var SectionActions = map[Section][]Action{
 	SectionSecrets:      Actions,
 	SectionScans:        {ActionRead},
 	SectionCatalog:      Actions,
+	SectionPublication:  {ActionUpdate},
 }
 
 var sectionScopes = map[Section][2]Scope{
@@ -132,6 +134,7 @@ var sectionScopes = map[Section][2]Scope{
 	SectionSecrets:      {ScopeSettingsRead, ScopeSettingsWrite},
 	SectionScans:        {ScopeSettingsRead, ScopeSettingsWrite},
 	SectionCatalog:      {ScopeRead, ScopeCatalogRoot},
+	SectionPublication:  {ScopeRead, ScopePublication},
 }
 
 type Rights map[Section][]Action

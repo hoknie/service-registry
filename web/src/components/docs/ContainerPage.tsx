@@ -13,6 +13,7 @@ import { EmptyState } from "../ui/EmptyState";
 import { PageHeader } from "../ui/Panel";
 import type { DocLabels } from "./DocSpace";
 import { DocLink } from "./DocLink";
+import { WideToggle } from "./DocWide";
 
 type Props = { locale: Locale; labels: DocLabels; space: DocSpace; nodePath: string[] };
 
@@ -24,10 +25,11 @@ export function ContainerPage({ labels, space, nodePath }: Props) {
       {node ? (
         <header className="flex items-start gap-3">
           <KindIcon kind={node.kind} tile className="size-11 rounded-xl [&>svg]:size-5" />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-xs font-medium tracking-wide text-muted uppercase">{t.kinds[node.kind]}</p>
             <h1 className="text-xl font-semibold text-ink">{node.name}</h1>
           </div>
+          <WideToggle />
         </header>
       ) : (
         <PageHeader glyph={FolderTree} title={t.title} lead={t.lead} />

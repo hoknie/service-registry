@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 import type { GitStatus } from "@/lib/api";
 import { cn } from "@/lib/cn";
-import { docHref, splitPath } from "@/lib/docPath";
+import { docHref, parentDir, splitPath } from "@/lib/docPath";
 import { ensureLevel, levelEntry, useDocStore } from "@/lib/docSpaceStore";
 
 import type { CatalogLabels } from "../catalog/shared";
@@ -75,10 +75,12 @@ export function DocFileTree({
   useDocStore();
   const [opened, setOpened] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const onPath = new Set(ancestorsOf(openPath));
+  const openDir =
+    openPath && levelEntry(projectId, branch, parentDir(openPath))?.value?.dirs.some((d) => d.path === openPath) ? openPath : null;
+  const onPath = new Set([...ancestorsOf(openPath), ...(openDir ? [openDir] : [])]);
   const isOpen = (dir: string) =>
     onPath.has(dir) ? !collapsed.has(dir) : opened.has(dir);
-  const pathKey = ancestorsOf(openPath).join("|");
+  const pathKey = [...ancestorsOf(openPath), ...(openDir ? [openDir] : [])].join("|");
 
   useEffect(() => {
     ensureLevel(projectId, branch, "");
@@ -147,66 +149,49 @@ export function DocFileTree({
         const busy = !!levelEntry(projectId, branch, d.path)?.loading;
         return (
           <li key={`d:${d.path}`} className="min-w-0">
-            <button
-              type="button"
-              onClick={() => toggle(d.path)}
-              aria-expanded={open}
-              aria-busy={busy || undefined}
-              title={
-                d.git_status
-                  ? `${d.path} — ${t.gitStatusHint[d.git_status]}`
-                  : d.path
-              }
+            <div
               className={cn(
-                "motion-control flex min-w-0 items-center gap-1.5 rounded-md py-1 pr-2 pl-1 text-left text-sm text-ink-2 hover:bg-surface-2",
+                "motion-control flex min-w-0 items-center gap-1 rounded-md py-1 pr-2 pl-1 text-sm text-ink-2 hover:bg-surface-2",
                 d.git_status === "untracked" && "text-amber",
                 d.git_status === "ignored" && "text-muted italic",
               )}
               style={indent(level)}
             >
-              <span className="grid size-4 shrink-0 place-items-center">
+              <button
+                type="button"
+                onClick={() => toggle(d.path)}
+                aria-expanded={open}
+                aria-busy={busy || undefined}
+                aria-label={d.name}
+                className="grid size-4 shrink-0 place-items-center rounded-sm"
+              >
                 {busy ? (
-                  <Spinner
-                    className="size-3 text-signal"
-                    label={common.loading}
-                  />
+                  <Spinner className="size-3 text-signal" label={common.loading} />
                 ) : (
-                  <ChevronRight
-                    aria-hidden="true"
-                    className={cn(
-                      "motion-control size-3.5 text-muted",
-                      open && "rotate-90",
-                    )}
-                  />
+                  <ChevronRight aria-hidden="true" className={cn("motion-control size-3.5 text-muted", open && "rotate-90")} />
                 )}
-              </span>
-              {open ? (
-                <FolderOpen
-                  aria-hidden="true"
-                  className="size-3.5 shrink-0 text-muted"
-                />
-              ) : (
-                <Folder
-                  aria-hidden="true"
-                  className="size-3.5 shrink-0 text-muted"
-                />
-              )}
-              <span className="min-w-0 flex-1 truncate font-medium">
-                {d.name}
-              </span>
+              </button>
+              <DocLink
+                href={docHref([...projectPath, ...splitPath(d.path)], linkBranch)}
+                aria-current={openPath === d.path ? "page" : undefined}
+                title={d.git_status ? `${d.path} — ${t.gitStatusHint[d.git_status]}` : d.path}
+                className={cn("flex min-w-0 flex-1 items-center gap-1.5", openPath === d.path && "text-signal")}
+              >
+                {open ? (
+                  <FolderOpen aria-hidden="true" className="size-3.5 shrink-0 text-muted" />
+                ) : (
+                  <Folder aria-hidden="true" className="size-3.5 shrink-0 text-muted" />
+                )}
+                <span className="min-w-0 flex-1 truncate font-medium">{d.name}</span>
+              </DocLink>
               {d.git_status && (
                 <span
                   role="img"
                   aria-label={t.gitStatus[d.git_status]}
-                  className={cn(
-                    "size-1.5 shrink-0 rounded-full",
-                    d.git_status === "untracked"
-                      ? "bg-amber"
-                      : "bg-line-strong",
-                  )}
+                  className={cn("size-1.5 shrink-0 rounded-full", d.git_status === "untracked" ? "bg-amber" : "bg-line-strong")}
                 />
               )}
-            </button>
+            </div>
             {open && (
               <ul className="grid min-w-0 animate-fade-in gap-0.5 pt-0.5">
                 {render(d.path, level + 1)}
@@ -246,7 +231,7 @@ export function DocFileTree({
               style={indent(level + 1.1)}
             >
               <FileText aria-hidden="true" className="size-3.5 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">{name}</span>
+              <span className="min-w-0 flex-1 truncate">{f.title || name}</span>
               <GitMark git={git} labels={t} />
             </DocLink>
           </li>

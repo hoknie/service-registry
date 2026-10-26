@@ -669,3 +669,14 @@ func TestNotifySettings(t *testing.T) {
 		t.Fatalf("vars %v", got)
 	}
 }
+
+func TestDocsPublicRate(t *testing.T) {
+	cfg, err := config.Load[config.DocsPublicConfig](lookup())
+	if err != nil || cfg.RatePerMinute != 300 {
+		t.Fatalf("%+v %v", cfg, err)
+	}
+	_, err = config.Load[config.Config](lookup("DATABASE_URL", dbURL, "DOCS_PUBLIC_RATE_PER_MIN", "5"))
+	if got := vars(t, err); !reflect.DeepEqual(got, []string{"DOCS_PUBLIC_RATE_PER_MIN"}) {
+		t.Fatalf("vars %v", got)
+	}
+}

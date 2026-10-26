@@ -9,8 +9,8 @@ import { format } from "@/i18n/format";
 import { when } from "@/i18n/time";
 import { apiGet, type CatalogNode, type DocSpace, type KnowledgeFiles } from "@/lib/api";
 import { shortCommit } from "@/lib/commit";
-import { docHref, navigateDoc, parseDocLocation, splitPath, startPage } from "@/lib/docPath";
-import { ensureFiles, filesEntry, useDocStore } from "@/lib/docSpaceStore";
+import { docHref, fileName, isDirectory, navigateDoc, parentDir, parseDocLocation, splitPath, startPage } from "@/lib/docPath";
+import { ensureFiles, filesEntry, filesUrl, isPublicSource, levelEntry, useDocStore } from "@/lib/docSpaceStore";
 import { refQuery, splitVersion } from "@/lib/refs";
 
 import { ApiCards } from "../apis/ApiCards";
@@ -24,7 +24,9 @@ import { Message } from "../ui/Message";
 import { Panel } from "../ui/Panel";
 import { SkeletonPanel } from "../ui/Skeleton";
 import type { DocLabels } from "./DocSpace";
+import { DirectoryPage } from "./DirectoryPage";
 import { DocLink } from "./DocLink";
+import { WideToggle } from "./DocWide";
 
 type Props = {
   locale: Locale;
@@ -41,11 +43,14 @@ export function ProjectPage({ locale, labels, space, branch: branchParam, nodePa
   const project = space.node!;
   const docs = space.docs;
   const branches = docs?.branches ?? [];
-  const defaultBranch = branches.find((b) => b.name === docs?.default_branch)?.name ?? branches[0]?.name ?? null;
+  const defaultBranch = docs?.default_key ?? branches.find((b) => b.name === docs?.default_branch)?.name ?? branches[0]?.name ?? null;
+  const isPublic = isPublicSource();
   const branch = branchParam ?? defaultBranch;
-  const [node, setNode] = useState<CatalogNode | null>(null);
+  const [loadedNode, setNode] = useState<CatalogNode | null>(null);
+  const node = isPublicSource() ? ({ id: project.id, repo_url: null, forge: null } as unknown as CatalogNode) : loadedNode;
 
   useEffect(() => {
+    if (isPublicSource()) return;
     let live = true;
     apiGet<CatalogNode>(`/v1/catalog/nodes/${project.id}`)
       .then((n) => live && setNode(n))
@@ -71,7 +76,8 @@ export function ProjectPage({ locale, labels, space, branch: branchParam, nodePa
         }
       : null;
   const paths = current?.files?.items.map((f) => f.path) ?? [];
-  const open = space.doc_path ?? (current?.files ? startPage(paths) : null);
+  const directory = isDirectory(paths, space.doc_path) ? space.doc_path : null;
+  const open = directory ? null : (space.doc_path ?? (current?.files ? startPage(paths) : null));
   const linkBranch = branchParam;
   const hrefOf = (path: string | null) => docHref([...nodePath, ...(path ? splitPath(path) : [])], linkBranch);
   const canWrite = node?.permissions?.includes("catalog.write") ?? false;
@@ -86,8 +92,9 @@ export function ProjectPage({ locale, labels, space, branch: branchParam, nodePa
     let keep = space.doc_path;
     if (keep) {
       try {
-        const files = await apiGet<KnowledgeFiles>(`/v1/catalog/nodes/${project.id}/knowledge/files?${refQuery(next).toString()}`);
-        if (!files.items.some((f) => f.path === keep)) keep = null;
+        const files = await apiGet<KnowledgeFiles>(filesUrl(project.id, next));
+        const kept = keep;
+        if (!files.items.some((f) => f.path === kept || f.path.startsWith(`${kept}/`))) keep = null;
       } catch {
         keep = null;
       }
@@ -102,8 +109,14 @@ export function ProjectPage({ locale, labels, space, branch: branchParam, nodePa
     return loc.segments.slice(nodePath.length).join("/");
   };
 
-  const notCollected = branches.length === 0 || current?.missing;
-  const noDocument = !!notCollected || !!current?.error || (!!current?.files && (!open || !paths.includes(open)));
+  const notCollected = branches.length + (docs?.tags?.length ?? 0) === 0 || current?.missing;
+  const noDocument = !!notCollected || !!current?.error || !!directory || (!!current?.files && (!open || !paths.includes(open)));
+  const openTitle = open ? (levelEntry(project.id, branchParam, parentDir(open))?.value?.files.find((f) => f.path === open)?.title ?? null) : null;
+
+  useEffect(() => {
+    const label = directory ? fileName(directory) : open ? openTitle || fileName(open) : null;
+    document.title = label ? `${label} — ${project.name}` : project.name;
+  }, [directory, open, openTitle, project.name]);
 
   useEffect(() => {
     if (noDocument) onHeadings([]);
@@ -126,17 +139,18 @@ export function ProjectPage({ locale, labels, space, branch: branchParam, nodePa
           </div>
         </div>
         <div className="flex flex-wrap items-end gap-3">
+          <WideToggle />
           {branches.length + tags.length > 0 && branch && (
             <RefPicker branches={branches} tags={tags} value={branch} labels={labels.catalog.docs} onChange={(key) => void selectBranch(key)} />
           )}
-          <a href={catalogHref} className="inline-flex h-9 items-center gap-1.5 text-sm text-signal hover:underline">
+          {!isPublic && <a href={catalogHref} className="inline-flex h-9 items-center gap-1.5 text-sm text-signal hover:underline">
             {t.openInCatalog}
             <ExternalLink aria-hidden="true" className="size-3.5" />
-          </a>
+          </a>}
         </div>
       </header>
 
-      {current?.files && (
+      {current?.files && !isPublic && (
         <LimitNotice snapshot={current.files.snapshot} canWrite={canWrite} settingsHref={`/${locale}/catalog?node=${project.id}&tab=settings&section=docs`} />
       )}
       {current?.error && <Message note={{ kind: "error", text: current.error }} />}
@@ -146,7 +160,7 @@ export function ProjectPage({ locale, labels, space, branch: branchParam, nodePa
           title={t.notCollected}
           text={t.notCollectedText}
           action={
-            canWrite ? (
+            canWrite && !isPublic ? (
               <a href={`/${locale}/catalog?node=${project.id}&tab=settings&section=docs`} className="text-signal hover:underline">
                 {t.settings}
               </a>
@@ -168,7 +182,10 @@ export function ProjectPage({ locale, labels, space, branch: branchParam, nodePa
           }
         />
       )}
-      {current?.files && !open && (
+      {current?.files && directory && (
+        <DirectoryPage projectId={project.id} nodePath={nodePath} branch={branchParam} linkBranch={linkBranch} dir={directory} labels={t} />
+      )}
+      {current?.files && !open && !directory && (
         <Panel title={t.files}>
           <p className="mb-3 text-sm text-muted">{t.noMarkdown}</p>
           <ul className="grid gap-1 text-sm">
@@ -182,7 +199,7 @@ export function ProjectPage({ locale, labels, space, branch: branchParam, nodePa
           </ul>
         </Panel>
       )}
-      {current?.files && !space.doc_path && (
+      {current?.files && !space.doc_path && !directory && !isPublic && (
         <ApiCards projectId={project.id} branch={current.branch} labels={labels.catalog.docs.api} hrefOf={(p) => hrefOf(p)} />
       )}
       {current?.files && node && open && paths.includes(open) && (

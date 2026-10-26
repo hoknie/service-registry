@@ -101,7 +101,7 @@ export function AppShell({ locale, labels, children }: { locale: Locale; labels:
                 <UserMenu locale={locale} nav={h.nav} labels={h.user} />
               </div>
             </header>
-            <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[84rem] min-w-0 flex-1 px-4 py-6 focus:outline-none sm:px-8 sm:py-8">
+            <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[84rem] [.doc-wide_&]:max-w-none min-w-0 flex-1 px-4 py-6 focus:outline-none sm:px-8 sm:py-8">
               {children}
             </main>
           </div>

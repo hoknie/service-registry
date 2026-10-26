@@ -15,6 +15,9 @@ import (
 func NewRouter(d Deps, dist webui.Dist) *fiber.App {
 	api := d.handlers()
 	app := newApp(api)
+	if d.Publishing != nil {
+		app.Use(middleware.PublicationHost(d.Publishing.Hosts.PublicationHost, handlers.PublicationHostKey, webui.ServePublicHost(dist), handlers.APINotFound))
+	}
 	if d.Metrics != nil {
 		app.Use(middleware.Metrics(d.Metrics))
 	}
@@ -101,6 +104,7 @@ func NewRouter(d Deps, dist webui.Dist) *fiber.App {
 	r.add("/api/v1/catalog/nodes/:id/branches/pin", true, put(api.PinBranch), del(api.UnpinBranch))
 	r.add("/api/v1/catalog/nodes/:id/knowledge", true, get(api.GetKnowledge))
 	r.add("/api/v1/catalog/nodes/:id/knowledge/settings", true, get(api.GetKnowledgeSettings), put(api.PutKnowledgeSettings))
+	r.add("/api/v1/catalog/nodes/:id/publication", true, get(api.GetPublication), put(api.PutPublication))
 	r.add("/api/v1/catalog/nodes/:id/knowledge/collect", true, post(api.CollectKnowledge))
 	r.add("/api/v1/catalog/nodes/:id/knowledge/files", true, get(api.KnowledgeFiles))
 	r.add("/api/v1/catalog/nodes/:id/knowledge/tree", true, get(api.KnowledgeTree))
@@ -169,6 +173,11 @@ func NewRouter(d Deps, dist webui.Dist) *fiber.App {
 		r.add("/api/v1/system/metrics", true, get(api.SystemMetrics))
 		r.add("/api/v1/system/metrics/family", true, get(api.SystemMetricsFamily))
 	}
+	r.add("/api/public/docs/space", false, get(api.PublicSpace))
+	r.add("/api/public/docs/tree", false, get(api.PublicTree))
+	r.add("/api/public/docs/files", false, get(api.PublicFiles))
+	r.add("/api/public/docs/file", false, get(api.PublicFile))
+	r.add("/api/public/docs/search", false, get(api.PublicSearch))
 	app.All("/api", handlers.APINotFound)
 	app.All("/api/*", handlers.APINotFound)
 	app.Use(webui.Serve(dist))

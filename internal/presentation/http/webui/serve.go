@@ -42,6 +42,17 @@ func Serve(dist Dist) fiber.Handler {
 		if len(segments) > 0 {
 			prefix, hasPrefix = pathLocale(segments[0])
 		}
+		if !hasPrefix && isPublicDocsPath(segments) {
+			ae := c.Get(fiber.HeaderAcceptEncoding) != ""
+			w := want{br: ae && c.AcceptsEncodings("br") != "", gzip: ae && c.AcceptsEncodings("gzip") != "", locale: negotiate(c, remembered)}
+			return servePublicPage(c, dist, w, method == fiber.MethodHead)
+		}
+		if hasPrefix && segments[0] == prefix && isPublicDocsPath(segments[1:]) {
+			// #nosec G124 -- the locale cookie holds no secret and is read by the static pages
+			cookie := http.Cookie{Name: LocaleCookie, Value: prefix, Path: "/", MaxAge: localeCookieMaxAge, SameSite: http.SameSiteLaxMode}
+			c.Append(fiber.HeaderSetCookie, cookie.String())
+			return redirect(c, http.StatusPermanentRedirect, publicDocsWithoutLocale(raw, prefix)+query)
+		}
 		if !hasPrefix && isDocsPath(segments) {
 			ae := c.Get(fiber.HeaderAcceptEncoding) != ""
 			w := want{br: ae && c.AcceptsEncodings("br") != "", gzip: ae && c.AcceptsEncodings("gzip") != "", locale: negotiate(c, remembered)}

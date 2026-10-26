@@ -2,7 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 
-import { apiGet, errorCode, type DocSpace, type KnowledgeFiles, type KnowledgeTreeLevel } from "./api";
+import { apiGet, errorCode, type DocSpace, type DocSpaceNode, type KnowledgeFiles, type KnowledgeTreeLevel } from "./api";
 import { onCatalogChange } from "./catalogEvents";
 import { staleCache, type Entry } from "./staleCache";
 import { refQuery } from "./refs";
@@ -20,6 +20,86 @@ function subscribe(l: () => void) {
   return () => listeners.delete(l);
 }
 
+export type DocSource = { kind: "private" } | { kind: "public"; root: string | null };
+
+let source: DocSource = { kind: "private" };
+
+export function setDocSource(next: DocSource): void {
+  source = next;
+}
+
+export function isPublicSource(): boolean {
+  return source.kind === "public";
+}
+
+const PUBLIC_PREFIX = "pub:";
+
+function publicQuery(extra: Record<string, string>): string {
+  const q = new URLSearchParams();
+  if (source.kind === "public" && source.root) q.set("root", source.root);
+  for (const [k, v] of Object.entries(extra)) q.set(k, v);
+  return q.toString();
+}
+
+function projectPathOf(projectId: string): string {
+  return projectId.startsWith(PUBLIC_PREFIX) ? projectId.slice(PUBLIC_PREFIX.length) : projectId;
+}
+
+type PublicVersion = { name: string; kind: "branch" | "tag"; collected_at: string; release: boolean };
+type PublicNode = { kind: DocSpaceNode["kind"]; slug: string; name: string; description?: string; has_docs?: boolean };
+type PublicSpace = {
+  entry: { name: string; title: string; kind: string; host: string | null };
+  projects: { path: string; name: string }[];
+  node: PublicNode;
+  ancestors: PublicNode[];
+  children: PublicNode[];
+  docs: { default: PublicVersion | null; branches: PublicVersion[]; tags: PublicVersion[]; release: string | null } | null;
+  doc_path: string | null;
+};
+
+function publicNode(n: PublicNode, path: string[]): DocSpaceNode {
+  return { id: PUBLIC_PREFIX + path.join("/"), kind: n.kind, slug: n.slug, name: n.name, description: n.description, access: "read", has_docs: n.has_docs };
+}
+
+export function fromPublicSpace(p: PublicSpace): DocSpace {
+  const nodePath = p.ancestors.slice(1).map((a) => a.slug);
+  const isEntry = p.ancestors.length === 0;
+  if (!isEntry) nodePath.push(p.node.slug);
+  const docs = p.docs
+    ? {
+        source: null,
+        default_branch: p.docs.default?.kind === "branch" ? p.docs.default.name : (p.docs.branches[0]?.name ?? ""),
+        branches: p.docs.branches.map((b) => ({ name: b.name, collected_at: b.collected_at })),
+        tags: p.docs.tags.map((t) => ({ name: t.name, collected_at: t.collected_at, release: t.release })),
+        release: p.docs.release,
+        default_key: p.docs.default ? (p.docs.default.kind === "tag" ? `tag:${p.docs.default.name}` : p.docs.default.name) : null,
+      }
+    : null;
+  return {
+    node: publicNode(p.node, nodePath),
+    ancestors: p.ancestors.slice(1).map((a, i) => publicNode(a, nodePath.slice(0, i + 1))),
+    children: p.children.map((c) => publicNode(c, [...nodePath, c.slug])),
+    node_path: nodePath,
+    entry: { name: p.entry.name, title: p.entry.title, host: p.entry.host, projects: p.projects },
+    docs,
+    doc_path: p.doc_path,
+  };
+}
+
+export function nodePathOf(space: DocSpace): string[] {
+  if (space.node_path) return space.node_path;
+  return space.node ? [...space.ancestors.map((a) => a.slug), space.node.slug] : [];
+}
+
+export function fileUrl(projectId: string, branch: string, path: string): `/${string}` {
+  if (source.kind === "public") return `/public/docs/file?${publicQuery({ path: projectPathOf(projectId), file: path, ...Object.fromEntries(refQuery(branch)) })}`;
+  return `/v1/catalog/nodes/${projectId}/knowledge/file?${refQuery(branch, { path }).toString()}`;
+}
+
+export function searchUrl(q: string): `/${string}` {
+  return `/public/docs/search?${publicQuery({ q })}`;
+}
+
 const spaces = staleCache<DocSpace>(emit, errorCode);
 const files = staleCache<KnowledgeFiles>(emit, errorCode);
 const levels = staleCache<KnowledgeTreeLevel>(emit, errorCode);
@@ -32,11 +112,21 @@ export function revalidate() {
 }
 
 export function ensureSpace(path: string, retry = false) {
+  if (source.kind === "public") {
+    spaces.ensure(path, () => apiGet<PublicSpace>(`/public/docs/space?${publicQuery({ path })}`).then(fromPublicSpace), retry);
+    return;
+  }
   spaces.ensure(path, () => apiGet<DocSpace>(`/v1/docs/space?path=${encodeURIComponent(path)}`), retry);
 }
 
+export function filesUrl(projectId: string, branch: string): `/${string}` {
+  return source.kind === "public"
+    ? `/public/docs/files?${publicQuery({ path: projectPathOf(projectId), ...Object.fromEntries(refQuery(branch)) })}`
+    : `/v1/catalog/nodes/${projectId}/knowledge/files?${refQuery(branch).toString()}`;
+}
+
 export function ensureFiles(projectId: string, branch: string, retry = false) {
-  files.ensure(`${projectId}:${branch}`, () => apiGet<KnowledgeFiles>(`/v1/catalog/nodes/${projectId}/knowledge/files?${refQuery(branch).toString()}`), retry);
+  files.ensure(`${projectId}:${branch}`, () => apiGet<KnowledgeFiles>(filesUrl(projectId, branch)), retry);
 }
 
 function levelKey(projectId: string, branch: string | null, dir: string): string {
@@ -48,7 +138,11 @@ export function ensureLevel(projectId: string, branch: string | null, dir: strin
   if (branch) refQuery(branch).forEach((v, k) => q.set(k, v));
   if (dir) q.set("dir", dir);
   const qs = q.toString();
-  levels.ensure(levelKey(projectId, branch, dir), () => apiGet<KnowledgeTreeLevel>(`/v1/catalog/nodes/${projectId}/knowledge/tree${qs ? `?${qs}` : ""}`), retry);
+  const url: `/${string}` =
+    source.kind === "public"
+      ? `/public/docs/tree?${publicQuery({ path: projectPathOf(projectId), ...Object.fromEntries(q) })}`
+      : `/v1/catalog/nodes/${projectId}/knowledge/tree${qs ? `?${qs}` : ""}`;
+  levels.ensure(levelKey(projectId, branch, dir), () => apiGet<KnowledgeTreeLevel>(url), retry);
 }
 
 export function levelEntry(projectId: string, branch: string | null, dir: string): Entry<KnowledgeTreeLevel> | undefined {
@@ -72,7 +166,7 @@ export function useDocStore(): number {
 }
 
 function nodeSlugs(s: DocSpace): string[] {
-  return s.node ? [...s.ancestors.map((a) => a.slug), s.node.slug] : [];
+  return nodePathOf(s);
 }
 
 export function knownSpace(segments: readonly string[]): { space: DocSpace; complete: boolean } | null {

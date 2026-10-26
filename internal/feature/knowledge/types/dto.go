@@ -44,6 +44,7 @@ type FileInfo struct {
 	Bytes int64
 	Skip  *SkipReason
 	Meta  Meta
+	Title string
 }
 
 type FileContent struct {
@@ -110,6 +111,12 @@ type Hit struct {
 	Path        string
 	Kind        Kind
 	Snippet     []Segment
+	Title       string
+}
+
+type SearchTarget struct {
+	Project uuid.UUID
+	Key     string
 }
 
 type Viewer struct {

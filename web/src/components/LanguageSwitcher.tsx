@@ -16,12 +16,12 @@ function LocaleLink({ docs, prefetch, ...rest }: ComponentProps<typeof Link> & {
   return docs ? <a {...(rest as AnchorHTMLAttributes<HTMLAnchorElement>)} /> : <Link prefetch={prefetch} {...rest} />;
 }
 
-export function LanguageSwitcher({ current, label }: { current: Locale; label: string }) {
+export function LanguageSwitcher({ current, label, cookieOnly = false }: { current: Locale; label: string; cookieOnly?: boolean }) {
   const routed = usePathname() ?? `/${current}`;
   const [here, setHere] = useState<{ pathname: string; search: string } | null>(null);
   const pathname = here?.pathname ?? routed;
   const search = here?.search ?? "";
-  const docs = isDocPath(pathname);
+  const docs = isDocPath(pathname) || pathname === "/public/docs" || pathname.startsWith("/public/docs/");
   const rest = docs ? pathname.slice(1) : pathname.split("/").slice(2).join("/");
 
   return (
@@ -36,7 +36,22 @@ export function LanguageSwitcher({ current, label }: { current: Locale; label: s
       </MenuTrigger>
       <MenuContent className="min-w-44">
         <MenuLabel>{label}</MenuLabel>
-        {locales.map((locale) => (
+        {cookieOnly &&
+          locales.map((locale) => (
+            <MenuItem
+              key={locale}
+              lang={locale}
+              className={cn("pr-8", locale === current && "font-medium")}
+              onSelect={() => {
+                document.cookie = `NEXT_LOCALE=${locale}; path=/; max-age=31536000; samesite=lax`;
+                window.location.reload();
+              }}
+            >
+              {localeNames[locale]}
+              {locale === current && <Check aria-hidden="true" className="ml-auto !text-signal" />}
+            </MenuItem>
+          ))}
+        {!cookieOnly && locales.map((locale) => (
           <MenuItem key={locale} asChild>
             <LocaleLink
               docs={docs}

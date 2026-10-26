@@ -8,9 +8,12 @@ export const GLOBAL_AREAS: readonly GlobalArea[] = ["users", "groups", "clusters
 
 export const CATALOG_ROOT: GlobalScope = "catalog.root";
 
+export const PUBLICATION_SCOPE: GlobalScope = "publication:write";
+
 export const GLOBAL_SCOPES: readonly GlobalScope[] = [
   ...GLOBAL_AREAS.flatMap((a): GlobalScope[] => [`${a}:read`, `${a}:write`]),
   CATALOG_ROOT,
+  PUBLICATION_SCOPE,
 ];
 
 export const SCOPES: readonly Scope[] = [...BASE_SCOPES, ...GLOBAL_SCOPES];

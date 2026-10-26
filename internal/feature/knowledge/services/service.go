@@ -99,7 +99,7 @@ func New(d Deps) *KnowledgeServices {
 		Collect:   &CollectService{readers: p.readers, catalog: p.catalog, cfg: p.cfg, db: p.db, forge: p.forge, scanRepository: p.scanRepository, secrets: p.secrets, collectionRepository: p.collectionRepository, snapshotRepository: p.snapshotRepository, sourceRepoRepository: p.sourceRepoRepository, sourceRepository: p.sourceRepository, topology: p.topology, saveSnapshot: p.saveSnapshot, tagRepository: p.tagRepository, syncTags: p.syncTags},
 		Documents: &DocumentsService{catalog: p.catalog, cfg: p.cfg, collectionRepository: p.collectionRepository, snapshotRepository: p.snapshotRepository, sourceRepository: p.sourceRepository, tagRepository: p.tagRepository},
 		Index:     &IndexService{cfg: p.cfg, db: p.db, indexRepository: p.indexRepository, searchRepository: p.searchRepository, embedder: p.embedder, external: p.external},
-		Ports:     &PortsService{embedder: p.embedder, external: p.external, searchEngine: p.searchEngine, secrets: p.secrets, collectionRepository: p.collectionRepository, sourceRepository: p.sourceRepository},
+		Ports:     &PortsService{snapshotRepository: p.snapshotRepository, searchRepository: p.searchRepository, embedder: p.embedder, external: p.external, searchEngine: p.searchEngine, secrets: p.secrets, collectionRepository: p.collectionRepository, sourceRepository: p.sourceRepository},
 		Scans:     &ScansService{catalog: p.catalog, scanRepository: p.scanRepository},
 		Search:    &SearchService{collectionRepository: p.collectionRepository, tagRepository: p.tagRepository, indexRepository: p.indexRepository, searchRepository: p.searchRepository, embedder: p.embedder, searchEngine: p.searchEngine},
 		Settings:  &SettingsService{cfg: p.cfg, db: p.db, catalog: p.catalog, collectionRepository: p.collectionRepository, patternRepository: p.patternRepository},
@@ -112,6 +112,7 @@ func New(d Deps) *KnowledgeServices {
 	f.Index.collect = f.Collect
 	f.Index.search = f.Search
 	f.Ports.sourcesService = f.Sources
+	f.Ports.documents = f.Documents
 	f.Ports.settingsService = f.Settings
 	f.Sources.collect = f.Collect
 	f.Sources.documents = f.Documents

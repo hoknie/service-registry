@@ -11,6 +11,7 @@ import {
   ensureFiles,
   ensureSpace,
   filesEntry,
+  isPublicSource,
   levelEntry,
   spaceEntry,
   useDocStore,
@@ -77,6 +78,7 @@ export function DocSpaceTree({
   const docs = project?.docs ?? null;
   const fileBranch =
     branch ??
+    docs?.default_key ??
     (docs
       ? (docs.branches.find((b) => b.name === docs.default_branch)?.name ??
         docs.branches[0]?.name ??
@@ -215,6 +217,30 @@ export function DocSpaceTree({
     });
 
   const root = spaceOf("");
+  if (isPublicSource()) {
+    if (!root) return <SkeletonRows rows={3} label={common.loading} />;
+    const shown = projectId ? { id: projectId, path: nodePath } : root.node?.kind === "project" ? { id: root.node.id, path: [] } : null;
+    if (shown) {
+      return (
+        <DocFileTree
+          projectId={shown.id}
+          projectPath={shown.path}
+          branch={fileBranch}
+          linkBranch={branch}
+          openPath={docPath ?? (files ? startPage(files.items.map((f) => f.path)) : null)}
+          depth={0}
+          labels={labels.catalog.docs}
+          emptyLabel={t.notCollected}
+          retryLabel={t.retry}
+        />
+      );
+    }
+    return root.children.length === 0 ? (
+      <p className="px-2 py-1 text-xs text-muted">{t.empty}</p>
+    ) : (
+      <ul className="grid min-w-0 gap-0.5">{render(root.children, [], 0)}</ul>
+    );
+  }
   const space = spaceSlug ? spaceOf(spaceSlug) : null;
   const spaceLoading = spaceSlug ? !space && !isFailed(spaceSlug) : false;
 

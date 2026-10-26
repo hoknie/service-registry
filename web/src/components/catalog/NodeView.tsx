@@ -22,7 +22,6 @@ import { DocsTab } from "../knowledge/DocsTab";
 import { DocsSettingsTab } from "../knowledge/DocsSettingsTab";
 import { LinksTab } from "../links/LinksTab";
 import { LinkIconRow } from "../links/LinkIcons";
-import { OwnersBlock } from "../owners/OwnersBlock";
 import { NotificationsSettings } from "../notifications/NotificationsSettings";
 import { OwnersSettings } from "../owners/OwnersSettings";
 import { useSession } from "../SessionProvider";
@@ -54,6 +53,7 @@ import { ProjectScans } from "../knowledge/ProjectScans";
 import { DependenciesTab } from "../dependencies/DependenciesTab";
 import { DependencySettings } from "../dependencies/DependencySettings";
 import { SecretsTable } from "../secrets/SecretsTable";
+import { PublicationSettings } from "../publication/PublicationSettings";
 import { NodeDetails } from "./NodeDetails";
 import { NodeSettings } from "./NodeSettings";
 import { OrganizationGroups } from "./OrganizationGroups";
@@ -451,7 +451,6 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: ver
           <Markdown source={node.description} />
         </Panel>
       )}
-      {readable && <OwnersBlock node={node} locale={locale} labels={t} />}
       {project && readable && <ProjectSummary projectId={node.id} locale={locale} labels={t} />}
       {project && readable && <ProjectEvents projectId={node.id} locale={locale} labels={t} onConnect={() => selectTab("connect")} />}
       {!project && childrenList}
@@ -610,6 +609,7 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: ver
                   {section === "links" && <LinksTab node={node} branch={branch} locale={locale} labels={t} canWrite={canWrite} />}
                   {section === "dependencies" && <DependencySettings node={node} locale={locale} labels={t} fail={fail} />}
                   {section === "docs" && <DocsSettingsTab node={node} locale={locale} labels={t} canWrite={canWrite} onChanged={refreshActivity} />}
+                  {section === "publication" && <PublicationSettings node={node} locale={locale} labels={t.publication} />}
                   {section === "scans" && <ProjectScans projectId={node.id} branch={branchParam} locale={locale} labels={t} />}
                   {section === "keys" && <ProjectKeys projectId={node.id} locale={locale} labels={t} />}
                   {section === "secrets" && <SecretsTable locale={locale} nodeId={node.id} canManage={can("catalog.access")} />}

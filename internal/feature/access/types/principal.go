@@ -39,6 +39,7 @@ const (
 	NeedClustersWrite
 	NeedSettingsRead
 	NeedSettingsWrite
+	NeedPublicationWrite
 )
 
 var globalNeeds = map[Need]Scope{
@@ -60,6 +61,11 @@ func RequireScope(p Principal, need Need) error {
 		scope = ScopeRead
 	case NeedWrite:
 		scope = ScopeWrite
+	case NeedPublicationWrite:
+		if !p.Scopes.Has(ScopeRead) || !p.Scopes.Has(ScopePublication) || p.Nodes != nil {
+			return apperr.New(apperr.InsufficientScope)
+		}
+		return nil
 	case NeedWriteWhole:
 		if p.Nodes != nil {
 			return apperr.New(apperr.InsufficientScope)

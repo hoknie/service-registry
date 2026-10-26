@@ -2,6 +2,7 @@ package types
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -47,5 +48,26 @@ func TestNormalizeDir(t *testing.T) {
 		if _, ok := NormalizeDir(in); ok {
 			t.Errorf("%q accepted", in)
 		}
+	}
+}
+
+func TestMarkdownTitle(t *testing.T) {
+	t.Parallel()
+	long := strings.Repeat("я", 250)
+	for in, want := range map[string]string{
+		"```bash\n# not a title\n```\n\n# Руководство по **API**\n": "Руководство по API",
+		"Intro\n\n## Sub\n":                 "",
+		"Title here\n=====\n\ntext":         "Title here",
+		"# [Docs](http://x) and `code` #\n": "Docs and code",
+		"~~~\n# hidden\n~~~\n":              "",
+		"# " + long:                         strings.Repeat("я", 200),
+		"#hashtag\n":                        "",
+	} {
+		if got := MarkdownTitle(in); got != want {
+			t.Errorf("%q: got %q want %q", in, got, want)
+		}
+	}
+	if !IsMarkdown("docs/A.MD") || IsMarkdown("a.yaml") {
+		t.Fatal("markdown detection")
 	}
 }

@@ -270,7 +270,8 @@
       "organization_top_level": "Los grupos pertenecen a una organización de nivel superior.",
       "organization_group_rights": "Un grupo de una organización no puede tener derechos de administración.",
       "invalid_ref": "Elija solo una opción: una rama, una etiqueta o la versión actual.",
-      "knowledge_branches_replaced": "El campo branches se sustituye por patrones de ramas y etiquetas."
+      "knowledge_branches_replaced": "El campo branches se sustituye por patrones de ramas y etiquetas.",
+      "invalid_publication": "Revise los campos de publicación."
     },
     "conflict": {
       "email_taken": "Ya existe un usuario con este correo.",
@@ -309,7 +310,9 @@
       "dependency_exists": "Esta dependencia ya se ha añadido manualmente.",
       "token_nodes_full": "El token ya incluye 20 nodos; no se le puede añadir una nueva organización.",
       "organization_has_groups": "Una organización con grupos no se puede mover dentro de otro nodo. Elimine antes sus grupos.",
-      "organization_groups_bound": "Los grupos de esta organización tienen roles o propiedad aquí. Quítelos antes de sacar el nodo de la organización."
+      "organization_groups_bound": "Los grupos de esta organización tienen roles o propiedad aquí. Quítelos antes de sacar el nodo de la organización.",
+      "publication_name_taken": "Este nombre público ya está en uso.",
+      "publication_host_taken": "Este host ya está en uso."
     },
     "ingest": {
       "unknown_event_type": "Tipo de evento desconocido.",
@@ -369,7 +372,8 @@
       "schema_too_deep": "Un esquema está anidado demasiado y se recortó.",
       "file_skipped": "El archivo se omitió al recopilar.",
       "too_large": "La descripción es demasiado grande; se muestran los primeros 5000 elementos."
-    }
+    },
+    "rate_limited": "Demasiadas solicitudes, inténtelo más tarde."
   },
   "guard": {
     "loading": "Cargando…",
@@ -481,7 +485,8 @@
       "clusters:write": "Cambiar clústeres y tokens de agentes",
       "settings:read": "Ver secretos globales e historial de escaneos",
       "settings:write": "Cambiar tipos de enlace, entornos y secretos globales",
-      "catalog.root": "Crear organizaciones de nivel superior, moverlas y eliminarlas"
+      "catalog.root": "Crear organizaciones de nivel superior, moverlas y eliminarlas",
+      "publication:write": "Cambiar la publicación de la documentación"
     },
     "scopeAreas": {
       "users": "Usuarios",
@@ -713,7 +718,8 @@
           "link_kinds": "Tipos de enlace",
           "secrets": "Secretos globales",
           "scans": "Escaneos",
-          "catalog": "Nivel superior del catálogo"
+          "catalog": "Nivel superior del catálogo",
+          "publication": "Publicación de la documentación"
         },
         "actions": {
           "create": "Crear",
@@ -1841,7 +1847,8 @@
         "owners": "Responsables",
         "notifications": "Notificaciones",
         "dependencies": "Dependencias",
-        "groups": "Grupos"
+        "groups": "Grupos",
+        "publication": "Publicación"
       }
     },
     "linkIcons": {
@@ -1978,6 +1985,39 @@
       "added": "Miembro añadido.",
       "removed": "Miembro quitado.",
       "readOnly": "Solo los administradores de la organización gestionan sus grupos."
+    },
+    "publication": {
+      "title": "Publicación",
+      "lead": "Mostrar esta documentación sin iniciar sesión. Cada campo se toma del nodo más cercano donde está definido.",
+      "readOnly": "Solo quienes tienen el permiso de publicación cambian estos ajustes.",
+      "publish": "Publicar",
+      "versions": "Versiones publicadas",
+      "versionsHint": "Solo se publican versiones recopiladas. Patrones: * — cualquier carácter salvo /, ** — cualquiera.",
+      "defaultBranch": "Rama predeterminada",
+      "currentRelease": "Versión actual",
+      "name": "Nombre público",
+      "nameHint": "Dirección /public/docs/<nombre>: a-z, 0-9 y -, hasta 63 caracteres.",
+      "host": "Host",
+      "hostHint": "Servir la documentación pública del nodo en su propio host, p. ej. docs.example.com. DNS y TLS se configuran fuera.",
+      "addresses": "Direcciones públicas",
+      "unreachable": "Publicado pero sin dirección: defina un nombre público o publique un nodo superior.",
+      "notPublished": "No publicado.",
+      "here": "Definido aquí",
+      "inherited": "Heredado de {name}",
+      "default": "Predeterminado",
+      "override": "Sobrescribir",
+      "reset": "Restablecer",
+      "yes": "Sí",
+      "no": "No",
+      "pattern": "Patrón",
+      "kind": "Para",
+      "branches": "Ramas",
+      "tags": "Etiquetas",
+      "add": "Añadir patrón",
+      "remove": "Quitar",
+      "noVersions": "Sin patrones",
+      "save": "Guardar",
+      "saved": "Ajustes de publicación guardados."
     }
   },
   "notFound": {
@@ -2304,7 +2344,13 @@
     "toc": "En esta página",
     "structure": "Estructura",
     "panelHide": "Contraer el panel",
-    "panelShow": "Expandir el panel"
+    "panelShow": "Expandir el panel",
+    "filesCount": "{n} archivos",
+    "dirEmpty": "Esta carpeta está vacía.",
+    "tocHide": "Ocultar el índice",
+    "tocShow": "Mostrar el índice",
+    "wideView": "Vista ancha",
+    "normalView": "Ancho normal"
   },
   "oauth": {
     "title": "Permitir el acceso al registro",
@@ -2480,5 +2526,13 @@
         "subscription_disabled": "La suscripción está desactivada"
       }
     }
+  },
+  "publicDocs": {
+    "title": "Documentación",
+    "project": "Proyecto",
+    "search": "Buscar en la documentación",
+    "results": "Resultados de la búsqueda",
+    "noResults": "No se encontró nada.",
+    "noRoot": "Abra la dirección de una documentación publicada."
   }
 }

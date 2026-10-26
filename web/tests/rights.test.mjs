@@ -48,3 +48,13 @@ test("catalog read alone does not allow catalog.root", () => {
   assert.equal(scopeAllowed({ is_superadmin: false, rights: { catalog: ["read", "update"] } }, "catalog.root"), true);
   assert.deepEqual(normalizeRights({ catalog: ["delete", "read"] }), { catalog: ["read", "delete"] });
 });
+
+test("the publication right opens its token scope only", async () => {
+  const { scopeAllowed, SECTION_ACTIONS, adminVisible } = await import("../src/lib/rights.ts");
+  const user = { is_superadmin: false, rights: { publication: ["update"] } };
+  assert.deepEqual(SECTION_ACTIONS.publication, ["update"]);
+  assert.equal(scopeAllowed(user, "publication:write"), true);
+  assert.equal(scopeAllowed(user, "settings:write"), false);
+  assert.equal(scopeAllowed({ is_superadmin: false, rights: {} }, "publication:write"), false);
+  if (adminVisible) assert.equal(adminVisible(user), false);
+});

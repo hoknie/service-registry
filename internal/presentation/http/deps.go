@@ -12,6 +12,7 @@ import (
 	linksservices "svc-registry/internal/feature/links/services"
 	notifyservices "svc-registry/internal/feature/notify/services"
 	ownershipservices "svc-registry/internal/feature/ownership/services"
+	publishingservices "svc-registry/internal/feature/publishing/services"
 	topologyservices "svc-registry/internal/feature/topology/services"
 	"svc-registry/internal/platform/config"
 	"svc-registry/internal/platform/metrics"
@@ -19,26 +20,27 @@ import (
 )
 
 type Deps struct {
-	Config    *config.Config
-	Readiness handlers.Readiness
-	Version   string
-	Access    *accessservices.AccessServices
-	Catalog   *catalogservices.CatalogServices
-	Links     *linksservices.LinksServices
-	Ingest    *ingestservices.IngestServices
-	Forge     *forgeservices.ForgeServices
-	Deploy    *deployservices.DeployServices
-	Knowledge *knowledgeservices.KnowledgeServices
-	Ownership *ownershipservices.OwnershipServices
-	Notify    *notifyservices.NotifyServices
-	Topology  *topologyservices.TopologyServices
-	Apis      *apisservices.ApisServices
-	Compose   *composeservices.ComposeServices
-	Metrics   *metrics.Metrics
+	Config     *config.Config
+	Readiness  handlers.Readiness
+	Version    string
+	Access     *accessservices.AccessServices
+	Catalog    *catalogservices.CatalogServices
+	Links      *linksservices.LinksServices
+	Ingest     *ingestservices.IngestServices
+	Forge      *forgeservices.ForgeServices
+	Deploy     *deployservices.DeployServices
+	Knowledge  *knowledgeservices.KnowledgeServices
+	Ownership  *ownershipservices.OwnershipServices
+	Notify     *notifyservices.NotifyServices
+	Topology   *topologyservices.TopologyServices
+	Apis       *apisservices.ApisServices
+	Compose    *composeservices.ComposeServices
+	Publishing *publishingservices.PublishingServices
+	Metrics    *metrics.Metrics
 }
 
 func (d Deps) handlers() *handlers.Handlers {
 	return &handlers.Handlers{Config: d.Config, Readiness: d.Readiness, Version: d.Version, Access: d.Access, Catalog: d.Catalog, Links: d.Links,
 		Ingest: d.Ingest, Forge: d.Forge, Deploy: d.Deploy, Knowledge: d.Knowledge,
-		Ownership: d.Ownership, Notify: d.Notify, Topology: d.Topology, Apis: d.Apis, Compose: d.Compose, Metrics: d.Metrics}
+		Ownership: d.Ownership, Notify: d.Notify, Topology: d.Topology, Apis: d.Apis, Compose: d.Compose, Publishing: d.Publishing, Metrics: d.Metrics}
 }

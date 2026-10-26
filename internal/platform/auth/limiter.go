@@ -141,3 +141,17 @@ func NewMetadataFetchLimiter() *MetadataFetchLimiter {
 func (l *MetadataFetchLimiter) Hit(ip string, now time.Time) bool {
 	return l.b.get(ip, now).AllowN(now, 1)
 }
+
+type PublicDocsLimiter struct{ b *buckets[string] }
+
+func NewPublicDocsLimiter(perMinute uint32) *PublicDocsLimiter {
+	return &PublicDocsLimiter{b: newBuckets[string](perMinute, time.Minute)}
+}
+
+func (l *PublicDocsLimiter) Hit(key string, now time.Time) (uint64, bool) {
+	bucket := l.b.get(key, now)
+	if bucket.AllowN(now, 1) {
+		return 0, true
+	}
+	return retryAfter(bucket, now), false
+}

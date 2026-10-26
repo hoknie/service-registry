@@ -15,12 +15,12 @@ test("tabs of a project and of a container", () => {
 });
 
 test("sections follow permissions", () => {
-  assert.deepEqual(sectionsOf(project(["catalog.read"])), ["general", "owners", "branches", "links", "docs", "connect"]);
-  assert.deepEqual(sectionsOf(project(["catalog.keys", "catalog.access"])), ["general", "owners", "branches", "links", "docs", "keys", "access", "notifications", "connect"]);
-  assert.deepEqual(sectionsOf(project(["catalog.write"])), ["general", "owners", "branches", "links", "dependencies", "docs", "scans", "connect"]);
-  assert.deepEqual(sectionsOf(folder(["catalog.access"])), ["general", "owners", "forge", "secrets", "links", "docs", "access", "notifications"]);
-  assert.deepEqual(sectionsOf(folder(["catalog.read"])), ["general", "owners", "forge", "secrets", "links", "docs"]);
-  assert.deepEqual(sectionsOf(organization(["catalog.read"])), ["general", "owners", "groups", "forge", "secrets", "links", "docs"]);
+  assert.deepEqual(sectionsOf(project(["catalog.read"])), ["general", "owners", "branches", "links", "docs", "publication", "connect"]);
+  assert.deepEqual(sectionsOf(project(["catalog.keys", "catalog.access"])), ["general", "owners", "branches", "links", "docs", "publication", "keys", "access", "notifications", "connect"]);
+  assert.deepEqual(sectionsOf(project(["catalog.write"])), ["general", "owners", "branches", "links", "dependencies", "docs", "publication", "scans", "connect"]);
+  assert.deepEqual(sectionsOf(folder(["catalog.access"])), ["general", "owners", "forge", "secrets", "links", "docs", "publication", "access", "notifications"]);
+  assert.deepEqual(sectionsOf(folder(["catalog.read"])), ["general", "owners", "forge", "secrets", "links", "docs", "publication"]);
+  assert.deepEqual(sectionsOf(organization(["catalog.read"])), ["general", "owners", "groups", "forge", "secrets", "links", "docs", "publication"]);
 });
 
 test("old tabs move into settings", () => {

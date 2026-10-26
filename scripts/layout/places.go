@@ -5,18 +5,19 @@ import "strings"
 const module = "svc-registry"
 
 var featureGraph = map[string][]string{
-	"access":    {},
-	"catalog":   {"access"},
-	"ownership": {"catalog", "access"},
-	"notify":    {"ownership", "catalog", "access"},
-	"topology":  {"catalog", "access"},
-	"ingest":    {"notify", "topology", "catalog", "access"},
-	"links":     {"notify", "catalog", "access"},
-	"forge":     {"notify", "catalog", "access"},
-	"deploy":    {"ingest", "forge", "notify", "topology", "catalog", "access"},
-	"knowledge": {"forge", "topology", "catalog", "access"},
-	"apis":      {"knowledge", "catalog", "access"},
-	"compose":   {"knowledge", "links", "ownership", "forge", "catalog", "access"},
+	"access":     {},
+	"catalog":    {"access"},
+	"ownership":  {"catalog", "access"},
+	"notify":     {"ownership", "catalog", "access"},
+	"topology":   {"catalog", "access"},
+	"ingest":     {"notify", "topology", "catalog", "access"},
+	"links":      {"notify", "catalog", "access"},
+	"forge":      {"notify", "catalog", "access"},
+	"deploy":     {"ingest", "forge", "notify", "topology", "catalog", "access"},
+	"knowledge":  {"forge", "topology", "catalog", "access"},
+	"apis":       {"knowledge", "catalog", "access"},
+	"publishing": {"knowledge", "catalog", "access"},
+	"compose":    {"knowledge", "links", "ownership", "forge", "catalog", "access"},
 }
 
 type kind string

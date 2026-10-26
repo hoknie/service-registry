@@ -116,6 +116,36 @@ refreshed: a local directory without CI is collected only by **Collect now**.
 - The **Documentation** section in the sidebar shows the documentation of the whole catalog. It has a tree of
   organizations and projects and an outline of the open page.
 - Files of a local git working copy that are not in git are marked: **U** (untracked) and **I** (ignored).
+- Markdown files are named by their first `# ` heading, with the file name in the tooltip. The breadcrumbs go on
+  through the folders of the project, and every folder opens a page with its subfolders and files.
+
+## Publication
+
+Documentation can be shown without signing in. Under **Settings → Publication** of an organization, folder or project:
+
+| Field | Meaning | Default |
+|---|---|---|
+| Publish | show this node and what is below it | no |
+| Published versions | patterns of branches and tags, like the collection patterns | none |
+| Default branch | publish the default branch of the documentation | yes |
+| Current release | publish the current release tag | yes |
+| Public name | folders and projects: the address `/public/docs/<name>` | — |
+| Host | serve the public documentation of this node on its own host | — |
+
+- **Inheritance.** The first four fields are inherited from the nearest node that sets them, like the collection
+  settings. A project of a published organization is hidden with **Publish: No**; a hidden folder hides everything
+  below it. The name and the host work only on their own node.
+- **Addresses.** A published organization is at `/public/docs/<organization slug>`, a folder or project published on
+  its own at `/public/docs/<public name>`. A node with a host is served at the root of that host; set up DNS, TLS
+  and the proxy as described in [install.md](install.md#behind-a-reverse-proxy). **Public addresses** in the
+  settings list where the node can be read.
+- **What readers see.** The tree, folder pages and files of the published projects, a project picker, the published
+  versions with the current release marked, and a text search over the published files. There is no organization
+  picker, no link to the catalog and no API view of OpenAPI and protobuf files (they open as trees or source).
+- **Who changes it.** Superadmins and members of a group with the **Publication** right
+  ([access.md](access.md#administration-rights-for-groups)). Everyone who can read a node sees its settings.
+- **Limits.** Anonymous requests are limited to `DOCS_PUBLIC_RATE_PER_MIN` (300) a minute per client address; above
+  it the server answers 429.
 
 ## API descriptions
 

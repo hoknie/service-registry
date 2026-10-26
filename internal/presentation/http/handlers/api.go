@@ -16,28 +16,30 @@ import (
 	linksservices "svc-registry/internal/feature/links/services"
 	notifyservices "svc-registry/internal/feature/notify/services"
 	ownershipservices "svc-registry/internal/feature/ownership/services"
+	publishingservices "svc-registry/internal/feature/publishing/services"
 	topologyservices "svc-registry/internal/feature/topology/services"
 	"svc-registry/internal/platform/config"
 	"svc-registry/internal/platform/metrics"
 )
 
 type Handlers struct {
-	Config    *config.Config
-	Readiness Readiness
-	Access    *accessservices.AccessServices
-	Catalog   *catalogservices.CatalogServices
-	Links     *linksservices.LinksServices
-	Ingest    *ingestservices.IngestServices
-	Forge     *forgeservices.ForgeServices
-	Deploy    *deployservices.DeployServices
-	Knowledge *knowledgeservices.KnowledgeServices
-	Ownership *ownershipservices.OwnershipServices
-	Notify    *notifyservices.NotifyServices
-	Topology  *topologyservices.TopologyServices
-	Apis      *apisservices.ApisServices
-	Compose   *composeservices.ComposeServices
-	Metrics   *metrics.Metrics
-	Version   string
+	Config     *config.Config
+	Readiness  Readiness
+	Access     *accessservices.AccessServices
+	Catalog    *catalogservices.CatalogServices
+	Links      *linksservices.LinksServices
+	Ingest     *ingestservices.IngestServices
+	Forge      *forgeservices.ForgeServices
+	Deploy     *deployservices.DeployServices
+	Knowledge  *knowledgeservices.KnowledgeServices
+	Ownership  *ownershipservices.OwnershipServices
+	Notify     *notifyservices.NotifyServices
+	Topology   *topologyservices.TopologyServices
+	Apis       *apisservices.ApisServices
+	Compose    *composeservices.ComposeServices
+	Publishing *publishingservices.PublishingServices
+	Metrics    *metrics.Metrics
+	Version    string
 
 	mcpOnce    sync.Once
 	mcpHandler fiber.Handler

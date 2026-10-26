@@ -172,3 +172,15 @@ func TestKnowledgeTreeListsOneDirectoryAtATime(t *testing.T) {
 		eq(t, d.app.get(base+"?dir="+dir, d.admin).status, 404, dir)
 	}
 }
+
+func TestKnowledgeTreeTitlesMarkdownFiles(t *testing.T) {
+	t.Parallel()
+	d := startDocs(t, map[string]string{"docs/guide.md": "```bash\n# not a title\n```\n\n# Руководство по **API**\n", "docs/notes.md": "plain",
+		"docs/x.yaml": "# comment"})
+	eq(t, d.app.send("PUT", "/api/v1/catalog/nodes/"+d.id+"/knowledge/settings", d.admin, obj{"include": []string{"docs/**"}}).status, 200)
+	eq(t, d.app.collect(), 1)
+	body := d.app.get("/api/v1/catalog/nodes/"+d.id+"/knowledge/tree?dir=docs", d.admin).json(t)
+	eq(t, at(body, "files", 0, "title"), any("Руководство по API"))
+	eq(t, at(body, "files", 1, "title"), any(nil))
+	eq(t, at(body, "files", 2, "title"), any(nil))
+}

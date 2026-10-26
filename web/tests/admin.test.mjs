@@ -5,7 +5,7 @@ import { test } from "node:test";
 import { ADMIN_GROUPS, ADMIN_PATHS, currentAdminGroup, currentAdminPath, visibleAdminGroups } from "../src/lib/admin.ts";
 
 test("every admin page is in the menu, once", () => {
-  const pages = readdirSync(new URL("../src/app/[locale]/admin/", import.meta.url), { withFileTypes: true })
+  const pages = readdirSync(new URL("../src/app/[locale]/(app)/admin/", import.meta.url), { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .map((d) => d.name)
     .sort();

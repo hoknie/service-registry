@@ -33,6 +33,7 @@ const (
 	BadGateway
 	InvalidWebhookSignature
 	InvalidAgentToken
+	PublicRateLimited
 )
 
 type Field struct {
@@ -86,6 +87,8 @@ func (e *Error) Error() string {
 		return "the webhook delivery is not signed by this connection"
 	case InvalidAgentToken:
 		return "a valid agent token for this cluster is required"
+	case PublicRateLimited:
+		return fmt.Sprintf("too many requests to the public documentation; retry in %d s", e.RetryAfterSecs)
 	}
 	return e.Message
 }

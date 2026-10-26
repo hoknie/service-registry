@@ -47,6 +47,11 @@ func (s *DocumentsService) GetKnowledge(ctx context.Context, p accesstypes.Princ
 	if err != nil {
 		return KnowledgeOverview{}, err
 	}
+	return s.overview(ctx, kp)
+}
+
+func (s *DocumentsService) overview(ctx context.Context, kp knowledgetypes.Project) (KnowledgeOverview, error) {
+	id := kp.ID
 	d, err := s.documentationOf(ctx, kp)
 	if err != nil {
 		return KnowledgeOverview{}, err
@@ -105,30 +110,6 @@ func (s *DocumentsService) fillState(ctx context.Context, kp knowledgetypes.Proj
 	s.explain(kp, bs.Last)
 	s.explain(kp, bs.Snapshot)
 	return nil
-}
-
-func (s *DocumentsService) tagStates(ctx context.Context, kp knowledgetypes.Project, collecting bool) ([]knowledgetypes.BranchState, *string, error) {
-	tags, err := s.tagRepository.List(ctx, kp.ID)
-	if err != nil {
-		return nil, nil, apperr.Wrap(err)
-	}
-	knowledgetypes.SortTags(tags, func(t knowledgetypes.StoredTag) knowledgetypes.TagInfo {
-		return knowledgetypes.TagInfo{Name: t.Name, FirstSeen: t.FirstSeen}
-	})
-	out := make([]knowledgetypes.BranchState, 0, len(tags))
-	var release *string
-	for _, t := range tags {
-		bs := knowledgetypes.BranchState{Name: t.Name, HeadSHA: new(t.Commit), Release: t.Release}
-		if err := s.fillState(ctx, kp, knowledgetypes.RefTag, &bs); err != nil {
-			return nil, nil, err
-		}
-		bs.Pending = collecting && (kp.Force || bs.Last == nil || bs.Last.Commit != t.Commit || bs.Last.Status == knowledgetypes.StatusFailed)
-		if t.Release {
-			release = new(t.Name)
-		}
-		out = append(out, bs)
-	}
-	return out, release, nil
 }
 
 type KnowledgeRef struct {
@@ -261,7 +242,7 @@ func (s *DocumentsService) KnowledgeTree(ctx context.Context, p accesstypes.Prin
 	if !found {
 		return knowledgetypes.Snapshot{}, knowledgetypes.TreeLevel{}, apperr.New(apperr.NotFound)
 	}
-	return snap, level, nil
+	return snap, level, s.titles(ctx, snap.ID, &level)
 }
 
 func (s *DocumentsService) SnapshotContents(ctx context.Context, p accesstypes.Principal, id uuid.UUID, r KnowledgeRef) (knowledgetypes.SnapshotFiles, error) {

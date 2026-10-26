@@ -99,6 +99,19 @@ func (r hitRow) hit() knowledgetypes.Hit {
 		Commit: r.CommitSHA, Path: r.Path, Kind: knowledgetypes.Kind(r.Kind), Snippet: knowledgetypes.Snippet(r.Fragment)}
 }
 
+type publicHitRow struct {
+	hitRow
+	Head *string `db:"head"`
+}
+
+func (r publicHitRow) hit() knowledgetypes.Hit {
+	h := r.hitRow.hit()
+	if r.Head != nil {
+		h.Title = knowledgetypes.MarkdownTitle(*r.Head)
+	}
+	return h
+}
+
 type scanArgs struct {
 	branches, index, notes, counts []byte
 	code, detail, source           *string

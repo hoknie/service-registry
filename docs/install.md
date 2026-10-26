@@ -160,6 +160,11 @@ they see.
   - `/.well-known/oauth-protected-resource…`
   - `/.well-known/oauth-authorization-server…`
   - `/api/oauth/…`
+- **Publication hosts** ([project-documentation.md](project-documentation.md#publication)). Point the host's DNS at the
+  proxy, give it a TLS certificate and pass the original `Host` header to the server. On such a host the server
+  answers only the public documentation; other pages and the API answer 404. The limit of anonymous requests
+  (`DOCS_PUBLIC_RATE_PER_MIN`, 300 a minute per client address) sees the proxy's address, so limit at the proxy or
+  raise it.
 
 ## Upgrading from a version with inline tokens
 

@@ -212,7 +212,7 @@ func TestRightsInAuthMeAndTokens(t *testing.T) {
 	f.app.user("carol@example.com", false)
 	eq(t, jsonText(f.app.get("/api/v1/auth/me", f.app.session("carol@example.com", password)).json(t)["rights"]), `{}`)
 	full := f.app.get("/api/v1/auth/me", f.admin).json(t)["rights"].(obj)
-	eq(t, len(full), 9)
+	eq(t, len(full), 10)
 	eq(t, jsonText(full["environments"]), `["create","update","delete"]`)
 
 	read := f.app.pat(f.bob, "clusters:read")

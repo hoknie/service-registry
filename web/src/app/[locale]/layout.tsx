@@ -7,8 +7,6 @@ import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { SessionProvider } from "@/components/SessionProvider";
-import { AppShell } from "@/components/shell/AppShell";
 import { UiTextProvider } from "@/components/UiText";
 import { isLocale, locales } from "@/i18n/config";
 import { getMessages } from "@/i18n/messages";
@@ -48,13 +46,7 @@ export default async function LocaleLayout({ children, params }: Props) {
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT + ";" + SIDEBAR_SCRIPT }} />
       </head>
       <body>
-        <UiTextProvider value={{ common: m.common, errors: m.errors, secrets: m.secrets }}>
-          <SessionProvider>
-            <AppShell locale={locale} labels={{ header: m.header, palette: m.palette }}>
-              {children}
-            </AppShell>
-          </SessionProvider>
-        </UiTextProvider>
+        <UiTextProvider value={{ common: m.common, errors: m.errors, secrets: m.secrets }}>{children}</UiTextProvider>
       </body>
     </html>
   );

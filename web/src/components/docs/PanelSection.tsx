@@ -13,9 +13,9 @@ function stored(key: string): boolean {
   }
 }
 
-type Props = { title: string; icon: LucideIcon; storageKey: string; busy?: boolean; children: ReactNode };
+type Props = { title: string; icon: LucideIcon; storageKey: string; busy?: boolean; className?: string; children: ReactNode };
 
-export function PanelSection({ title, icon: Icon, storageKey, busy = false, children }: Props) {
+export function PanelSection({ title, icon: Icon, storageKey, busy = false, className, children }: Props) {
   const [open, setOpen] = useState(() => stored(storageKey));
   const id = useId();
   const toggle = () => {
@@ -27,7 +27,7 @@ export function PanelSection({ title, icon: Icon, storageKey, busy = false, chil
     }
   };
   return (
-    <section className="grid min-w-0">
+    <section className={cn("grid min-w-0", className)}>
       <button
         type="button"
         onClick={toggle}

@@ -10,6 +10,7 @@ import {
   BASE_SCOPES,
   canSubmitNodes,
   CATALOG_ROOT,
+  PUBLICATION_SCOPE,
   GLOBAL_AREAS,
   isGlobalScope,
   scopesForAccess,
@@ -179,6 +180,18 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
                 hint={labels.scopeHints[CATALOG_ROOT]}
                 checked={scopes.includes(CATALOG_ROOT)}
                 onChange={(on) => toggle(CATALOG_ROOT, on)}
+              />
+            )}
+            {allowed(PUBLICATION_SCOPE) && (
+              <Checkbox
+                checked={scopes.includes(PUBLICATION_SCOPE)}
+                disabled={scoped}
+                onChange={(e) => toggle(PUBLICATION_SCOPE, e.target.checked)}
+                label={
+                  <span>
+                    <span className="font-mono">{PUBLICATION_SCOPE}</span> — {labels.scopeHints[PUBLICATION_SCOPE]}
+                  </span>
+                }
               />
             )}
             {scoped && <p className="text-xs text-muted">{t.nodesGlobal}</p>}

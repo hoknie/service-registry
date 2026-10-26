@@ -344,6 +344,31 @@ func TestDocsPathsServeTheDocsPageWithoutALocale(t *testing.T) {
 	eq(t, request(t, app, "POST", "/doc/rsqa", "").status, 405)
 }
 
+func TestPublicDocsPathsServeThePublicPage(t *testing.T) {
+	t.Parallel()
+	app := spawnApp(t, deadDB, testsupport.ExportDist(t).Dir)
+	for _, c := range []struct {
+		path    string
+		headers []string
+		want    string
+	}{
+		{"/public/docs", nil, "en public docs"},
+		{"/public/docs/acme/backend/api/README.md", []string{"accept-language", "ru"}, "ru public docs"},
+		{"/public/docs/acme-api?tag=v1", []string{"cookie", "NEXT_LOCALE=zh"}, "zh public docs"},
+	} {
+		r := get(t, app, c.path, c.headers...)
+		eq(t, r.status, 200, c.path)
+		eq(t, r.header("Cache-Control"), "no-cache", c.path)
+		eq(t, strings.Contains(r.header("Vary"), "Accept-Language"), true, c.path)
+		eq(t, r.header("Content-Security-Policy") != "", true, c.path)
+		eq(t, strings.Contains(r.text(), c.want), true, c.path)
+	}
+	r := get(t, app, "/es/public/docs/acme")
+	eq(t, r.status, 308)
+	eq(t, r.header("Location"), "/public/docs/acme")
+	eq(t, strings.HasPrefix(r.header("Set-Cookie"), "NEXT_LOCALE=es"), true)
+}
+
 func TestLocalizedDocsPathsRememberTheLocaleAndRedirect(t *testing.T) {
 	t.Parallel()
 	app := spawnApp(t, deadDB, testsupport.ExportDist(t).Dir)

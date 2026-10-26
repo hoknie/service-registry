@@ -17,13 +17,14 @@ const (
 	ScopeSettingsRead  Scope = "settings:read"
 	ScopeSettingsWrite Scope = "settings:write"
 	ScopeCatalogRoot   Scope = "catalog.root"
+	ScopePublication   Scope = "publication:write"
 )
 
 var AllScopes = []Scope{ScopeRead, ScopeWrite, ScopeMCP, ScopeUsersRead, ScopeUsersWrite, ScopeGroupsRead, ScopeGroupsWrite,
-	ScopeClustersRead, ScopeClustersWrite, ScopeSettingsRead, ScopeSettingsWrite, ScopeCatalogRoot}
+	ScopeClustersRead, ScopeClustersWrite, ScopeSettingsRead, ScopeSettingsWrite, ScopeCatalogRoot, ScopePublication}
 
 var GlobalScopes = Scopes{ScopeUsersRead, ScopeUsersWrite, ScopeGroupsRead, ScopeGroupsWrite, ScopeClustersRead,
-	ScopeClustersWrite, ScopeSettingsRead, ScopeSettingsWrite, ScopeCatalogRoot}
+	ScopeClustersWrite, ScopeSettingsRead, ScopeSettingsWrite, ScopeCatalogRoot, ScopePublication}
 
 func (sc Scope) Global() bool { return GlobalScopes.Has(sc) }
 

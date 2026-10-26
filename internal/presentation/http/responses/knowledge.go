@@ -121,13 +121,22 @@ type KnowledgeTreeDir struct {
 }
 
 type KnowledgeTree struct {
-	Snapshot *Snapshot          `json:"snapshot"`
-	Dirs     []KnowledgeTreeDir `json:"dirs"`
-	Files    []KnowledgeFile    `json:"files"`
+	Snapshot *Snapshot           `json:"snapshot"`
+	Dirs     []KnowledgeTreeDir  `json:"dirs"`
+	Files    []KnowledgeTreeFile `json:"files"`
+}
+
+type KnowledgeTreeFile struct {
+	KnowledgeFile
+	Title *string `json:"title"`
+}
+
+func treeFileOf(f knowledgetypes.FileInfo) KnowledgeTreeFile {
+	return KnowledgeTreeFile{KnowledgeFile: fileOf(f), Title: ptr.NonEmpty(f.Title)}
 }
 
 func KnowledgeTreeOf(s knowledgetypes.Snapshot, l knowledgetypes.TreeLevel) KnowledgeTree {
-	out := KnowledgeTree{Snapshot: SnapshotOf(&s), Dirs: make([]KnowledgeTreeDir, 0, len(l.Dirs)), Files: make([]KnowledgeFile, 0, len(l.Files))}
+	out := KnowledgeTree{Snapshot: SnapshotOf(&s), Dirs: make([]KnowledgeTreeDir, 0, len(l.Dirs)), Files: make([]KnowledgeTreeFile, 0, len(l.Files))}
 	for _, d := range l.Dirs {
 		dir := KnowledgeTreeDir{Name: d.Name, Path: d.Path, Files: d.Files}
 		if d.Git != "" {
@@ -136,7 +145,7 @@ func KnowledgeTreeOf(s knowledgetypes.Snapshot, l knowledgetypes.TreeLevel) Know
 		out.Dirs = append(out.Dirs, dir)
 	}
 	for _, f := range l.Files {
-		out.Files = append(out.Files, fileOf(f))
+		out.Files = append(out.Files, treeFileOf(f))
 	}
 	return out
 }

@@ -127,10 +127,10 @@ func TestEmbeddedMigrationsApplyThroughTheBinary(t *testing.T) {
 	tdb := testsupport.NewTestDB(t)
 	code, out, errOut := run(t, []string{"db:migrate"}, "", "DATABASE_URL", tdb.URL)
 	eq(t, code, 0, errOut)
-	contains(t, out, "applied 74 migration(s)")
+	contains(t, out, "applied 77 migration(s)")
 	versions, err := embedded(t).Versions()
 	must(t, err)
-	eq(t, len(versions), 74)
+	eq(t, len(versions), 77)
 	_, out, _ = run(t, []string{"db:migrate"}, "", "DATABASE_URL", tdb.URL)
 	contains(t, out, "applied 0 migration(s)")
 	code, out, errOut = run(t, []string{"db:rollback", "--count=4"}, "", "DATABASE_URL", tdb.URL)
@@ -207,7 +207,7 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	m := embedded(t)
 	n, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	eq(t, n, 74)
+	eq(t, n, 77)
 	knowledge := []string{"knowledge_blobs", "knowledge_files", "knowledge_settings", "knowledge_snapshots"}
 	oauth := []string{"oauth_login_states", "user_identities"}
 	deploy := []string{"cluster_workloads", "clusters", "environments"}
@@ -256,10 +256,16 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	withoutClears := slices.DeleteFunc(slices.Clone(withPermissions), func(s string) bool { return s == "node_owner_clears" })
 	withTags := append([]string{"knowledge_tags"}, withoutClears...)
 	slices.Sort(withTags)
+	withPublications := append([]string{"docs_publications"}, withTags...)
+	slices.Sort(withPublications)
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withPublications, ","))
+	n, err = rollbackThrough(t, m, tdb, "create_docs_publications")
+	must(t, err)
+	eq(t, n, migrationsFrom(t, m, "create_docs_publications"))
 	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withTags, ","))
 	n, err = rollbackThrough(t, m, tdb, "alter_knowledge_patterns_refs")
 	must(t, err)
-	eq(t, n, migrationsFrom(t, m, "alter_knowledge_patterns_refs"))
+	eq(t, n, migrationsFrom(t, m, "alter_knowledge_patterns_refs")-migrationsFrom(t, m, "create_docs_publications"))
 	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withoutClears, ","))
 	n, err = rollbackThrough(t, m, tdb, "create_group_permissions")
 	must(t, err)
@@ -401,7 +407,7 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	eq(t, len(embeddedTables(t, tdb)), 0)
 	n, err = m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	eq(t, n, 74)
+	eq(t, n, 77)
 }
 
 func execErr(t *testing.T, tdb *testsupport.TestDB, query string, args ...any) string {
@@ -761,6 +767,22 @@ func TestKnowledgePatternsMoveAndHoldTheirRules(t *testing.T) {
 	must(t, err)
 	execSQL(t, tdb, "DELETE FROM nodes WHERE id = $1", docs)
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM knowledge_patterns"), int64(0), "cascade")
+}
+
+func TestGroupPermissionsAcceptPublication(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	tdb := testsupport.NewTestDB(t)
+	m := embedded(t)
+	_, err := m.Migrate(ctx, tdb.Pool)
+	must(t, err)
+	group := uuid.Must(uuid.NewV7())
+	execSQL(t, tdb, "INSERT INTO groups (id, name) VALUES ($1, 'pub')", group)
+	execSQL(t, tdb, "INSERT INTO group_permissions (group_id, section, actions) VALUES ($1, 'publication', '{update}')", group)
+	_, err = rollbackThrough(t, m, tdb, "alter_group_permissions_publication")
+	must(t, err)
+	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM group_permissions WHERE group_id = $1", group), int64(0))
+	contains(t, execErr(t, tdb, "INSERT INTO group_permissions (group_id, section, actions) VALUES ($1, 'publication', '{update}')", group), "group_permissions_section_check")
 }
 
 func TestKnowledgePatternsBranchesBecomeRefs(t *testing.T) {
