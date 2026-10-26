@@ -73,14 +73,22 @@ export function DocFileTree({
 }: Props) {
   const { common } = useUiText();
   useDocStore();
-  const [opened, setOpened] = useState<Set<string>>(new Set());
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [chosen, setChosen] = useState<Map<string, boolean>>(new Map());
   const openDir =
     openPath && levelEntry(projectId, branch, parentDir(openPath))?.value?.dirs.some((d) => d.path === openPath) ? openPath : null;
   const onPath = new Set([...ancestorsOf(openPath), ...(openDir ? [openDir] : [])]);
-  const isOpen = (dir: string) =>
-    onPath.has(dir) ? !collapsed.has(dir) : opened.has(dir);
+  const isOpen = (dir: string) => chosen.get(dir) ?? onPath.has(dir);
   const pathKey = [...ancestorsOf(openPath), ...(openDir ? [openDir] : [])].join("|");
+  const [seenPath, setSeenPath] = useState(pathKey);
+  if (seenPath !== pathKey) {
+    setSeenPath(pathKey);
+    const onNewPath = pathKey ? pathKey.split("|") : [];
+    if (onNewPath.some((dir) => chosen.get(dir) === false)) {
+      const next = new Map(chosen);
+      for (const dir of onNewPath) if (next.get(dir) === false) next.delete(dir);
+      setChosen(next);
+    }
+  }
 
   useEffect(() => {
     ensureLevel(projectId, branch, "");
@@ -90,14 +98,7 @@ export function DocFileTree({
 
   const toggle = (dir: string) => {
     const opening = !isOpen(dir);
-    const flip = (prev: Set<string>, on: boolean) => {
-      const next = new Set(prev);
-      if (on) next.add(dir);
-      else next.delete(dir);
-      return next;
-    };
-    if (onPath.has(dir)) setCollapsed((prev) => flip(prev, !opening));
-    else setOpened((prev) => flip(prev, opening));
+    setChosen((prev) => new Map(prev).set(dir, opening));
     if (opening) ensureLevel(projectId, branch, dir);
   };
 

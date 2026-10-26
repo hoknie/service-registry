@@ -13,10 +13,9 @@ export function DocToc({ headings, label }: { headings: DocHeading[]; label: str
 
   useEffect(() => {
     const link = nav.current?.querySelector<HTMLElement>('[aria-current="location"]');
-    if (!link) return;
-    let box = link.parentElement;
-    while (box && !(box.scrollHeight > box.clientHeight && getComputedStyle(box).overflowY !== "visible")) box = box.parentElement;
-    if (!box || box === document.body || box === document.documentElement) return;
+    if (!link || link.getClientRects().length === 0) return;
+    const box = link.closest<HTMLElement>("[data-toc-scroll]");
+    if (!box) return;
     const linkBox = link.getBoundingClientRect();
     const view = box.getBoundingClientRect();
     if (linkBox.top < view.top + 8) box.scrollTop -= view.top + 8 - linkBox.top;
@@ -46,7 +45,7 @@ export function DocToc({ headings, label }: { headings: DocHeading[]; label: str
               href={`#${encodeURIComponent(h.id)}`}
               aria-current={active === h.id ? "location" : undefined}
               className={cn(
-                "motion-control -ml-px block border-l-2 py-1 pr-1 text-sm leading-snug",
+                "motion-control -ml-px block border-l-2 py-1 pr-1 text-sm leading-snug [overflow-wrap:anywhere]",
                 active === h.id ? "border-signal font-medium text-signal" : "border-transparent text-ink-2 hover:border-line-strong hover:text-ink",
               )}
               style={{ paddingLeft: `${0.6 + (h.level - top) * 0.75}rem` }}

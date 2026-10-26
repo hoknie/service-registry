@@ -286,6 +286,7 @@ export function DocSpace({ locale, labels }: Props) {
         </section>
         {hasToc && (
           <aside
+            data-toc-scroll
             aria-label={t.toc}
             className="sticky top-[calc(var(--doc-header,3.5rem)+1.5rem)] hidden max-h-[calc(100dvh-var(--doc-header,3.5rem)-2.5rem)] min-w-0 overflow-x-hidden overflow-y-auto rounded-card border border-line bg-surface p-2 shadow-elev-1 xl:block"
           >
