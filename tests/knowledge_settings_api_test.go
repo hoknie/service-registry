@@ -19,7 +19,7 @@ func TestSettingsAreInheritedPerField(t *testing.T) {
 	eq(t, a.send("PUT", settingsPath(api), a.admin, obj{"exclude": []string{}}).status, 200)
 
 	got := a.get(settingsPath(api), a.admin)
-	contains(t, got.text(), `"include":["docs/**"],"exclude":[],"branches":[],"apis":true,"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh":"interval"`)
+	contains(t, got.text(), `"include":["docs/**"],"exclude":[],"refs":[],"apis":true,"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh":"interval"`)
 	s := got.json(t)
 	eq(t, at(s, "from", "include", "id"), any(folder))
 	eq(t, at(s, "from", "include", "kind"), any("folder"))
@@ -32,7 +32,7 @@ func TestSettingsAreInheritedPerField(t *testing.T) {
 	eq(t, at(r.json(t), "from", "exclude", "name"), any("backend"))
 
 	r = a.send("PUT", settingsPath(api), a.admin, obj{})
-	contains(t, r.text(), `"include":["docs/**"],"exclude":["docs/drafts/**"],"branches":[],"apis":true,"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh":"interval"`)
+	contains(t, r.text(), `"include":["docs/**"],"exclude":["docs/drafts/**"],"refs":[],"apis":true,"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh":"interval"`)
 	eq(t, scalar[int64](t, a.db, "SELECT count(*) FROM knowledge_patterns WHERE node_id = $1", api), int64(0), "an empty row is deleted")
 
 	r = a.send("PUT", settingsPath(folder), a.admin, obj{"include": []string{"docs/**"}, "exclude": []string{"docs/drafts/**"}, "apis": false})
@@ -48,7 +48,7 @@ func TestSettingsAreInheritedPerField(t *testing.T) {
 	eq(t, a.send("PUT", settingsPath(api), a.admin, obj{}).status, 200)
 	eq(t, a.send("PUT", settingsPath(folder), a.admin, obj{"include": []string{"docs/**"}, "exclude": []string{"docs/drafts/**"}}).status, 200)
 
-	for _, body := range []obj{{"exclude": nil}, {"branches": nil}, {"include": []string{"docs/[a-"}}, {"apis": nil}} {
+	for _, body := range []obj{{"exclude": nil}, {"refs": nil}, {"include": []string{"docs/[a-"}}, {"apis": nil}} {
 		r = a.send("PUT", settingsPath(folder), a.admin, body)
 		eq(t, r.status, 400, body)
 		eq(t, code(t, r), any("validation.invalid_knowledge_settings"))

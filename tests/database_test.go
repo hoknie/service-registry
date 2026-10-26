@@ -127,10 +127,10 @@ func TestEmbeddedMigrationsApplyThroughTheBinary(t *testing.T) {
 	tdb := testsupport.NewTestDB(t)
 	code, out, errOut := run(t, []string{"db:migrate"}, "", "DATABASE_URL", tdb.URL)
 	eq(t, code, 0, errOut)
-	contains(t, out, "applied 71 migration(s)")
+	contains(t, out, "applied 74 migration(s)")
 	versions, err := embedded(t).Versions()
 	must(t, err)
-	eq(t, len(versions), 71)
+	eq(t, len(versions), 74)
 	_, out, _ = run(t, []string{"db:migrate"}, "", "DATABASE_URL", tdb.URL)
 	contains(t, out, "applied 0 migration(s)")
 	code, out, errOut = run(t, []string{"db:rollback", "--count=4"}, "", "DATABASE_URL", tdb.URL)
@@ -207,7 +207,7 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	m := embedded(t)
 	n, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	eq(t, n, 71)
+	eq(t, n, 74)
 	knowledge := []string{"knowledge_blobs", "knowledge_files", "knowledge_settings", "knowledge_snapshots"}
 	oauth := []string{"oauth_login_states", "user_identities"}
 	deploy := []string{"cluster_workloads", "clusters", "environments"}
@@ -254,10 +254,16 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	withPermissions := append([]string{"group_permissions"}, withEpisodes...)
 	slices.Sort(withPermissions)
 	withoutClears := slices.DeleteFunc(slices.Clone(withPermissions), func(s string) bool { return s == "node_owner_clears" })
+	withTags := append([]string{"knowledge_tags"}, withoutClears...)
+	slices.Sort(withTags)
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withTags, ","))
+	n, err = rollbackThrough(t, m, tdb, "alter_knowledge_patterns_refs")
+	must(t, err)
+	eq(t, n, migrationsFrom(t, m, "alter_knowledge_patterns_refs"))
 	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withoutClears, ","))
 	n, err = rollbackThrough(t, m, tdb, "create_group_permissions")
 	must(t, err)
-	eq(t, n, migrationsFrom(t, m, "create_group_permissions"))
+	eq(t, n, migrationsFrom(t, m, "create_group_permissions")-migrationsFrom(t, m, "alter_knowledge_patterns_refs"))
 	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withEpisodes, ","))
 	n, err = rollbackThrough(t, m, tdb, squashMigration)
 	must(t, err)
@@ -395,7 +401,7 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	eq(t, len(embeddedTables(t, tdb)), 0)
 	n, err = m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	eq(t, n, 71)
+	eq(t, n, 74)
 }
 
 func execErr(t *testing.T, tdb *testsupport.TestDB, query string, args ...any) string {
@@ -742,7 +748,7 @@ func TestKnowledgePatternsMoveAndHoldTheirRules(t *testing.T) {
 	_, err = m.Migrate(ctx, tdb.Pool)
 	must(t, err)
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM knowledge_patterns"), int64(1), "defaults are not moved")
-	eq(t, scalar[bool](t, tdb, "SELECT include_set AND include = '{docs/**}' AND exclude IS NULL AND branches = '{release/*}' FROM knowledge_patterns WHERE node_id = $1", docs), true)
+	eq(t, scalar[bool](t, tdb, `SELECT include_set AND include = '{docs/**}' AND exclude IS NULL AND refs = '[{"pattern":"release/*","kind":"branch","release":false}]'::jsonb FROM knowledge_patterns WHERE node_id = $1`, docs), true)
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() "+
 		"AND table_name = 'knowledge_settings' AND column_name IN ('include', 'exclude', 'branches')"), int64(0))
 	contains(t, execErr(t, tdb, "INSERT INTO knowledge_patterns (node_id, include_set, include) VALUES ($1, false, '{x}')", org), "knowledge_patterns_include_check")
@@ -755,6 +761,30 @@ func TestKnowledgePatternsMoveAndHoldTheirRules(t *testing.T) {
 	must(t, err)
 	execSQL(t, tdb, "DELETE FROM nodes WHERE id = $1", docs)
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM knowledge_patterns"), int64(0), "cascade")
+}
+
+func TestKnowledgePatternsBranchesBecomeRefs(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	tdb := testsupport.NewTestDB(t)
+	m := embedded(t)
+	_, err := m.Migrate(ctx, tdb.Pool)
+	must(t, err)
+	_, err = rollbackThrough(t, m, tdb, "alter_knowledge_patterns_refs")
+	must(t, err)
+	org, folder := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
+	execSQL(t, tdb, "INSERT INTO nodes (id, kind, slug, name) VALUES ($1, 'organization', 'o', 'O')", org)
+	execSQL(t, tdb, "INSERT INTO nodes (id, kind, parent_id, slug, name) VALUES ($1, 'folder', $2, 'f', 'F')", folder, org)
+	execSQL(t, tdb, "INSERT INTO knowledge_patterns (node_id, branches) VALUES ($1, '{release/*,main}')", folder)
+	execSQL(t, tdb, "INSERT INTO knowledge_patterns (node_id, exclude) VALUES ($1, '{tmp/**}')", org)
+	_, err = m.Migrate(ctx, tdb.Pool)
+	must(t, err)
+	eq(t, scalar[bool](t, tdb, `SELECT refs = '[{"pattern":"release/*","kind":"branch","release":false},{"pattern":"main","kind":"branch","release":false}]'::jsonb FROM knowledge_patterns WHERE node_id = $1`, folder), true)
+	eq(t, scalar[bool](t, tdb, "SELECT refs IS NULL FROM knowledge_patterns WHERE node_id = $1", org), true)
+	execSQL(t, tdb, `UPDATE knowledge_patterns SET refs = refs || '[{"pattern":"v*","kind":"tag","release":true}]'::jsonb WHERE node_id = $1`, folder)
+	_, err = rollbackThrough(t, m, tdb, "alter_knowledge_patterns_refs")
+	must(t, err)
+	eq(t, scalar[bool](t, tdb, "SELECT branches = '{release/*,main}' FROM knowledge_patterns WHERE node_id = $1", folder), true)
 }
 
 func TestKnowledgeIndexHoldsStemsAndExactForms(t *testing.T) {

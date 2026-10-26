@@ -11,6 +11,7 @@ import (
 type Snapshot struct {
 	ID          uuid.UUID `json:"id"`
 	Branch      string    `json:"branch"`
+	RefKind     string    `json:"ref_kind"`
 	Commit      string    `json:"commit"`
 	Status      string    `json:"status"`
 	ErrorCode   *string   `json:"error_code"`
@@ -28,7 +29,11 @@ func SnapshotOf(s *knowledgetypes.Snapshot) *Snapshot {
 	if s == nil {
 		return nil
 	}
-	return &Snapshot{ID: s.ID, Branch: s.Branch, Commit: s.Commit, Status: string(s.Status), ErrorCode: s.ErrorCode,
+	kind := string(s.RefKind)
+	if kind == "" {
+		kind = string(knowledgetypes.RefBranch)
+	}
+	return &Snapshot{ID: s.ID, Branch: s.Branch, RefKind: kind, Commit: s.Commit, Status: string(s.Status), ErrorCode: s.ErrorCode,
 		Files: s.Files, Bytes: s.Bytes, Skipped: s.Skipped, Limited: s.Limited, TooLarge: s.TooLarge, Truncated: s.Truncated,
 		Limits: limitsOf(s.Limits), CollectedAt: s.CollectedAt}
 }
@@ -41,21 +46,37 @@ type KnowledgeBranch struct {
 	Snapshot *Snapshot `json:"snapshot"`
 }
 
+type KnowledgeTag struct {
+	Name     string    `json:"name"`
+	Commit   string    `json:"commit"`
+	Release  bool      `json:"release"`
+	Pending  bool      `json:"pending"`
+	Last     *Snapshot `json:"last"`
+	Snapshot *Snapshot `json:"snapshot"`
+}
+
 type Knowledge struct {
 	Synced   bool              `json:"synced"`
 	Source   *string           `json:"source"`
 	Settings KnowledgeSettings `json:"settings"`
 	Branches []KnowledgeBranch `json:"branches"`
+	Tags     []KnowledgeTag    `json:"tags"`
+	Release  *string           `json:"release"`
 }
 
 func KnowledgeOf(o knowledgeservices.KnowledgeOverview) Knowledge {
-	out := Knowledge{Synced: o.Synced, Settings: KnowledgeSettingsOf(o.Settings), Branches: make([]KnowledgeBranch, 0, len(o.Branches))}
+	out := Knowledge{Synced: o.Synced, Settings: KnowledgeSettingsOf(o.Settings), Branches: make([]KnowledgeBranch, 0, len(o.Branches)),
+		Tags: make([]KnowledgeTag, 0, len(o.Tags)), Release: o.Release}
 	if o.Source != "" {
 		out.Source = new(string(o.Source))
 	}
 	for _, b := range o.Branches {
 		out.Branches = append(out.Branches, KnowledgeBranch{Name: b.Name, HeadSHA: b.HeadSHA, Pending: b.Pending,
 			Last: SnapshotOf(b.Last), Snapshot: SnapshotOf(b.Snapshot)})
+	}
+	for _, t := range o.Tags {
+		out.Tags = append(out.Tags, KnowledgeTag{Name: t.Name, Commit: ptr.Value(t.HeadSHA), Release: t.Release, Pending: t.Pending,
+			Last: SnapshotOf(t.Last), Snapshot: SnapshotOf(t.Snapshot)})
 	}
 	return out
 }
@@ -185,6 +206,7 @@ type SearchProject struct {
 type SearchHit struct {
 	Project SearchProject            `json:"project"`
 	Branch  string                   `json:"branch"`
+	RefKind string                   `json:"ref_kind"`
 	Commit  string                   `json:"commit"`
 	Path    string                   `json:"path"`
 	Kind    string                   `json:"kind"`
@@ -204,7 +226,7 @@ func SearchOf(r knowledgeservices.SearchResult) Search {
 			snippet = []knowledgetypes.Segment{}
 		}
 		out.Items = append(out.Items, SearchHit{Project: SearchProject{ID: h.ProjectID, Path: h.ProjectPath, Name: h.ProjectName},
-			Branch: h.Branch, Commit: h.Commit, Path: h.Path, Kind: string(h.Kind), Snippet: snippet})
+			Branch: h.Branch, RefKind: string(h.RefKind), Commit: h.Commit, Path: h.Path, Kind: string(h.Kind), Snippet: snippet})
 	}
 	if r.Next != "" {
 		out.NextCursor = &r.Next

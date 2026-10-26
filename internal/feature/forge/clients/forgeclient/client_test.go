@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -276,6 +277,38 @@ func TestBranchesOfEveryKind(t *testing.T) {
 			keep := func(n string) bool { return n == "main" || strings.HasPrefix(n, "feature/0") }
 			some, truncated, err := c.ListBranches(ctx, repos[0], keep, 50)
 			if err != nil || !truncated || len(some) != 50 {
+				t.Fatalf("limited: %d %v %v", len(some), truncated, err)
+			}
+		})
+	}
+}
+
+func TestTagsOfEveryKind(t *testing.T) {
+	for _, kind := range []forgetypes.Kind{forgetypes.KindGithub, forgetypes.KindGitlab, forgetypes.KindGitea} {
+		t.Run(string(kind), func(t *testing.T) {
+			f := forgefake.Start(t, string(kind), token, "acme")
+			var tags []forgefake.Tag
+			for i := range 120 {
+				tags = append(tags, forgefake.Tag{Name: fmt.Sprintf("v0.%d.0", i), SHA: fmt.Sprintf("%040X", i+1)})
+			}
+			tags = append(tags, forgefake.Tag{Name: "stable", SHA: strings.Repeat("B", 40)})
+			f.Put(forgefake.Repo{ID: 1, Path: "acme/api", Tags: tags})
+			c := client(t, f, kind, token)
+			ctx := context.Background()
+			repos, err := c.ListRepos(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			all, truncated, err := c.ListTags(ctx, repos[0], func(string) bool { return true }, 500)
+			if err != nil || truncated || len(all) != 121 {
+				t.Fatalf("all: %d %v %v", len(all), truncated, err)
+			}
+			i := slices.IndexFunc(all, func(t forgetypes.Tag) bool { return t.Name == "stable" })
+			if i < 0 || all[i].Commit != strings.Repeat("b", 40) {
+				t.Fatalf("stable %+v", all)
+			}
+			some, truncated, err := c.ListTags(ctx, repos[0], func(n string) bool { return strings.HasPrefix(n, "v0.1") }, 5)
+			if err != nil || !truncated || len(some) != 5 {
 				t.Fatalf("limited: %d %v %v", len(some), truncated, err)
 			}
 		})

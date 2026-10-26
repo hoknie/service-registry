@@ -22,14 +22,14 @@ func TestKnowledgeSettingsThroughTheAPI(t *testing.T) {
 	bob := d.viewer()
 	r := d.app.get(knowledgePath(d.id)+"/settings", bob)
 	eq(t, r.status, 200, r.text())
-	defaults := `{"include":null,"exclude":[],"branches":[],"apis":true,"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh":"interval","refresh_events":["service.deployed","cluster.deployed","forge.webhook","forge.manual"],"interval_secs":300,"defaults":{"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh_events":["service.deployed","cluster.deployed","forge.webhook","forge.manual"]},"own":{},"from":{"api_paths":null,"apis":null,"branches":null,"exclude":null,"include":null,"refresh":null,"refresh_events":null}}`
+	defaults := `{"include":null,"exclude":[],"refs":[],"apis":true,"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh":"interval","refresh_events":["service.deployed","cluster.deployed","forge.webhook","forge.manual"],"interval_secs":300,"max_tags":10,"defaults":{"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh_events":["service.deployed","cluster.deployed","forge.webhook","forge.manual"]},"own":{},"from":{"api_paths":null,"apis":null,"exclude":null,"include":null,"refresh":null,"refresh_events":null,"refs":null}}`
 	eq(t, r.text(), defaults)
 
-	body := obj{"include": []string{"openspec/**", "docs/**/*.md", "README.md"}, "exclude": []string{"docs/drafts/**"}, "branches": []string{"release/*"}}
+	body := obj{"include": []string{"openspec/**", "docs/**/*.md", "README.md"}, "exclude": []string{"docs/drafts/**"}, "refs": []obj{{"pattern": "release/*", "kind": "branch"}}}
 	r = d.app.send("PUT", knowledgePath(d.id)+"/settings", d.admin, body)
 	eq(t, r.status, 200, r.text())
-	contains(t, r.text(), `"include":["openspec/**","docs/**/*.md","README.md"],"exclude":["docs/drafts/**"],"branches":["release/*"]`)
-	contains(t, r.text(), `"own":{"branches":["release/*"],"exclude":["docs/drafts/**"],"include":["openspec/**","docs/**/*.md","README.md"]}`)
+	contains(t, r.text(), `"include":["openspec/**","docs/**/*.md","README.md"],"exclude":["docs/drafts/**"],"refs":[{"pattern":"release/*","kind":"branch","release":false}]`)
+	contains(t, r.text(), `"own":{"exclude":["docs/drafts/**"],"include":["openspec/**","docs/**/*.md","README.md"],"refs":[{"pattern":"release/*","kind":"branch","release":false}]}`)
 	eq(t, d.app.get(knowledgePath(d.id)+"/settings", bob).text(), r.text())
 
 	r = d.app.send("PUT", knowledgePath(d.id)+"/settings", d.admin, obj{"include": []string{"docs/[a-"}})
@@ -37,7 +37,7 @@ func TestKnowledgeSettingsThroughTheAPI(t *testing.T) {
 	eq(t, code(t, r), any("validation.invalid_knowledge_settings"))
 	eq(t, d.app.send("PUT", knowledgePath(d.id)+"/settings", bob, body).status, 403)
 	r = d.app.send("PUT", knowledgePath(d.id)+"/settings", d.admin, obj{"include": nil})
-	eq(t, r.text(), `{"include":null,"exclude":[],"branches":[],"apis":true,"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh":"interval","refresh_events":["service.deployed","cluster.deployed","forge.webhook","forge.manual"],"interval_secs":300,"defaults":{"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh_events":["service.deployed","cluster.deployed","forge.webhook","forge.manual"]},"own":{"include":null},"from":{"api_paths":null,"apis":null,"branches":null,"exclude":null,"include":null,"refresh":null,"refresh_events":null}}`)
+	eq(t, r.text(), `{"include":null,"exclude":[],"refs":[],"apis":true,"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh":"interval","refresh_events":["service.deployed","cluster.deployed","forge.webhook","forge.manual"],"interval_secs":300,"max_tags":10,"defaults":{"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh_events":["service.deployed","cluster.deployed","forge.webhook","forge.manual"]},"own":{"include":null},"from":{"api_paths":null,"apis":null,"exclude":null,"include":null,"refresh":null,"refresh_events":null,"refs":null}}`)
 	eq(t, d.app.send("PUT", knowledgePath(d.id)+"/settings", d.admin, obj{}).text(), defaults)
 
 	eq(t, d.app.get(knowledgePath(d.org)+"/settings", d.admin).status, 200)
@@ -143,7 +143,7 @@ func TestFilesAndOpenSpecThroughTheAPI(t *testing.T) {
 	eq(t, at(adrs, "items", 1, "supersedes"), any("none"))
 	eq(t, d.app.get(knowledgePath(d.id)+"/specs?branch=release", bob).text(), `{"items":[]}`)
 
-	d.app.send("PUT", knowledgePath(d.id)+"/settings", d.admin, obj{"include": []string{"README.md"}, "branches": []string{"release/*"}})
+	d.app.send("PUT", knowledgePath(d.id)+"/settings", d.admin, obj{"include": []string{"README.md"}, "refs": []obj{{"pattern": "release/*", "kind": "branch"}}})
 	d.push(nil, forgefake.Branch{Name: "main", SHA: sha(1)}, forgefake.Branch{Name: "release/1", SHA: sha(2)})
 	d.app.collect()
 	r = d.app.get(knowledgePath(d.id)+"/files?branch=release%2F1", bob)

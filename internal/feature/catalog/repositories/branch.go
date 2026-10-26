@@ -150,6 +150,7 @@ func (s *BranchRepository) Delete(ctx context.Context, projectID uuid.UUID, name
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		DELETE FROM knowledge_snapshots
 		WHERE project_id = $1
+			AND ref_kind = 'branch'
 			AND branch = $2`, projectID, name)
 	return err
 }
@@ -169,6 +170,7 @@ func (s *BranchRepository) Prune(ctx context.Context, retentionDays, staleDays u
 		snapshots AS (
 			DELETE FROM knowledge_snapshots s USING gone g
 			WHERE s.project_id = g.project_id
+				AND s.ref_kind = 'branch'
 				AND s.branch = g.name
 		)
 		SELECT count(*)

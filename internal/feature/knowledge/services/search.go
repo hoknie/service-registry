@@ -88,6 +88,9 @@ func (s *SearchService) SearchKnowledge(ctx context.Context, p accesstypes.Princ
 	if err != nil {
 		return SearchResult{}, apperr.Wrap(err)
 	}
+	for i := range hits {
+		hits[i].RefKind, hits[i].Branch = knowledgetypes.SplitVersionKey(hits[i].Branch)
+	}
 	out := SearchResult{Hits: hits}
 	if more {
 		out.Next = knowledgetypes.Cursor(q.Offset + q.Limit)
@@ -101,7 +104,12 @@ func (s *SearchService) engineQuery(ctx context.Context, v knowledgetypes.Viewer
 		return knowledgetypes.EngineQuery{}, err
 	}
 	eq := knowledgetypes.EngineQuery{Search: q, Mode: mode, Projects: projects}
-	if q.Branch == nil && len(projects) > 0 {
+	switch {
+	case q.Release && len(projects) > 0:
+		if eq.Branches, err = s.tagRepository.Releases(ctx, projects); err != nil {
+			return knowledgetypes.EngineQuery{}, err
+		}
+	case q.Branch == nil && len(projects) > 0:
 		if eq.Branches, err = s.searchRepository.DefaultBranches(ctx, projects); err != nil {
 			return knowledgetypes.EngineQuery{}, err
 		}
@@ -160,6 +168,7 @@ func offers(e knowledgeports.EnginePort, m knowledgetypes.Mode) bool {
 }
 
 type SearchService struct {
+	tagRepository        *repositories.TagRepository
 	collectionRepository *repositories.CollectionRepository
 	indexRepository      *repositories.IndexRepository
 	searchRepository     *repositories.SearchRepository

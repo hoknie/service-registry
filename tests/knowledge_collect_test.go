@@ -27,8 +27,8 @@ func TestPatternsBranchesAndLimits(t *testing.T) {
 		"openspec/decisions/0036-branches.md": "# ADR-0036: B\n- **Status:** Accepted\n", "docs/big.md": strings.Repeat("b", 2048),
 		"docs/img.png": "\x89PNG\x00\x00", "docs/drafts/x.md": "draft", "docs/z.md": "zz",
 	}, "KNOWLEDGE_MAX_FILE_BYTES", "1024")
-	execSQL(t, d.app.db, "INSERT INTO knowledge_patterns (node_id, include_set, include, exclude, branches) VALUES ($1, true, $2, $3, $4)",
-		d.id, []string{"openspec/**", "docs/**"}, []string{"docs/drafts/**"}, []string{"release/*"})
+	execSQL(t, d.app.db, "INSERT INTO knowledge_patterns (node_id, include_set, include, exclude, refs) VALUES ($1, true, $2, $3, $4)",
+		d.id, []string{"openspec/**", "docs/**"}, []string{"docs/drafts/**"}, `[{"pattern":"release/*","kind":"branch"}]`)
 	d.push(nil, forgefake.Branch{Name: "main", SHA: sha(1)}, forgefake.Branch{Name: "release/1", SHA: sha(2)},
 		forgefake.Branch{Name: "dev", SHA: sha(3)})
 	d.app.collect()
@@ -136,7 +136,7 @@ func TestCollectNowAndRules(t *testing.T) {
 func TestDeletingABranchDeletesItsSnapshots(t *testing.T) {
 	t.Parallel()
 	d := startDocs(t, map[string]string{"README.md": "x"})
-	execSQL(t, d.app.db, "INSERT INTO knowledge_patterns (node_id, branches) VALUES ($1, '{feature/*}')", d.id)
+	execSQL(t, d.app.db, `INSERT INTO knowledge_patterns (node_id, refs) VALUES ($1, '[{"pattern":"feature/*","kind":"branch"}]')`, d.id)
 	d.push(nil, forgefake.Branch{Name: "main", SHA: sha(1)}, forgefake.Branch{Name: "feature/x", SHA: sha(5)})
 	d.app.collect()
 	eq(t, d.snapshots("feature/x"), int64(1))

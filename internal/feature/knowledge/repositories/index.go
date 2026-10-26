@@ -81,11 +81,11 @@ func (s *IndexRepository) Synced(ctx context.Context, project uuid.UUID, st know
 func (s *IndexRepository) Files(ctx context.Context, project uuid.UUID) ([]knowledgetypes.IndexFile, error) {
 	return postgres.List(ctx, s.db.From(ctx), constraints, postgres.Struct(indexFileRow.file), `
 		WITH latest AS (
-			SELECT DISTINCT ON (branch) id, branch, commit_sha
+			SELECT DISTINCT ON (ref_kind, branch) id, CASE WHEN ref_kind = 'tag' THEN 'tag:' || branch ELSE branch END AS branch, commit_sha
 			FROM knowledge_snapshots
 			WHERE project_id = $1
 				AND status <> 'failed'
-			ORDER BY branch, collected_at DESC, id DESC
+			ORDER BY ref_kind, branch, collected_at DESC, id DESC
 		)
 		SELECT l.branch, l.commit_sha, f.path, f.kind, f.sha256
 		FROM latest l
@@ -101,11 +101,11 @@ func (s *IndexRepository) Missing(ctx context.Context, project uuid.UUID, model 
 		return b, err
 	}, `
 		WITH latest AS (
-			SELECT DISTINCT ON (branch) id, branch, commit_sha
+			SELECT DISTINCT ON (ref_kind, branch) id, CASE WHEN ref_kind = 'tag' THEN 'tag:' || branch ELSE branch END AS branch, commit_sha
 			FROM knowledge_snapshots
 			WHERE project_id = $1
 				AND status <> 'failed'
-			ORDER BY branch, collected_at DESC, id DESC
+			ORDER BY ref_kind, branch, collected_at DESC, id DESC
 		)
 		SELECT DISTINCT b.sha256, b.content
 		FROM latest l
@@ -176,10 +176,10 @@ func (s *IndexRepository) Chunks(ctx context.Context, shas [][]byte, model strin
 func (s *IndexRepository) Counts(ctx context.Context, model string) (pending, indexed int, err error) {
 	c, err := postgres.One(ctx, s.db.From(ctx), constraints, pgx.RowToStructByPos[countsRow], `
 		WITH latest AS (
-			SELECT DISTINCT ON (project_id, branch) id
+			SELECT DISTINCT ON (project_id, ref_kind, branch) id
 			FROM knowledge_snapshots
 			WHERE status <> 'failed'
-			ORDER BY project_id, branch, collected_at DESC, id DESC
+			ORDER BY project_id, ref_kind, branch, collected_at DESC, id DESC
 		)
 		SELECT count(*) FILTER (WHERE NOT x.done), count(*) FILTER (WHERE x.done)
 		FROM (

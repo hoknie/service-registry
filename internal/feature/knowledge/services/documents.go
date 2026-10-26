@@ -21,37 +21,8 @@ type KnowledgeOverview struct {
 	Source   knowledgetypes.SourceKind
 	Settings knowledgetypes.Settings
 	Branches []knowledgetypes.BranchState
-}
-
-type docProject struct {
-	knowledgetypes.Project
-	Source  *knowledgetypes.StoredSource
-	Default string
-}
-
-func (s *DocumentsService) documentationOf(ctx context.Context, kp knowledgetypes.Project) (docProject, error) {
-	src, err := s.sourceRepository.Get(ctx, kp.ID)
-	if err != nil {
-		return docProject{}, apperr.Wrap(err)
-	}
-	d := docProject{Project: kp, Source: src, Default: kp.DefaultBranch}
-	switch {
-	case src != nil && src.Kind == knowledgetypes.SourceLocalDir:
-		d.Default = knowledgetypes.LocalBranch
-	case src != nil && d.Default == "":
-		d.Default = src.DefaultBranch
-	}
-	return d, nil
-}
-
-func (d docProject) kind() knowledgetypes.SourceKind {
-	switch {
-	case d.Source != nil:
-		return d.Source.Kind
-	case d.Synced:
-		return knowledgetypes.SourceForge
-	}
-	return ""
+	Tags     []knowledgetypes.BranchState
+	Release  *string
 }
 
 func (s *DocumentsService) knowledgeProject(ctx context.Context, p accesstypes.Principal, perm catalogtypes.Permission, id uuid.UUID) (knowledgetypes.Project, error) {
@@ -101,14 +72,9 @@ func (s *DocumentsService) GetKnowledge(ctx context.Context, p accesstypes.Princ
 		if b.HeadSHA != "" {
 			bs.HeadSHA = new(b.HeadSHA)
 		}
-		if bs.Last, err = s.snapshotRepository.LastAttempt(ctx, id, b.Name); err != nil {
-			return KnowledgeOverview{}, apperr.Wrap(err)
+		if err := s.fillState(ctx, kp, knowledgetypes.RefBranch, &bs); err != nil {
+			return KnowledgeOverview{}, err
 		}
-		if bs.Snapshot, err = s.snapshotRepository.Latest(ctx, id, b.Name); err != nil {
-			return KnowledgeOverview{}, apperr.Wrap(err)
-		}
-		s.explain(kp, bs.Last)
-		s.explain(kp, bs.Snapshot)
 		bs.Pending = collecting && !b.Gone && (b.HeadSHA != "" || d.Source != nil) &&
 			(kp.Force || bs.Last == nil || bs.Last.Commit != b.HeadSHA || bs.Last.Status == knowledgetypes.StatusFailed)
 		out.Branches = append(out.Branches, bs)
@@ -122,31 +88,91 @@ func (s *DocumentsService) GetKnowledge(ctx context.Context, p accesstypes.Princ
 		}
 		return strings.Compare(a.Name, b.Name)
 	})
+	if out.Tags, out.Release, err = s.tagStates(ctx, kp, collecting); err != nil {
+		return KnowledgeOverview{}, err
+	}
 	return out, nil
 }
 
-type KnowledgeRef struct {
-	Branch *string
-	Commit *string
+func (s *DocumentsService) fillState(ctx context.Context, kp knowledgetypes.Project, kind knowledgetypes.RefKind, bs *knowledgetypes.BranchState) error {
+	var err error
+	if bs.Last, err = s.snapshotRepository.LastAttempt(ctx, kp.ID, kind, bs.Name); err != nil {
+		return apperr.Wrap(err)
+	}
+	if bs.Snapshot, err = s.snapshotRepository.Latest(ctx, kp.ID, kind, bs.Name); err != nil {
+		return apperr.Wrap(err)
+	}
+	s.explain(kp, bs.Last)
+	s.explain(kp, bs.Snapshot)
+	return nil
 }
 
-func (s *DocumentsService) resolveRef(ctx context.Context, kp knowledgetypes.Project, r KnowledgeRef) (string, knowledgetypes.Ref, error) {
-	d, err := s.documentationOf(ctx, kp)
+func (s *DocumentsService) tagStates(ctx context.Context, kp knowledgetypes.Project, collecting bool) ([]knowledgetypes.BranchState, *string, error) {
+	tags, err := s.tagRepository.List(ctx, kp.ID)
 	if err != nil {
-		return "", knowledgetypes.Ref{}, err
+		return nil, nil, apperr.Wrap(err)
 	}
-	branch := d.Default
-	if r.Branch != nil {
-		name, err := catalogtypes.BranchName(*r.Branch)
-		if err != nil {
-			return "", knowledgetypes.Ref{}, apperr.Wrap(err)
+	knowledgetypes.SortTags(tags, func(t knowledgetypes.StoredTag) knowledgetypes.TagInfo {
+		return knowledgetypes.TagInfo{Name: t.Name, FirstSeen: t.FirstSeen}
+	})
+	out := make([]knowledgetypes.BranchState, 0, len(tags))
+	var release *string
+	for _, t := range tags {
+		bs := knowledgetypes.BranchState{Name: t.Name, HeadSHA: new(t.Commit), Release: t.Release}
+		if err := s.fillState(ctx, kp, knowledgetypes.RefTag, &bs); err != nil {
+			return nil, nil, err
 		}
-		branch = name
+		bs.Pending = collecting && (kp.Force || bs.Last == nil || bs.Last.Commit != t.Commit || bs.Last.Status == knowledgetypes.StatusFailed)
+		if t.Release {
+			release = new(t.Name)
+		}
+		out = append(out, bs)
 	}
-	if branch == "" {
-		return "", knowledgetypes.Ref{}, apperr.New(apperr.NotFound)
+	return out, release, nil
+}
+
+type KnowledgeRef struct {
+	Branch  *string
+	Tag     *string
+	Release *string
+	Commit  *string
+}
+
+func (s *DocumentsService) resolveRef(ctx context.Context, kp knowledgetypes.Project, r KnowledgeRef) (knowledgetypes.RefSelector, knowledgetypes.Ref, error) {
+	sel, err := knowledgetypes.SelectRef(r.Branch, r.Tag, r.Release)
+	if err != nil {
+		return sel, knowledgetypes.Ref{}, apperr.Wrap(err)
 	}
-	return branch, knowledgetypes.Ref{Commit: r.Commit}, nil
+	ref := knowledgetypes.Ref{Commit: r.Commit}
+	switch {
+	case sel.Release:
+		name, err := s.tagRepository.Release(ctx, kp.ID)
+		if err != nil {
+			return sel, ref, apperr.Wrap(err)
+		}
+		if name == nil {
+			return sel, ref, apperr.ErrNotFound
+		}
+		sel.Name = *name
+	case sel.Kind == knowledgetypes.RefTag:
+		found, err := s.tagRepository.Has(ctx, kp.ID, sel.Name)
+		if err != nil {
+			return sel, ref, apperr.Wrap(err)
+		}
+		if !found {
+			return sel, ref, apperr.ErrNotFound
+		}
+	case sel.IsZero():
+		d, err := s.documentationOf(ctx, kp)
+		if err != nil {
+			return sel, ref, err
+		}
+		sel = knowledgetypes.RefSelector{Kind: knowledgetypes.RefBranch, Name: d.Default}
+	}
+	if sel.Name == "" {
+		return sel, ref, apperr.New(apperr.NotFound)
+	}
+	return sel, ref, nil
 }
 
 func (s *DocumentsService) KnowledgeFiles(ctx context.Context, p accesstypes.Principal, id uuid.UUID, r KnowledgeRef) (knowledgetypes.Snapshot, []knowledgetypes.FileInfo, error) {
@@ -154,17 +180,17 @@ func (s *DocumentsService) KnowledgeFiles(ctx context.Context, p accesstypes.Pri
 	if err != nil {
 		return knowledgetypes.Snapshot{}, nil, err
 	}
-	branch, ref, err := s.resolveRef(ctx, kp, r)
+	sel, ref, err := s.resolveRef(ctx, kp, r)
 	if err != nil {
 		return knowledgetypes.Snapshot{}, nil, err
 	}
-	snap, files, err := s.snapshotFiles(ctx, id, branch, ref)
+	snap, files, err := s.snapshotFiles(ctx, id, sel, ref)
 	s.explain(kp, &snap)
 	return snap, files, apperr.Wrap(err)
 }
 
-func (s *DocumentsService) resolveSnapshot(ctx context.Context, id uuid.UUID, branch string, ref knowledgetypes.Ref) (knowledgetypes.Snapshot, error) {
-	snap, err := s.snapshotRepository.Resolve(ctx, id, branch, ref.Commit)
+func (s *DocumentsService) resolveSnapshot(ctx context.Context, id uuid.UUID, sel knowledgetypes.RefSelector, ref knowledgetypes.Ref) (knowledgetypes.Snapshot, error) {
+	snap, err := s.snapshotRepository.Resolve(ctx, id, sel.Kind, sel.Name, ref.Commit)
 	if err != nil {
 		return knowledgetypes.Snapshot{}, err
 	}
@@ -174,8 +200,8 @@ func (s *DocumentsService) resolveSnapshot(ctx context.Context, id uuid.UUID, br
 	return *snap, nil
 }
 
-func (s *DocumentsService) snapshotFiles(ctx context.Context, id uuid.UUID, branch string, ref knowledgetypes.Ref) (knowledgetypes.Snapshot, []knowledgetypes.FileInfo, error) {
-	snap, err := s.resolveSnapshot(ctx, id, branch, ref)
+func (s *DocumentsService) snapshotFiles(ctx context.Context, id uuid.UUID, sel knowledgetypes.RefSelector, ref knowledgetypes.Ref) (knowledgetypes.Snapshot, []knowledgetypes.FileInfo, error) {
+	snap, err := s.resolveSnapshot(ctx, id, sel, ref)
 	if err != nil {
 		return knowledgetypes.Snapshot{}, nil, err
 	}
@@ -186,8 +212,8 @@ func (s *DocumentsService) snapshotFiles(ctx context.Context, id uuid.UUID, bran
 	return snap, files, nil
 }
 
-func (s *DocumentsService) snapshotFile(ctx context.Context, id uuid.UUID, branch string, ref knowledgetypes.Ref, path string) (knowledgetypes.Snapshot, knowledgetypes.FileContent, error) {
-	snap, err := s.resolveSnapshot(ctx, id, branch, ref)
+func (s *DocumentsService) snapshotFile(ctx context.Context, id uuid.UUID, sel knowledgetypes.RefSelector, ref knowledgetypes.Ref, path string) (knowledgetypes.Snapshot, knowledgetypes.FileContent, error) {
+	snap, err := s.resolveSnapshot(ctx, id, sel, ref)
 	if err != nil {
 		return knowledgetypes.Snapshot{}, knowledgetypes.FileContent{}, err
 	}
@@ -213,11 +239,11 @@ func (s *DocumentsService) KnowledgeFile(ctx context.Context, p accesstypes.Prin
 	if err != nil {
 		return knowledgetypes.Snapshot{}, knowledgetypes.FileContent{}, err
 	}
-	branch, ref, err := s.resolveRef(ctx, kp, r)
+	sel, ref, err := s.resolveRef(ctx, kp, r)
 	if err != nil {
 		return knowledgetypes.Snapshot{}, knowledgetypes.FileContent{}, err
 	}
-	snap, f, err := s.snapshotFile(ctx, id, branch, ref, path)
+	snap, f, err := s.snapshotFile(ctx, id, sel, ref, path)
 	s.explain(kp, &snap)
 	return snap, f, apperr.Wrap(err)
 }
@@ -254,6 +280,7 @@ type DocumentsService struct {
 	collectionRepository *repositories.CollectionRepository
 	snapshotRepository   *repositories.SnapshotRepository
 	sourceRepository     *repositories.SourceRepository
+	tagRepository        *repositories.TagRepository
 	settingsService      *SettingsService
 	cfg                  *config.Config
 }

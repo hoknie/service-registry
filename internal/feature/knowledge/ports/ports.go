@@ -26,6 +26,7 @@ type ExternalIndexPort interface {
 
 type ReaderPort interface {
 	Heads(ctx context.Context) (heads map[string]string, defaultBranch string, err error)
+	Tags(ctx context.Context) (map[string]string, error)
 	Tree(ctx context.Context, branch, head string) ([]knowledgetypes.Entry, bool, error)
 	Read(ctx context.Context, e knowledgetypes.Entry, limit int64) ([]byte, error)
 }

@@ -53,11 +53,11 @@ func (s *CollectionRepository) Signals(ctx context.Context, projects []uuid.UUID
 				CASE WHEN $4 AND $3 <> '' THEN (
 					SELECT count(*)
 					FROM (
-						SELECT DISTINCT ON (branch) id
+						SELECT DISTINCT ON (ref_kind, branch) id
 						FROM knowledge_snapshots
 						WHERE project_id = i.project_id
 							AND status <> 'failed'
-						ORDER BY branch, collected_at DESC, id DESC
+						ORDER BY ref_kind, branch, collected_at DESC, id DESC
 					) latest
 					JOIN knowledge_files f ON f.snapshot_id = latest.id
 					WHERE f.sha256 IS NOT NULL

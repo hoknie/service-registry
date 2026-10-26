@@ -5,6 +5,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { apiGet, errorCode, type DocSpace, type KnowledgeFiles, type KnowledgeTreeLevel } from "./api";
 import { onCatalogChange } from "./catalogEvents";
 import { staleCache, type Entry } from "./staleCache";
+import { refQuery } from "./refs";
 
 const listeners = new Set<() => void>();
 let version = 0;
@@ -35,7 +36,7 @@ export function ensureSpace(path: string, retry = false) {
 }
 
 export function ensureFiles(projectId: string, branch: string, retry = false) {
-  files.ensure(`${projectId}:${branch}`, () => apiGet<KnowledgeFiles>(`/v1/catalog/nodes/${projectId}/knowledge/files?branch=${encodeURIComponent(branch)}`), retry);
+  files.ensure(`${projectId}:${branch}`, () => apiGet<KnowledgeFiles>(`/v1/catalog/nodes/${projectId}/knowledge/files?${refQuery(branch).toString()}`), retry);
 }
 
 function levelKey(projectId: string, branch: string | null, dir: string): string {
@@ -44,7 +45,7 @@ function levelKey(projectId: string, branch: string | null, dir: string): string
 
 export function ensureLevel(projectId: string, branch: string | null, dir: string, retry = false) {
   const q = new URLSearchParams();
-  if (branch) q.set("branch", branch);
+  if (branch) refQuery(branch).forEach((v, k) => q.set(k, v));
   if (dir) q.set("dir", dir);
   const qs = q.toString();
   levels.ensure(levelKey(projectId, branch, dir), () => apiGet<KnowledgeTreeLevel>(`/v1/catalog/nodes/${projectId}/knowledge/tree${qs ? `?${qs}` : ""}`), retry);

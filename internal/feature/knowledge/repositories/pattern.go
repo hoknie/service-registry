@@ -19,8 +19,10 @@ func NewPatternRepository(db *pgtx.DB) *PatternRepository { return &PatternRepos
 func (s *PatternRepository) Chain(ctx context.Context, nodeID uuid.UUID) ([]knowledgetypes.ChainNode, error) {
 	chain, err := postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (knowledgetypes.ChainNode, error) {
 		var n knowledgetypes.ChainNode
-		err := r.Scan(&n.ID, &n.Kind, &n.Name, &n.Own.IncludeSet, &n.Own.Include, &n.Own.Exclude, &n.Own.Branches, &n.Own.APIs, &n.Own.Refresh,
+		var refs *[]refRow
+		err := r.Scan(&n.ID, &n.Kind, &n.Name, &n.Own.IncludeSet, &n.Own.Include, &n.Own.Exclude, &refs, &n.Own.APIs, &n.Own.Refresh,
 			&n.Own.APIPaths, &n.Own.RefreshEvents)
+		n.Own.Refs = refsOf(refs)
 		return n, err
 	}, `
 		WITH RECURSIVE up AS (
@@ -32,7 +34,7 @@ func (s *PatternRepository) Chain(ctx context.Context, nodeID uuid.UUID) ([]know
 			FROM nodes n
 			JOIN up ON n.id = up.parent_id
 		)
-		SELECT up.id, up.kind, up.name, COALESCE(p.include_set, false), p.include, p.exclude, p.branches, p.apis, p.refresh, p.api_paths, p.refresh_events
+		SELECT up.id, up.kind, up.name, COALESCE(p.include_set, false), p.include, p.exclude, p.refs, p.apis, p.refresh, p.api_paths, p.refresh_events
 		FROM up
 		LEFT JOIN knowledge_patterns p ON p.node_id = up.id
 		ORDER BY up.lvl`, nodeID)
@@ -54,11 +56,11 @@ func (s *PatternRepository) Delete(ctx context.Context, nodeID uuid.UUID) error 
 
 func (s *PatternRepository) Upsert(ctx context.Context, nodeID uuid.UUID, in knowledgetypes.NodeSettings) error {
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
-		INSERT INTO knowledge_patterns (node_id, include_set, include, exclude, branches, apis, refresh, api_paths, refresh_events)
+		INSERT INTO knowledge_patterns (node_id, include_set, include, exclude, refs, apis, refresh, api_paths, refresh_events)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT (node_id)
-		DO UPDATE SET include_set = $2, include = $3, exclude = $4, branches = $5, apis = $6, refresh = $7, api_paths = $8,
+		DO UPDATE SET include_set = $2, include = $3, exclude = $4, refs = $5, apis = $6, refresh = $7, api_paths = $8,
 			refresh_events = $9, updated_at = now()`,
-		nodeID, in.IncludeSet, in.Include, in.Exclude, in.Branches, in.APIs, in.Refresh, in.APIPaths, in.RefreshEvents)
+		nodeID, in.IncludeSet, in.Include, in.Exclude, refRows(in.Refs), in.APIs, in.Refresh, in.APIPaths, in.RefreshEvents)
 	return err
 }

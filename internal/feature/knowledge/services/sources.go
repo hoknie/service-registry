@@ -227,7 +227,7 @@ func (s *SourcesService) CheckKnowledgeSource(ctx context.Context, p accesstypes
 	}
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(s.cfg.Outbound.TimeoutSecs)*time.Second)
 	defer cancel()
-	settings.Branches = []string{"**"}
+	settings.Refs = []knowledgetypes.RefPattern{{Pattern: "**", Kind: knowledgetypes.RefBranch}}
 	reader, err := s.readers.Open(ctx, v.Source, settings, token)
 	if err != nil {
 		code, _ := failureOf(err)

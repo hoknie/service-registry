@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { errorText } from "@/i18n/errors";
 import { format } from "@/i18n/format";
 import { apiGet, errorCode, type CatalogNode, type KnowledgeFileContent } from "@/lib/api";
-import { apiQuery, isApiCandidate, viewParam, withView, type ApiDocument, type ApiView as View } from "@/lib/apis";
+import { isApiCandidate, viewParam, withView, type ApiDocument, type ApiView as View } from "@/lib/apis";
 import { cn } from "@/lib/cn";
 import { structuredKind } from "@/lib/structured";
 
@@ -17,6 +17,7 @@ import { Panel } from "../ui/Panel";
 import { SkeletonPanel } from "../ui/Skeleton";
 import type { CatalogLabels } from "../catalog/shared";
 import { StructuredView } from "./StructuredView";
+import { refQuery, splitVersion } from "@/lib/refs";
 
 type Props = {
   node: CatalogNode;
@@ -67,9 +68,9 @@ export function DocViewer({ node, branch, path, paths, docHref, onOpenDoc, label
 
   useEffect(() => {
     let live = true;
-    const query = new URLSearchParams({ path, branch });
+    const query = refQuery(branch, { path });
     const apiDoc = isApiCandidate(path)
-      ? apiGet<ApiDocument>(`/v1/catalog/nodes/${node.id}/knowledge/api?${apiQuery(path, branch)}`).catch(() => null)
+      ? apiGet<ApiDocument>(`/v1/catalog/nodes/${node.id}/knowledge/api?${refQuery(branch, { path }).toString()}`).catch(() => null)
       : Promise.resolve(null);
     apiGet<KnowledgeFileContent>(`/v1/catalog/nodes/${node.id}/knowledge/file?${query}`)
       .then(async (f) => {
@@ -79,7 +80,7 @@ export function DocViewer({ node, branch, path, paths, docHref, onOpenDoc, label
           const dir = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : undefined;
           const known = new Set(paths);
           const docLink = (p: string) => (known.has(p) ? docHref(p) : null);
-          html = renderReadme(f.content, { webUrl: node.repo_url, branch, kind: node.forge, dir, docLink, alerts: common.alerts, anchorLabel: common.headingAnchor });
+          html = renderReadme(f.content, { webUrl: node.repo_url, branch: splitVersion(branch).name, kind: node.forge, dir, docLink, alerts: common.alerts, anchorLabel: common.headingAnchor });
         }
         const api = await apiDoc;
         if (!live) return;

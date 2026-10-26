@@ -182,3 +182,8 @@ type Readme struct {
 	DefaultBranch *string
 	Kind          Kind
 }
+
+type Tag struct {
+	Name   string
+	Commit string
+}

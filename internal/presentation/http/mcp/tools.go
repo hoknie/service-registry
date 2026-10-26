@@ -48,44 +48,55 @@ type (
 		Environment string `json:"environment,omitempty" jsonschema:"Only links of this environment"`
 		Branch      string `json:"branch,omitempty" jsonschema:"Branch for links that use it"`
 	}
+	versionIn struct {
+		Tag     string `json:"tag,omitempty" jsonschema:"A collected tag instead of a branch"`
+		Release string `json:"release,omitempty" jsonschema:"current — the project's current release tag instead of a branch"`
+	}
 	docsIn struct {
 		Project string `json:"project" jsonschema:"Project id or slug path from the top level, e.g. acme/backend/api"`
 		Branch  string `json:"branch,omitempty" jsonschema:"Branch (default: the default branch)"`
-		Commit  string `json:"commit,omitempty" jsonschema:"A collected commit of the branch (default: the latest snapshot)"`
-		Path    string `json:"path,omitempty" jsonschema:"Only files under this path prefix"`
+		versionIn
+		Commit string `json:"commit,omitempty" jsonschema:"A collected commit of the branch (default: the latest snapshot)"`
+		Path   string `json:"path,omitempty" jsonschema:"Only files under this path prefix"`
 	}
 	docIn struct {
 		Project string `json:"project" jsonschema:"Project id or slug path from the top level, e.g. acme/backend/api"`
 		Path    string `json:"path" jsonschema:"Path of the file from the repository root"`
 		Branch  string `json:"branch,omitempty" jsonschema:"Branch (default: the default branch)"`
-		Commit  string `json:"commit,omitempty" jsonschema:"A collected commit of the branch (default: the latest snapshot)"`
+		versionIn
+		Commit string `json:"commit,omitempty" jsonschema:"A collected commit of the branch (default: the latest snapshot)"`
 	}
 	searchIn struct {
 		Query   string `json:"query" jsonschema:"Words to find; quotes for phrases, or, -word to exclude"`
 		Mode    string `json:"mode,omitempty" jsonschema:"text (words), semantic (meaning) or hybrid; default: the engine's default"`
 		Project string `json:"project,omitempty" jsonschema:"Only this project (id or slug path)"`
 		Branch  string `json:"branch,omitempty" jsonschema:"Only this branch (default: the default branches)"`
-		Path    string `json:"path,omitempty" jsonschema:"Only files under this path prefix"`
-		Limit   int    `json:"limit,omitempty" jsonschema:"At most this many results, 1..50 (default 20)"`
+		versionIn
+		Path  string `json:"path,omitempty" jsonschema:"Only files under this path prefix"`
+		Limit int    `json:"limit,omitempty" jsonschema:"At most this many results, 1..50 (default 20)"`
 	}
 	openSpecIn struct {
 		Project string `json:"project" jsonschema:"Project id or slug path from the top level, e.g. acme/backend/api"`
 		Branch  string `json:"branch,omitempty" jsonschema:"Branch (default: the default branch)"`
+		versionIn
 	}
 	specIn struct {
 		Project    string `json:"project" jsonschema:"Project id or slug path from the top level, e.g. acme/backend/api"`
 		Capability string `json:"capability" jsonschema:"Capability path, e.g. ingest/events"`
 		Branch     string `json:"branch,omitempty" jsonschema:"Branch (default: the default branch)"`
+		versionIn
 	}
 	changesIn struct {
-		Project  string `json:"project" jsonschema:"Project id or slug path from the top level, e.g. acme/backend/api"`
-		Branch   string `json:"branch,omitempty" jsonschema:"Branch (default: the default branch)"`
-		Archived *bool  `json:"archived,omitempty" jsonschema:"true — only archived changes, false — only active ones"`
+		Project string `json:"project" jsonschema:"Project id or slug path from the top level, e.g. acme/backend/api"`
+		Branch  string `json:"branch,omitempty" jsonschema:"Branch (default: the default branch)"`
+		versionIn
+		Archived *bool `json:"archived,omitempty" jsonschema:"true — only archived changes, false — only active ones"`
 	}
 	adrIn struct {
 		Project string `json:"project" jsonschema:"Project id or slug path from the top level, e.g. acme/backend/api"`
 		Number  int    `json:"number" jsonschema:"ADR number, e.g. 36"`
 		Branch  string `json:"branch,omitempty" jsonschema:"Branch (default: the default branch)"`
+		versionIn
 	}
 )
 

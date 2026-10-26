@@ -1,14 +1,17 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 
 	"svc-registry/internal/platform/apperr"
 )
 
 var (
-	InvalidSettings   = apperr.Invalid("validation.invalid_knowledge_settings", "include, exclude and branches must be lists of at most 50 valid glob patterns of 1 to 200 characters (include may be null)")
+	InvalidSettings   = apperr.Invalid("validation.invalid_knowledge_settings", "include, exclude, api_paths and refs patterns must be lists of at most 50 valid glob patterns of 1 to 200 characters (include may be null)")
 	InvalidSearch     = apperr.Invalid("validation.invalid_search", "q must be 1 to 200 characters, limit 1..=50 and cursor one returned by a previous search")
+	BranchesReplaced  = apperr.Invalid("validation.knowledge_branches_replaced", `branches is replaced by refs: [{"pattern","kind":"branch"|"tag","release"?}]`)
+	InvalidRef        = apperr.Invalid("validation.invalid_ref", "give at most one of branch, tag and release; tag must be 1 to 255 characters and release must be current")
 	InvalidBranch     = apperr.Invalid("validation.invalid_branch", "branch must be a valid branch name")
 	InvalidSource     = apperr.Invalid("validation.invalid_knowledge_source", `source must be {"kind":"remote","forge","url","api_url"?,"credentials"?} or {"kind":"local_dir"|"local_git","path"}`)
 	InvalidPath       = apperr.Invalid("validation.knowledge_path_not_allowed", "path must be an absolute path inside one of KNOWLEDGE_LOCAL_ROOTS")
@@ -49,4 +52,18 @@ func (searchUnavailable) Error() string { return "search engine is unavailable" 
 
 func (searchUnavailable) AppError() *apperr.Error {
 	return &apperr.Error{Kind: apperr.Unavailable, Code: "search.unavailable", What: "search engine"}
+}
+
+func IndexFailureCode(err error) string {
+	switch {
+	case errors.Is(err, ErrEmbeddingsDimensions):
+		return "search.embeddings_dimensions"
+	case errors.Is(err, ErrEngineDimensions):
+		return "search.engine_dimensions"
+	case errors.Is(err, ErrEmbeddingsUnavailable):
+		return "search.embeddings_unavailable"
+	case errors.Is(err, ErrEngineUnavailable), errors.Is(err, ErrSearchUnavailable):
+		return "search.engine_unavailable"
+	}
+	return "internal"
 }

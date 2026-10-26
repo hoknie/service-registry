@@ -15,6 +15,7 @@ type ClientPort interface {
 	ListRepos(ctx context.Context) ([]forgetypes.RemoteRepo, error)
 	Details(ctx context.Context, repo forgetypes.RemoteRepo) (forgetypes.Details, error)
 	ListBranches(ctx context.Context, repo forgetypes.RemoteRepo, keep func(name string) bool, limit int) (branches []catalogtypes.ForgeBranch, truncated bool, err error)
+	ListTags(ctx context.Context, repo forgetypes.RemoteRepo, keep func(name string) bool, limit int) (tags []forgetypes.Tag, truncated bool, err error)
 	Repo(ctx context.Context, fullPath string) (forgetypes.RemoteRepo, error)
 	ListTree(ctx context.Context, repo forgetypes.RemoteRepo, commit string) (entries []forgetypes.TreeEntry, truncated bool, err error)
 	ReadFile(ctx context.Context, repo forgetypes.RemoteRepo, entry forgetypes.TreeEntry, limit int64) ([]byte, error)

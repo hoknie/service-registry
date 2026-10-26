@@ -15,13 +15,19 @@ export function parseDocLocation(pathname: string, search: string): DocLocation 
         return s;
       }
     });
-  const branch = new URLSearchParams(search).get("branch");
+  const params = new URLSearchParams(search);
+  const tag = params.get("tag");
+  if (tag) return { segments, branch: `${TAG_KEY}${tag}` };
+  const branch = params.get("branch");
   return { segments, branch: branch === "" ? null : branch };
 }
 
+const TAG_KEY = "tag:";
+
 export function docHref(segments: readonly string[], branch?: string | null): string {
   const path = segments.map((s) => encodeURIComponent(s)).join("/");
-  const query = branch ? `?branch=${encodeURIComponent(branch)}` : "";
+  const tag = branch?.startsWith(TAG_KEY) ? branch.slice(TAG_KEY.length) : null;
+  const query = tag ? `?tag=${encodeURIComponent(tag)}` : branch ? `?branch=${encodeURIComponent(branch)}` : "";
   return `${DOC_ROOT}${path ? `/${path}` : ""}${query}`;
 }
 

@@ -8,6 +8,8 @@ import type { Locale } from "@/i18n/config";
 import { errorText } from "@/i18n/errors";
 import { format } from "@/i18n/format";
 import { apiGet, apiSend, errorCode, type KnowledgeRefresh, type NodeKnowledgeSettings, type SettingsField } from "@/lib/api";
+import { invalidRows, refsOf, type RefPattern } from "@/lib/refs";
+import { validPattern } from "@/lib/tags";
 
 import { useUiText } from "../UiText";
 import { Badge } from "../ui/Badge";
@@ -22,6 +24,7 @@ import { hasInvalidTags } from "../ui/TagInput";
 import { ApiPathsField, type ApiPathsDraft } from "./ApiPathsField";
 import { INCLUDE_EXAMPLES, PatternField, patternError, patternLines } from "./PatternField";
 import { RefreshEventsField, type RefreshEventsDraft } from "./RefreshEventsField";
+import { RefsField, type RefsDraft } from "./RefsField";
 
 type Props = {
   nodeId: string;
@@ -32,9 +35,10 @@ type Props = {
   onSaved?: () => void;
 };
 
-const FIELDS: SettingsField[] = ["include", "exclude", "branches"];
+const FIELDS: SettingsField[] = ["include", "exclude"];
 
 type Draft = Record<SettingsField, { set: boolean; text: string }> & {
+  refs: RefsDraft;
   apis: { set: boolean; on: boolean };
   api_paths: ApiPathsDraft;
   refresh: { set: boolean; value: KnowledgeRefresh };
@@ -46,7 +50,7 @@ function draftOf(s: NodeKnowledgeSettings): Draft {
   return {
     include: own("include"),
     exclude: own("exclude"),
-    branches: own("branches"),
+    refs: { set: "refs" in s.own, rows: (s.own.refs ?? []).map((r) => ({ ...r })) },
     apis: { set: "apis" in s.own, on: s.own.apis ?? s.apis },
     api_paths: { set: "api_paths" in s.own, text: (s.own.api_paths ?? []).join("\n") },
     refresh: { set: "refresh" in s.own, value: s.own.refresh ?? s.refresh },
@@ -82,12 +86,13 @@ export function KnowledgeSettings({ nodeId, project, canWrite, locale, labels: t
     if (!draft) return;
     setBusy(true);
     setNote(null);
-    const body: Record<string, string[] | boolean | string | null> = {};
+    const body: Record<string, string[] | boolean | string | null | RefPattern[]> = {};
     for (const f of FIELDS) {
       if (!draft[f].set) continue;
       const lines = patternLines(draft[f].text);
       body[f] = f === "include" && lines.length === 0 ? null : lines;
     }
+    if (draft.refs.set) body.refs = refsOf(draft.refs.rows);
     if (draft.apis.set) body.apis = draft.apis.on;
     if (draft.api_paths.set) body.api_paths = patternLines(draft.api_paths.text);
     if (draft.refresh.set) body.refresh = draft.refresh.value;
@@ -103,8 +108,8 @@ export function KnowledgeSettings({ nodeId, project, canWrite, locale, labels: t
     }
   };
 
-  const labelOf = { include: t.include, exclude: t.exclude, branches: t.branches };
-  const hintOf = { include: `${t.includeHint} ${t.hint}`, exclude: t.hint, branches: t.branchesHint };
+  const labelOf = { include: t.include, exclude: t.exclude };
+  const hintOf = { include: `${t.includeHint} ${t.hint}`, exclude: t.hint };
   const valueText = (f: SettingsField, s: NodeKnowledgeSettings) => {
     const v = s[f];
     if (v === null) return t.readmeRule;
@@ -166,6 +171,14 @@ export function KnowledgeSettings({ nodeId, project, canWrite, locale, labels: t
               </section>
             );
           })}
+          <RefsField
+            labels={t}
+            settings={settings}
+            value={draft.refs}
+            canWrite={canWrite}
+            origin={originOf(draft.refs.set, settings.from.refs)}
+            onChange={(refs) => setDraft({ ...draft, refs })}
+          />
           <section className="grid gap-2" aria-label={t.apis}>
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-sm font-medium text-ink">{t.apis}</h3>
@@ -253,7 +266,10 @@ export function KnowledgeSettings({ nodeId, project, canWrite, locale, labels: t
                 type="submit"
                 variant="primary"
                 busy={busy}
-                disabled={[...FIELDS, "api_paths" as const].some((f) => draft[f].set && hasInvalidTags(draft[f].text, (tag) => patternError(tag, "")))}
+                disabled={
+                  [...FIELDS, "api_paths" as const].some((f) => draft[f].set && hasInvalidTags(draft[f].text, (tag) => patternError(tag, ""))) ||
+                  (draft.refs.set && invalidRows(draft.refs.rows, validPattern))
+                }
               >
                 {t.save}
               </Button>

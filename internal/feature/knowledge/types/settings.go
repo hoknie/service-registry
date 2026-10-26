@@ -14,7 +14,7 @@ import (
 type Settings struct {
 	Include       []string
 	Exclude       []string
-	Branches      []string
+	Refs          []RefPattern
 	APIs          bool
 	APIPaths      []string
 	Refresh       Refresh
@@ -54,7 +54,7 @@ const (
 )
 
 func DefaultSettings() Settings {
-	return Settings{Exclude: []string{}, Branches: []string{}, APIs: true, APIPaths: slices.Clone(DefaultAPIPaths),
+	return Settings{Exclude: []string{}, Refs: []RefPattern{}, APIs: true, APIPaths: slices.Clone(DefaultAPIPaths),
 		Refresh: RefreshInterval, RefreshEvents: slices.Clone(DefaultRefreshEvents)}
 }
 
@@ -62,10 +62,13 @@ func ValidateSettings(s Settings) (Settings, error) {
 	if s.Exclude == nil {
 		s.Exclude = []string{}
 	}
-	if s.Branches == nil {
-		s.Branches = []string{}
+	if s.Refs == nil {
+		s.Refs = []RefPattern{}
 	}
-	for _, list := range [][]string{s.Include, s.Exclude, s.Branches} {
+	if !validRefs(s.Refs) {
+		return Settings{}, InvalidSettings
+	}
+	for _, list := range [][]string{s.Include, s.Exclude} {
 		if !validPatterns(list) {
 			return Settings{}, InvalidSettings
 		}
@@ -141,12 +144,15 @@ func (s Settings) CollectsBranch(name, defaultBranch string) bool {
 	if name != "" && name == defaultBranch {
 		return true
 	}
-	for _, pattern := range s.Branches {
-		if ok, _ := doublestar.Match(pattern, name); ok {
-			return true
-		}
-	}
-	return false
+	return matchRefs(s.Refs, RefBranch, false, name)
+}
+
+func (s Settings) CollectsTag(name string) bool { return matchRefs(s.Refs, RefTag, false, name) }
+
+func (s Settings) ReleaseTag(name string) bool { return matchRefs(s.Refs, RefTag, true, name) }
+
+func (s Settings) WantsTags() bool {
+	return slices.ContainsFunc(s.Refs, func(r RefPattern) bool { return r.Kind == RefTag })
 }
 
 func (s Settings) MayContain(dir string) bool {

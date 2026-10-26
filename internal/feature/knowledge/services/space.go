@@ -36,10 +36,18 @@ type DocSpaceBranch struct {
 	CollectedAt string
 }
 
+type DocSpaceTag struct {
+	Name        string
+	CollectedAt string
+	Release     bool
+}
+
 type DocSpaceDocs struct {
 	Source        knowledgetypes.SourceKind
 	DefaultBranch string
 	Branches      []DocSpaceBranch
+	Tags          []DocSpaceTag
+	Release       *string
 }
 
 type DocSpace struct {
@@ -197,10 +205,15 @@ func (s *SpaceService) spaceDocs(ctx context.Context, p accesstypes.Principal, i
 	if err != nil {
 		return DocSpaceDocs{}, err
 	}
-	out := DocSpaceDocs{Source: d.kind(), DefaultBranch: d.Default, Branches: []DocSpaceBranch{}}
+	out := DocSpaceDocs{Source: d.kind(), DefaultBranch: d.Default, Branches: []DocSpaceBranch{}, Tags: []DocSpaceTag{}, Release: overview.Release}
 	for _, b := range overview.Branches {
 		if b.Snapshot != nil {
 			out.Branches = append(out.Branches, DocSpaceBranch{Name: b.Name, CollectedAt: b.Snapshot.CollectedAt})
+		}
+	}
+	for _, t := range overview.Tags {
+		if t.Snapshot != nil {
+			out.Tags = append(out.Tags, DocSpaceTag{Name: t.Name, CollectedAt: t.Snapshot.CollectedAt, Release: t.Release})
 		}
 	}
 	return out, nil
@@ -212,31 +225,9 @@ type SpaceService struct {
 	documents          *DocumentsService
 }
 
-type SpecItem struct {
-	Capability, Path, Purpose string
-	Requirements              []string
-}
-
-type ChangeItem struct {
-	ID, Path  string
-	Archived  bool
-	Artifacts []string
-}
-
-type ADRItem struct {
-	Number                          int
-	Title, Status, Supersedes, Path string
-}
-
-type OpenSpec struct {
-	Specs   []SpecItem
-	Changes []ChangeItem
-	ADRs    []ADRItem
-}
-
-func (s *DocumentsService) KnowledgeOpenSpec(ctx context.Context, p accesstypes.Principal, id uuid.UUID, branch *string) (OpenSpec, error) {
+func (s *DocumentsService) KnowledgeOpenSpec(ctx context.Context, p accesstypes.Principal, id uuid.UUID, r KnowledgeRef) (OpenSpec, error) {
 	out := OpenSpec{Specs: []SpecItem{}, Changes: []ChangeItem{}, ADRs: []ADRItem{}}
-	_, files, err := s.KnowledgeFiles(ctx, p, id, KnowledgeRef{Branch: branch})
+	_, files, err := s.KnowledgeFiles(ctx, p, id, KnowledgeRef{Branch: r.Branch, Tag: r.Tag, Release: r.Release})
 	if apperr.From(err) != nil && apperr.From(err).Kind == apperr.NotFound {
 		if _, err := s.knowledgeProject(ctx, p, catalogtypes.PermRead, id); err != nil {
 			return OpenSpec{}, err

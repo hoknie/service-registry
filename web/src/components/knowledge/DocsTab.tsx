@@ -12,14 +12,13 @@ import { when } from "@/i18n/time";
 import { apiGet, apiSend, errorCode, type CatalogNode, type Knowledge, type KnowledgeFiles } from "@/lib/api";
 import { shortCommit } from "@/lib/commit";
 import { docHref, splitPath } from "@/lib/docPath";
+import { refQuery, splitVersion } from "@/lib/refs";
 import { snapshotMissing } from "@/lib/snapshotLimits";
 
 import { useUiText } from "../UiText";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
-import { Field } from "../ui/Field";
-import { Select } from "../ui/Select";
 import { Message } from "../ui/Message";
 import { Panel } from "../ui/Panel";
 import { SkeletonPanel } from "../ui/Skeleton";
@@ -71,7 +70,7 @@ export function DocsTab({ node, branch: branchParam, doc, locale, labels, canWri
   useEffect(() => {
     if (!overview?.source || !branch) return;
     let live = true;
-    apiGet<KnowledgeFiles>(`${base}/files?branch=${encodeURIComponent(branch)}` as `/${string}`)
+    apiGet<KnowledgeFiles>(`${base}/files?${refQuery(branch).toString()}` as `/${string}`)
       .then((f) => live && setFiles(f))
       .catch(() => live && setFiles(null));
     return () => {
@@ -110,7 +109,10 @@ export function DocsTab({ node, branch: branchParam, doc, locale, labels, canWri
     );
   }
 
-  const state = overview.branches.find((b) => b.name === branch) ?? null;
+  const selected = branch ? splitVersion(branch) : null;
+  const tags = overview.tags ?? [];
+  const state =
+    (selected?.kind === "tag" ? tags.find((x) => x.name === selected.name) : overview.branches.find((b) => b.name === selected?.name)) ?? null;
   const snapshot = state?.snapshot ?? null;
   const failed = state?.last?.status === "failed" ? state.last : null;
   const readme = files?.items.find((f) => !f.path.includes("/") && /^readme(\..+)?$/i.test(f.path));
@@ -141,19 +143,6 @@ export function DocsTab({ node, branch: branchParam, doc, locale, labels, canWri
         }
       >
         <div className="flex flex-wrap items-end gap-x-6 gap-y-3 text-sm">
-          {overview.branches.length > 1 && (
-            <Field label={t.branch} className="min-w-48">
-              {(p) => (
-                <Select {...p} value={branch ?? ""} onChange={(e) => onOpen(e.target.value === overview.branches[0]?.name ? null : e.target.value, null)}>
-                  {overview.branches.map((b) => (
-                    <option key={b.name} value={b.name}>
-                      {b.name}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </Field>
-          )}
           {snapshot ? (
             <dl className="flex flex-wrap items-center gap-x-6 gap-y-2">
               <div className="flex gap-2">

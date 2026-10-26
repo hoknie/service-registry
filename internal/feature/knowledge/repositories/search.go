@@ -40,7 +40,8 @@ func (s *SearchRepository) Search(ctx context.Context, v knowledgetypes.Viewer, 
 			JOIN readable r ON c.parent_id = r.id
 		),
 		latest AS (
-			SELECT DISTINCT ON (s.project_id, s.branch) s.id, s.project_id, s.branch, s.commit_sha
+			SELECT DISTINCT ON (s.project_id, s.ref_kind, s.branch) s.id, s.project_id,
+				CASE WHEN s.ref_kind = 'tag' THEN 'tag:' || s.branch ELSE s.branch END AS branch, s.commit_sha
 			FROM knowledge_snapshots s
 			JOIN nodes n ON n.id = s.project_id
 			LEFT JOIN knowledge_sources src ON src.project_id = s.project_id
@@ -48,10 +49,17 @@ func (s *SearchRepository) Search(ctx context.Context, v knowledgetypes.Viewer, 
 			WHERE s.status <> 'failed'
 				AND s.project_id IN (SELECT id FROM readable)
 				AND ($3::uuid IS NULL OR s.project_id = $3)
-				AND (($4::text IS NULL AND s.branch = CASE
+				AND (($4::text IS NULL AND NOT $15 AND s.ref_kind = 'branch' AND s.branch = CASE
 						WHEN src.kind = 'local_dir' THEN 'local'
-						ELSE COALESCE(n.default_branch, r.default_branch, NULLIF(src.default_branch, '')) END) OR s.branch = $4)
-			ORDER BY s.project_id, s.branch, s.collected_at DESC, s.id DESC
+						ELSE COALESCE(n.default_branch, r.default_branch, NULLIF(src.default_branch, '')) END)
+					OR (CASE WHEN s.ref_kind = 'tag' THEN 'tag:' || s.branch ELSE s.branch END) = $4
+					OR ($15 AND s.ref_kind = 'tag' AND EXISTS (
+						SELECT 1
+						FROM knowledge_tags t
+						WHERE t.project_id = s.project_id
+							AND t.name = s.branch
+							AND t.release)))
+			ORDER BY s.project_id, s.ref_kind, s.branch, s.collected_at DESC, s.id DESC
 		),
 		stems AS (
 			SELECT websearch_to_tsquery('russian', $5) AS q
@@ -111,7 +119,7 @@ func (s *SearchRepository) Search(ctx context.Context, v knowledgetypes.Viewer, 
 		LEFT JOIN knowledge_blobs b ON b.sha256 = p.sha256, q, pref
 		ORDER BY p.in_path DESC, p.rank DESC, p.project_id, p.branch, p.path`,
 		v.UserID, v.Superadmin, q.Project, q.Branch, q.Q, like(q.Path)+"%", words,
-		q.Limit, q.Offset, t.Prefix, t.Negative, t.Excluded, v.Nodes, v.Admin)
+		q.Limit, q.Offset, t.Prefix, t.Negative, t.Excluded, v.Nodes, v.Admin, q.Release)
 }
 
 func (s *SearchRepository) Readable(ctx context.Context, v knowledgetypes.Viewer, project *uuid.UUID) ([]uuid.UUID, error) {

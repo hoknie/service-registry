@@ -52,11 +52,12 @@ func (e *EngineClient) query() string {
 			FROM unnest($1::uuid[], $2::text[]) AS w(project_id, branch)
 		),
 		latest AS (
-			SELECT DISTINCT ON (s.project_id, s.branch) s.id, s.project_id, s.branch, s.commit_sha
+			SELECT DISTINCT ON (s.project_id, w.branch) s.id, s.project_id, w.branch, s.commit_sha
 			FROM knowledge_snapshots s
-			JOIN want w ON w.project_id = s.project_id AND w.branch = s.branch
+			JOIN want w ON w.project_id = s.project_id
+				AND w.branch = CASE WHEN s.ref_kind = 'tag' THEN 'tag:' || s.branch ELSE s.branch END
 			WHERE s.status <> 'failed'
-			ORDER BY s.project_id, s.branch, s.collected_at DESC, s.id DESC
+			ORDER BY s.project_id, w.branch, s.collected_at DESC, s.id DESC
 		),
 		scored AS (
 			SELECT DISTINCT ON (l.project_id, l.branch, f.path) l.project_id, l.branch, l.commit_sha, f.path, f.kind, f.sha256,

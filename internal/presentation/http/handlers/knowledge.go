@@ -37,7 +37,8 @@ func optionalQuery(c fiber.Ctx, name string) *string {
 }
 
 func knowledgeRef(c fiber.Ctx) knowledgeservices.KnowledgeRef {
-	return knowledgeservices.KnowledgeRef{Branch: optionalQuery(c, "branch"), Commit: optionalQuery(c, "commit")}
+	return knowledgeservices.KnowledgeRef{Branch: optionalQuery(c, "branch"), Tag: optionalQuery(c, "tag"), Release: optionalQuery(c, "release"),
+		Commit: optionalQuery(c, "commit")}
 }
 
 func (a *Handlers) GetKnowledge(c fiber.Ctx) error {
@@ -116,21 +117,21 @@ func (a *Handlers) KnowledgeFile(c fiber.Ctx) error {
 
 func (a *Handlers) KnowledgeSpecs(c fiber.Ctx) error {
 	return a.knowledgeCall(c, func(p accesstypes.Principal, id uuid.UUID) (any, error) {
-		o, err := a.Knowledge.Documents.KnowledgeOpenSpec(c.Context(), p, id, optionalQuery(c, "branch"))
+		o, err := a.Knowledge.Documents.KnowledgeOpenSpec(c.Context(), p, id, knowledgeRef(c))
 		return responses.SpecsOf(o), err
 	})
 }
 
 func (a *Handlers) KnowledgeChanges(c fiber.Ctx) error {
 	return a.knowledgeCall(c, func(p accesstypes.Principal, id uuid.UUID) (any, error) {
-		o, err := a.Knowledge.Documents.KnowledgeOpenSpec(c.Context(), p, id, optionalQuery(c, "branch"))
+		o, err := a.Knowledge.Documents.KnowledgeOpenSpec(c.Context(), p, id, knowledgeRef(c))
 		return responses.ChangesOf(o), err
 	})
 }
 
 func (a *Handlers) KnowledgeADRs(c fiber.Ctx) error {
 	return a.knowledgeCall(c, func(p accesstypes.Principal, id uuid.UUID) (any, error) {
-		o, err := a.Knowledge.Documents.KnowledgeOpenSpec(c.Context(), p, id, optionalQuery(c, "branch"))
+		o, err := a.Knowledge.Documents.KnowledgeOpenSpec(c.Context(), p, id, knowledgeRef(c))
 		return responses.ADRsOf(o), err
 	})
 }

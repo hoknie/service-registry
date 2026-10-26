@@ -1,3 +1,4 @@
+import type { RefKind, RefPattern } from "./refs";
 import type { Rights } from "./rights";
 
 export class ApiError extends Error {
@@ -552,27 +553,29 @@ export const KNOWLEDGE_REFRESH_EVENTS: readonly KnowledgeRefreshEvent[] = ["serv
 export type KnowledgeSettings = {
   include: string[] | null;
   exclude: string[];
-  branches: string[];
+  refs: RefPattern[];
   apis: boolean;
   api_paths: string[];
   refresh: KnowledgeRefresh;
   refresh_events: KnowledgeRefreshEvent[];
 };
 
-export type SettingsField = "include" | "exclude" | "branches";
+export type SettingsField = "include" | "exclude";
 
 export type SettingsOrigin = { id: string; kind: NodeKind; name: string } | null;
 
 export type NodeKnowledgeSettings = KnowledgeSettings & {
   interval_secs: number;
+  max_tags: number;
   defaults: { api_paths: string[]; refresh_events: KnowledgeRefreshEvent[] };
   own: Partial<KnowledgeSettings>;
-  from: Record<SettingsField | "apis" | "api_paths" | "refresh" | "refresh_events", SettingsOrigin>;
+  from: Record<SettingsField | "refs" | "apis" | "api_paths" | "refresh" | "refresh_events", SettingsOrigin>;
 };
 
 export type Snapshot = {
   id: string;
   branch: string;
+  ref_kind?: RefKind;
   commit: string;
   status: "ok" | "partial" | "failed";
   error_code: string | null;
@@ -598,11 +601,22 @@ export type KnowledgeBranch = {
 
 export type SourceKind = "remote" | "local_dir" | "local_git";
 
+export type KnowledgeTag = {
+  name: string;
+  commit: string;
+  release: boolean;
+  pending: boolean;
+  last: Snapshot | null;
+  snapshot: Snapshot | null;
+};
+
 export type Knowledge = {
   synced: boolean;
   source: SourceKind | "forge" | null;
   settings: KnowledgeSettings;
   branches: KnowledgeBranch[];
+  tags?: KnowledgeTag[];
+  release?: string | null;
 };
 
 export type KnowledgeSource = {
@@ -647,6 +661,7 @@ export type SearchSegment = { text: string; match: boolean };
 export type SearchHit = {
   project: { id: string; path: string; name: string };
   branch: string;
+  ref_kind?: RefKind;
   commit: string;
   path: string;
   kind: DocKind;
@@ -723,6 +738,7 @@ export type ScanSource = "forge" | "remote" | "local_dir" | "local_git";
 
 export type ScanBranch = {
   name: string;
+  kind?: RefKind;
   commit: string;
   result: "collected" | "unchanged" | "failed";
   files: number;
@@ -776,6 +792,12 @@ export type DocSpace = {
   node: DocSpaceNode | null;
   ancestors: DocSpaceNode[];
   children: DocSpaceNode[];
-  docs: { source: string | null; default_branch: string; branches: { name: string; collected_at: string }[] } | null;
+  docs: {
+    source: string | null;
+    default_branch: string;
+    branches: { name: string; collected_at: string }[];
+    tags?: { name: string; collected_at: string; release: boolean }[];
+    release?: string | null;
+  } | null;
   doc_path: string | null;
 };

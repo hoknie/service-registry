@@ -14,6 +14,7 @@ type Search struct {
 	Q       string
 	Project *uuid.UUID
 	Branch  *string
+	Release bool
 	Path    string
 	Limit   int
 	Offset  int
@@ -23,6 +24,8 @@ type SearchInput struct {
 	Q       string
 	Project *uuid.UUID
 	Branch  *string
+	Tag     *string
+	Release *string
 	Path    string
 	Limit   *int
 	Cursor  string
@@ -36,6 +39,16 @@ func ValidateSearch(in SearchInput) (Search, error) {
 		return Search{}, InvalidSearch
 	}
 	s := Search{Q: q, Project: in.Project, Branch: in.Branch, Path: in.Path, Limit: 20}
+	if in.Tag != nil || in.Release != nil {
+		sel, err := SelectRef(in.Branch, in.Tag, in.Release)
+		if err != nil {
+			return Search{}, err
+		}
+		s.Branch, s.Release = nil, sel.Release
+		if !sel.Release {
+			s.Branch = new(VersionKey(RefTag, sel.Name))
+		}
+	}
 	if in.Limit != nil {
 		if *in.Limit < 1 || *in.Limit > 50 {
 			return Search{}, InvalidSearch
@@ -51,6 +64,22 @@ func ValidateSearch(in SearchInput) (Search, error) {
 		s.Offset = n
 	}
 	return s, nil
+}
+
+const tagKeyPrefix = "tag:"
+
+func VersionKey(kind RefKind, name string) string {
+	if kind == RefTag {
+		return tagKeyPrefix + name
+	}
+	return name
+}
+
+func SplitVersionKey(key string) (RefKind, string) {
+	if name, ok := strings.CutPrefix(key, tagKeyPrefix); ok {
+		return RefTag, name
+	}
+	return RefBranch, key
 }
 
 func Cursor(offset int) string {

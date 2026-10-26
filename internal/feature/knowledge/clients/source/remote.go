@@ -39,6 +39,24 @@ func (r *remote) Heads(ctx context.Context) (map[string]string, string, error) {
 	return heads, repo.DefaultBranch, nil
 }
 
+func (r *remote) Tags(ctx context.Context) (map[string]string, error) {
+	repo, err := r.current(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tags, _, err := r.client.ListTags(ctx, repo, r.settings.CollectsTag, r.maxBranches)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]string, len(tags))
+	for _, t := range tags {
+		if t.Commit != "" {
+			out[t.Name] = t.Commit
+		}
+	}
+	return out, nil
+}
+
 func (r *remote) current(ctx context.Context) (forgetypes.RemoteRepo, error) {
 	if r.repo == nil {
 		if _, _, err := r.Heads(ctx); err != nil {

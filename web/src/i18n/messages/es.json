@@ -268,7 +268,9 @@
       "invalid_visibility": "La visibilidad debe ser abierta o cerrada.",
       "visibility_top_level": "Solo las organizaciones de nivel superior pueden ser abiertas.",
       "organization_top_level": "Los grupos pertenecen a una organización de nivel superior.",
-      "organization_group_rights": "Un grupo de una organización no puede tener derechos de administración."
+      "organization_group_rights": "Un grupo de una organización no puede tener derechos de administración.",
+      "invalid_ref": "Elija solo una opción: una rama, una etiqueta o la versión actual.",
+      "knowledge_branches_replaced": "El campo branches se sustituye por patrones de ramas y etiquetas."
     },
     "conflict": {
       "email_taken": "Ya existe un usuario con este correo.",
@@ -1214,7 +1216,12 @@
         "succeeded": "Correcto",
         "failed": "Fallido",
         "active": "En ejecución"
-      }
+      },
+      "tags": "Etiquetas",
+      "tagsLead": "Documentación recopilada de las etiquetas, las más recientes primero.",
+      "tagsCommit": "Commit",
+      "tagsCollected": "Recopilado",
+      "tagsDocs": "Documentación"
     },
     "events": {
       "title": "Eventos recibidos",
@@ -1390,6 +1397,9 @@
       "picker": "Rama",
       "pickerSearch": "Buscar una rama",
       "pickerEmpty": "No existe esa rama.",
+      "pickerBranches": "Ramas",
+      "pickerTags": "Etiquetas",
+      "pickerRelease": "Versión actual",
       "title": "Ramas",
       "lead": "Ramas del proyecto desde el forge, los eventos de CI y la rama predeterminada. Las ramas desaparecidas e inactivas se limpian automáticamente; la predeterminada y las fijadas se conservan.",
       "search": "El nombre de la rama empieza por",
@@ -1562,9 +1572,19 @@
         "lead": "Qué archivos y ramas del repositorio se recopilan.",
         "include": "Incluir",
         "exclude": "Excluir",
-        "branches": "Ramas adicionales",
+        "refs": "Ramas y etiquetas",
+        "refsPattern": "Patrón",
+        "refsKind": "Para",
+        "refsBranches": "Ramas",
+        "refsTags": "Etiquetas",
+        "refsRelease": "Versión publicada",
+        "refsAdd": "Añadir patrón",
+        "refsRemove": "Quitar",
+        "refsDuplicate": "Este patrón ya existe para el mismo tipo.",
+        "refsDefaultOnly": "Solo la rama predeterminada",
+        "refsHint": "La rama predeterminada se recopila siempre. Se recopilan como máximo {n} etiquetas más recientes; más reciente es la que tiene una versión mayor en el nombre. La etiqueta más reciente que coincide con un patrón marcado como versión publicada es la versión actual del proyecto.",
+        "refsNoTags": "Las etiquetas no se recopilan: el servidor está configurado sin etiquetas.",
         "hint": "Enter, coma o líneas pegadas añaden un patrón: * — cualquier carácter salvo /, ** — cualquier directorio, ? — un carácter, {a,b} — cualquiera de las opciones.",
-        "branchesHint": "La rama predeterminada siempre se recopila; p. ej. release/*",
         "save": "Guardar configuración",
         "saved": "Configuración guardada.",
         "readOnly": "Solo los editores pueden cambiar esta configuración.",
@@ -1725,7 +1745,11 @@
         "hideVendored": "Ocultar de terceros",
         "vendored": "de terceros",
         "definedIn": "Definido en {path}"
-      }
+      },
+      "versionBranches": "Ramas",
+      "versionTags": "Etiquetas",
+      "currentRelease": "Versión actual",
+      "version": "Versión"
     },
     "summary": {
       "environments": "Entornos",
@@ -2263,6 +2287,7 @@
     "notFound": "Página de documentación no encontrada",
     "toRoot": "A la lista de espacios",
     "fileMissing": "Archivo no encontrado en la rama {branch}",
+    "fileMissingTag": "Archivo no encontrado en la etiqueta {tag}",
     "toStart": "A la página inicial",
     "snapshot": "Commit {commit} · recopilado {when}",
     "files": "Archivos",

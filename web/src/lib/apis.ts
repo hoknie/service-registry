@@ -86,7 +86,6 @@ export type ApiView = "api" | "tree" | "source";
 
 export const isApiCandidate = (path: string) => /\.(proto|ya?ml|json)$/i.test(path);
 
-export const apiQuery = (path: string, branch: string) => new URLSearchParams({ path, branch }).toString();
 
 export function viewParam(search: string): ApiView {
   const v = new URLSearchParams(search).get("view");

@@ -13,6 +13,7 @@ type snapshotRow struct {
 	ID          uuid.UUID `db:"id"`
 	ProjectID   uuid.UUID `db:"project_id"`
 	Branch      string    `db:"branch"`
+	RefKind     string    `db:"ref_kind"`
 	CommitSHA   string    `db:"commit_sha"`
 	Status      string    `db:"status"`
 	ErrorCode   *string   `db:"error_code"`
@@ -26,7 +27,7 @@ type snapshotRow struct {
 }
 
 func (r snapshotRow) snapshot() knowledgetypes.Snapshot {
-	return knowledgetypes.Snapshot{ID: r.ID, ProjectID: r.ProjectID, Branch: r.Branch, Commit: r.CommitSHA, Status: knowledgetypes.Status(r.Status),
+	return knowledgetypes.Snapshot{ID: r.ID, ProjectID: r.ProjectID, Branch: r.Branch, RefKind: knowledgetypes.RefKind(r.RefKind), Commit: r.CommitSHA, Status: knowledgetypes.Status(r.Status),
 		ErrorCode: r.ErrorCode, Files: int(r.Files), Bytes: r.Bytes, Skipped: int(r.Skipped), Limited: int(r.Limited), TooLarge: int(r.TooLarge),
 		Truncated: r.Truncated, CollectedAt: r.CollectedAt}
 }
@@ -127,4 +128,32 @@ func scanArgsOf(scan knowledgetypes.Scan) (scanArgs, error) {
 		a.source = &scan.Source
 	}
 	return a, nil
+}
+
+type refRow struct {
+	Pattern string `json:"pattern"`
+	Kind    string `json:"kind"`
+	Release bool   `json:"release"`
+}
+
+func refsOf(rows *[]refRow) *[]knowledgetypes.RefPattern {
+	if rows == nil {
+		return nil
+	}
+	out := make([]knowledgetypes.RefPattern, len(*rows))
+	for i, r := range *rows {
+		out[i] = knowledgetypes.RefPattern{Pattern: r.Pattern, Kind: knowledgetypes.RefKind(r.Kind), Release: r.Release}
+	}
+	return &out
+}
+
+func refRows(refs *[]knowledgetypes.RefPattern) *[]refRow {
+	if refs == nil {
+		return nil
+	}
+	out := make([]refRow, len(*refs))
+	for i, r := range *refs {
+		out[i] = refRow{Pattern: r.Pattern, Kind: string(r.Kind), Release: r.Release}
+	}
+	return &out
 }

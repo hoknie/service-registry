@@ -48,7 +48,7 @@ func TestALocalGitRepositoryIsCollectedByBranch(t *testing.T) {
 	g.branch("dev")
 	g.commit(map[string]string{"README.md": "dev"})
 	eq(t, a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "local_git", "path": g.dir, "working_tree": false}).status, 200)
-	a.send("PUT", knowledgePath(a.project)+"/settings", a.admin, obj{"include": nil, "branches": []string{"release/*"}})
+	a.send("PUT", knowledgePath(a.project)+"/settings", a.admin, obj{"include": nil, "refs": []obj{{"pattern": "release/*", "kind": "branch"}}})
 	a.collect()
 	eq(t, a.lastOf(a.project, "release/1", "commit_sha"), rel)
 	eq(t, a.snapshotsOf(a.project, "dev"), int64(1))

@@ -45,7 +45,7 @@ Under **Settings → Documentation settings → Collection settings** of a proje
 |---|---|---|
 | Include | glob patterns of files to collect, e.g. `docs/**/*.md`, `openspec/**/*.md` | only the README at the root |
 | Exclude | patterns to skip | nothing |
-| Extra branches | patterns of branches besides the default one, e.g. `release/*` | none |
+| Branches and tags | patterns of branches and tags to collect besides the default branch ([below](#branches-tags-and-the-current-release)) | only the default branch |
 | API descriptions | collect API description files without naming them in Include (below) | on |
 | API description paths | glob patterns of API description files, case-insensitive ([below](#api-descriptions)) | `**/openapi*.{yaml,yml,json}`, `**/api-docs/**` |
 | Refresh | **On a timer** or **On events** ([below](#when-documentation-is-refreshed)) | on a timer |
@@ -57,6 +57,32 @@ Under **Settings → Documentation settings → Collection settings** of a proje
 - **Pattern syntax.** `*` (anything but `/`), `**` (any number of folders), `?`, `[...]` and `{a,b}`. Patterns are
   case-sensitive.
 - **Saving.** Saving queues a new collection of every project below.
+
+## Branches, tags and the current release
+
+Each row of **Branches and tags** is a pattern with a kind:
+- **Branches** — `feat/*` collects every branch starting with `feat/`, `master` collects the branch `master`. The
+  default branch is always collected.
+- **Tags** — `v*` or `v*-release` collects tags matching the mask. Tags come from remote and local git sources and
+  from projects synchronized with a forge; a local directory has none.
+
+Only the `KNOWLEDGE_MAX_TAGS` newest matching tags are collected (10 by default, `0` turns tags off). A tag is newer
+when the first number group in its name is larger: `v0.10.0` is newer than `v0.9.3`. Tags without numbers count as
+older than any tag with a version. A tag is collected once and again only when it moves to another commit; tags that
+drop out of the newest ones or disappear lose their snapshots.
+
+Mark a tag pattern **Release** to get a current release: the newest tag matching such a pattern. When
+`v0.2.0-release` appears after `v0.1.0-release`, it becomes the current release and `v0.1.0-release` stops being one.
+The current release is collected even outside the newest tags and is marked **Current release** in the version
+picker.
+
+The **Documentation** tab and the documentation section show branches and tags in one version picker. A tag is kept
+in the address as `?tag=v1.2.0`. The API takes `tag=<name>` or `release=current` instead of `branch` on files, trees,
+API descriptions and search (`400 validation.invalid_ref` when more than one is given).
+
+Settings saved before tags existed keep their extra branches as branch patterns. Clients that still send the old
+`branches` field get `400 validation.knowledge_branches_replaced` and should send `refs`:
+`[{"pattern": "release/*", "kind": "branch"}, {"pattern": "v*-release", "kind": "tag", "release": true}]`.
 
 ## When documentation is refreshed
 
@@ -118,7 +144,8 @@ reveals them. A type in a `.proto` file that comes from another file links to it
 | `KNOWLEDGE_MAX_FILES` | 2000 | files in one snapshot |
 | `KNOWLEDGE_MAX_SNAPSHOT_BYTES` | 16 MiB | total size of one snapshot |
 | `KNOWLEDGE_MAX_FILE_BYTES` | 512 KiB | size of one file |
-| `KNOWLEDGE_KEEP` | 5 | older snapshots kept per branch |
+| `KNOWLEDGE_KEEP` | 5 | older snapshots kept per branch or tag |
+| `KNOWLEDGE_MAX_TAGS` | 10 | newest tags collected per project, `0` — no tags |
 | `KNOWLEDGE_INTERVAL_SECS` | 300 | the timer of the **On a timer** mode |
 | `KNOWLEDGE_RETRY_SECS` | 900 | pause before a failed collection is retried |
 | `KNOWLEDGE_LOCAL_ROOTS` | — | folders local sources may use |

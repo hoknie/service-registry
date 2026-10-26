@@ -34,7 +34,10 @@ func (s *CollectService) ExtendKnowledge(ctx context.Context, id uuid.UUID, leas
 	return apperr.Wrap(s.collectionRepository.Extend(ctx, id, leaseSecs))
 }
 
-type head struct{ name, sha string }
+type head struct {
+	kind      knowledgetypes.RefKind
+	name, sha string
+}
 
 func (s *CollectService) recordScan(ctx context.Context, scan *knowledgetypes.Scan) {
 	if ctx.Err() != nil || s.scanRepository == nil {
@@ -94,6 +97,11 @@ func (s *CollectService) RunKnowledgeCollect(ctx context.Context, id uuid.UUID) 
 		return err
 	}
 	slices.SortFunc(heads, func(a, b head) int { return compareNames(a.name, b.name) })
+	tags, err := run.tagHeads(ctx, reader)
+	if err != nil {
+		return err
+	}
+	heads = append(heads, tags...)
 	return run.collect(ctx, reader, heads)
 }
 
@@ -127,12 +135,12 @@ func knownBranches(src *knowledgetypes.StoredSource, def string) []string {
 	return out
 }
 
-func (s *CollectService) recordFailure(ctx context.Context, id uuid.UUID, branch, code string, commit ...string) error {
+func (s *CollectService) recordFailure(ctx context.Context, id uuid.UUID, kind knowledgetypes.RefKind, branch, code string, commit ...string) error {
 	c := ""
 	if len(commit) > 0 {
 		c = commit[0]
 	}
-	snap := knowledgetypes.NewSnapshot{ID: uuid.Must(uuid.NewV7()), ProjectID: id, Branch: branch, CommitSHA: c,
+	snap := knowledgetypes.NewSnapshot{ID: uuid.Must(uuid.NewV7()), ProjectID: id, Branch: branch, RefKind: kind, CommitSHA: c,
 		Status: knowledgetypes.StatusFailed, ErrorCode: code}
 	return apperr.Wrap(s.saveSnapshot.Run(context.WithoutCancel(ctx), usecases.SaveSnapshotInput{Snapshot: snap, Keep: s.cfg.Knowledge.Keep}))
 }
@@ -187,6 +195,8 @@ type CollectService struct {
 	settingsService      *SettingsService
 	topology             *topologyservices.TopologyServices
 	saveSnapshot         *usecases.SaveSnapshotUseCase
+	tagRepository        *repositories.TagRepository
+	syncTags             *usecases.SyncTagsUseCase
 }
 
 func (s *CollectService) CollectKnowledge(ctx context.Context, p accesstypes.Principal, id uuid.UUID) error {

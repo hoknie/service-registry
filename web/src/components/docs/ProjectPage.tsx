@@ -11,17 +11,17 @@ import { apiGet, type CatalogNode, type DocSpace, type KnowledgeFiles } from "@/
 import { shortCommit } from "@/lib/commit";
 import { docHref, navigateDoc, parseDocLocation, splitPath, startPage } from "@/lib/docPath";
 import { ensureFiles, filesEntry, useDocStore } from "@/lib/docSpaceStore";
+import { refQuery, splitVersion } from "@/lib/refs";
 
 import { ApiCards } from "../apis/ApiCards";
 import { KindIcon } from "../catalog/KindIcon";
 import { DocViewer, type DocHeading } from "../knowledge/DocViewer";
 import { LimitNotice } from "../knowledge/LimitNotice";
+import { RefPicker } from "../knowledge/RefPicker";
 import { useUiText } from "../UiText";
 import { EmptyState } from "../ui/EmptyState";
-import { Field } from "../ui/Field";
 import { Message } from "../ui/Message";
 import { Panel } from "../ui/Panel";
-import { Select } from "../ui/Select";
 import { SkeletonPanel } from "../ui/Skeleton";
 import type { DocLabels } from "./DocSpace";
 import { DocLink } from "./DocLink";
@@ -76,15 +76,17 @@ export function ProjectPage({ locale, labels, space, branch: branchParam, nodePa
   const hrefOf = (path: string | null) => docHref([...nodePath, ...(path ? splitPath(path) : [])], linkBranch);
   const canWrite = node?.permissions?.includes("catalog.write") ?? false;
   const catalogHref = `/${locale}/catalog?node=${project.id}&tab=docs${space.doc_path ? `&doc=${encodeURIComponent(space.doc_path)}` : ""}${
-    branchParam ? `&branch=${encodeURIComponent(branchParam)}` : ""
+    branchParam ? `&${refQuery(branchParam).toString()}` : ""
   }`;
+  const tags = docs?.tags ?? [];
+  const selected = current ? splitVersion(current.branch) : null;
 
   const selectBranch = async (next: string) => {
     const nextParam = next === defaultBranch ? null : next;
     let keep = space.doc_path;
     if (keep) {
       try {
-        const files = await apiGet<KnowledgeFiles>(`/v1/catalog/nodes/${project.id}/knowledge/files?branch=${encodeURIComponent(next)}`);
+        const files = await apiGet<KnowledgeFiles>(`/v1/catalog/nodes/${project.id}/knowledge/files?${refQuery(next).toString()}`);
         if (!files.items.some((f) => f.path === keep)) keep = null;
       } catch {
         keep = null;
@@ -124,18 +126,8 @@ export function ProjectPage({ locale, labels, space, branch: branchParam, nodePa
           </div>
         </div>
         <div className="flex flex-wrap items-end gap-3">
-          {branches.length > 0 && branch && (
-            <Field label={t.branch} className="min-w-48">
-              {(p) => (
-                <Select {...p} value={branch} onChange={(e) => void selectBranch(e.target.value)}>
-                  {branches.map((b) => (
-                    <option key={b.name} value={b.name}>
-                      {b.name}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </Field>
+          {branches.length + tags.length > 0 && branch && (
+            <RefPicker branches={branches} tags={tags} value={branch} labels={labels.catalog.docs} onChange={(key) => void selectBranch(key)} />
           )}
           <a href={catalogHref} className="inline-flex h-9 items-center gap-1.5 text-sm text-signal hover:underline">
             {t.openInCatalog}
@@ -166,7 +158,9 @@ export function ProjectPage({ locale, labels, space, branch: branchParam, nodePa
       {current?.files && open && !paths.includes(open) && (
         <EmptyState
           icon={FileText}
-          title={format(t.fileMissing, { branch: current.branch })}
+          title={
+            selected?.kind === "tag" ? format(t.fileMissingTag, { tag: selected.name }) : format(t.fileMissing, { branch: current.branch })
+          }
           action={
             <DocLink href={hrefOf(null)} className="text-signal hover:underline">
               {t.toStart}

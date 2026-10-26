@@ -1,7 +1,7 @@
 package types
 
 import (
-	"errors"
+	"encoding/json"
 	"regexp"
 	"slices"
 	"strings"
@@ -68,6 +68,7 @@ type ScanNote struct {
 
 type ScanBranch struct {
 	Name        string         `json:"name"`
+	Kind        RefKind        `json:"kind"`
 	Commit      string         `json:"commit"`
 	Result      BranchResult   `json:"result"`
 	Files       int            `json:"files"`
@@ -76,6 +77,19 @@ type ScanBranch struct {
 	Truncated   bool           `json:"truncated"`
 	WorkingTree bool           `json:"working_tree,omitempty"`
 	Error       string         `json:"error,omitempty"`
+}
+
+func (b *ScanBranch) UnmarshalJSON(data []byte) error {
+	type plain ScanBranch
+	var p plain
+	if err := json.Unmarshal(data, &p); err != nil {
+		return err
+	}
+	if p.Kind == "" {
+		p.Kind = RefBranch
+	}
+	*b = ScanBranch(p)
+	return nil
 }
 
 type ScanIndex struct {
@@ -282,18 +296,4 @@ func RedactDetail(s string) string {
 	s = secretPatterns[2].ReplaceAllString(s, "${1}[redacted]")
 	s = secretPatterns[3].ReplaceAllString(s, "://[redacted]@")
 	return cut(s, ScanDetailLimit)
-}
-
-func IndexFailureCode(err error) string {
-	switch {
-	case errors.Is(err, ErrEmbeddingsDimensions):
-		return "search.embeddings_dimensions"
-	case errors.Is(err, ErrEngineDimensions):
-		return "search.engine_dimensions"
-	case errors.Is(err, ErrEmbeddingsUnavailable):
-		return "search.embeddings_unavailable"
-	case errors.Is(err, ErrEngineUnavailable), errors.Is(err, ErrSearchUnavailable):
-		return "search.engine_unavailable"
-	}
-	return "internal"
 }

@@ -27,6 +27,7 @@ type Repo struct {
 	Readme        string
 	Languages     map[string]int
 	Branches      []Branch
+	Tags          []Tag
 	Files         map[string]string
 	TreeTruncated bool
 }
@@ -69,6 +70,11 @@ func (r *Repo) branches() []Branch {
 		return r.Branches
 	}
 	return []Branch{{Name: r.DefaultBranch, SHA: fmt.Sprintf("%040x", r.ID), Date: r.Pushed}}
+}
+
+type Tag struct {
+	Name string
+	SHA  string
 }
 
 type Hook struct {
@@ -136,6 +142,12 @@ func (f *Fake) SetBranches(id int64, branches []Branch) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.repos[id].Branches = branches
+}
+
+func (f *Fake) SetTags(id int64, tags []Tag) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.repos[id].Tags = tags
 }
 
 func (f *Fake) Delete(id int64) {

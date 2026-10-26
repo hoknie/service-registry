@@ -69,10 +69,10 @@ func (s *SnapshotRepository) AddBlobs(ctx context.Context, files []knowledgetype
 
 func (s *SnapshotRepository) Add(ctx context.Context, n knowledgetypes.NewSnapshot, t knowledgetypes.SnapshotTotals) error {
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
-		INSERT INTO knowledge_snapshots (id, project_id, branch, commit_sha, status, error_code, files,
+		INSERT INTO knowledge_snapshots (id, project_id, branch, ref_kind, commit_sha, status, error_code, files,
 			bytes, skipped, truncated)
-		VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''), $7, $8, $9, $10)`,
-		n.ID, n.ProjectID, n.Branch, n.CommitSHA, string(n.Status), n.ErrorCode, t.Stored, t.Bytes, t.Skipped, n.Truncated)
+		VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7, ''), $8, $9, $10, $11)`,
+		n.ID, n.ProjectID, n.Branch, string(n.RefKind), n.CommitSHA, string(n.Status), n.ErrorCode, t.Stored, t.Bytes, t.Skipped, n.Truncated)
 	return err
 }
 
@@ -110,30 +110,45 @@ func (s *SnapshotRepository) AddFiles(ctx context.Context, n knowledgetypes.NewS
 	return err
 }
 
-func (s *SnapshotRepository) DropFailed(ctx context.Context, projectID uuid.UUID, branch string, keep uuid.UUID) error {
+func (s *SnapshotRepository) DropFailed(ctx context.Context, projectID uuid.UUID, kind knowledgetypes.RefKind, name string, keep uuid.UUID) error {
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		DELETE FROM knowledge_snapshots
 		WHERE project_id = $1
-			AND branch = $2
+			AND ref_kind = $2
+			AND branch = $3
 			AND status = 'failed'
-			AND id <> $3`, projectID, branch, keep)
+			AND id <> $4`, projectID, string(kind), name, keep)
 	return err
 }
 
-func (s *SnapshotRepository) Trim(ctx context.Context, projectID uuid.UUID, branch string, keep int64) error {
+func (s *SnapshotRepository) Trim(ctx context.Context, projectID uuid.UUID, kind knowledgetypes.RefKind, name string, keep int64) error {
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		DELETE FROM knowledge_snapshots
 		WHERE project_id = $1
-			AND branch = $2
+			AND ref_kind = $2
+			AND branch = $3
 			AND status <> 'failed'
 			AND id NOT IN (
 				SELECT id
 				FROM knowledge_snapshots
 				WHERE project_id = $1
-					AND branch = $2
+					AND ref_kind = $2
+					AND branch = $3
 					AND status <> 'failed'
 				ORDER BY collected_at DESC, id DESC
-				LIMIT $3
-			)`, projectID, branch, keep)
+				LIMIT $4
+			)`, projectID, string(kind), name, keep)
+	return err
+}
+
+func (s *SnapshotRepository) DeleteTags(ctx context.Context, projectID uuid.UUID, names []string) error {
+	if len(names) == 0 {
+		return nil
+	}
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		DELETE FROM knowledge_snapshots
+		WHERE project_id = $1
+			AND ref_kind = 'tag'
+			AND branch = ANY($2)`, projectID, names)
 	return err
 }

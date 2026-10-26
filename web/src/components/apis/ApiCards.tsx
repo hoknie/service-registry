@@ -10,6 +10,7 @@ import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { DocLink } from "../docs/DocLink";
 import type { ApiLabels } from "./ApiView";
+import { refQuery } from "@/lib/refs";
 
 type Props = { projectId: string; branch: string; labels: ApiLabels; hrefOf: (path: string) => string };
 
@@ -18,7 +19,7 @@ export function ApiCards({ projectId, branch, labels: t, hrefOf }: Props) {
   const [all, setAll] = useState(false);
   useEffect(() => {
     let live = true;
-    const query = new URLSearchParams({ branch });
+    const query = refQuery(branch);
     if (all) query.set("all", "1");
     apiGet<ApiList>(`/v1/catalog/nodes/${projectId}/knowledge/apis?${query}`)
       .then((r) => live && setList(r))

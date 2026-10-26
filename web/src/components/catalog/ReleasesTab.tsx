@@ -1,6 +1,7 @@
 "use client";
 
-import { ExternalLink, GitBranch, GitCommitHorizontal, Plug, Rocket, RotateCcw, UserRound } from "lucide-react";
+import { BookOpen, ExternalLink, GitBranch, GitCommitHorizontal, Plug, Rocket, RotateCcw, Tag, UserRound } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import type { Locale } from "@/i18n/config";
@@ -12,10 +13,13 @@ import {
   type Deployment,
   type DirectoryEnvironment,
   type Items,
+  type Knowledge,
+  type KnowledgeTag,
   type Page,
   type ServiceEnvironment,
 } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { versionKey } from "@/lib/refs";
 
 import { useUiText } from "../UiText";
 import { Badge } from "../ui/Badge";
@@ -26,7 +30,7 @@ import { Message } from "../ui/Message";
 import { Pager } from "../ui/Pager";
 import { SkeletonCards } from "../ui/Skeleton";
 import { EnvironmentCard, Meta, short } from "./EnvironmentCard";
-import type { CatalogLabels } from "./shared";
+import { catalogHref, type CatalogLabels } from "./shared";
 
 const PAGE = 50;
 const FILTERS = ["service", "environment", "branch"] as const;
@@ -59,6 +63,17 @@ export function ReleasesTab({ projectId, branch, locale, labels, onConnect }: Pr
   const [filters, setFilters] = useState<Filters>(initial);
   const [offset, setOffset] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [tags, setTags] = useState<KnowledgeTag[]>([]);
+
+  useEffect(() => {
+    let live = true;
+    apiGet<Knowledge>(`/v1/catalog/nodes/${projectId}/knowledge`)
+      .then((k) => live && setTags((k.tags ?? []).filter((x) => x.snapshot)))
+      .catch(() => live && setTags([]));
+    return () => {
+      live = false;
+    };
+  }, [projectId]);
 
   const load = useCallback(async () => {
     const q = new URLSearchParams();
@@ -108,7 +123,45 @@ export function ReleasesTab({ projectId, branch, locale, labels, onConnect }: Pr
 
   const filtered = FILTERS.some((f) => filters[f].trim());
 
-  if (current.length === 0 && history.items.length === 0 && !filtered) {
+  const tagList = tags.length > 0 && (
+    <section aria-labelledby="tags-title" className="grid gap-3">
+      <div>
+        <h2 id="tags-title">{t.tags}</h2>
+        <p className="text-sm text-muted">{t.tagsLead}</p>
+      </div>
+      <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        {tags.map((x) => (
+          <li key={x.name} className="grid gap-1.5 rounded-lg border border-line bg-surface px-3 py-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Tag aria-hidden="true" className="size-3.5 text-muted" />
+              <code className="text-sm font-medium text-ink">{x.name}</code>
+              {x.release && (
+                <Badge tone="signal" dot>
+                  {labels.docs.currentRelease}
+                </Badge>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-2">
+              <Meta icon={GitCommitHorizontal} title={t.tagsCommit}>
+                <code>{short(x.commit)}</code>
+              </Meta>
+              {x.snapshot && (
+                <time dateTime={x.snapshot.collected_at} className="text-muted tabular-nums">
+                  {t.tagsCollected} {when(x.snapshot.collected_at, locale, "—")}
+                </time>
+              )}
+              <Link href={catalogHref(locale, projectId, "docs", versionKey("tag", x.name))} className="ml-auto inline-flex items-center gap-1 text-signal hover:underline">
+                <BookOpen aria-hidden="true" className="size-3" />
+                {t.tagsDocs}
+              </Link>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+
+  if (current.length === 0 && history.items.length === 0 && !filtered && tags.length === 0) {
     return (
       <EmptyState
         icon={Rocket}
@@ -140,6 +193,8 @@ export function ReleasesTab({ projectId, branch, locale, labels, onConnect }: Pr
           </ul>
         )}
       </section>
+
+      {tagList}
 
       <section aria-labelledby="history-title" className="grid gap-4">
         <h2 id="history-title">{t.history}</h2>

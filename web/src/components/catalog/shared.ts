@@ -2,6 +2,7 @@ import type { Locale } from "@/i18n/config";
 import type { Messages } from "@/i18n/messages";
 import type { NodeKind } from "@/lib/api";
 import { LEGACY_TABS, RENAMED_TABS } from "@/lib/nodeSettings";
+import { splitVersion } from "@/lib/refs";
 
 export type CatalogLabels = Messages["catalog"] & { scans: Messages["scans"]; notify: Messages["notify"] };
 export type ErrorLabels = Messages["errors"];
@@ -15,7 +16,10 @@ export function catalogHref(locale: Locale, id: string | null, tab?: string, bra
   if (legacy) href += `&tab=settings&section=${legacy}`;
   else if (tab && tab !== "overview") href += `&tab=${tab}`;
   if (!legacy && section) href += `&section=${section}`;
-  if (branch) href += `&branch=${encodeURIComponent(branch)}`;
+  if (branch) {
+    const v = splitVersion(branch);
+    href += `&${v.kind}=${encodeURIComponent(v.name)}`;
+  }
   if (doc) href += `&doc=${encodeURIComponent(doc)}`;
   return href;
 }

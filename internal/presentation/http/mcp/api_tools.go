@@ -10,7 +10,6 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	apistypes "svc-registry/internal/feature/apis/types"
-	knowledgeservices "svc-registry/internal/feature/knowledge/services"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/presentation/http/responses"
 	"svc-registry/pkg/ptr"
@@ -19,16 +18,18 @@ import (
 type listAPIsIn struct {
 	Project string `json:"project" jsonschema:"Project id or slug path from the top level, e.g. acme/backend/api"`
 	Branch  string `json:"branch,omitempty" jsonschema:"Branch; the documentation's default branch when empty"`
-	Commit  string `json:"commit,omitempty" jsonschema:"Commit of a collected snapshot of the branch"`
-	All     bool   `json:"all,omitempty" jsonschema:"Also list vendored descriptions (third_party, vendor, node_modules, google/… protos)"`
+	versionIn
+	Commit string `json:"commit,omitempty" jsonschema:"Commit of a collected snapshot of the branch"`
+	All    bool   `json:"all,omitempty" jsonschema:"Also list vendored descriptions (third_party, vendor, node_modules, google/… protos)"`
 }
 
 type getAPIIn struct {
 	Project string `json:"project" jsonschema:"Project id or slug path from the top level, e.g. acme/backend/api"`
 	Path    string `json:"path" jsonschema:"Path of the API description in the snapshot, e.g. api/openapi.yaml"`
 	Branch  string `json:"branch,omitempty" jsonschema:"Branch; the documentation's default branch when empty"`
-	Commit  string `json:"commit,omitempty" jsonschema:"Commit of a collected snapshot of the branch"`
-	Item    string `json:"item,omitempty" jsonschema:"One operation ('GET /pets/{id}' or operationId), proto service or message (full name)"`
+	versionIn
+	Commit string `json:"commit,omitempty" jsonschema:"Commit of a collected snapshot of the branch"`
+	Item   string `json:"item,omitempty" jsonschema:"One operation ('GET /pets/{id}' or operationId), proto service or message (full name)"`
 }
 
 func (t *tools) listAPIs(ctx context.Context, _ *sdk.CallToolRequest, in listAPIsIn) (*sdk.CallToolResult, any, error) {
@@ -36,7 +37,7 @@ func (t *tools) listAPIs(ctx context.Context, _ *sdk.CallToolRequest, in listAPI
 	if err != nil {
 		return failed(err)
 	}
-	l, err := t.deps.Apis.Specs.ListAPIs(ctx, t.p, s.Node.ID, knowledgeservices.KnowledgeRef{Branch: ptr.NonEmpty(in.Branch), Commit: ptr.NonEmpty(in.Commit)}, in.All)
+	l, err := t.deps.Apis.Specs.ListAPIs(ctx, t.p, s.Node.ID, in.ref(in.Branch, in.Commit), in.All)
 	if err != nil {
 		return failed(err)
 	}
@@ -48,7 +49,7 @@ func (t *tools) getAPI(ctx context.Context, _ *sdk.CallToolRequest, in getAPIIn)
 	if err != nil {
 		return failed(err)
 	}
-	_, d, err := t.deps.Apis.Specs.GetAPI(ctx, t.p, s.Node.ID, knowledgeservices.KnowledgeRef{Branch: ptr.NonEmpty(in.Branch), Commit: ptr.NonEmpty(in.Commit)}, in.Path)
+	_, d, err := t.deps.Apis.Specs.GetAPI(ctx, t.p, s.Node.ID, in.ref(in.Branch, in.Commit), in.Path)
 	if err != nil {
 		return failed(err)
 	}

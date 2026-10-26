@@ -104,6 +104,8 @@ func (d *localDir) Heads(ctx context.Context) (map[string]string, string, error)
 	return map[string]string{knowledgetypes.LocalBranch: "sha256:" + hex.EncodeToString(h.Sum(nil))}, knowledgetypes.LocalBranch, nil
 }
 
+func (d *localDir) Tags(context.Context) (map[string]string, error) { return map[string]string{}, nil }
+
 func (d *localDir) Tree(ctx context.Context, _, _ string) ([]knowledgetypes.Entry, bool, error) {
 	if d.entries == nil {
 		if _, _, err := d.Heads(ctx); err != nil {

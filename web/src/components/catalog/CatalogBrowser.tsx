@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 
 import type { Locale } from "@/i18n/config";
 import { catalogChanged } from "@/lib/catalogEvents";
+import { versionFromParams } from "@/lib/refs";
 
 import { NodeView } from "./NodeView";
 import type { CatalogLabels } from "./shared";
@@ -15,7 +16,7 @@ export function CatalogBrowser({ locale, labels }: Props) {
   const nodeId = params.get("node");
   const tab = params.get("tab");
   const section = params.get("section");
-  const branch = params.get("branch");
+  const branch = versionFromParams(params);
   const doc = params.get("doc");
 
   return (

@@ -105,6 +105,15 @@ func (f *Fake) gitea(w http.ResponseWriter, r *http.Request) {
 			}
 			writeJSON(w, 200, map[string]any{"content": base64.StdEncoding.EncodeToString([]byte(content)), "encoding": "base64",
 				"sha": parts[5], "size": len(content)})
+		case parts[3] == "tags" && len(parts) == 4:
+			f.calls["tags"]++
+			size, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+			items, _ := page(x.Tags, r, max(size, 1), "page")
+			out := make([]map[string]any, 0, len(items))
+			for _, t := range items {
+				out = append(out, map[string]any{"name": t.Name, "commit": map[string]any{"sha": t.SHA}})
+			}
+			writeJSON(w, 200, out)
 		case parts[3] == "branches" && len(parts) == 4:
 			f.calls["branches"]++
 			size, _ := strconv.Atoi(r.URL.Query().Get("limit"))

@@ -20,7 +20,7 @@ func (t *tools) listDocs(ctx context.Context, _ *sdk.CallToolRequest, in docsIn)
 	if err != nil {
 		return failed(err)
 	}
-	snap, files, err := t.deps.Knowledge.Documents.KnowledgeFiles(ctx, t.p, s.Node.ID, knowledgeservices.KnowledgeRef{Branch: ptr.NonEmpty(in.Branch), Commit: ptr.NonEmpty(in.Commit)})
+	snap, files, err := t.deps.Knowledge.Documents.KnowledgeFiles(ctx, t.p, s.Node.ID, in.ref(in.Branch, in.Commit))
 	if err != nil {
 		return failed(err)
 	}
@@ -54,11 +54,12 @@ func (t *tools) getDoc(ctx context.Context, _ *sdk.CallToolRequest, in docIn) (*
 	if err != nil {
 		return failed(err)
 	}
-	return t.docText(ctx, s.Node.ID, knowledgeservices.KnowledgeRef{Branch: ptr.NonEmpty(in.Branch), Commit: ptr.NonEmpty(in.Commit)}, in.Path)
+	return t.docText(ctx, s.Node.ID, in.ref(in.Branch, in.Commit), in.Path)
 }
 
 func (t *tools) searchDocs(ctx context.Context, _ *sdk.CallToolRequest, in searchIn) (*sdk.CallToolResult, any, error) {
-	q := knowledgetypes.SearchInput{Q: in.Query, Branch: ptr.NonEmpty(in.Branch), Path: in.Path, Mode: in.Mode}
+	q := knowledgetypes.SearchInput{Q: in.Query, Branch: ptr.NonEmpty(in.Branch), Tag: ptr.NonEmpty(in.Tag), Release: ptr.NonEmpty(in.Release),
+		Path: in.Path, Mode: in.Mode}
 	if in.Limit != 0 {
 		q.Limit = &in.Limit
 	}
@@ -77,17 +78,21 @@ func (t *tools) searchDocs(ctx context.Context, _ *sdk.CallToolRequest, in searc
 	return jsonResult(responses.SearchOf(res), t.max)
 }
 
-func (t *tools) openSpec(ctx context.Context, project, branch string) (uuid.UUID, knowledgeservices.OpenSpec, error) {
+func (v versionIn) ref(branch, commit string) knowledgeservices.KnowledgeRef {
+	return knowledgeservices.KnowledgeRef{Branch: ptr.NonEmpty(branch), Tag: ptr.NonEmpty(v.Tag), Release: ptr.NonEmpty(v.Release), Commit: ptr.NonEmpty(commit)}
+}
+
+func (t *tools) openSpec(ctx context.Context, project string, ref knowledgeservices.KnowledgeRef) (uuid.UUID, knowledgeservices.OpenSpec, error) {
 	s, err := resolveProject(ctx, t.deps, t.p, project)
 	if err != nil {
 		return uuid.UUID{}, knowledgeservices.OpenSpec{}, err
 	}
-	o, err := t.deps.Knowledge.Documents.KnowledgeOpenSpec(ctx, t.p, s.Node.ID, ptr.NonEmpty(branch))
+	o, err := t.deps.Knowledge.Documents.KnowledgeOpenSpec(ctx, t.p, s.Node.ID, ref)
 	return s.Node.ID, o, err
 }
 
 func (t *tools) listSpecs(ctx context.Context, _ *sdk.CallToolRequest, in openSpecIn) (*sdk.CallToolResult, any, error) {
-	_, o, err := t.openSpec(ctx, in.Project, in.Branch)
+	_, o, err := t.openSpec(ctx, in.Project, in.ref(in.Branch, ""))
 	if err != nil {
 		return failed(err)
 	}
@@ -95,20 +100,20 @@ func (t *tools) listSpecs(ctx context.Context, _ *sdk.CallToolRequest, in openSp
 }
 
 func (t *tools) getSpec(ctx context.Context, _ *sdk.CallToolRequest, in specIn) (*sdk.CallToolResult, any, error) {
-	id, o, err := t.openSpec(ctx, in.Project, in.Branch)
+	id, o, err := t.openSpec(ctx, in.Project, in.ref(in.Branch, ""))
 	if err != nil {
 		return failed(err)
 	}
 	for _, s := range o.Specs {
 		if s.Capability == strings.Trim(in.Capability, "/") {
-			return t.docText(ctx, id, knowledgeservices.KnowledgeRef{Branch: ptr.NonEmpty(in.Branch)}, s.Path)
+			return t.docText(ctx, id, in.ref(in.Branch, ""), s.Path)
 		}
 	}
 	return failed(apperr.New(apperr.NotFound))
 }
 
 func (t *tools) listChanges(ctx context.Context, _ *sdk.CallToolRequest, in changesIn) (*sdk.CallToolResult, any, error) {
-	_, o, err := t.openSpec(ctx, in.Project, in.Branch)
+	_, o, err := t.openSpec(ctx, in.Project, in.ref(in.Branch, ""))
 	if err != nil {
 		return failed(err)
 	}
@@ -125,7 +130,7 @@ func (t *tools) listChanges(ctx context.Context, _ *sdk.CallToolRequest, in chan
 }
 
 func (t *tools) listADRs(ctx context.Context, _ *sdk.CallToolRequest, in openSpecIn) (*sdk.CallToolResult, any, error) {
-	_, o, err := t.openSpec(ctx, in.Project, in.Branch)
+	_, o, err := t.openSpec(ctx, in.Project, in.ref(in.Branch, ""))
 	if err != nil {
 		return failed(err)
 	}
@@ -133,13 +138,13 @@ func (t *tools) listADRs(ctx context.Context, _ *sdk.CallToolRequest, in openSpe
 }
 
 func (t *tools) getADR(ctx context.Context, _ *sdk.CallToolRequest, in adrIn) (*sdk.CallToolResult, any, error) {
-	id, o, err := t.openSpec(ctx, in.Project, in.Branch)
+	id, o, err := t.openSpec(ctx, in.Project, in.ref(in.Branch, ""))
 	if err != nil {
 		return failed(err)
 	}
 	for _, a := range o.ADRs {
 		if a.Number == in.Number {
-			return t.docText(ctx, id, knowledgeservices.KnowledgeRef{Branch: ptr.NonEmpty(in.Branch)}, a.Path)
+			return t.docText(ctx, id, in.ref(in.Branch, ""), a.Path)
 		}
 	}
 	return failed(apperr.New(apperr.NotFound))

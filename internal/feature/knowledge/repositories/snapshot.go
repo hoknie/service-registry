@@ -16,18 +16,19 @@ type SnapshotRepository struct{ db *pgtx.DB }
 
 func NewSnapshotRepository(db *pgtx.DB) *SnapshotRepository { return &SnapshotRepository{db: db} }
 
-func lastSnapshot(ctx context.Context, q pgtx.Querier, projectID uuid.UUID, branch string, withFailed bool) (*knowledgetypes.Snapshot, error) {
+func lastSnapshot(ctx context.Context, q pgtx.Querier, projectID uuid.UUID, kind knowledgetypes.RefKind, name string, withFailed bool) (*knowledgetypes.Snapshot, error) {
 	return postgres.Find(ctx, q, constraints, postgres.Struct(snapshotRow.snapshot), `
-		SELECT s.id, s.project_id, s.branch, s.commit_sha, s.status, s.error_code, s.files, s.bytes,
+		SELECT s.id, s.project_id, s.branch, s.ref_kind, s.commit_sha, s.status, s.error_code, s.files, s.bytes,
 			s.skipped, s.truncated, rfc3339(s.collected_at) AS collected_at,
 			(SELECT count(*) FROM knowledge_files f WHERE f.snapshot_id = s.id AND f.skip_reason = 'limit')::int AS limited,
 			(SELECT count(*) FROM knowledge_files f WHERE f.snapshot_id = s.id AND f.skip_reason = 'too_large')::int AS too_large
 		FROM knowledge_snapshots s
 		WHERE s.project_id = $1
-			AND s.branch = $2
-			AND ($3 OR s.status <> 'failed')
+			AND s.ref_kind = $2
+			AND s.branch = $3
+			AND ($4 OR s.status <> 'failed')
 		ORDER BY s.collected_at DESC, s.id DESC
-		LIMIT 1`, projectID, branch, withFailed)
+		LIMIT 1`, projectID, string(kind), name, withFailed)
 }
 
 func (s *SnapshotRepository) Branches(ctx context.Context, projectID uuid.UUID) ([]knowledgetypes.Candidate, error) {
@@ -42,12 +43,12 @@ func (s *SnapshotRepository) Branches(ctx context.Context, projectID uuid.UUID) 
 		ORDER BY name`, projectID)
 }
 
-func (s *SnapshotRepository) LastAttempt(ctx context.Context, projectID uuid.UUID, branch string) (*knowledgetypes.Snapshot, error) {
-	return lastSnapshot(ctx, s.db.From(ctx), projectID, branch, true)
+func (s *SnapshotRepository) LastAttempt(ctx context.Context, projectID uuid.UUID, kind knowledgetypes.RefKind, name string) (*knowledgetypes.Snapshot, error) {
+	return lastSnapshot(ctx, s.db.From(ctx), projectID, kind, name, true)
 }
 
-func (s *SnapshotRepository) Latest(ctx context.Context, projectID uuid.UUID, branch string) (*knowledgetypes.Snapshot, error) {
-	return lastSnapshot(ctx, s.db.From(ctx), projectID, branch, false)
+func (s *SnapshotRepository) Latest(ctx context.Context, projectID uuid.UUID, kind knowledgetypes.RefKind, name string) (*knowledgetypes.Snapshot, error) {
+	return lastSnapshot(ctx, s.db.From(ctx), projectID, kind, name, false)
 }
 
 func (s *SnapshotRepository) Known(ctx context.Context, projectID uuid.UUID, shas []string) (map[string]knowledgetypes.Known, error) {
@@ -74,19 +75,20 @@ func (s *SnapshotRepository) Known(ctx context.Context, projectID uuid.UUID, sha
 	return out, nil
 }
 
-func (s *SnapshotRepository) Resolve(ctx context.Context, projectID uuid.UUID, branch string, commit *string) (*knowledgetypes.Snapshot, error) {
+func (s *SnapshotRepository) Resolve(ctx context.Context, projectID uuid.UUID, kind knowledgetypes.RefKind, name string, commit *string) (*knowledgetypes.Snapshot, error) {
 	return postgres.Find(ctx, s.db.From(ctx), constraints, postgres.Struct(snapshotRow.snapshot), `
-		SELECT s.id, s.project_id, s.branch, s.commit_sha, s.status, s.error_code, s.files, s.bytes,
+		SELECT s.id, s.project_id, s.branch, s.ref_kind, s.commit_sha, s.status, s.error_code, s.files, s.bytes,
 			s.skipped, s.truncated, rfc3339(s.collected_at) AS collected_at,
 			(SELECT count(*) FROM knowledge_files f WHERE f.snapshot_id = s.id AND f.skip_reason = 'limit')::int AS limited,
 			(SELECT count(*) FROM knowledge_files f WHERE f.snapshot_id = s.id AND f.skip_reason = 'too_large')::int AS too_large
 		FROM knowledge_snapshots s
 		WHERE s.project_id = $1
-			AND s.branch = $2
-			AND ($3::text IS NULL OR s.commit_sha = $3)
+			AND s.ref_kind = $2
+			AND s.branch = $3
+			AND ($4::text IS NULL OR s.commit_sha = $4)
 			AND s.status <> 'failed'
 		ORDER BY s.collected_at DESC, s.id DESC
-		LIMIT 1`, projectID, branch, commit)
+		LIMIT 1`, projectID, string(kind), name, commit)
 }
 
 func scanInfo(r pgx.CollectableRow, extra ...any) (knowledgetypes.FileInfo, error) {

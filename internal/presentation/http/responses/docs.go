@@ -21,10 +21,18 @@ type DocSpaceBranch struct {
 	CollectedAt string `json:"collected_at"`
 }
 
+type DocSpaceTag struct {
+	Name        string `json:"name"`
+	CollectedAt string `json:"collected_at"`
+	Release     bool   `json:"release"`
+}
+
 type DocSpaceDocs struct {
 	Source        *string          `json:"source"`
 	DefaultBranch string           `json:"default_branch"`
 	Branches      []DocSpaceBranch `json:"branches"`
+	Tags          []DocSpaceTag    `json:"tags"`
+	Release       *string          `json:"release"`
 }
 
 type DocSpace struct {
@@ -62,12 +70,16 @@ func DocSpaceOf(s knowledgeservices.DocSpace) DocSpace {
 		out.Children = append(out.Children, docSpaceNode(c, true))
 	}
 	if d := s.Docs; d != nil {
-		docs := DocSpaceDocs{DefaultBranch: d.DefaultBranch, Branches: make([]DocSpaceBranch, 0, len(d.Branches))}
+		docs := DocSpaceDocs{DefaultBranch: d.DefaultBranch, Branches: make([]DocSpaceBranch, 0, len(d.Branches)),
+			Tags: make([]DocSpaceTag, 0, len(d.Tags)), Release: d.Release}
 		if d.Source != "" {
 			docs.Source = new(string(d.Source))
 		}
 		for _, b := range d.Branches {
 			docs.Branches = append(docs.Branches, DocSpaceBranch(b))
+		}
+		for _, t := range d.Tags {
+			docs.Tags = append(docs.Tags, DocSpaceTag(t))
 		}
 		out.Docs = &docs
 	}

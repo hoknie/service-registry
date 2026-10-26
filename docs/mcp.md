@@ -47,6 +47,9 @@ SVCR_TOKEN=svcp_… svc-registry mcp:stdio --url https://registry.example.com --
 | `list_adrs`, `get_adr` | architecture decision records collected from a repository |
 | `list_apis`, `get_api` | OpenAPI, Swagger and protobuf descriptions |
 
+Documentation tools take `branch`, or `tag` for a collected tag, or `release: "current"` for the project's current
+release; without them they read the default branch.
+
 Documentation files are also available as resources `svcr://projects/{project}/docs/{path}`. Long results are cut
 at `KNOWLEDGE_MCP_MAX_RESULT_BYTES` (256 KiB).
 

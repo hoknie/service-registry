@@ -57,6 +57,27 @@ func (f *Fake) github(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, 200, map[string]any{"type": "file", "name": "README.md", "path": "README.md", "encoding": "base64",
 			"content": base64.StdEncoding.EncodeToString([]byte(x.Readme))})
+	case len(parts) == 4 && parts[0] == "repos" && parts[3] == "tags":
+		f.calls["tags"]++
+		x := f.byPath(parts[1] + "/" + parts[2])
+		if x == nil {
+			notFound(w)
+			return
+		}
+		size, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
+		items, next := page(x.Tags, r, max(size, 1), "page")
+		if next != 0 {
+			u := *r.URL
+			q := u.Query()
+			q.Set("page", strconv.Itoa(next))
+			u.RawQuery = q.Encode()
+			w.Header().Set("Link", fmt.Sprintf(`<%s%s>; rel="next"`, f.srv.URL, u.RequestURI()))
+		}
+		out := make([]map[string]any, 0, len(items))
+		for _, t := range items {
+			out = append(out, map[string]any{"name": t.Name, "commit": map[string]any{"sha": t.SHA}})
+		}
+		writeJSON(w, 200, out)
 	case len(parts) == 4 && parts[0] == "repos" && parts[3] == "branches":
 		f.calls["branches"]++
 		x := f.byPath(parts[1] + "/" + parts[2])

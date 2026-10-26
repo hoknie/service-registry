@@ -268,7 +268,9 @@
       "invalid_visibility": "Visibility must be open or closed.",
       "visibility_top_level": "Only top-level organizations can be open.",
       "organization_top_level": "Groups belong to a top-level organization.",
-      "organization_group_rights": "A group of an organization cannot have administration rights."
+      "organization_group_rights": "A group of an organization cannot have administration rights.",
+      "invalid_ref": "Choose a branch, a tag or the current release — only one.",
+      "knowledge_branches_replaced": "The branches field is replaced by branch and tag patterns."
     },
     "conflict": {
       "email_taken": "A user with this email already exists.",
@@ -1214,7 +1216,12 @@
         "succeeded": "Succeeded",
         "failed": "Failed",
         "active": "Running"
-      }
+      },
+      "tags": "Tags",
+      "tagsLead": "Collected documentation of tags, newest first.",
+      "tagsCommit": "Commit",
+      "tagsCollected": "Collected",
+      "tagsDocs": "Documentation"
     },
     "events": {
       "title": "Received events",
@@ -1390,6 +1397,9 @@
       "picker": "Branch",
       "pickerSearch": "Find a branch",
       "pickerEmpty": "No such branch.",
+      "pickerBranches": "Branches",
+      "pickerTags": "Tags",
+      "pickerRelease": "Current release",
       "title": "Branches",
       "lead": "Branches of the project from the forge, CI events and the default branch. Gone and idle branches are cleaned up automatically; the default and pinned ones are kept.",
       "search": "Branch name starts with",
@@ -1562,9 +1572,19 @@
         "lead": "Which files and branches of the repository are collected.",
         "include": "Include",
         "exclude": "Exclude",
-        "branches": "Extra branches",
+        "refs": "Branches and tags",
+        "refsPattern": "Pattern",
+        "refsKind": "For",
+        "refsBranches": "Branches",
+        "refsTags": "Tags",
+        "refsRelease": "Release",
+        "refsAdd": "Add pattern",
+        "refsRemove": "Remove",
+        "refsDuplicate": "This pattern is already listed for the same kind.",
+        "refsDefaultOnly": "Only the default branch",
+        "refsHint": "The default branch is always collected. At most {n} newest tags are collected; newer means a larger version in the name. The newest tag matching a pattern marked Release is the project's current release.",
+        "refsNoTags": "Tags are not collected: the server is configured without tags.",
         "hint": "Enter, comma or pasted lines add a pattern: * — any characters except /, ** — any directories, ? — one character, {a,b} — either.",
-        "branchesHint": "The default branch is always collected; e.g. release/*",
         "save": "Save settings",
         "saved": "Settings saved.",
         "readOnly": "Only editors can change these settings.",
@@ -1725,7 +1745,11 @@
         "hideVendored": "Hide vendored",
         "vendored": "vendored",
         "definedIn": "Defined in {path}"
-      }
+      },
+      "versionBranches": "Branches",
+      "versionTags": "Tags",
+      "currentRelease": "Current release",
+      "version": "Version"
     },
     "summary": {
       "environments": "Environments",
@@ -2263,6 +2287,7 @@
     "notFound": "Documentation page not found",
     "toRoot": "To the list of spaces",
     "fileMissing": "File not found in branch {branch}",
+    "fileMissingTag": "File not found in tag {tag}",
     "toStart": "To the start page",
     "snapshot": "Commit {commit} · collected {when}",
     "files": "Files",

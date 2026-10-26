@@ -96,7 +96,7 @@ func TestPatternsReplaceTheReadmeRule(t *testing.T) {
 }
 
 func TestBranches(t *testing.T) {
-	s := Settings{Branches: []string{"release/*"}}
+	s := Settings{Refs: []RefPattern{{Pattern: "release/*", Kind: RefBranch}, {Pattern: "dev", Kind: RefTag}}}
 	for name, want := range map[string]bool{"main": true, "release/1": true, "release/1/x": false, "dev": false} {
 		if got := s.CollectsBranch(name, "main"); got != want {
 			t.Errorf("%s: %v", name, got)
@@ -106,7 +106,7 @@ func TestBranches(t *testing.T) {
 
 func TestValidateSettings(t *testing.T) {
 	ok, err := ValidateSettings(Settings{Include: nil})
-	if err != nil || ok.Exclude == nil || ok.Branches == nil || ok.Include != nil {
+	if err != nil || ok.Exclude == nil || ok.Refs == nil || ok.Include != nil {
 		t.Fatalf("%+v %v", ok, err)
 	}
 	many := make([]string, 51)
@@ -114,7 +114,7 @@ func TestValidateSettings(t *testing.T) {
 		many[i] = "a"
 	}
 	for _, bad := range []Settings{
-		{Include: []string{"docs/[a-"}}, {Exclude: []string{""}}, {Branches: []string{strings.Repeat("a", 201)}},
+		{Include: []string{"docs/[a-"}}, {Exclude: []string{""}}, {Refs: []RefPattern{{Pattern: strings.Repeat("a", 201), Kind: RefBranch}}},
 		{Include: many}, {Include: []string{"a\nb"}},
 	} {
 		if _, err := ValidateSettings(bad); !errors.Is(err, InvalidSettings) {
@@ -127,13 +127,14 @@ func TestMergeTakesEachFieldFromTheNearestNode(t *testing.T) {
 	list := func(s ...string) *[]string { return &s }
 	project := ChainNode{Name: "api", Own: NodeSettings{Exclude: list()}}
 	folder := ChainNode{Name: "backend", Own: NodeSettings{IncludeSet: true, Include: []string{"docs/**"}, Exclude: list("docs/drafts/**")}}
-	org := ChainNode{Name: "acme", Own: NodeSettings{Branches: list("release/*"), IncludeSet: true, Include: []string{"*.md"}}}
+	org := ChainNode{Name: "acme", Own: NodeSettings{Refs: &[]RefPattern{{Pattern: "release/*", Kind: RefBranch}}, IncludeSet: true,
+		Include: []string{"*.md"}}}
 
 	s, from := Merge([]ChainNode{project, folder, org})
-	if strings.Join(s.Include, ",") != "docs/**" || len(s.Exclude) != 0 || strings.Join(s.Branches, ",") != "release/*" {
+	if strings.Join(s.Include, ",") != "docs/**" || len(s.Exclude) != 0 || len(s.Refs) != 1 || s.Refs[0].Pattern != "release/*" {
 		t.Fatalf("merged: %+v", s)
 	}
-	if from != (From{Include: 1, Exclude: 0, Branches: 2, APIs: -1, APIPaths: -1, Refresh: -1, RefreshEvents: -1}) {
+	if from != (From{Include: 1, Exclude: 0, Refs: 2, APIs: -1, APIPaths: -1, Refresh: -1, RefreshEvents: -1}) {
 		t.Fatalf("from: %+v", from)
 	}
 
@@ -144,7 +145,7 @@ func TestMergeTakesEachFieldFromTheNearestNode(t *testing.T) {
 	}
 
 	s, from = Merge([]ChainNode{{Name: "api"}, {Name: "acme"}})
-	if s.Include != nil || s.Exclude == nil || len(s.Exclude) != 0 || s.Branches == nil || from != (From{-1, -1, -1, -1, -1, -1, -1}) || !s.APIs || s.Refresh != RefreshInterval {
+	if s.Include != nil || s.Exclude == nil || len(s.Exclude) != 0 || s.Refs == nil || from != (From{-1, -1, -1, -1, -1, -1, -1}) || !s.APIs || s.Refresh != RefreshInterval {
 		t.Fatalf("defaults: %+v %+v", s, from)
 	}
 	off := false
@@ -203,7 +204,7 @@ func TestMergeAPIPathsAndRefreshEvents(t *testing.T) {
 func TestValidateNodeSettingsChecksTheSetFields(t *testing.T) {
 	bad := []string{"docs/[a-"}
 	hourly := Refresh("hourly")
-	for _, n := range []NodeSettings{{IncludeSet: true, Include: bad}, {Exclude: &bad}, {Branches: &[]string{""}}, {Refresh: &hourly},
+	for _, n := range []NodeSettings{{IncludeSet: true, Include: bad}, {Exclude: &bad}, {Refs: &[]RefPattern{{Pattern: "", Kind: RefBranch}}}, {Refresh: &hourly},
 		{APIPaths: &[]string{"api/[a-"}}, {APIPaths: &[]string{""}}, {RefreshEvents: &[]CollectEvent{"push"}},
 		{RefreshEvents: &[]CollectEvent{EventForgeWebhook, EventForgeWebhook}}} {
 		if _, err := ValidateNodeSettings(n); !errors.Is(err, InvalidSettings) {

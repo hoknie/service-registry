@@ -122,6 +122,33 @@ func (g *localGit) Heads(ctx context.Context) (map[string]string, string, error)
 	return heads, def, nil
 }
 
+func (g *localGit) Tags(context.Context) (map[string]string, error) {
+	if err := g.open(); err != nil {
+		return nil, err
+	}
+	iter, err := g.repo.Tags()
+	if err != nil {
+		return nil, knowledgetypes.FailSourceUnreadable
+	}
+	tags := map[string]string{}
+	err = iter.ForEach(func(ref *plumbing.Reference) error {
+		hash := ref.Hash()
+		if tag, err := g.repo.TagObject(hash); err == nil {
+			commit, err := tag.Commit()
+			if err != nil {
+				return nil
+			}
+			hash = commit.Hash
+		}
+		tags[ref.Name().Short()] = hash.String()
+		return nil
+	})
+	if err != nil {
+		return nil, knowledgetypes.FailSourceUnreadable
+	}
+	return tags, nil
+}
+
 func (g *localGit) Tree(ctx context.Context, _, head string) ([]knowledgetypes.Entry, bool, error) {
 	if err := g.open(); err != nil {
 		return nil, false, err

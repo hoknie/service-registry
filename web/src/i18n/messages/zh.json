@@ -268,7 +268,9 @@
       "invalid_visibility": "可见性必须为公开或不公开。",
       "visibility_top_level": "只有顶级组织可以公开。",
       "organization_top_level": "群组属于顶级组织。",
-      "organization_group_rights": "组织群组不能拥有管理权限。"
+      "organization_group_rights": "组织群组不能拥有管理权限。",
+      "invalid_ref": "只能选择一项：分支、标签或当前发布。",
+      "knowledge_branches_replaced": "branches 字段已由分支和标签模式取代。"
     },
     "conflict": {
       "email_taken": "该邮箱已被其他用户使用。",
@@ -1214,7 +1216,12 @@
         "succeeded": "成功",
         "failed": "失败",
         "active": "运行中"
-      }
+      },
+      "tags": "标签",
+      "tagsLead": "已收集的标签文档，最新的在前。",
+      "tagsCommit": "提交",
+      "tagsCollected": "收集时间",
+      "tagsDocs": "文档"
     },
     "events": {
       "title": "已接收的事件",
@@ -1390,6 +1397,9 @@
       "picker": "分支",
       "pickerSearch": "查找分支",
       "pickerEmpty": "没有此分支。",
+      "pickerBranches": "分支",
+      "pickerTags": "标签",
+      "pickerRelease": "当前发布",
       "title": "分支",
       "lead": "来自 forge、CI 事件以及默认分支的项目分支。已消失和长期不活跃的分支会自动清理；默认分支和固定的分支会保留。",
       "search": "分支名开头为",
@@ -1562,9 +1572,19 @@
         "lead": "收集仓库中的哪些文件和分支。",
         "include": "包含",
         "exclude": "排除",
-        "branches": "额外分支",
+        "refs": "分支和标签",
+        "refsPattern": "模式",
+        "refsKind": "用于",
+        "refsBranches": "分支",
+        "refsTags": "标签",
+        "refsRelease": "发布",
+        "refsAdd": "添加模式",
+        "refsRemove": "删除",
+        "refsDuplicate": "同类中已有此模式。",
+        "refsDefaultOnly": "仅默认分支",
+        "refsHint": "默认分支始终收集。最多收集 {n} 个最新标签；名称中版本号更大的更新。匹配标记为“发布”的模式的最新标签是项目的当前发布。",
+        "refsNoTags": "不收集标签：服务器配置为不收集标签。",
         "hint": "按 Enter、逗号或粘贴多行以添加模式：* — 除 / 外的任意字符，** — 任意目录，? — 单个字符，{a,b} — 任一选项。",
-        "branchesHint": "默认分支始终会被收集；例如 release/*",
         "save": "保存设置",
         "saved": "设置已保存。",
         "readOnly": "只有编辑者可以更改这些设置。",
@@ -1725,7 +1745,11 @@
         "hideVendored": "隐藏第三方",
         "vendored": "第三方",
         "definedIn": "定义于 {path}"
-      }
+      },
+      "versionBranches": "分支",
+      "versionTags": "标签",
+      "currentRelease": "当前发布",
+      "version": "版本"
     },
     "summary": {
       "environments": "环境",
@@ -2263,6 +2287,7 @@
     "notFound": "未找到文档页面",
     "toRoot": "返回空间列表",
     "fileMissing": "在分支 {branch} 中未找到文件",
+    "fileMissingTag": "在标签 {tag} 中找不到文件",
     "toStart": "返回起始页",
     "snapshot": "提交 {commit} · 收集于 {when}",
     "files": "文件",

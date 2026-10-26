@@ -24,12 +24,15 @@ func NewSaveSnapshot(db *pgtx.DB, snapshots *repositories.SnapshotRepository) *S
 
 func (u *SaveSnapshotUseCase) Run(ctx context.Context, in SaveSnapshotInput) error {
 	n := in.Snapshot
+	if n.RefKind == "" {
+		n.RefKind = knowledgetypes.RefBranch
+	}
 	return repositories.Err(u.db.InTx(ctx, func(ctx context.Context) error {
 		if n.Status == knowledgetypes.StatusFailed {
 			if err := u.snapshotRepository.Add(ctx, n, n.Totals()); err != nil {
 				return err
 			}
-			return u.snapshotRepository.DropFailed(ctx, n.ProjectID, n.Branch, n.ID)
+			return u.snapshotRepository.DropFailed(ctx, n.ProjectID, n.RefKind, n.Branch, n.ID)
 		}
 		refreshed, err := u.refreshSameTree(ctx, n)
 		if err != nil || refreshed {
@@ -40,7 +43,7 @@ func (u *SaveSnapshotUseCase) Run(ctx context.Context, in SaveSnapshotInput) err
 }
 
 func (u *SaveSnapshotUseCase) refreshSameTree(ctx context.Context, n knowledgetypes.NewSnapshot) (bool, error) {
-	latest, err := u.snapshotRepository.Latest(ctx, n.ProjectID, n.Branch)
+	latest, err := u.snapshotRepository.Latest(ctx, n.ProjectID, n.RefKind, n.Branch)
 	if err != nil || latest == nil {
 		return false, err
 	}
@@ -51,7 +54,7 @@ func (u *SaveSnapshotUseCase) refreshSameTree(ctx context.Context, n knowledgety
 	if err := u.snapshotRepository.Refresh(ctx, latest.ID, n); err != nil {
 		return false, err
 	}
-	return true, u.snapshotRepository.DropFailed(ctx, n.ProjectID, n.Branch, latest.ID)
+	return true, u.snapshotRepository.DropFailed(ctx, n.ProjectID, n.RefKind, n.Branch, latest.ID)
 }
 
 func (u *SaveSnapshotUseCase) insert(ctx context.Context, n knowledgetypes.NewSnapshot, keep uint32) error {
@@ -64,8 +67,8 @@ func (u *SaveSnapshotUseCase) insert(ctx context.Context, n knowledgetypes.NewSn
 	if err := u.snapshotRepository.AddFiles(ctx, n); err != nil {
 		return err
 	}
-	if err := u.snapshotRepository.DropFailed(ctx, n.ProjectID, n.Branch, n.ID); err != nil {
+	if err := u.snapshotRepository.DropFailed(ctx, n.ProjectID, n.RefKind, n.Branch, n.ID); err != nil {
 		return err
 	}
-	return u.snapshotRepository.Trim(ctx, n.ProjectID, n.Branch, int64(keep)+1)
+	return u.snapshotRepository.Trim(ctx, n.ProjectID, n.RefKind, n.Branch, int64(keep)+1)
 }

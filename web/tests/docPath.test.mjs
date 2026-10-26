@@ -34,3 +34,10 @@ test("the start page is the root README, else the first Markdown file", () => {
   assert.equal(startPage(["docs/README.md", "z.md", "b/a.md"]), "b/a.md");
   assert.equal(startPage(["openapi.json"]), null);
 });
+
+test("doc locations and hrefs carry a tag", () => {
+  assert.equal(parseDocLocation("/doc/a/docs/guide.md", "?tag=v1.2.0").branch, "tag:v1.2.0");
+  assert.equal(parseDocLocation("/doc/a", "?branch=develop&tag=v1.2.0").branch, "tag:v1.2.0");
+  assert.equal(docHref(["a", "docs", "guide.md"], "tag:v1.2.0"), "/doc/a/docs/guide.md?tag=v1.2.0");
+  assert.equal(docHref(["a"], "develop"), "/doc/a?branch=develop");
+});

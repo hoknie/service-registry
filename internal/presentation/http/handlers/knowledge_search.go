@@ -17,7 +17,8 @@ func (a *Handlers) SearchKnowledge(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	in := knowledgetypes.SearchInput{Q: c.Query("q"), Branch: optionalQuery(c, "branch"), Path: c.Query("path"), Cursor: c.Query("cursor"),
+	in := knowledgetypes.SearchInput{Q: c.Query("q"), Branch: optionalQuery(c, "branch"), Tag: optionalQuery(c, "tag"), Release: optionalQuery(c, "release"),
+		Path: c.Query("path"), Cursor: c.Query("cursor"),
 		Mode: c.Query("mode")}
 	if v := c.Query("project"); v != "" {
 		id, err := uuid.Parse(v)

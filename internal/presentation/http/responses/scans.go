@@ -15,6 +15,7 @@ type ScanProject struct {
 
 type ScanBranch struct {
 	Name        string         `json:"name"`
+	Kind        string         `json:"kind"`
 	Commit      string         `json:"commit"`
 	Result      string         `json:"result"`
 	Files       int            `json:"files"`
@@ -69,7 +70,7 @@ type Scan struct {
 func ScanOf(s knowledgetypes.ScanItem) Scan {
 	branches := make([]ScanBranch, 0, len(s.Branches))
 	for _, b := range s.Branches {
-		out := ScanBranch{Name: b.Name, Commit: b.Commit, Result: string(b.Result), Files: b.Files, Skipped: b.Skipped, APISkipped: b.APISkipped, Truncated: b.Truncated,
+		out := ScanBranch{Name: b.Name, Kind: string(b.Kind), Commit: b.Commit, Result: string(b.Result), Files: b.Files, Skipped: b.Skipped, APISkipped: b.APISkipped, Truncated: b.Truncated,
 			WorkingTree: b.WorkingTree}
 		if out.Skipped == nil {
 			out.Skipped = map[string]int{}

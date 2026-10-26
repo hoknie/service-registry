@@ -31,12 +31,28 @@ func (s *CollectService) sourceToken(ctx context.Context, id uuid.UUID, src *kno
 }
 
 type syncedReader struct {
-	client forgeports.ClientPort
-	repo   forgetypes.RemoteRepo
+	client   forgeports.ClientPort
+	repo     forgetypes.RemoteRepo
+	settings knowledgetypes.Settings
+	maxTags  int
 }
 
 func (r *syncedReader) Heads(context.Context) (map[string]string, string, error) {
 	return nil, r.repo.DefaultBranch, nil
+}
+
+func (r *syncedReader) Tags(ctx context.Context) (map[string]string, error) {
+	tags, _, err := r.client.ListTags(ctx, r.repo, r.settings.CollectsTag, r.maxTags)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]string, len(tags))
+	for _, t := range tags {
+		if t.Commit != "" {
+			out[t.Name] = t.Commit
+		}
+	}
+	return out, nil
 }
 
 func (r *syncedReader) Tree(ctx context.Context, _, sha string) ([]knowledgetypes.Entry, bool, error) {
@@ -119,7 +135,7 @@ func (s *CollectService) collectBranch(ctx context.Context, p knowledgetypes.Pro
 	for i := range ids {
 		ids[i] = uuid.Must(uuid.NewV7())
 	}
-	snap := knowledgetypes.NewSnapshot{ID: uuid.Must(uuid.NewV7()), ProjectID: p.ID, Branch: h.name, CommitSHA: h.sha,
+	snap := knowledgetypes.NewSnapshot{ID: uuid.Must(uuid.NewV7()), ProjectID: p.ID, Branch: h.name, RefKind: h.kind, CommitSHA: h.sha,
 		Status: knowledgetypes.SnapshotStatus(files, truncated), Truncated: truncated, Files: files, FileIDs: ids}
 	var refs []topologytypes.Ref
 	manifest := false
@@ -138,7 +154,7 @@ func (s *CollectService) collectBranch(ctx context.Context, p knowledgetypes.Pro
 		slog.Warn("documentation snapshot not saved", "project", p.ID, "branch", h.name, "error", err)
 		return knowledgetypes.Failure("forge.upstream_error")
 	}
-	b := knowledgetypes.ScanBranch{Name: h.name, Commit: h.sha, Result: knowledgetypes.BranchCollected, Skipped: map[string]int{}, Truncated: truncated,
+	b := knowledgetypes.ScanBranch{Name: h.name, Kind: h.kind, Commit: h.sha, Result: knowledgetypes.BranchCollected, Skipped: map[string]int{}, Truncated: truncated,
 		WorkingTree: strings.Contains(h.sha, "+worktree:")}
 	for _, f := range files {
 		if f.Skip == "" {

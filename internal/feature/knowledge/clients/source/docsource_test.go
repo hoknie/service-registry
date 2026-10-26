@@ -157,6 +157,39 @@ func TestLocalGitReadsBranchesAndCommits(t *testing.T) {
 	}
 }
 
+func TestLocalGitTagsPointAtCommits(t *testing.T) {
+	root := realDir(t)
+	dir := filepath.Join(root, "repo")
+	repo, err := git.PlainInit(dir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wt, _ := repo.Worktree()
+	first := commit(t, wt, dir, map[string]string{"README.md": "one"}, "first")
+	second := commit(t, wt, dir, map[string]string{"README.md": "two"}, "second")
+	if _, err := repo.CreateTag("v0.1.0", first, nil); err != nil {
+		t.Fatal(err)
+	}
+	sig := &object.Signature{Name: "t", Email: "t@example.com", When: time.Unix(1, 0)}
+	if _, err := repo.CreateTag("v0.3.0", second, &git.CreateTagOptions{Tagger: sig, Message: "release"}); err != nil {
+		t.Fatal(err)
+	}
+	f := &FactoryClient{Roots: []string{root}}
+	r, _ := f.Open(context.Background(), knowledgetypes.Source{Kind: knowledgetypes.SourceLocalGit, Path: dir}, all, "")
+	tags, err := r.Tags(context.Background())
+	if err != nil || len(tags) != 2 || tags["v0.1.0"] != first.String() || tags["v0.3.0"] != second.String() {
+		t.Fatalf("%v %v", tags, err)
+	}
+	tree, _, err := r.Tree(context.Background(), "v0.1.0", tags["v0.1.0"])
+	if err != nil || len(tree) != 1 {
+		t.Fatalf("%+v %v", tree, err)
+	}
+	d, _ := f.Open(context.Background(), knowledgetypes.Source{Kind: knowledgetypes.SourceLocalDir, Path: dir}, all, "")
+	if tags, err := d.Tags(context.Background()); err != nil || len(tags) != 0 {
+		t.Fatalf("local dir: %v %v", tags, err)
+	}
+}
+
 func TestLocalGitWorkingTreeOfTheCheckedOutBranch(t *testing.T) {
 	ctx := context.Background()
 	root := realDir(t)

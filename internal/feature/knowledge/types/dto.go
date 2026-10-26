@@ -11,6 +11,7 @@ type Snapshot struct {
 	ID          uuid.UUID
 	ProjectID   uuid.UUID
 	Branch      string
+	RefKind     RefKind
 	Commit      string
 	Status      Status
 	ErrorCode   *string
@@ -28,6 +29,7 @@ type NewSnapshot struct {
 	ID        uuid.UUID
 	ProjectID uuid.UUID
 	Branch    string
+	RefKind   RefKind
 	CommitSHA string
 	Status    Status
 	ErrorCode string
@@ -67,6 +69,7 @@ type Known struct {
 
 type BranchState struct {
 	Name     string
+	Release  bool
 	HeadSHA  *string
 	Pending  bool
 	Last     *Snapshot
@@ -102,6 +105,7 @@ type Hit struct {
 	ProjectPath string
 	ProjectName string
 	Branch      string
+	RefKind     RefKind
 	Commit      string
 	Path        string
 	Kind        Kind

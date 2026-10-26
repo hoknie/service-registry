@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -149,5 +150,16 @@ func TestScanNotes(t *testing.T) {
 	n := s.Notes[0]
 	if utf8.RuneCountInString(n.Path) != NotePathLimit || utf8.RuneCountInString(n.Detail) != NoteDetailLimit || strings.Contains(n.Detail, "abc0") {
 		t.Fatal(n.Path, n.Detail)
+	}
+}
+
+func TestScanBranchKindDefaultsToBranch(t *testing.T) {
+	t.Parallel()
+	var got []ScanBranch
+	if err := json.Unmarshal([]byte(`[{"name":"main","result":"unchanged"},{"name":"v1","kind":"tag","result":"collected"}]`), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got[0].Kind != RefBranch || got[1].Kind != RefTag || got[1].Result != BranchCollected {
+		t.Fatalf("%+v", got)
 	}
 }

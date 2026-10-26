@@ -14,6 +14,7 @@ import { useChildrenView } from "@/lib/childrenView";
 import { cn } from "@/lib/cn";
 import { resolveTab, sectionsOf, tabsOf, type NodeTab, type Section } from "@/lib/nodeSettings";
 import { forgetRecentNode, recordRecentNode } from "@/lib/recentNodes";
+import { splitVersion } from "@/lib/refs";
 import { can as holds } from "@/lib/rights";
 
 import { ForgeTab } from "../forge/ForgeTab";
@@ -87,7 +88,8 @@ type Props = {
   onChanged: () => void;
 };
 
-export function NodeView({ id, tab: tabParam, section: sectionParam, branch: branchParam, doc, locale, labels, onChanged }: Props) {
+export function NodeView({ id, tab: tabParam, section: sectionParam, branch: versionParam, doc, locale, labels, onChanged }: Props) {
+  const branchParam = versionParam && splitVersion(versionParam).kind === "branch" ? versionParam : null;
   const { errors, common } = useUiText();
   const { session } = useSession();
   const router = useRouter();
@@ -485,7 +487,16 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
                 {node.visibility === "open" && <Badge tone="cobalt">{t.visibility.badge}</Badge>}
                 {readable && shownActivity?.processes && <ProcessBadges processes={shownActivity.processes} labels={t.activity} locale={locale} />}
                 {readable && shownActivity?.summary && <SummaryBadges summary={shownActivity.summary} labels={t.activity} />}
-                {project && readable && <BranchPicker key={node.id} projectId={node.id} current={branch} labels={t.branches} onSelect={selectBranch} />}
+                {project && readable && (
+                  <BranchPicker
+                    key={node.id}
+                    projectId={node.id}
+                    current={tab === "docs" ? (versionParam ?? branch) : branch}
+                    labels={t.branches}
+                    withTags={tab === "docs"}
+                    onSelect={selectBranch}
+                  />
+                )}
                 {managed && (
                   <Badge tone="outline" className="bg-surface/70">
                     <GitBranch aria-hidden="true" className="size-3" />
@@ -554,7 +565,7 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: bra
                 <TabsContent value="docs">
                   <DocsTab
                     node={node}
-                    branch={branchParam}
+                    branch={versionParam}
                     doc={doc}
                     locale={locale}
                     labels={t}

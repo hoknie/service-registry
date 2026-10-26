@@ -10,6 +10,7 @@ import (
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	knowledgeports "svc-registry/internal/feature/knowledge/ports"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
+	"svc-registry/internal/feature/knowledge/usecases"
 	"svc-registry/internal/platform/apperr"
 )
 
@@ -51,8 +52,8 @@ func (r *collectRun) fail(ctx context.Context, branches []string, err error) err
 	r.scan.Fail(code, err)
 	r.delay(reset)
 	for _, b := range branches {
-		r.scan.Branches = append(r.scan.Branches, knowledgetypes.ScanBranch{Name: b, Result: knowledgetypes.BranchFailed, Error: code})
-		if err := r.s.recordFailure(ctx, r.id, b, code); err != nil {
+		r.scan.Branches = append(r.scan.Branches, knowledgetypes.ScanBranch{Name: b, Kind: knowledgetypes.RefBranch, Result: knowledgetypes.BranchFailed, Error: code})
+		if err := r.s.recordFailure(ctx, r.id, knowledgetypes.RefBranch, b, code); err != nil {
 			return err
 		}
 	}
@@ -95,7 +96,7 @@ func (r *collectRun) sourceHeads(ctx context.Context, src *knowledgetypes.Stored
 	for name, sha := range shown {
 		if p.Settings.CollectsBranch(name, def) {
 			kept[name] = sha
-			heads = append(heads, head{name, sha})
+			heads = append(heads, head{knowledgetypes.RefBranch, name, sha})
 		}
 	}
 	var branches map[string]string
@@ -133,7 +134,7 @@ func (r *collectRun) forgeHeads(ctx context.Context) (knowledgeports.ReaderPort,
 	var heads []head
 	for _, b := range branches {
 		if !b.Gone && b.HeadSHA != "" && p.Settings.CollectsBranch(b.Name, p.DefaultBranch) {
-			heads = append(heads, head{b.Name, b.HeadSHA})
+			heads = append(heads, head{knowledgetypes.RefBranch, b.Name, b.HeadSHA})
 		}
 	}
 	if code != "" {
@@ -150,7 +151,7 @@ func (r *collectRun) forgeHeads(ctx context.Context) (knowledgeports.ReaderPort,
 	if r.defBranch == "" {
 		r.defBranch = repo.DefaultBranch
 	}
-	return &syncedReader{client: client, repo: repo}, heads, nil
+	return &syncedReader{client: client, repo: repo, settings: p.Settings, maxTags: int(s.cfg.Branches.SyncMaxPerRepo)}, heads, nil
 }
 
 func (r *collectRun) collect(ctx context.Context, reader knowledgeports.ReaderPort, heads []head) error {
@@ -160,28 +161,62 @@ func (r *collectRun) collect(ctx context.Context, reader knowledgeports.ReaderPo
 			return nil
 		}
 		if !p.Force {
-			last, err := s.snapshotRepository.LastAttempt(ctx, id, h.name)
+			last, err := s.snapshotRepository.LastAttempt(ctx, id, h.kind, h.name)
 			if err != nil {
 				return apperr.Wrap(err)
 			}
 			if last != nil && last.Commit == h.sha && last.Status != knowledgetypes.StatusFailed {
-				r.scan.Branches = append(r.scan.Branches, knowledgetypes.ScanBranch{Name: h.name, Commit: h.sha, Result: knowledgetypes.BranchUnchanged})
+				r.scan.Branches = append(r.scan.Branches, knowledgetypes.ScanBranch{Name: h.name, Kind: h.kind, Commit: h.sha, Result: knowledgetypes.BranchUnchanged})
 				continue
 			}
 		}
-		if err := s.collectBranch(ctx, p, reader, h, r.scan, h.name == r.defBranch); err != nil {
+		if err := s.collectBranch(ctx, p, reader, h, r.scan, h.kind == knowledgetypes.RefBranch && h.name == r.defBranch); err != nil {
 			if ctx.Err() != nil {
 				return nil
 			}
 			code, reset := failureOf(err)
 			r.scan.Fail(code, err)
-			r.scan.Branches = append(r.scan.Branches, knowledgetypes.ScanBranch{Name: h.name, Commit: h.sha, Result: knowledgetypes.BranchFailed, Error: code})
-			slog.Info("documentation collection failed", "project", id, "branch", h.name, "code", code)
-			if err := s.recordFailure(ctx, id, h.name, code, h.sha); err != nil {
+			r.scan.Branches = append(r.scan.Branches, knowledgetypes.ScanBranch{Name: h.name, Kind: h.kind, Commit: h.sha, Result: knowledgetypes.BranchFailed, Error: code})
+			slog.Info("documentation collection failed", "project", id, "branch", h.name, "kind", h.kind, "code", code)
+			if err := s.recordFailure(ctx, id, h.kind, h.name, code, h.sha); err != nil {
 				return err
 			}
 			r.delay(reset)
 		}
 	}
 	return r.release(ctx)
+}
+
+func (r *collectRun) tagHeads(ctx context.Context, reader knowledgeports.ReaderPort) ([]head, error) {
+	s, p := r.s, r.project
+	limit := int(s.cfg.Knowledge.MaxTags)
+	if !p.Settings.WantsTags() || limit == 0 {
+		return nil, apperr.Wrap(s.syncTags.Run(ctx, usecases.SyncTagsInput{Project: r.id}))
+	}
+	found, err := reader.Tags(ctx)
+	if err != nil {
+		code, reset := failureOf(err)
+		r.scan.Fail(code, err)
+		r.delay(reset)
+		slog.Info("documentation tags not listed", "project", r.id, "code", code)
+		return nil, nil
+	}
+	for name := range found {
+		if !catalogtypes.BranchFits(name) {
+			delete(found, name)
+		}
+	}
+	known, err := s.tagRepository.Known(ctx, r.id)
+	if err != nil {
+		return nil, apperr.Wrap(err)
+	}
+	picked, release := knowledgetypes.PickTags(found, known, p.Settings, limit, time.Now())
+	if err := s.syncTags.Run(ctx, usecases.SyncTagsInput{Project: r.id, Picked: picked, Release: release}); err != nil {
+		return nil, apperr.Wrap(err)
+	}
+	heads := make([]head, len(picked))
+	for i, t := range picked {
+		heads[i] = head{knowledgetypes.RefTag, t.Name, t.Commit}
+	}
+	return heads, nil
 }

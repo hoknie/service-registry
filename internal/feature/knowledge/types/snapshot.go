@@ -6,7 +6,47 @@ import (
 	"encoding/hex"
 	"slices"
 	"unicode/utf8"
+
+	catalogtypes "svc-registry/internal/feature/catalog/types"
 )
+
+type RefSelector struct {
+	Kind    RefKind
+	Name    string
+	Release bool
+}
+
+func (r RefSelector) IsZero() bool { return r == RefSelector{} }
+
+func SelectRef(branch, tag, release *string) (RefSelector, error) {
+	given := 0
+	for _, p := range []*string{branch, tag, release} {
+		if p != nil {
+			given++
+		}
+	}
+	switch {
+	case given > 1:
+		return RefSelector{}, InvalidRef
+	case release != nil:
+		if *release != "current" {
+			return RefSelector{}, InvalidRef
+		}
+		return RefSelector{Kind: RefTag, Release: true}, nil
+	case tag != nil:
+		if !catalogtypes.BranchFits(*tag) {
+			return RefSelector{}, InvalidRef
+		}
+		return RefSelector{Kind: RefTag, Name: *tag}, nil
+	case branch != nil:
+		name, err := catalogtypes.BranchName(*branch)
+		if err != nil {
+			return RefSelector{}, err
+		}
+		return RefSelector{Kind: RefBranch, Name: name}, nil
+	}
+	return RefSelector{}, nil
+}
 
 type Entry struct {
 	Path    string
