@@ -8,6 +8,9 @@ The versions follow [Semantic Versioning](https://semver.org/).
 
 ### Features
 
+- Added public docs share ([f12d70c](https://github.com/hoknie/service-registry/commit/f12d70cedb6155ccb09f0d46735633d1eab98e70))
+- Added support for tags ([c0fc25e](https://github.com/hoknie/service-registry/commit/c0fc25ed25fca728b001ac4195b4ac776be634f3))
+- Added metrics page ([e7ae9e1](https://github.com/hoknie/service-registry/commit/e7ae9e15ae2a9618afdf2a0cadd273dd2131b58c))
 - Added metrics ([66eb02f](https://github.com/hoknie/service-registry/commit/66eb02fb2ff4dd8725c1f3913c37e8d474fef32e))
 - Added apis paths and refresh events ([fda91a1](https://github.com/hoknie/service-registry/commit/fda91a17ababf9e4edceb26f03f97338522e0504))
 - Updated repository methods ([a7dc8c8](https://github.com/hoknie/service-registry/commit/a7dc8c8b132df7d1134eb6f4612d4b41910bb4f5))
