@@ -10,11 +10,11 @@ import { nextRefreshMs, parseInterval, REFRESH_KEY, type RefreshInterval } from 
 
 const listeners = new Set<() => void>();
 
-function readInterval(): RefreshInterval {
+function readInterval(key: string, fallback: RefreshInterval): RefreshInterval {
   try {
-    return parseInterval(window.localStorage.getItem(REFRESH_KEY));
+    return parseInterval(window.localStorage.getItem(key), fallback);
   } catch {
-    return 0;
+    return fallback;
   }
 }
 
@@ -25,17 +25,18 @@ function subscribe(listener: () => void) {
   };
 }
 
-export function useRefreshInterval(): [RefreshInterval, (v: RefreshInterval) => void] {
-  const value = useSyncExternalStore(subscribe, readInterval, (): RefreshInterval => 0);
+export function useRefreshInterval(key: string = REFRESH_KEY, fallback: RefreshInterval = 0): [RefreshInterval, (v: RefreshInterval) => void] {
+  const read = useCallback(() => readInterval(key, fallback), [key, fallback]);
+  const value = useSyncExternalStore(subscribe, read, () => fallback);
   const set = useCallback((v: RefreshInterval) => {
     try {
-      window.localStorage.setItem(REFRESH_KEY, String(v));
+      window.localStorage.setItem(key, String(v));
     } catch {
       return;
     } finally {
       for (const l of listeners) l();
     }
-  }, []);
+  }, [key]);
   return [value, set];
 }
 

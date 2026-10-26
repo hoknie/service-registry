@@ -92,6 +92,13 @@ func RequireRight(p Principal, section Section, action Action) error {
 	return apperr.New(apperr.Forbidden)
 }
 
+func RequireMetrics(p Principal) error {
+	if p.EffectiveRights().AllowsScope(ScopeSettingsRead) {
+		return nil
+	}
+	return apperr.New(apperr.Forbidden)
+}
+
 func (p Principal) EffectiveRights() Rights {
 	base := p.Rights
 	if p.IsSuperadmin {

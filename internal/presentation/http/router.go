@@ -166,6 +166,8 @@ func NewRouter(d Deps, dist webui.Dist) *fiber.App {
 
 	if d.Metrics != nil {
 		r.add("/metrics", false, get(api.MetricsPage()))
+		r.add("/api/v1/system/metrics", true, get(api.SystemMetrics))
+		r.add("/api/v1/system/metrics/family", true, get(api.SystemMetricsFamily))
 	}
 	app.All("/api", handlers.APINotFound)
 	app.All("/api/*", handlers.APINotFound)

@@ -1,11 +1,20 @@
-import { Boxes, FileText, FolderTree, KeyRound, Layers, Link2, LockKeyhole, ScanSearch, Server, ShieldCheck, UserRound, UsersRound, type LucideIcon } from "lucide-react";
+import { Activity, Boxes, FileText, FolderTree, Gauge, KeyRound, Layers, Link2, LockKeyhole, ScanSearch, Server, ShieldCheck, Table2, UserRound, UsersRound, type LucideIcon } from "lucide-react";
 
 import type { Locale } from "@/i18n/config";
 import type { Messages } from "@/i18n/messages";
 
 import type { RightSection } from "./rights";
 
-export type AdminSection = { key: string; path: string; right: RightSection; icon: LucideIcon; label: (nav: Messages["header"]["nav"], menu: Messages["admin"]["menu"]) => string };
+export type AdminFeature = "metrics";
+export type AdminSection = {
+  key: string;
+  path: string;
+  right: RightSection;
+  anyOf?: RightSection[];
+  feature?: AdminFeature;
+  icon: LucideIcon;
+  label: (nav: Messages["header"]["nav"], menu: Messages["admin"]["menu"]) => string;
+};
 export type AdminGroup = { key: keyof Omit<Messages["admin"]["menu"], "label" | "globalSecrets">; icon: LucideIcon; sections: AdminSection[] };
 
 export const ADMIN_GROUPS: AdminGroup[] = [
@@ -29,6 +38,14 @@ export const ADMIN_GROUPS: AdminGroup[] = [
   },
   { key: "infra", icon: Server, sections: [{ key: "clusters", right: "clusters", path: "clusters", icon: Boxes, label: (n) => n.clusters }] },
   { key: "docs", icon: FileText, sections: [{ key: "scans", right: "scans", path: "scans", icon: ScanSearch, label: (n) => n.scans }] },
+  {
+    key: "system",
+    icon: Gauge,
+    sections: [
+      { key: "stats", right: "secrets", anyOf: ["secrets", "scans"], feature: "metrics", path: "stats", icon: Activity, label: (n) => n.stats },
+      { key: "metrics", right: "secrets", anyOf: ["secrets", "scans"], feature: "metrics", path: "metrics", icon: Table2, label: (n) => n.metrics },
+    ],
+  },
 ];
 
 export const ADMIN_PATHS = ADMIN_GROUPS.flatMap((g) => g.sections.map((s) => s.path));
@@ -47,6 +64,9 @@ export function currentAdminGroup(path: string | null): AdminGroup {
   return ADMIN_GROUPS.find((g) => g.sections.some((s) => s.path === path)) ?? ADMIN_GROUPS[0]!;
 }
 
-export function visibleAdminGroups(visible: (section: RightSection) => boolean): AdminGroup[] {
-  return ADMIN_GROUPS.map((g) => ({ ...g, sections: g.sections.filter((s) => visible(s.right)) })).filter((g) => g.sections.length > 0);
+export type AdminFeatures = Partial<Record<AdminFeature, boolean>>;
+
+export function visibleAdminGroups(visible: (section: RightSection) => boolean, features?: AdminFeatures): AdminGroup[] {
+  const shown = (s: AdminSection) => (s.anyOf ?? [s.right]).some(visible) && (!features || !s.feature || features[s.feature] === true);
+  return ADMIN_GROUPS.map((g) => ({ ...g, sections: g.sections.filter(shown) })).filter((g) => g.sections.length > 0);
 }

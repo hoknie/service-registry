@@ -7,6 +7,7 @@ import (
 	"svc-registry/internal/feature/access/usecases"
 	"svc-registry/internal/platform/auth"
 	"svc-registry/internal/platform/config"
+	"svc-registry/internal/platform/metrics"
 	"svc-registry/pkg/password"
 	"svc-registry/pkg/pgtx"
 )
@@ -18,6 +19,8 @@ type Deps struct {
 	ClientMetadata accessports.ClientMetadataPort
 	Hasher         *password.Hasher
 	LoginLimiter   *auth.LoginLimiter
+	Metrics        *metrics.Metrics
+	Instance       string
 }
 
 type parts struct {
@@ -88,7 +91,7 @@ func New(d Deps) *AccessServices {
 			clientRepository: p.clientRepository, authorizationRepository: p.authorizationRepository, grantRepository: p.grantRepository},
 		Auth: &AuthService{cfg: p.cfg, hasher: p.hasher, loginLimiter: p.loginLimiter, sessionRepository: p.sessionRepository,
 			tokenRepository: p.tokenRepository, grantRepository: p.grantRepository, userRepository: p.userRepository,
-			permissionRepository: p.permissionRepository},
+			permissionRepository: p.permissionRepository, metrics: d.Metrics, instance: d.Instance},
 		Bootstrap: &BootstrapService{hasher: p.hasher, userRepository: p.userRepository},
 		GroupContacts: &GroupContactsService{db: p.db, groupRepository: p.groupRepository, groupContactRepository: p.groupContactRepository,
 			permissionRepository: p.permissionRepository},

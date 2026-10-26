@@ -40,8 +40,13 @@ type User struct {
 
 type Me struct {
 	User
-	LoginMethod string `json:"login_method"`
-	Rights      Rights `json:"rights"`
+	LoginMethod string   `json:"login_method"`
+	Rights      Rights   `json:"rights"`
+	Features    Features `json:"features"`
+}
+
+type Features struct {
+	Metrics bool `json:"metrics"`
 }
 
 func UserOf(u accesstypes.User) User {

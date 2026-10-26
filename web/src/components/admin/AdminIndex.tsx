@@ -9,6 +9,7 @@ import { useSession } from "../SessionProvider";
 
 export function AdminIndex({ locale }: { locale: Locale }) {
   const { session } = useSession();
-  const first = visibleAdminGroups((s) => sectionVisible(session.status === "signed-in" ? session.user : null, s))[0]?.sections[0];
+  const user = session.status === "signed-in" ? session.user : null;
+  const first = visibleAdminGroups((s) => sectionVisible(user, s), { metrics: user?.features?.metrics === true })[0]?.sections[0];
   return first ? <Redirect to={adminHref(locale, first.path)} /> : null;
 }

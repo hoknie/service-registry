@@ -83,7 +83,8 @@ func routeNeed(method, route string) accesstypes.Need {
 		return globalNeed(method, accesstypes.NeedGroupsRead, accesstypes.NeedGroupsWrite)
 	case route == "/api/v1/clusters", strings.HasPrefix(route, "/api/v1/clusters/"):
 		return globalNeed(method, accesstypes.NeedClustersRead, accesstypes.NeedClustersWrite)
-	case route == "/api/v1/secrets", strings.HasPrefix(route, "/api/v1/secrets/"), route == "/api/v1/knowledge/scans":
+	case route == "/api/v1/secrets", strings.HasPrefix(route, "/api/v1/secrets/"), route == "/api/v1/knowledge/scans",
+		route == "/api/v1/system/metrics", route == "/api/v1/system/metrics/family":
 		return globalNeed(method, accesstypes.NeedSettingsRead, accesstypes.NeedSettingsWrite)
 	case route == "/api/v1/link-kinds", strings.HasPrefix(route, "/api/v1/link-kinds/"),
 		route == "/api/v1/environments", strings.HasPrefix(route, "/api/v1/environments/"):

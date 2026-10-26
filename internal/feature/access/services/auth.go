@@ -13,6 +13,7 @@ import (
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/auth"
 	"svc-registry/internal/platform/config"
+	"svc-registry/internal/platform/metrics"
 	"svc-registry/pkg/password"
 )
 
@@ -193,4 +194,28 @@ type AuthService struct {
 	tokenRepository      *repositories.TokenRepository
 	grantRepository      *repositories.OAuthGrantRepository
 	userRepository       *repositories.UserRepository
+	metrics              *metrics.Metrics
+	instance             string
+}
+
+func (s *AuthService) MetricsView(p accesstypes.Principal) (metrics.View, error) {
+	if err := accesstypes.RequireMetrics(p); err != nil {
+		return metrics.View{}, err
+	}
+	v, err := s.metrics.View(s.instance, int(s.cfg.Metrics.RefreshSecs))
+	return v, apperr.Wrap(err)
+}
+
+func (s *AuthService) MetricsFamily(p accesstypes.Principal, name string) (*metrics.Family, error) {
+	if err := accesstypes.RequireMetrics(p); err != nil {
+		return nil, err
+	}
+	f, ok, err := s.metrics.Family(name)
+	if err != nil {
+		return nil, apperr.Wrap(err)
+	}
+	if !ok {
+		return nil, apperr.ErrNotFound
+	}
+	return f, nil
 }

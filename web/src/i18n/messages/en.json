@@ -22,7 +22,9 @@
       "docsSearch": "Documentation search",
       "scans": "Scans",
       "secrets": "Secrets",
-      "docs": "Documentation"
+      "docs": "Documentation",
+      "stats": "Statistics",
+      "metrics": "Metrics"
     },
     "language": "Language",
     "user": {
@@ -902,7 +904,100 @@
       "catalog": "Catalog",
       "infra": "Infrastructure",
       "docs": "Documentation",
+      "system": "System",
       "globalSecrets": "Global secrets"
+    },
+    "metrics": {
+      "title": "Metrics",
+      "lead": "Any application metric in tables you put together: add, pick, filter and remove them; the set is kept in this browser.",
+      "about": "About this process",
+      "instance": "Instance",
+      "version": "Version",
+      "goVersion": "Go version",
+      "uptime": "Uptime",
+      "sampled": "Runtime sampled",
+      "never": "not yet",
+      "replica": "Values belong to this replica only. Go and database figures are sampled every {secs} s; charts are kept in this tab while it is open.",
+      "replicaChanged": "Another replica answered ({instance}): charts start over.",
+      "runtime": "Go runtime",
+      "unavailable": "No value yet: the first sample has not run, or this platform does not report it.",
+      "ofMax": "of {n}",
+      "disabled": {
+        "title": "Metrics collection is off",
+        "text": "Set METRICS_ENABLED=true for the server and restart it to see metrics here."
+      },
+      "refresh": {
+        "label": "Auto-refresh",
+        "off": "off",
+        "every": "{n} s",
+        "now": "Refresh now"
+      },
+      "tiles": {
+        "goroutines": "Goroutines",
+        "threads": "OS threads",
+        "gomaxprocs": "GOMAXPROCS",
+        "cpu": "CPU",
+        "heapInuse": "Heap in use",
+        "heapAlloc": "Heap allocated",
+        "heapObjects": "Heap objects",
+        "sys": "Memory from OS",
+        "stack": "Stacks",
+        "nextGc": "Next GC target",
+        "resident": "Resident memory",
+        "allocRate": "Allocation rate",
+        "gcRate": "GC cycles",
+        "gcPause": "GC pause (avg)",
+        "fds": "Open files"
+      },
+      "units": {
+        "bytes": {
+          "b": "B",
+          "kib": "KiB",
+          "mib": "MiB",
+          "gib": "GiB",
+          "tib": "TiB"
+        },
+        "perSec": "/s",
+        "perSecValue": "{n}/s",
+        "cores": "{n} cores",
+        "perMin": "{n}/min",
+        "ms": "{n} ms",
+        "s": "{n} s"
+      },
+      "types": {
+        "counter": "counter",
+        "gauge": "gauge",
+        "histogram": "histogram",
+        "summary": "summary",
+        "untyped": "untyped"
+      },
+      "table": {
+        "label": "All metrics",
+        "metric": "Metric",
+        "filter": "Filter series",
+        "filterPlaceholder": "label value contains…",
+        "seriesCount": "{n} series",
+        "value": "Value",
+        "rate": "Rate",
+        "chart": "Chart",
+        "count": "Count",
+        "sum": "Sum",
+        "avg": "Average",
+        "quantiles": "Quantiles",
+        "empty": "This metric has no series yet.",
+        "noMatch": "No series match the filter.",
+        "gone": "Metric {name} is gone; the default one is shown."
+      },
+      "stats": {
+        "title": "Statistics",
+        "lead": "How the running process lives: goroutines, memory, garbage collection, CPU and open files."
+      },
+      "tables": {
+        "add": "Add table",
+        "remove": "Remove table",
+        "empty": "No tables. Add one to watch a metric.",
+        "limit": "At most {n} tables."
+      }
     }
   },
   "catalog": {

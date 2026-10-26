@@ -16,3 +16,10 @@ test("the next refresh waits the interval and never runs while hidden or off", (
   assert.equal(nextRefreshMs(60, true), null);
   assert.equal(nextRefreshMs(0, false), null);
 });
+
+test("parseInterval falls back to the given default for missing values only", () => {
+  assert.equal(parseInterval(null, 10), 10);
+  assert.equal(parseInterval("", 10), 10);
+  assert.equal(parseInterval("0", 10), 0);
+  assert.equal(parseInterval("15", 10), 10);
+});

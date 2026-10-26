@@ -21,10 +21,12 @@ type Props = { locale: Locale; nav: Messages["header"]["nav"]; menu: Messages["a
 export function AdminShell({ locale, nav, menu, forbidden, children }: Props) {
   const current = currentAdminPath(usePathname(), locale);
   const { session } = useSession();
-  const groups = visibleAdminGroups((s) => sectionVisible(session.status === "signed-in" ? session.user : null, s));
+  const user = session.status === "signed-in" ? session.user : null;
+  const visible = (s: Parameters<typeof sectionVisible>[1]) => sectionVisible(user, s);
+  const groups = visibleAdminGroups(visible, { metrics: user?.features?.metrics === true });
   const group = groups.find((g) => g.sections.some((s) => s.path === current)) ?? groups[0];
   if (!group) return null;
-  const allowed = current === null || group.sections.some((s) => s.path === current);
+  const allowed = current === null || visibleAdminGroups(visible).some((g) => g.sections.some((s) => s.path === current));
   const items = group.sections.map((s) => ({ key: s.key, href: adminHref(locale, s.path), label: s.label(nav, menu), icon: s.icon, current: s.path === current }));
   return (
     <>

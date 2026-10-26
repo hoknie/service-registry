@@ -22,7 +22,9 @@
       "docsSearch": "Búsqueda en la documentación",
       "scans": "Escaneos",
       "secrets": "Secretos",
-      "docs": "Documentación"
+      "docs": "Documentación",
+      "stats": "Estadísticas",
+      "metrics": "Métricas"
     },
     "language": "Idioma",
     "user": {
@@ -902,7 +904,100 @@
       "catalog": "Catálogo",
       "infra": "Infraestructura",
       "docs": "Documentación",
+      "system": "Sistema",
       "globalSecrets": "Secretos globales"
+    },
+    "metrics": {
+      "title": "Métricas",
+      "lead": "Cualquier métrica de la aplicación en tablas que usted arma: añádalas, elija, filtre y elimínelas; el conjunto se guarda en este navegador.",
+      "about": "Sobre este proceso",
+      "instance": "Instancia",
+      "version": "Versión",
+      "goVersion": "Versión de Go",
+      "uptime": "Tiempo activo",
+      "sampled": "Muestreo del runtime",
+      "never": "aún no",
+      "replica": "Los valores son solo de esta réplica. Las cifras de Go y de la base se muestrean cada {secs} s; las gráficas viven en esta pestaña mientras esté abierta.",
+      "replicaChanged": "Respondió otra réplica ({instance}): las gráficas empiezan de nuevo.",
+      "runtime": "Runtime de Go",
+      "unavailable": "Sin valor: aún no hubo muestreo o esta plataforma no lo informa.",
+      "ofMax": "de {n}",
+      "disabled": {
+        "title": "La recogida de métricas está desactivada",
+        "text": "Configure METRICS_ENABLED=true en el servidor y reinícielo para ver las métricas aquí."
+      },
+      "refresh": {
+        "label": "Actualización automática",
+        "off": "desactivada",
+        "every": "{n} s",
+        "now": "Actualizar ahora"
+      },
+      "tiles": {
+        "goroutines": "Goroutines",
+        "threads": "Hilos del SO",
+        "gomaxprocs": "GOMAXPROCS",
+        "cpu": "CPU",
+        "heapInuse": "Heap en uso",
+        "heapAlloc": "Heap asignado",
+        "heapObjects": "Objetos del heap",
+        "sys": "Memoria del SO",
+        "stack": "Pilas",
+        "nextGc": "Objetivo del próximo GC",
+        "resident": "Memoria residente",
+        "allocRate": "Tasa de asignación",
+        "gcRate": "Ciclos de GC",
+        "gcPause": "Pausa de GC (media)",
+        "fds": "Archivos abiertos"
+      },
+      "units": {
+        "bytes": {
+          "b": "B",
+          "kib": "KiB",
+          "mib": "MiB",
+          "gib": "GiB",
+          "tib": "TiB"
+        },
+        "perSec": "/s",
+        "perSecValue": "{n}/s",
+        "cores": "{n} núcleos",
+        "perMin": "{n}/min",
+        "ms": "{n} ms",
+        "s": "{n} s"
+      },
+      "types": {
+        "counter": "contador",
+        "gauge": "indicador",
+        "histogram": "histograma",
+        "summary": "resumen",
+        "untyped": "sin tipo"
+      },
+      "table": {
+        "label": "Todas las métricas",
+        "metric": "Métrica",
+        "filter": "Filtrar series",
+        "filterPlaceholder": "el valor de una etiqueta contiene…",
+        "seriesCount": "{n} series",
+        "value": "Valor",
+        "rate": "Tasa",
+        "chart": "Gráfica",
+        "count": "Número",
+        "sum": "Suma",
+        "avg": "Media",
+        "quantiles": "Cuantiles",
+        "empty": "Esta métrica aún no tiene series.",
+        "noMatch": "Ninguna serie coincide con el filtro.",
+        "gone": "La métrica {name} ya no existe; se muestra la predeterminada."
+      },
+      "stats": {
+        "title": "Estadísticas",
+        "lead": "Cómo vive el proceso en ejecución: goroutines, memoria, recolección de basura, CPU y archivos abiertos."
+      },
+      "tables": {
+        "add": "Añadir tabla",
+        "remove": "Eliminar tabla",
+        "empty": "No hay tablas. Añada una para seguir una métrica.",
+        "limit": "Como máximo {n} tablas."
+      }
     }
   },
   "catalog": {

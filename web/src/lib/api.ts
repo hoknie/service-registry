@@ -23,7 +23,7 @@ export type User = {
   updated_at: string;
 };
 
-export type Me = User & { login_method: string; rights: Rights };
+export type Me = User & { login_method: string; rights: Rights; features?: { metrics: boolean } };
 
 export type Provider = { key: string; display_name: string };
 

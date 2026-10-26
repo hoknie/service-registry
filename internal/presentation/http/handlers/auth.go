@@ -49,7 +49,8 @@ func (a *Handlers) Me(c fiber.Ctx) error {
 	if err != nil {
 		return responses.Fail(c, err)
 	}
-	return c.Status(http.StatusOK).JSON(responses.Me{User: responses.UserOf(user), LoginMethod: p.Method, Rights: responses.RightsOf(p.EffectiveRights())})
+	return c.Status(http.StatusOK).JSON(responses.Me{User: responses.UserOf(user), LoginMethod: p.Method, Rights: responses.RightsOf(p.EffectiveRights()),
+		Features: responses.Features{Metrics: a.Metrics != nil}})
 }
 
 func (a *Handlers) ChangePassword(c fiber.Ctx) error {

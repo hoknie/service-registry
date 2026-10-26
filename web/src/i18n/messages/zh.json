@@ -22,7 +22,9 @@
       "docsSearch": "文档搜索",
       "scans": "扫描",
       "secrets": "密钥",
-      "docs": "文档"
+      "docs": "文档",
+      "stats": "统计",
+      "metrics": "指标"
     },
     "language": "语言",
     "user": {
@@ -902,7 +904,100 @@
       "catalog": "目录",
       "infra": "基础设施",
       "docs": "文档",
+      "system": "系统",
       "globalSecrets": "全局密钥"
+    },
+    "metrics": {
+      "title": "指标",
+      "lead": "在您自己组合的表格中查看任意应用指标：添加、选择、筛选和删除表格；表格组合保存在此浏览器中。",
+      "about": "关于此进程",
+      "instance": "实例",
+      "version": "版本",
+      "goVersion": "Go 版本",
+      "uptime": "运行时长",
+      "sampled": "运行时采样",
+      "never": "尚未",
+      "replica": "数值仅属于此副本。Go 和数据库数据每 {secs} 秒采样一次；图表只保存在此标签页中，关闭即丢失。",
+      "replicaChanged": "另一个副本作出了响应（{instance}）：图表重新开始。",
+      "runtime": "Go 运行时",
+      "unavailable": "暂无数值：首次采样尚未完成，或此平台不提供该值。",
+      "ofMax": "共 {n}",
+      "disabled": {
+        "title": "指标采集已关闭",
+        "text": "为服务器设置 METRICS_ENABLED=true 并重启后，即可在此查看指标。"
+      },
+      "refresh": {
+        "label": "自动刷新",
+        "off": "关闭",
+        "every": "{n} 秒",
+        "now": "立即刷新"
+      },
+      "tiles": {
+        "goroutines": "Goroutine",
+        "threads": "系统线程",
+        "gomaxprocs": "GOMAXPROCS",
+        "cpu": "CPU",
+        "heapInuse": "堆使用中",
+        "heapAlloc": "堆已分配",
+        "heapObjects": "堆对象",
+        "sys": "从系统获取的内存",
+        "stack": "栈",
+        "nextGc": "下次 GC 目标",
+        "resident": "常驻内存",
+        "allocRate": "分配速率",
+        "gcRate": "GC 周期",
+        "gcPause": "GC 暂停（平均）",
+        "fds": "打开的文件"
+      },
+      "units": {
+        "bytes": {
+          "b": "B",
+          "kib": "KiB",
+          "mib": "MiB",
+          "gib": "GiB",
+          "tib": "TiB"
+        },
+        "perSec": "/秒",
+        "perSecValue": "{n}/秒",
+        "cores": "{n} 核",
+        "perMin": "{n}/分钟",
+        "ms": "{n} 毫秒",
+        "s": "{n} 秒"
+      },
+      "types": {
+        "counter": "计数器",
+        "gauge": "仪表",
+        "histogram": "直方图",
+        "summary": "摘要",
+        "untyped": "无类型"
+      },
+      "table": {
+        "label": "所有指标",
+        "metric": "指标",
+        "filter": "筛选序列",
+        "filterPlaceholder": "标签值包含…",
+        "seriesCount": "{n} 个序列",
+        "value": "值",
+        "rate": "速率",
+        "chart": "图表",
+        "count": "数量",
+        "sum": "总和",
+        "avg": "平均",
+        "quantiles": "分位数",
+        "empty": "此指标还没有序列。",
+        "noMatch": "没有符合筛选的序列。",
+        "gone": "指标 {name} 已消失；显示默认指标。"
+      },
+      "stats": {
+        "title": "统计",
+        "lead": "运行中进程的状况：goroutine、内存、垃圾回收、CPU 和打开的文件。"
+      },
+      "tables": {
+        "add": "添加表格",
+        "remove": "删除表格",
+        "empty": "没有表格。添加一个表格来查看指标。",
+        "limit": "最多 {n} 个表格。"
+      }
     }
   },
   "catalog": {

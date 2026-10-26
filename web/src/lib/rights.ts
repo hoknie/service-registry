@@ -18,7 +18,17 @@ export const SECTION_ACTIONS: Record<RightSection, RightAction[]> = {
 
 export const RIGHT_SECTIONS = Object.keys(SECTION_ACTIONS) as RightSection[];
 
-type Holder = { is_superadmin: boolean; rights?: Rights } | null | undefined;
+type Holder = { is_superadmin: boolean; rights?: Rights; features?: { metrics?: boolean } } | null | undefined;
+
+export const METRICS_RIGHTS: RightSection[] = ["secrets", "scans"];
+
+export function metricsAllowed(user: Holder): boolean {
+  return METRICS_RIGHTS.some((s) => can(user, s, "read"));
+}
+
+export function metricsVisible(user: Holder): boolean {
+  return Boolean(user?.features?.metrics) && metricsAllowed(user);
+}
 
 export function can(user: Holder, section: RightSection, action: RightAction): boolean {
   if (!user) return false;

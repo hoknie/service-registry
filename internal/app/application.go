@@ -80,7 +80,8 @@ func New(cfg config.Config, opts ...Option) (*App, error) {
 	forges := forgeclient.NewFactoryClient(m.Client("forge", outbound.New(cfg.Outbound.Options())))
 	a.Access = accessservices.New(accessservices.Deps{DB: db, Config: &cfg, Hasher: a.Hasher,
 		OAuth:          oidc.NewOIDCClient(cfg.OAuth, cfg.Web.PublicURL, m.Client("oidc", outbound.New(cfg.Outbound.Options()))),
-		ClientMetadata: instrument(m, "client_metadata", clientMetadata(o, cfg)), LoginLimiter: auth.NewLoginLimiter(cfg.LoginLimit)})
+		ClientMetadata: instrument(m, "client_metadata", clientMetadata(o, cfg)), LoginLimiter: auth.NewLoginLimiter(cfg.LoginLimit),
+		Metrics: m, Instance: hostname()})
 	a.Catalog = catalogservices.New(catalogservices.Deps{DB: db, Config: &cfg, Secrets: a.Secrets})
 	a.Ownership = ownershipservices.New(ownershipservices.Deps{DB: db, Catalog: a.Catalog})
 	a.Notify = notifyservices.New(notifyservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Ownership: a.Ownership,

@@ -2,6 +2,7 @@ package app
 
 import (
 	"net/http"
+	"os"
 	"time"
 
 	ingesttypes "svc-registry/internal/feature/ingest/types"
@@ -46,4 +47,12 @@ func (a *App) newSampler(extra []metrics.Source) *metrics.Sampler {
 			a.Notify.Outbox.QueueSamples, a.Knowledge.Search.QueueSamples),
 	}
 	return a.Metrics.Sampler(time.Duration(a.Config.Metrics.RefreshSecs)*time.Second, append(sources, extra...)...)
+}
+
+func hostname() string {
+	name, err := os.Hostname()
+	if err != nil {
+		return ""
+	}
+	return name
 }

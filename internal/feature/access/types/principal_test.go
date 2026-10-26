@@ -242,3 +242,35 @@ func TestCatalogReadFollowsTheReadScope(t *testing.T) {
 		t.Errorf("catalog read refused: %v", err)
 	}
 }
+
+func TestRequireMetrics(t *testing.T) {
+	t.Parallel()
+	token := uuid.Must(uuid.NewV7())
+	cases := []struct {
+		name string
+		p    Principal
+		ok   bool
+	}{
+		{"superadmin", Principal{IsSuperadmin: true}, true},
+		{"scans read", Principal{Rights: Rights{SectionScans: {ActionRead}}}, true},
+		{"secrets read", Principal{Rights: Rights{SectionSecrets: {ActionRead}}}, true},
+		{"clusters read", Principal{Rights: Rights{SectionClusters: {ActionRead}}}, false},
+		{"secrets create", Principal{Rights: Rights{SectionSecrets: {ActionCreate}}}, false},
+		{"no rights", Principal{}, false},
+		{"superadmin token read", Principal{TokenID: token, IsSuperadmin: true, Scopes: Scopes{ScopeRead}}, false},
+		{"superadmin token settings", Principal{TokenID: token, IsSuperadmin: true, Scopes: Scopes{ScopeSettingsRead}}, true},
+		{"user token settings without right", Principal{TokenID: token, Scopes: Scopes{ScopeSettingsRead}, Rights: Rights{SectionClusters: {ActionRead}}}, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			err := RequireMetrics(c.p)
+			if (err == nil) != c.ok {
+				t.Fatalf("err = %v, want ok %v", err, c.ok)
+			}
+			if err != nil && kindOf(err) != apperr.Forbidden {
+				t.Fatalf("kind = %v", kindOf(err))
+			}
+		})
+	}
+}
