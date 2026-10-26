@@ -73,8 +73,10 @@ export function startPage(paths: readonly string[]): string | null {
 }
 
 export function navigateDoc(href: string, replace = false): void {
+  const before = window.location.pathname;
   if (replace) window.history.replaceState(null, "", href);
   else window.history.pushState(null, "", href);
+  if (!replace && !window.location.hash && window.location.pathname !== before) window.scrollTo(0, 0);
   window.dispatchEvent(new Event(DOC_NAVIGATE));
 }
 
