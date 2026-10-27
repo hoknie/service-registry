@@ -6,6 +6,15 @@ The versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixes
+
+- Update scroll doc content and expand subtree in structure ([3376f3e](https://github.com/hoknie/service-registry/commit/3376f3e46e6ffe02b1cab9be3e4dfc517bae65fd))
+- Updated scroll to top for doc page ([323edb1](https://github.com/hoknie/service-registry/commit/323edb1d5ef3186aed72e0bad80c8f2d1ae13b3d))
+
+[Full diff](https://github.com/hoknie/service-registry/compare/v0.2.1...HEAD)
+
+## [0.2.1] - 2026-10-26
+
 ### Features
 
 - Added public docs share ([f12d70c](https://github.com/hoknie/service-registry/commit/f12d70cedb6155ccb09f0d46735633d1eab98e70))
@@ -22,10 +31,11 @@ The versions follow [Semantic Versioning](https://semver.org/).
 
 ### Other
 
+- Updated changelog ([8e94242](https://github.com/hoknie/service-registry/commit/8e9424240209bbb0b711ff37a402ffa20a079f91))
 - Update changelog ([9535fb3](https://github.com/hoknie/service-registry/commit/9535fb382f94fd2c1ed48d02eb885fa9191bff3d))
 - Bump app version ([7a018fd](https://github.com/hoknie/service-registry/commit/7a018fda905e10c3141a465d7104798e94650ede))
 
-[Full diff](https://github.com/hoknie/service-registry/compare/v0.2.0...HEAD)
+[Full diff](https://github.com/hoknie/service-registry/compare/v0.2.0...v0.2.1)
 
 ## [0.2.0] - 2026-10-24
 
