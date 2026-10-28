@@ -4,6 +4,21 @@ Every notable change of svc-registry. Sections are written by `packaging/changel
 Conventional Commits between release tags; the release on GitHub carries the section of its tag.
 The versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Features
+
+- Added skills git source ([bec79e3](https://github.com/hoknie/service-registry/commit/bec79e3fda3244f48cae94e16d210e48ef1fdcd7))
+- Added skills and mcp servers ([344ddbf](https://github.com/hoknie/service-registry/commit/344ddbf6bb5451a5519bd91c6ebc6dfd47e672a6))
+
+### Dependencies
+
+- Bump the npm-minor-and-patch group in /web with 3 updates (#16) ([f271956](https://github.com/hoknie/service-registry/commit/f271956f40a834366958ebe53a7af60f3ed4ca57))
+- Bump the actions group with 3 updates (#17) ([54d12c7](https://github.com/hoknie/service-registry/commit/54d12c7852596629231cd218a93f15f24f4a9e2c))
+- Bump the go-minor-and-patch group across 1 directory with 6 updates (#18) ([07923d1](https://github.com/hoknie/service-registry/commit/07923d184334ef284753eaf00e0aad49104bcb72))
+
+[Full diff](https://github.com/hoknie/service-registry/compare/v0.2.2...HEAD)
+
 ## [0.2.2] - 2026-10-27
 
 ### Fixes
