@@ -21,6 +21,7 @@ PNPM="${PNPM:-pnpm}"
 export DATABASE_URL="${DATABASE_URL:-postgres://registry:registry@127.0.0.1:${PGSQL_PORT:-5440}/registry}"
 export WEB_DIST_DIR="${WEB_DIST_DIR:-web/out}"
 export UPLOADS_DIR="${UPLOADS_DIR:-env/uploads}"
+export SKILLS_DIR="${SKILLS_DIR:-env/skills}"
 
 log() { printf '\033[1mdev:\033[0m %s\n' "$*" >&2; }
 

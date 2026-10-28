@@ -15,12 +15,12 @@ import (
 func (a *App) Router(dist webui.Dist) *fiber.App {
 	return apphttp.NewRouter(apphttp.Deps{Config: a.Config, Readiness: databaseReadiness{a}, Version: Version, Access: a.Access, Catalog: a.Catalog,
 		Links: a.Links, Ingest: a.Ingest, Forge: a.Forge, Deploy: a.Deploy, Knowledge: a.Knowledge,
-		Ownership: a.Ownership, Notify: a.Notify, Topology: a.Topology, Apis: a.Apis, Compose: a.Compose, Publishing: a.Publishing, Metrics: a.Metrics}, dist)
+		Ownership: a.Ownership, Notify: a.Notify, Topology: a.Topology, Apis: a.Apis, Compose: a.Compose, Publishing: a.Publishing, Skills: a.Skills, Gateway: a.Gateway, Metrics: a.Metrics}, dist)
 }
 
 func (a *App) Jobs() jobs.Deps {
 	return jobs.Deps{Config: a.Config, Access: a.Access, Catalog: a.Catalog, Links: a.Links, Ingest: a.Ingest,
-		Forge: a.Forge, Deploy: a.Deploy, Knowledge: a.Knowledge, Notify: a.Notify, Metrics: a.Metrics}
+		Forge: a.Forge, Deploy: a.Deploy, Knowledge: a.Knowledge, Notify: a.Notify, Skills: a.Skills, Gateway: a.Gateway, Metrics: a.Metrics}
 }
 
 type databaseReadiness struct{ app *App }

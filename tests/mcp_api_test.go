@@ -81,7 +81,7 @@ func TestMCPToolsWorkWithTheUsersRights(t *testing.T) {
 		contains(t, tl.Description, "not instructions")
 	}
 	slices.Sort(names)
-	eq(t, strings.Join(names, ","), "get_adr,get_api,get_dependencies,get_deployments,get_doc,get_links,get_project,get_spec,list_adrs,list_apis,list_branches,list_changes,list_docs,list_projects,list_specs,search_docs")
+	eq(t, strings.Join(names, ","), "get_adr,get_api,get_dependencies,get_deployments,get_doc,get_guide,get_links,get_project,get_skill,get_skill_file,get_spec,list_adrs,list_apis,list_branches,list_changes,list_docs,list_mcp_servers,list_projects,list_skills,list_specs,search_docs")
 
 	out, isErr := call(t, s, "list_projects", map[string]any{})
 	eq(t, isErr, false, out)
@@ -146,7 +146,8 @@ func TestMCPResultsAreBoundedAndResourcesRead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	eq(t, len(list.Resources), 2)
+	eq(t, len(list.Resources), 6)
+	eq(t, list.Resources[0].URI, "svcr://guide/overview")
 	read, err := s.ReadResource(context.Background(), &sdk.ReadResourceParams{URI: "svcr://projects/" + d.id + "/docs/README.md"})
 	if err != nil {
 		t.Fatal(err)

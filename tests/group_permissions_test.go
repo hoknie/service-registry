@@ -212,7 +212,7 @@ func TestRightsInAuthMeAndTokens(t *testing.T) {
 	f.app.user("carol@example.com", false)
 	eq(t, jsonText(f.app.get("/api/v1/auth/me", f.app.session("carol@example.com", password)).json(t)["rights"]), `{}`)
 	full := f.app.get("/api/v1/auth/me", f.admin).json(t)["rights"].(obj)
-	eq(t, len(full), 10)
+	eq(t, len(full), 12)
 	eq(t, jsonText(full["environments"]), `["create","update","delete"]`)
 
 	read := f.app.pat(f.bob, "clusters:read")
@@ -258,4 +258,24 @@ func TestProviderMembershipCarriesGroupRights(t *testing.T) {
 	r := app.get("/api/v1/clusters", bob)
 	eq(t, r.status, 403)
 	eq(t, code(t, r), any("auth.forbidden"))
+}
+
+func TestSkillsRightIsASection(t *testing.T) {
+	t.Parallel()
+	f := newRightsFixture(t)
+	r := f.grant(t, obj{"skills": []string{"delete", "create"}})
+	eq(t, jsonText(r.json(t)), `{"permissions":{"skills":["create","delete"]}}`)
+	r = f.app.send("PUT", "/api/v1/groups/"+f.group+"/permissions", f.admin, obj{"permissions": obj{"skills": []string{"read"}}})
+	eq(t, r.status, 400)
+	eq(t, code(t, r), any("validation.invalid_permissions"))
+}
+
+func TestMCPRightIsASection(t *testing.T) {
+	t.Parallel()
+	f := newRightsFixture(t)
+	r := f.grant(t, obj{"mcp": []string{"update", "create"}})
+	eq(t, jsonText(r.json(t)), `{"permissions":{"mcp":["create","update"]}}`)
+	r = f.app.send("PUT", "/api/v1/groups/"+f.group+"/permissions", f.admin, obj{"permissions": obj{"mcp": []string{"read"}}})
+	eq(t, r.status, 400)
+	eq(t, code(t, r), any("validation.invalid_permissions"))
 }

@@ -96,6 +96,8 @@ const (
 	SectionScans        Section = "scans"
 	SectionCatalog      Section = "catalog"
 	SectionPublication  Section = "publication"
+	SectionSkills       Section = "skills"
+	SectionMCP          Section = "mcp"
 )
 
 type Action string
@@ -110,7 +112,7 @@ const (
 var Actions = []Action{ActionCreate, ActionRead, ActionUpdate, ActionDelete}
 
 var Sections = []Section{SectionUsers, SectionGroups, SectionTokens, SectionClusters, SectionEnvironments, SectionLinkKinds,
-	SectionSecrets, SectionScans, SectionCatalog, SectionPublication}
+	SectionSecrets, SectionScans, SectionCatalog, SectionPublication, SectionSkills, SectionMCP}
 
 var SectionActions = map[Section][]Action{
 	SectionUsers:        {ActionCreate, ActionRead, ActionUpdate},
@@ -123,6 +125,8 @@ var SectionActions = map[Section][]Action{
 	SectionScans:        {ActionRead},
 	SectionCatalog:      Actions,
 	SectionPublication:  {ActionUpdate},
+	SectionSkills:       {ActionCreate, ActionUpdate, ActionDelete},
+	SectionMCP:          {ActionCreate, ActionUpdate, ActionDelete},
 }
 
 var sectionScopes = map[Section][2]Scope{
@@ -135,6 +139,8 @@ var sectionScopes = map[Section][2]Scope{
 	SectionScans:        {ScopeSettingsRead, ScopeSettingsWrite},
 	SectionCatalog:      {ScopeRead, ScopeCatalogRoot},
 	SectionPublication:  {ScopeRead, ScopePublication},
+	SectionSkills:       {ScopeRead, ScopeSkills},
+	SectionMCP:          {ScopeRead, ScopeMCPServers},
 }
 
 type Rights map[Section][]Action

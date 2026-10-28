@@ -38,6 +38,9 @@ change right does not include reading, so the dialog ticks both when you pick a 
 | `clusters:read`, `clusters:write` | clusters and agent tokens |
 | `settings:read`, `settings:write` | global secrets and scans; changes of link kinds and environments |
 | `catalog.root` | creating, moving and deleting organizations at the top of the catalog (with `write`) |
+| `publication:write` | publication settings of documentation (with `read`) |
+| `skills:write` | global AI skills, their folders and git sources (with `write`) |
+| `mcp_servers:write` | global MCP servers, their folders, proxies and access lists (with `write`) |
 
 Who may get them:
 - Superadmins may add any of them.
@@ -72,6 +75,12 @@ Under **Catalog access** pick **Selected nodes only** and choose up to 20 organi
 - A moved node keeps limiting its subtree. A deleted node leaves the token and frees its place.
 - If every node of a token is deleted, the token opens nothing; it never becomes unrestricted.
 - To change the nodes, issue a new token.
+
+## MCP servers of a token
+
+A token with the `mcp` scope reaches external MCP servers through the registry ([mcp-gateway.md](mcp-gateway.md)). By
+default it gets all servers available to its owner; **MCP servers → Selected** in the dialog limits it to chosen ones.
+**MCP servers** in the token's menu changes the list at any time without issuing a new token.
 
 ## When a token stops working
 

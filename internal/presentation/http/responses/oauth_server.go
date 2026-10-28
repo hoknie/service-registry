@@ -88,18 +88,31 @@ type ConsentClient struct {
 }
 
 type ConsentRequest struct {
-	ID        uuid.UUID     `json:"id"`
-	Client    ConsentClient `json:"client"`
-	Scopes    []string      `json:"scopes"`
-	Resource  *string       `json:"resource"`
-	ExpiresAt string        `json:"expires_at"`
+	ID         uuid.UUID     `json:"id"`
+	Client     ConsentClient `json:"client"`
+	Scopes     []string      `json:"scopes"`
+	Resource   *string       `json:"resource"`
+	ExpiresAt  string        `json:"expires_at"`
+	MCPServers []TokenServer `json:"mcp_servers,omitempty"`
 }
 
 func ConsentRequestOf(r accesstypes.AuthorizationRequest) ConsentRequest {
 	return ConsentRequest{ID: r.ID, Scopes: r.Scopes.Strings(), Resource: r.Resource, ExpiresAt: r.ExpiresAt,
 		Client: ConsentClient{ID: r.ClientID, Name: r.ClientName, RedirectURI: new(r.RedirectURI),
 			RedirectHost: accesstypes.RedirectHost(r.RedirectURI), MetadataURL: r.ClientMetadataURL,
-			MetadataHost: accesstypes.MetadataHost(r.ClientMetadataURL)}}
+			MetadataHost: accesstypes.MetadataHost(r.ClientMetadataURL)},
+		MCPServers: consentServers(r.MCPServers)}
+}
+
+func consentServers(refs []accesstypes.ServerRef) []TokenServer {
+	if refs == nil {
+		return nil
+	}
+	out := make([]TokenServer, len(refs))
+	for i, r := range refs {
+		out[i] = TokenServer{ID: r.ID, Slug: r.Slug, Title: r.Title, OrganizationID: r.OrganizationID}
+	}
+	return out
 }
 
 type RedirectTo struct {
@@ -116,6 +129,7 @@ type App struct {
 	ExpiresAt  string        `json:"expires_at"`
 	RevokedAt  *string       `json:"revoked_at"`
 	Status     string        `json:"status"`
+	MCPServers []TokenServer `json:"mcp_servers"`
 }
 
 func AppOf(g accesstypes.AppGrant) App {
@@ -129,5 +143,5 @@ func AppOf(g accesstypes.AppGrant) App {
 	return App{ID: g.ID, Client: ConsentClient{ID: g.ClientID, Name: g.ClientName, RedirectHost: g.RedirectHost,
 		MetadataURL: g.ClientMetadataURL, MetadataHost: accesstypes.MetadataHost(g.ClientMetadataURL)},
 		Scopes: g.Scopes.Strings(), Nodes: nodes, CreatedAt: g.CreatedAt, LastUsedAt: g.LastUsedAt, ExpiresAt: g.ExpiresAt,
-		RevokedAt: g.RevokedAt, Status: string(g.Status)}
+		RevokedAt: g.RevokedAt, Status: string(g.Status), MCPServers: tokenServers(g.MCPServerSet, g.MCPServers)}
 }

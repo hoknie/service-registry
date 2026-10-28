@@ -24,7 +24,7 @@ export type User = {
   updated_at: string;
 };
 
-export type Me = User & { login_method: string; rights: Rights; features?: { metrics: boolean } };
+export type Me = User & { login_method: string; rights: Rights; features?: { metrics: boolean; skills?: boolean; mcp_gateway?: boolean } };
 
 export type Provider = { key: string; display_name: string };
 
@@ -249,7 +249,7 @@ export type ProjectKey = {
 
 export type GlobalArea = "users" | "groups" | "clusters" | "settings";
 
-export type GlobalScope = `${GlobalArea}:${"read" | "write"}` | "catalog.root" | "publication:write";
+export type GlobalScope = `${GlobalArea}:${"read" | "write"}` | "catalog.root" | "publication:write" | "skills:write" | "mcp_servers:write";
 
 export type Scope = "read" | "write" | "mcp" | GlobalScope;
 
@@ -270,7 +270,10 @@ export type PersonalToken = {
   user_id?: string;
   user_email?: string;
   secret?: string;
+  mcp_servers?: TokenServer[] | null;
 };
+
+export type TokenServer = { id: string; slug: string; title: string; organization_id?: string | null };
 
 export type OAuthClientRef = {
   id: string;
@@ -291,6 +294,7 @@ export type OAuthApp = {
   expires_at: string;
   revoked_at: string | null;
   status: "active" | "expired" | "revoked";
+  mcp_servers?: TokenServer[] | null;
 };
 
 export type ConsentRequest = {
@@ -299,6 +303,7 @@ export type ConsentRequest = {
   scopes: Scope[];
   resource: string | null;
   expires_at: string;
+  mcp_servers?: TokenServer[];
 };
 
 export type Role = "viewer" | "editor" | "admin";
@@ -725,6 +730,10 @@ export function apiUpload<T>(path: `/${string}`, file: File): Promise<T> {
   const form = new FormData();
   form.append("file", file);
   return call<T>("POST", path, form);
+}
+
+export function apiForm<T>(method: "POST" | "PUT", path: `/${string}`, form: FormData): Promise<T> {
+  return call<T>(method, path, form);
 }
 
 export function errorCode(e: unknown): string {

@@ -33,6 +33,14 @@ func (t *tools) registerResources(s *sdk.Server) {
 	s.AddResourceTemplate(&sdk.ResourceTemplate{Name: "docs", Title: "Project documentation",
 		URITemplate: docsTemplate, Description: "A documentation file of a project; add ?ref=<branch> for another branch." + dataNote},
 		t.observeResource(docsTemplate, t.readResource))
+	for _, r := range t.guideResources() {
+		s.AddResource(r, func(_ context.Context, req *sdk.ReadResourceRequest) (*sdk.ReadResourceResult, error) {
+			if out, ok := t.readGuide(req.Params.URI); ok {
+				return out, nil
+			}
+			return nil, sdk.ResourceNotFoundError(req.Params.URI)
+		})
+	}
 	s.AddReceivingMiddleware(func(next sdk.MethodHandler) sdk.MethodHandler {
 		return func(ctx context.Context, method string, req sdk.Request) (sdk.Result, error) {
 			if method != "resources/list" {
@@ -74,9 +82,9 @@ func (t *tools) listResources(ctx context.Context, cursor string) (*sdk.ListReso
 	offset, _ := strconv.Atoi(cursor)
 	docs, err := t.deps.Compose.MCP.DocResources(ctx, t.p)
 	if err != nil {
-		return &sdk.ListResourcesResult{Resources: []*sdk.Resource{}}, nil
+		docs = nil
 	}
-	var all []*sdk.Resource
+	all := t.guideResources()
 	for _, d := range docs {
 		all = append(all, &sdk.Resource{URI: docURI(d.Project.ID, d.File.Path), Name: d.Project.Slug + "/" + d.File.Path,
 			Title: d.Project.Name + ": " + d.File.Path, MIMEType: mimeOf(d.File.Path), Size: d.File.Bytes})

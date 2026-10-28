@@ -40,6 +40,7 @@ func testConfig(t testing.TB, dbURL, dist string, extra ...string) config.Config
 		"PASSWORD_HASH_MEMORY_KIB":      "1024",
 		"PASSWORD_HASH_ITERATIONS":      "1",
 		"UPLOADS_DIR":                   filepath.Join(t.TempDir(), "uploads"),
+		"SKILLS_DIR":                    filepath.Join(t.TempDir(), "skills"),
 	}
 	for i := 0; i+1 < len(extra); i += 2 {
 		vars[extra[i]] = extra[i+1]
@@ -320,7 +321,7 @@ func eq[T comparable](t testing.TB, got, want T, context ...any) {
 
 func (a *testApp) restart(extra ...string) {
 	a.t.Helper()
-	env := append(append(append([]string{}, a.env...), extra...), "UPLOADS_DIR", a.cfg.Uploads.Dir)
+	env := append(append(append([]string{}, a.env...), extra...), "UPLOADS_DIR", a.cfg.Uploads.Dir, "SKILLS_DIR", a.cfg.Skills.DirRaw)
 	cfg := testConfig(a.t, a.db.URL, a.dist, env...)
 	services, err := svcapp.New(cfg, append([]svcapp.Option{svcapp.WithLinkChecker(a.checker)}, a.opts...)...)
 	if err != nil {

@@ -22,6 +22,12 @@ type GroupStewardsPort interface {
 	OwnedAmong(ctx context.Context, userID uuid.UUID, nodeIDs []uuid.UUID) ([]uuid.UUID, error)
 }
 
+type MCPServersPort interface {
+	VisibleServers(ctx context.Context, owner accesstypes.Principal, ids []uuid.UUID) (bool, error)
+	DescribeServers(ctx context.Context, ids []uuid.UUID) ([]accesstypes.ServerRef, error)
+	ListServers(ctx context.Context, owner accesstypes.Principal) ([]accesstypes.ServerRef, error)
+}
+
 type OrganizationsPort interface {
 	OrganizationAccess(ctx context.Context, p accesstypes.Principal, nodeID uuid.UUID) (accesstypes.OrganizationAccess, error)
 }

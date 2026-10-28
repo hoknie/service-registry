@@ -25,13 +25,22 @@ type Policy struct {
 	AllowPrivate bool
 	AllowHosts   []string
 	DenyHosts    []string
+	AllowNets    []netip.Prefix
 }
 
 func (p Policy) HostDenied(host string) bool { return MatchHost(p.DenyHosts, host) }
 
 func (p Policy) Allows(host string, ip netip.Addr) bool {
 	ip = ip.Unmap()
-	if !ip.IsValid() || p.HostDenied(host) || ip.IsLoopback() || ip.IsUnspecified() || ip.IsMulticast() ||
+	if !ip.IsValid() || p.HostDenied(host) {
+		return false
+	}
+	for _, n := range p.AllowNets {
+		if n.Contains(ip) {
+			return true
+		}
+	}
+	if ip.IsLoopback() || ip.IsUnspecified() || ip.IsMulticast() ||
 		ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsInterfaceLocalMulticast() {
 		return false
 	}

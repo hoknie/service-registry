@@ -46,7 +46,9 @@ type Me struct {
 }
 
 type Features struct {
-	Metrics bool `json:"metrics"`
+	Metrics    bool `json:"metrics"`
+	Skills     bool `json:"skills"`
+	MCPGateway bool `json:"mcp_gateway"`
 }
 
 func UserOf(u accesstypes.User) User {

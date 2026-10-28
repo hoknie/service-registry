@@ -96,6 +96,12 @@ export function fileUrl(projectId: string, branch: string, path: string): `/${st
   return `/v1/catalog/nodes/${projectId}/knowledge/file?${refQuery(branch, { path }).toString()}`;
 }
 
+export function apiDocUrl(projectId: string, branch: string, path: string): `/${string}` {
+  if (source.kind === "public")
+    return `/public/docs/api?${publicQuery({ path: projectPathOf(projectId), file: path, ...Object.fromEntries(refQuery(branch)) })}`;
+  return `/v1/catalog/nodes/${projectId}/knowledge/api?${refQuery(branch, { path }).toString()}`;
+}
+
 export function searchUrl(q: string): `/${string}` {
   return `/public/docs/search?${publicQuery({ q })}`;
 }

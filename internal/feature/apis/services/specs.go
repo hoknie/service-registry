@@ -30,6 +30,11 @@ func (s *SpecsService) open(ctx context.Context, p accesstypes.Principal, id uui
 	if err != nil {
 		return nil, err
 	}
+	return s.read(ctx, files)
+}
+
+func (s *SpecsService) read(ctx context.Context, files knowledgetypes.SnapshotFiles) (*snapshotSpecs, error) {
+	var err error
 	out := &snapshotSpecs{files: files, skipped: map[string]knowledgetypes.SkipReason{}}
 	var collected, candidates []string
 	for _, f := range files.Files {
@@ -134,6 +139,22 @@ func (s *SpecsService) GetAPI(ctx context.Context, p accesstypes.Principal, id u
 	if err != nil {
 		return knowledgetypes.Snapshot{}, apistypes.Document{}, err
 	}
+	return s.get(ctx, sp, path)
+}
+
+func (s *SpecsService) PublishedAPI(ctx context.Context, project uuid.UUID, sel knowledgetypes.RefSelector, path string) (knowledgetypes.Snapshot, apistypes.Document, error) {
+	files, err := s.documents.PublishedContents(ctx, project, sel)
+	if err != nil {
+		return knowledgetypes.Snapshot{}, apistypes.Document{}, err
+	}
+	sp, err := s.read(ctx, files)
+	if err != nil {
+		return knowledgetypes.Snapshot{}, apistypes.Document{}, err
+	}
+	return s.get(ctx, sp, path)
+}
+
+func (s *SpecsService) get(ctx context.Context, sp *snapshotSpecs, path string) (knowledgetypes.Snapshot, apistypes.Document, error) {
 	d, ok, err := s.document(ctx, sp, path)
 	if err != nil {
 		return knowledgetypes.Snapshot{}, apistypes.Document{}, err

@@ -21,6 +21,7 @@ import { Tooltip } from "../ui/Tooltip";
 import { UserMenu } from "../UserMenu";
 import { BrandMark } from "./BrandMark";
 import { CommandPalette } from "./CommandPalette";
+import { PlaceCrumbMenu } from "../places/PlaceCrumbMenu";
 import { CrumbMenu } from "./CrumbMenu";
 import { CrumbsProvider, useCrumbTrail } from "./crumbs";
 import { DocLink } from "../docs/DocLink";
@@ -52,7 +53,8 @@ export function AppShell({ locale, labels, children }: { locale: Locale; labels:
   const shortcut = useShortcutLabel();
   const h = labels.header;
   const signedIn = session.status === "signed-in";
-  const items = navItems(locale, h.nav, signedIn && adminVisible(session.user));
+  const items = navItems(locale, h.nav, signedIn && adminVisible(session.user), signedIn && session.user.features?.skills === true,
+    signedIn && session.user.features?.mcp_gateway === true);
 
   useEffect(() => {
     const onKey = (e: globalThis.KeyboardEvent) => {
@@ -302,6 +304,7 @@ function Breadcrumbs({ label, locale, navigator }: { label: string; locale: Loca
                 </span>
               )}
               {c.node && <CrumbMenu node={c.node} name={c.label} last={last} locale={locale} labels={navigator} />}
+              {c.place && <PlaceCrumbMenu place={c.place} name={c.label} last={last} locale={locale} labels={navigator} />}
             </li>
           );
         })}

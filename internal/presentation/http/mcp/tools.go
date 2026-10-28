@@ -120,6 +120,9 @@ func (t *tools) register(s *sdk.Server) {
 	sdk.AddTool(s, tool("get_adr", "One architecture decision record of a project by number."), observe(t, "get_adr", t.getADR))
 	sdk.AddTool(s, tool("list_apis", "API descriptions (OpenAPI, Swagger, protobuf) in the documentation snapshot of a project, with a summary of each."), observe(t, "list_apis", t.listAPIs))
 	sdk.AddTool(s, tool("get_api", "An API description of a project in Markdown: overview and list of operations, or one operation, proto service or message with the schemas it uses."), observe(t, "get_api", t.getAPI))
+	t.registerSkills(s, tool)
+	sdk.AddTool(s, tool("get_guide", "How to use this registry: what the tools do, how to find and install skills, how to read documentation."),
+		observe(t, "get_guide", t.getGuide))
 }
 
 type projectSummary struct {

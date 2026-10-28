@@ -88,7 +88,7 @@ func (s *AuthorizationServerService) exchange(ctx context.Context, clientID uuid
 			return apperr.Internalf("no randomness: %v", err)
 		}
 		grant := accesstypes.NewGrant{ID: uuid.Must(uuid.NewV7()), UserID: taken.UserID, ClientID: clientID,
-			Scopes: taken.Scopes, Nodes: taken.Nodes, RefreshHash: refresh.Hash, RefreshDays: s.cfg.MCPOAuth.RefreshDays}
+			Scopes: taken.Scopes, Nodes: taken.Nodes, MCPServers: taken.MCPServers, RefreshHash: refresh.Hash, RefreshDays: s.cfg.MCPOAuth.RefreshDays}
 		if err := s.grantRepository.Insert(ctx, grant); err != nil {
 			return err
 		}

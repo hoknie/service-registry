@@ -112,3 +112,19 @@ func (m *Metrics) Outbound(target, result string, d time.Duration) {
 	m.outbound.WithLabelValues(target, result).Inc()
 	m.outboundDuration.WithLabelValues(target).Observe(d.Seconds())
 }
+
+func (m *Metrics) MCPGatewayCall(serverID, outcome string, d time.Duration) {
+	if m == nil {
+		return
+	}
+	outcome = oneOf(outcome, "ok", "tool_error", "failed")
+	m.gatewayCalls.WithLabelValues(serverID, outcome).Inc()
+	m.gatewayDuration.WithLabelValues(serverID).Observe(d.Seconds())
+}
+
+func (m *Metrics) MCPGatewayCheck(outcome string) {
+	if m == nil {
+		return
+	}
+	m.gatewayChecks.WithLabelValues(oneOf(outcome, "ok", "failed")).Inc()
+}

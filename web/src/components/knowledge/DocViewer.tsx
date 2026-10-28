@@ -6,7 +6,7 @@ import { errorText } from "@/i18n/errors";
 import { format } from "@/i18n/format";
 import { apiGet, errorCode, type CatalogNode, type KnowledgeFileContent } from "@/lib/api";
 import { isApiCandidate, viewParam, withView, type ApiDocument, type ApiView as View } from "@/lib/apis";
-import { fileUrl, isPublicSource } from "@/lib/docSpaceStore";
+import { apiDocUrl, fileUrl } from "@/lib/docSpaceStore";
 import { cn } from "@/lib/cn";
 import { structuredKind } from "@/lib/structured";
 
@@ -18,7 +18,7 @@ import { Panel } from "../ui/Panel";
 import { SkeletonPanel } from "../ui/Skeleton";
 import type { CatalogLabels } from "../catalog/shared";
 import { StructuredView } from "./StructuredView";
-import { refQuery, splitVersion } from "@/lib/refs";
+import { splitVersion } from "@/lib/refs";
 
 type Props = {
   node: CatalogNode;
@@ -69,8 +69,8 @@ export function DocViewer({ node, branch, path, paths, docHref, onOpenDoc, label
 
   useEffect(() => {
     let live = true;
-    const apiDoc = isApiCandidate(path) && !isPublicSource()
-      ? apiGet<ApiDocument>(`/v1/catalog/nodes/${node.id}/knowledge/api?${refQuery(branch, { path }).toString()}`).catch(() => null)
+    const apiDoc = isApiCandidate(path)
+      ? apiGet<ApiDocument>(apiDocUrl(node.id, branch, path)).catch(() => null)
       : Promise.resolve(null);
     apiGet<KnowledgeFileContent>(fileUrl(node.id, branch, path))
       .then(async (f) => {

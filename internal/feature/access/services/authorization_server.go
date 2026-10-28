@@ -27,6 +27,7 @@ type AuthorizationServerService struct {
 	cfg                     *config.Config
 	db                      *pgtx.DB
 	roots                   accessports.NodeRootsPort
+	servers                 accessports.MCPServersPort
 	metadata                accessports.ClientMetadataPort
 	registrations           *auth.RegistrationLimiter
 	fetches                 *auth.MetadataFetchLimiter
@@ -160,10 +161,13 @@ func (s *AuthorizationServerService) Request(ctx context.Context, p accesstypes.
 	if req == nil {
 		return accesstypes.AuthorizationRequest{}, apperr.New(apperr.NotFound)
 	}
+	if req.MCPServers, err = s.requestServers(ctx, p); err != nil {
+		return accesstypes.AuthorizationRequest{}, err
+	}
 	return *req, nil
 }
 
-func (s *AuthorizationServerService) Approve(ctx context.Context, p accesstypes.Principal, id uuid.UUID, nodes *[]string) (string, error) {
+func (s *AuthorizationServerService) Approve(ctx context.Context, p accesstypes.Principal, id uuid.UUID, nodes, servers *[]string) (string, error) {
 	if err := s.enabled(); err != nil {
 		return "", err
 	}
@@ -183,11 +187,19 @@ func (s *AuthorizationServerService) Approve(ctx context.Context, p accesstypes.
 			return "", apperr.Wrap(accesstypes.InvalidTokenNodes)
 		}
 	}
+	set, err := accesstypes.ParseServerList(servers, accesstypes.Scopes{accesstypes.ScopeMCP})
+	if err != nil {
+		return "", apperr.Wrap(err)
+	}
+	if err := checkServers(ctx, s.servers, p, set); err != nil {
+		return "", err
+	}
 	code, err := auth.RandomString()
 	if err != nil {
 		return "", apperr.Internalf("no randomness: %v", err)
 	}
-	req, err := s.authorizationRepository.Approve(ctx, id, p.UserID, roots, auth.TokenHash(code), accesstypes.OAuthCodeTTLSecs)
+	req, err := s.authorizationRepository.Approve(ctx, id, p.UserID, roots, set.Stored(), auth.TokenHash(code),
+		accesstypes.OAuthCodeTTLSecs)
 	if err != nil {
 		return "", apperr.Wrap(err)
 	}

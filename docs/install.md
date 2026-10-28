@@ -144,6 +144,8 @@ variable with its default is in [`.env.example`](../.env.example).
 | `LOG_LEVEL` | `info` | `off`, `error`, `warn`, `info`, `debug` or `trace`; also per component, e.g. `info,pgx=warn` |
 | `HTTPS_PROXY`, `NO_PROXY`, `HTTP_CA_FILE` | — | outgoing proxy and extra CA certificates |
 | `METRICS_ENABLED`, `METRICS_TOKEN` | `false`, — | Prometheus metrics at `/metrics` and the token they need ([metrics.md](metrics.md)) |
+| `SKILLS_ENABLED`, `SKILLS_STORAGE`, `SKILLS_DIR` | `true`, `local`, `data/skills` | the AI skills catalog and where its files live (packages and the image keep them in their data directory; back it up with the database); `s3` with `SKILLS_S3_*` keeps them in a bucket ([skills.md](skills.md#storage)) |
+| `MCP_GATEWAY_ENABLED`, `MCP_GATEWAY_ALLOW_HOSTS` | `true`, empty | the gateway to external MCP servers and the private networks it may reach directly ([mcp-gateway.md](mcp-gateway.md#proxies-and-addresses)) |
 
 ## Behind a reverse proxy
 

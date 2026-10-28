@@ -7,10 +7,12 @@ type CreateToken struct {
 	Scopes        *[]string `json:"scopes" validate:"required"`
 	ExpiresInDays *int64    `json:"expires_in_days"`
 	Nodes         *[]string `json:"nodes"`
+	MCPServers    *[]string `json:"mcp_servers"`
 }
 
 func (r CreateToken) Token() accesstypes.CreateToken {
-	return accesstypes.CreateToken{Name: *r.Name, Scopes: *r.Scopes, ExpiresInDays: r.ExpiresInDays, Nodes: r.Nodes}
+	return accesstypes.CreateToken{Name: *r.Name, Scopes: *r.Scopes, ExpiresInDays: r.ExpiresInDays, Nodes: r.Nodes,
+		MCPServers: r.MCPServers}
 }
 
 type Tokens struct {

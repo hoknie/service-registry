@@ -250,10 +250,22 @@ func (s *DocumentsService) SnapshotContents(ctx context.Context, p accesstypes.P
 	if err != nil {
 		return knowledgetypes.SnapshotFiles{}, err
 	}
+	return s.withContents(snap, files), nil
+}
+
+func (s *DocumentsService) PublishedContents(ctx context.Context, project uuid.UUID, sel knowledgetypes.RefSelector) (knowledgetypes.SnapshotFiles, error) {
+	snap, files, err := s.snapshotFiles(ctx, project, sel, knowledgetypes.Ref{})
+	if err != nil {
+		return knowledgetypes.SnapshotFiles{}, apperr.Wrap(err)
+	}
+	return s.withContents(snap, files), nil
+}
+
+func (s *DocumentsService) withContents(snap knowledgetypes.Snapshot, files []knowledgetypes.FileInfo) knowledgetypes.SnapshotFiles {
 	return knowledgetypes.SnapshotFiles{Snapshot: snap, Files: files, Contents: func(ctx context.Context, paths []string) (map[string]string, error) {
 		out, err := s.snapshotRepository.Contents(ctx, snap.ID, paths)
 		return out, apperr.Wrap(err)
-	}}, nil
+	}}
 }
 
 type DocumentsService struct {

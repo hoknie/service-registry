@@ -38,7 +38,7 @@ func (a *Handlers) ApproveOAuthRequest(c fiber.Ctx) error {
 	if err := bindJSON(c, &in); err != nil {
 		return responses.Fail(c, err)
 	}
-	to, err := a.Access.AuthorizationServer.Approve(c.Context(), p, id, in.Nodes)
+	to, err := a.Access.AuthorizationServer.Approve(c.Context(), p, id, in.Nodes, in.MCPServers)
 	if err != nil {
 		return responses.Fail(c, err)
 	}

@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
+	apisservices "svc-registry/internal/feature/apis/services"
+	apistypes "svc-registry/internal/feature/apis/types"
 	knowledgeservices "svc-registry/internal/feature/knowledge/services"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/feature/publishing/repositories"
@@ -16,6 +18,7 @@ import (
 
 type PublicService struct {
 	knowledge             *knowledgeservices.KnowledgeServices
+	apis                  *apisservices.ApisServices
 	publicationRepository *repositories.PublicationRepository
 	hosts                 *HostsService
 	limiter               *auth.PublicDocsLimiter
@@ -232,6 +235,14 @@ func (s *PublicService) File(ctx context.Context, ref EntryRef, segments []strin
 		return knowledgetypes.Snapshot{}, knowledgetypes.FileContent{}, err
 	}
 	return s.knowledge.Ports.PublishedFile(ctx, node.ID, sel, path)
+}
+
+func (s *PublicService) API(ctx context.Context, ref EntryRef, segments []string, v VersionQuery, path string) (knowledgetypes.Snapshot, apistypes.Document, error) {
+	_, node, sel, err := s.project(ctx, ref, segments, v.Branch, v.Tag, v.Release)
+	if err != nil {
+		return knowledgetypes.Snapshot{}, apistypes.Document{}, err
+	}
+	return s.apis.Specs.PublishedAPI(ctx, node.ID, sel, path)
 }
 
 type PublicHit struct {

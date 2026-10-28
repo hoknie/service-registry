@@ -94,6 +94,7 @@ type CreateToken struct {
 	Scopes        []string
 	ExpiresInDays *int64
 	Nodes         *[]string
+	MCPServers    *[]string
 }
 
 type NewToken struct {
@@ -105,6 +106,7 @@ type NewToken struct {
 	Scopes        Scopes
 	ExpiresInDays *uint32
 	Nodes         []uuid.UUID
+	MCPServers    ServerSet
 }
 
 type TokenQuery struct {

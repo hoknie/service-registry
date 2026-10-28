@@ -58,6 +58,7 @@ var statuses = map[apperr.Kind]int{
 	apperr.InvalidWebhookSignature: http.StatusUnauthorized,
 	apperr.InvalidAgentToken:       http.StatusUnauthorized,
 	apperr.Unprocessable:           http.StatusUnprocessableEntity,
+	apperr.TooLarge:                http.StatusRequestEntityTooLarge,
 }
 
 func FromApp(e *apperr.Error) *APIError {
@@ -73,7 +74,7 @@ func FromApp(e *apperr.Error) *APIError {
 		api.RetryAfter = e.RetryAfterSecs
 	case apperr.InvalidProjectKey, apperr.InvalidToken, apperr.InvalidAgentToken:
 		api.Challenge = "Bearer"
-	case apperr.Unprocessable:
+	case apperr.Unprocessable, apperr.Validation:
 		api.Fields = e.Fields
 	}
 	return api

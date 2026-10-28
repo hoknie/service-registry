@@ -11,7 +11,6 @@ import { isSummary, useActivity, type Settled } from "@/lib/activity";
 import { apiGet, errorCode, type CatalogNode, type CatalogTable, type Items, type NodeActivity, type ProjectLink } from "@/lib/api";
 import { useCatalogVersion } from "@/lib/catalogEvents";
 import { useChildrenView } from "@/lib/childrenView";
-import { cn } from "@/lib/cn";
 import { resolveTab, sectionsOf, tabsOf, type NodeTab, type Section } from "@/lib/nodeSettings";
 import { forgetRecentNode, recordRecentNode } from "@/lib/recentNodes";
 import { splitVersion } from "@/lib/refs";
@@ -26,21 +25,22 @@ import { NotificationsSettings } from "../notifications/NotificationsSettings";
 import { OwnersSettings } from "../owners/OwnersSettings";
 import { useSession } from "../SessionProvider";
 import { Crumbs } from "../shell/crumbs";
+import { ChildrenSection } from "../places/ChildrenSection";
+import { PlaceBody } from "../places/PlaceBody";
+import { PlaceCard, PlaceCards } from "../places/PlaceCard";
+import { PlaceTable } from "../places/PlaceTable";
 import { useUiText } from "../UiText";
 import { Badge, LabelChip } from "../ui/Badge";
 import { Button } from "../ui/Button";
-import { Card } from "../ui/Card";
 import { Input } from "../ui/Field";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "../ui/Menu";
 import { NodeHero } from "../ui/NodeHero";
-import { Segmented } from "../ui/Segmented";
 import { EmptyState } from "../ui/EmptyState";
 import { KeepPrevious } from "../ui/KeepPrevious";
 import { Message } from "../ui/Message";
 import { PageHeader, Panel } from "../ui/Panel";
 import { Pager } from "../ui/Pager";
 import { Skeleton, SkeletonRows } from "../ui/Skeleton";
-import { Table, Td, Th, Tr } from "../ui/Table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/Tabs";
 import { AccessTab } from "./AccessTab";
 import { ProcessBadges, SummaryBadges } from "./ActivityBadges";
@@ -290,22 +290,12 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: ver
     );
 
   const childCards = (
-    <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <PlaceCards>
       {filtered.map((c) => {
         const labels = Object.entries(c.labels ?? {});
         return (
           <li key={c.id} className="min-w-0">
-            <Card href={catalogHref(locale, c.id)} className="h-full">
-              <span className="flex items-start gap-3">
-                <KindIcon kind={c.kind} tile className="size-9" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium text-ink group-hover:text-signal">{c.name}</span>
-                  <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted">
-                    <span>{t.kinds[c.kind]}</span>
-                    <code className="truncate">{c.slug}</code>
-                  </span>
-                </span>
-              </span>
+            <PlaceCard href={catalogHref(locale, c.id)} icon={<KindIcon kind={c.kind} tile className="size-9" />} name={c.name} kind={t.kinds[c.kind]} slug={c.slug}>
               {c.access === "navigate" && (
                 <Badge tone="outline" className="mt-3">
                   {t.navigateOnly}
@@ -326,100 +316,87 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: ver
                   {labels.length > 4 && <Badge tone="outline">+{labels.length - 4}</Badge>}
                 </span>
               )}
-            </Card>
+            </PlaceCard>
           </li>
         );
       })}
-    </ul>
+    </PlaceCards>
   );
 
   const childTable = (
-    <Table>
-      <thead>
-        <tr>
-          <Th>{t.children.name}</Th>
-          <Th>{t.children.kind}</Th>
-          <Th>{t.children.slug}</Th>
-          <Th className="hidden md:table-cell">{t.node.labels}</Th>
-          <Th>{t.tree.activity}</Th>
-        </tr>
-      </thead>
-      <tbody>
-        {filtered.map((c) => (
-          <Tr key={c.id}>
-            <Td>
-              <Link href={catalogHref(locale, c.id)} className="flex items-center gap-2.5 font-medium text-ink hover:underline">
-                <KindIcon kind={c.kind} />
-                {c.name}
-              </Link>
-              {c.access === "navigate" && (
-                <Badge tone="outline" className="mt-1">
-                  {t.navigateOnly}
-                </Badge>
-              )}
-              {c.visibility === "open" && (
-                <Badge tone="cobalt" className="mt-1">
-                  {t.visibility.badge}
-                </Badge>
-              )}
-            </Td>
-            <Td className="text-muted">{t.kinds[c.kind]}</Td>
-            <Td>
-              <code className="text-xs text-ink-2">{c.slug}</code>
-            </Td>
-            <Td className="hidden md:table-cell">
-              <span className="flex flex-wrap gap-1">
-                {Object.entries(c.labels ?? {})
-                  .slice(0, 4)
-                  .map(([k, v]) => (
-                    <LabelChip key={k} name={k} value={v} />
-                  ))}
-              </span>
-            </Td>
-            <Td>
-              <span className="grid gap-1.5">
-                {childActivity(c)}
-                {c.links.length > 0 && <LinkIconRow links={c.links} locale={locale} labels={t.linkIcons} max={6} />}
-              </span>
-            </Td>
-          </Tr>
-        ))}
-      </tbody>
-    </Table>
+    <PlaceTable
+      rows={filtered}
+      rowKey={(c) => c.id}
+      nameTitle={t.children.name}
+      href={(c) => catalogHref(locale, c.id)}
+      icon={(c) => <KindIcon kind={c.kind} />}
+      name={(c) => c.name}
+      badges={(c) => (
+        <>
+          {c.access === "navigate" && (
+            <Badge tone="outline" className="mt-1">
+              {t.navigateOnly}
+            </Badge>
+          )}
+          {c.visibility === "open" && (
+            <Badge tone="cobalt" className="mt-1">
+              {t.visibility.badge}
+            </Badge>
+          )}
+        </>
+      )}
+      columns={[
+        { key: "kind", title: t.children.kind, className: "text-muted", cell: (c) => t.kinds[c.kind] },
+        { key: "slug", title: t.children.slug, cell: (c) => <code className="text-xs text-ink-2">{c.slug}</code> },
+        {
+          key: "labels",
+          title: t.node.labels,
+          className: "hidden md:table-cell",
+          cell: (c) => (
+            <span className="flex flex-wrap gap-1">
+              {Object.entries(c.labels ?? {})
+                .slice(0, 4)
+                .map(([k, v]) => (
+                  <LabelChip key={k} name={k} value={v} />
+                ))}
+            </span>
+          ),
+        },
+        {
+          key: "activity",
+          title: t.tree.activity,
+          cell: (c) => (
+            <span className="grid gap-1.5">
+              {childActivity(c)}
+              {c.links.length > 0 && <LinkIconRow links={c.links} locale={locale} labels={t.linkIcons} max={6} />}
+            </span>
+          ),
+        },
+      ]}
+    />
   );
 
   const childrenList = (
-    <section aria-labelledby="children-title" className="grid gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 id="children-title" className="flex items-center gap-2">
-          {t.children.title}
-          <Badge>{children.total}</Badge>
-        </h2>
-        {children.items.length > 0 && (
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            {view !== "tree" && (
-              <Input
-                type="search"
-                value={childFilter}
-                onChange={(e) => setChildFilter(e.target.value)}
-                placeholder={t.children.filter}
-                aria-label={t.children.filter}
-                className="w-56 max-w-full"
-              />
-            )}
-            <Segmented
-              label={t.children.view}
-              value={view}
-              onChange={(v) => setView(v === "table" || v === "tree" ? v : "cards")}
-              options={[
-                { value: "cards", label: t.children.cards },
-                { value: "table", label: t.children.table },
-                { value: "tree", label: t.children.tree },
-              ]}
-            />
-          </div>
-        )}
-      </div>
+    <ChildrenSection
+      title={t.children.title}
+      count={children.total}
+      view={view}
+      onView={setView}
+      labels={t.children}
+      controls={children.items.length > 0}
+      filter={
+        view !== "tree" && (
+          <Input
+            type="search"
+            value={childFilter}
+            onChange={(e) => setChildFilter(e.target.value)}
+            placeholder={t.children.filter}
+            aria-label={t.children.filter}
+            className="w-56 max-w-full"
+          />
+        )
+      }
+    >
       {children.items.length > 0 && view === "tree" ? (
         <TreeTable rootId={id} locale={locale} labels={t} />
       ) : children.items.length === 0 ? (
@@ -441,7 +418,7 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: ver
           <Pager offset={offset} shown={children.items.length} total={children.total} size={PAGE} labels={t.pager} onChange={setOffset} />
         </>
       )}
-    </section>
+    </ChildrenSection>
   );
 
   const overview = node && (
@@ -467,7 +444,7 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: ver
         ]}
       />
 
-      <div aria-busy={pending || undefined} inert={pending} className={cn("motion-control", pending && "opacity-60 delay-150")}>
+      <PlaceBody pending={pending}>
         {node ? (
           <NodeHero
             kind={node.kind}
@@ -521,7 +498,7 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: ver
         ) : (
           <PageHeader title={t.title} lead={t.lead} actions={addButton} glyph={FolderTree} />
         )}
-      </div>
+      </PlaceBody>
 
       <KeepPrevious id={node?.id ?? "top"} pending={pending}>
         {error && <Message note={{ kind: "error", text: error }} className="mb-4" />}

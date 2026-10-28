@@ -46,12 +46,23 @@ SVCR_TOKEN=svcp_… svc-registry mcp:stdio --url https://registry.example.com --
 | `list_specs`, `get_spec`, `list_changes` | OpenSpec specs and changes collected from a repository |
 | `list_adrs`, `get_adr` | architecture decision records collected from a repository |
 | `list_apis`, `get_api` | OpenAPI, Swagger and protobuf descriptions |
+| `list_skills` | AI skills you can install, with their available versions ([skills.md](skills.md)) |
+| `get_skill` | one skill to install: `SKILL.md`, its files and how to install it; `version` takes `1.4.0` or a range like `^1` |
+| `get_skill_file` | one file of a skill, binary files included |
+| `get_guide` | how to use the server: an overview, installing skills, external servers, reading documentation |
+| `list_mcp_servers` | external MCP servers available to you through the registry ([mcp-gateway.md](mcp-gateway.md)) |
+| `<server>__<tool>` | tools of those external servers, e.g. `jira__search` |
 
 Documentation tools take `branch`, or `tag` for a collected tag, or `release: "current"` for the project's current
 release; without them they read the default branch.
 
 Documentation files are also available as resources `svcr://projects/{project}/docs/{path}`. Long results are cut
-at `KNOWLEDGE_MCP_MAX_RESULT_BYTES` (256 KiB).
+at `KNOWLEDGE_MCP_MAX_RESULT_BYTES` (256 KiB). Skill files are resources `svcr://skills/{skill}/{path}`, and the guide
+is `svcr://guide/overview`, `svcr://guide/skills`, `svcr://guide/gateway` and `svcr://guide/docs`.
+
+To install a skill, ask the agent, for example: «Install the skill go-testing from the service registry». It finds the
+skill with `list_skills` or `get_skill`, gets its files and writes them to its skills directory (for Claude Code,
+`~/.claude/skills/go-testing/`). Without `SKILLS_ENABLED` the skill tools are not offered.
 
 ## Connecting without a token (OAuth)
 

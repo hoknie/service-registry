@@ -58,3 +58,20 @@ test("the publication right opens its token scope only", async () => {
   assert.equal(scopeAllowed({ is_superadmin: false, rights: {} }, "publication:write"), false);
   if (adminVisible) assert.equal(adminVisible(user), false);
 });
+
+test("the skills right opens skills:write and no admin section", () => {
+  const user = { is_superadmin: false, rights: { skills: ["create", "update"] } };
+  assert.equal(scopeAllowed(user, "skills:write"), true);
+  assert.equal(scopeAllowed({ is_superadmin: false, rights: {} }, "skills:write"), false);
+  assert.equal(can(user, "skills", "delete"), false);
+  assert.equal(adminVisible(user), false);
+  assert.deepEqual(normalizeRights({ skills: ["delete", "create"] }), { skills: ["create", "delete"] });
+});
+
+test("the mcp right opens mcp_servers:write and no admin section", () => {
+  const user = { is_superadmin: false, rights: { mcp: ["update"] } };
+  assert.equal(scopeAllowed(user, "mcp_servers:write"), true);
+  assert.equal(scopeAllowed({ is_superadmin: false, rights: {} }, "mcp_servers:write"), false);
+  assert.equal(adminVisible(user), false);
+  assert.deepEqual(normalizeRights({ mcp: ["update", "create"] }), { mcp: ["create", "update"] });
+});

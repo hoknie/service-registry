@@ -17,6 +17,7 @@ import { EmptyState } from "../ui/EmptyState";
 import { Message } from "../ui/Message";
 import { Panel } from "../ui/Panel";
 import { SkeletonTable } from "../ui/Skeleton";
+import { TokenServersDialog, useGatewayOn } from "../mcp/TokenServersDialog";
 import { McpCommand, McpConnect } from "./McpConnect";
 import { TokenDialog } from "./TokenDialog";
 import { TokenTable, type TokenLabels } from "./TokenTable";
@@ -32,6 +33,8 @@ export function TokensTab({ locale, superadmin, labels }: Props) {
   const [mcpIssuing, setMcpIssuing] = useState(false);
   const [mcpSecret, setMcpSecret] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<PersonalToken | null>(null);
+  const [serving, setServing] = useState<PersonalToken | null>(null);
+  const gateway = useGatewayOn();
 
   const fail = useCallback((e: unknown) => errorText(errors, errorCode(e)), [errors]);
 
@@ -64,10 +67,23 @@ export function TokensTab({ locale, superadmin, labels }: Props) {
         {tokens && tokens.length === 0 && <EmptyState icon={KeyRound} title={labels.empty} className="m-5" />}
         {tokens && tokens.length > 0 && (
           <div className="[&>div]:rounded-none [&>div]:border-0">
-            <TokenTable tokens={tokens} locale={locale} labels={labels} onRevoke={setRevoking} />
+            <TokenTable tokens={tokens} locale={locale} labels={labels} onRevoke={setRevoking} onServers={gateway ? setServing : undefined} />
           </div>
         )}
       </Panel>
+
+      <TokenServersDialog<PersonalToken>
+        open={serving !== null}
+        onOpenChange={(o) => !o && setServing(null)}
+        current={serving?.mcp_servers}
+        endpoint={serving ? `/v1/account/tokens/${serving.id}/mcp-servers` : null}
+        labels={labels.gateway}
+        fail={fail}
+        onSaved={(updated) => {
+          setTokens((list) => list?.map((x) => (x.id === updated.id ? updated : x)) ?? null);
+          toast.success(labels.gateway.saved);
+        }}
+      />
 
       <TokenDialog
         open={issuing}

@@ -1,41 +1,26 @@
 "use client";
 
-import { ChevronRight, RotateCw } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { Locale } from "@/i18n/config";
 import { errorText } from "@/i18n/errors";
-import { format } from "@/i18n/format";
 import { BUSY_MS, IDLE_MS, busy, isSummary } from "@/lib/activity";
 import { apiGet, errorCode, type CatalogTable, type CatalogTableRow } from "@/lib/api";
 import { useCatalogVersion } from "@/lib/catalogEvents";
 import { cn } from "@/lib/cn";
 import { badgeNames } from "@/lib/owners";
-import {
-  TREE_PAGE,
-  buildRows,
-  filtersQuery,
-  groupByParent,
-  hasFilters,
-  highlight,
-  openQuery,
-  parseFilters,
-  parseOpen,
-  toggleOpen,
-  type Branch,
-  type FlatRow,
-} from "@/lib/treeTable";
+import { filtersQuery, groupByParent, hasFilters, highlight, parseFilters, type Branch } from "@/lib/treeTable";
 
 import { useUiText } from "../UiText";
 import { Badge, LabelChip } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Field";
 import { Select } from "../ui/Select";
-import { Table, Td, Th, Tr } from "../ui/Table";
 import { LinkIconRow } from "../links/LinkIcons";
 import { OwnerFilter } from "../owners/OwnerFilter";
+import { PlaceTreeGrid, type TreeColumn } from "../places/PlaceTreeGrid";
 import { ProcessBadges, SummaryBadges } from "./ActivityBadges";
 import { LabelFilter } from "./LabelFilter";
 import { KindIcon } from "./KindIcon";
@@ -44,7 +29,6 @@ import { catalogHref, type CatalogLabels } from "./shared";
 type Props = { rootId: string | null; locale: Locale; labels: CatalogLabels };
 
 const DEBOUNCE_MS = 300;
-const empty: Branch = { rows: [], total: 0, loading: false, error: null };
 
 export function TreeTable({ rootId, locale, labels }: Props) {
   const t = labels.tree;
@@ -55,17 +39,10 @@ export function TreeTable({ rootId, locale, labels }: Props) {
   const filters = parseFilters(params);
   const filtered = hasFilters(filters);
   const query = filtersQuery(filters);
-  const openParam = params.get("open");
-  const openIds = useMemo(() => parseOpen(openParam), [openParam]);
 
-  const [byParent, setByParent] = useState<Map<string, Branch>>(() => new Map());
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  const [preset, setPreset] = useState<Map<string, Branch> | null>(null);
   const [truncated, setTruncated] = useState(false);
   const [draft, setDraft] = useState({ q: filters.q, label: filters.label });
-  const [focus, setFocus] = useState(0);
-  const rowRefs = useRef<(HTMLTableRowElement | null)[]>([]);
-  const moved = useRef(false);
-  const requested = useRef<Set<string>>(new Set());
 
   const fail = useCallback((e: unknown) => errorText(errors, errorCode(e)), [errors]);
   const parentQuery = (id: string) => (id ? `parent=${id}&` : "");
@@ -82,91 +59,46 @@ export function TreeTable({ rootId, locale, labels }: Props) {
     [params, router, locale],
   );
 
-  const put = (id: string, change: (b: Branch) => Branch) =>
-    setByParent((m) => {
-      const n = new Map(m);
-      n.set(id, change(n.get(id) ?? empty));
-      return n;
-    });
-
-  const loadBranch = useCallback(
-    async (id: string, offset: number, limit = TREE_PAGE) => {
-      requested.current.add(id);
-      put(id, (b) => ({ ...b, loading: true, error: null }));
-      try {
-        const page = await apiGet<CatalogTable>(`/v1/catalog/table?${parentQuery(id)}limit=${limit}&offset=${offset}`);
-        put(id, (b) => ({ rows: offset === 0 ? page.items : [...b.rows, ...page.items], total: page.total, loading: false, error: null }));
-      } catch (e) {
-        put(id, (b) => ({ ...b, loading: false, error: fail(e) }));
-      }
-    },
-    [fail],
-  );
+  const load = useCallback(async (parent: string, cursor: string | null, size: number) => {
+    const offset = Number(cursor ?? 0);
+    const page = await apiGet<CatalogTable>(`/v1/catalog/table?${parentQuery(parent)}limit=${size}&offset=${offset}`);
+    const end = offset + page.items.length;
+    return { items: page.items, total: page.total, next: end < page.total ? String(end) : null };
+  }, []);
 
   const loadFiltered = useCallback(async () => {
     try {
       const page = await apiGet<CatalogTable>(`/v1/catalog/table?${parentQuery(root)}${query}`);
-      setByParent(groupByParent(page.items, root));
+      setPreset(groupByParent(page.items, root));
       setTruncated(page.truncated);
     } catch (e) {
-      setByParent(new Map([[root, { ...empty, error: fail(e) }]]));
+      setPreset(new Map([[root, { rows: [], total: 0, loading: false, error: fail(e) }]]));
       setTruncated(false);
     }
   }, [root, query, fail]);
 
   useEffect(() => {
-    requested.current = new Set();
-    setByParent(new Map());
-    setCollapsed(new Set());
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (filtered) void loadFiltered();
-    else void loadBranch(root, 0);
-  }, [filtered, loadFiltered, loadBranch, root]);
+    else setPreset(null);
+  }, [filtered, loadFiltered]);
 
-  const open = useMemo(
-    () => (filtered ? new Set([...byParent.keys()].filter((id) => !collapsed.has(id))) : new Set(openIds)),
-    [filtered, byParent, collapsed, openIds],
-  );
-  const rows = useMemo(() => buildRows(byParent, open, root, !filtered), [byParent, open, root, filtered]);
-
+  const presetBusy = !!preset && [...preset.values()].some((b) => b.rows.some((r) => busy(r.activity)));
   useEffect(() => {
-    if (filtered) return;
-    for (const r of rows) {
-      if (r.type === "node" && r.expanded && !requested.current.has(r.row.id)) void loadBranch(r.row.id, 0);
-    }
-  }, [rows, filtered, loadBranch]);
-
-  const anyBusy = rows.some((r) => r.type === "node" && busy(r.row.activity));
-  useEffect(() => {
+    if (!filtered) return;
     const timer = setTimeout(() => {
-      if (document.visibilityState === "hidden") return;
-      if (filtered) {
-        void loadFiltered();
-        return;
-      }
-      for (const [id, b] of byParent) {
-        if (!b.loading && !b.error && b.rows.length > 0) void loadBranch(id, 0, Math.min(200, Math.max(TREE_PAGE, b.rows.length)));
-      }
-    }, anyBusy ? BUSY_MS : IDLE_MS);
+      if (document.visibilityState !== "hidden") void loadFiltered();
+    }, presetBusy ? BUSY_MS : IDLE_MS);
     return () => clearTimeout(timer);
-  }, [anyBusy, byParent, filtered, loadFiltered, loadBranch]);
+  }, [filtered, presetBusy, preset, loadFiltered]);
 
   const version = useCatalogVersion();
   const seenVersion = useRef(version);
-  const loaded = useRef(byParent);
-  loaded.current = byParent;
   useEffect(() => {
-    if (seenVersion.current === version) return;
+    if (seenVersion.current === version || !filtered) return;
     seenVersion.current = version;
-    if (filtered) {
-      void loadFiltered();
-      return;
-    }
-    const ids = new Set([root, ...requested.current]);
-    for (const id of ids) {
-      const b = loaded.current.get(id);
-      void loadBranch(id, 0, Math.min(200, Math.max(TREE_PAGE, b?.rows.length ?? 0)));
-    }
-  }, [version, filtered, loadFiltered, loadBranch, root]);
+    void loadFiltered();
+  }, [version, filtered, loadFiltered]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -175,80 +107,10 @@ export function TreeTable({ rootId, locale, labels }: Props) {
     return () => clearTimeout(timer);
   }, [draft, filters.q, filters.label, navigate]);
 
-  useEffect(() => {
-    if (!moved.current) return;
-    moved.current = false;
-    rowRefs.current[focus]?.focus();
-  }, [focus]);
-
-  const toggle = (id: string) => {
-    if (filtered) {
-      setCollapsed((s) => {
-        const n = new Set(s);
-        if (n.has(id)) n.delete(id);
-        else n.add(id);
-        return n;
-      });
-      return;
-    }
-    navigate({ open: openQuery(toggleOpen(openIds, id)) });
-  };
-
   const reset = () => {
     setDraft({ q: "", label: "" });
     navigate({ q: "", kind: "", label: "", activity: "", owner: "" });
   };
-
-  const go = (i: number) => {
-    const next = Math.max(0, Math.min(rows.length - 1, i));
-    moved.current = true;
-    setFocus(next);
-  };
-
-  const onKey = (e: KeyboardEvent<HTMLTableRowElement>, i: number, r: FlatRow) => {
-    const node = r.type === "node" ? r : null;
-    switch (e.key) {
-      case "ArrowDown":
-        go(i + 1);
-        break;
-      case "ArrowUp":
-        go(i - 1);
-        break;
-      case "Home":
-        go(0);
-        break;
-      case "End":
-        go(rows.length - 1);
-        break;
-      case "ArrowRight":
-        if (node?.expandable && !node.expanded) toggle(node.row.id);
-        else if (node?.expanded) go(i + 1);
-        break;
-      case "ArrowLeft":
-        if (node?.expanded) toggle(node.row.id);
-        else {
-          for (let j = i - 1; j >= 0; j--) {
-            if ((rows[j]?.level ?? 0) < r.level) {
-              go(j);
-              break;
-            }
-          }
-        }
-        break;
-      case "Enter":
-        if (node) router.push(catalogHref(locale, node.row.id));
-        else if (r.type === "more") void loadBranch(r.parent, byParent.get(r.parent)?.rows.length ?? 0);
-        else if (r.type === "error") void loadBranch(r.parent, 0);
-        break;
-      default:
-        return;
-    }
-    e.preventDefault();
-  };
-
-  const indent = (level: number) => ({ paddingInlineStart: `${(level - 1) * 1.25}rem` });
-  const rootBranch = byParent.get(root);
-  const loadingRoot = !rootBranch || (rootBranch.loading && rootBranch.rows.length === 0);
 
   const activityCell = (row: CatalogTableRow) =>
     isSummary(row.activity) ? (
@@ -256,6 +118,38 @@ export function TreeTable({ rootId, locale, labels }: Props) {
     ) : (
       <ProcessBadges processes={row.activity} labels={labels.activity} locale={locale} compact />
     );
+
+  const columns: TreeColumn<CatalogTableRow>[] = [
+    { key: "slug", title: t.slug, className: "hidden sm:table-cell", cell: (row, dim) => <code className={cn("text-xs", dim ? "text-muted" : "text-ink-2")}>{row.slug}</code> },
+    {
+      key: "labels",
+      title: t.labels,
+      className: "hidden lg:table-cell",
+      cell: (row) => {
+        const labelEntries = Object.entries(row.labels ?? {});
+        return (
+          <span className="flex flex-wrap gap-1">
+            {labelEntries.slice(0, 3).map(([k, v]) => (
+              <LabelChip key={k} name={k} value={v} />
+            ))}
+            {labelEntries.length > 3 && <Badge tone="outline">+{labelEntries.length - 3}</Badge>}
+          </span>
+        );
+      },
+    },
+    { key: "owners", title: t.owners, className: "hidden @min-[640px]:table-cell", cell: (row, dim) => <OwnerNames owners={row.owners ?? []} dim={dim} /> },
+    {
+      key: "activity",
+      title: t.activity,
+      cell: (row) => (
+        <span className="grid gap-1.5">
+          {activityCell(row)}
+          {row.links?.length > 0 && <LinkIconRow links={row.links} locale={locale} labels={labels.linkIcons} max={6} />}
+        </span>
+      ),
+    },
+    { key: "children", title: t.children, numeric: true, className: "hidden text-muted sm:table-cell", cell: (row) => (row.kind === "project" ? "" : row.children) },
+  ];
 
   return (
     <section className="@container grid gap-3">
@@ -299,153 +193,53 @@ export function TreeTable({ rootId, locale, labels }: Props) {
 
       {filtered && truncated && <p className="text-sm text-amber">{t.truncated}</p>}
 
-      {!loadingRoot && rows.length === 0 ? (
-        rootBranch?.error ? (
-          <p className="text-sm text-danger">{rootBranch.error}</p>
-        ) : (
-          <div className="flex flex-wrap items-center gap-3 text-sm text-muted">
-            {filtered ? t.noMatch : labels.children.empty}
-            {filtered && (
-              <Button size="sm" onClick={reset}>
-                {t.reset}
-              </Button>
-            )}
-          </div>
-        )
+      {filtered && !preset ? (
+        <p className="text-sm text-muted">{t.loading}</p>
       ) : (
-        <Table role="treegrid" aria-label={t.label_aria} aria-busy={loadingRoot}>
-          <thead>
-            <tr>
-              <Th>{t.name}</Th>
-              <Th className="hidden sm:table-cell">{t.slug}</Th>
-              <Th className="hidden lg:table-cell">{t.labels}</Th>
-              <Th className="hidden @min-[640px]:table-cell">{t.owners}</Th>
-              <Th>{t.activity}</Th>
-              <Th numeric className="hidden sm:table-cell">
-                {t.children}
-              </Th>
-            </tr>
-          </thead>
-          <tbody>
-            {loadingRoot && (
-              <tr>
-                <Td colSpan={6} className="text-muted">
-                  {t.loading}
-                </Td>
-              </tr>
-            )}
-            {rows.map((r, i) => {
-              const common = {
-                ref: (el: HTMLTableRowElement | null) => {
-                  rowRefs.current[i] = el;
-                },
-                tabIndex: i === Math.min(focus, rows.length - 1) ? 0 : -1,
-                onKeyDown: (e: KeyboardEvent<HTMLTableRowElement>) => onKey(e, i, r),
-                onFocus: () => setFocus(i),
-                "aria-level": r.level,
-                className: "outline-none focus-visible:bg-surface-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-              };
-              if (r.type !== "node") {
-                return (
-                  <Tr key={`${r.parent}:${r.type}`} {...common}>
-                    <Td colSpan={6}>
-                      <span className="flex items-center gap-2" style={indent(r.level)}>
-                        <span className="size-6 shrink-0" />
-                        {r.type === "loading" && <span className="text-muted">{t.loading}</span>}
-                        {r.type === "more" && (
-                          <Button size="sm" variant="ghost" tabIndex={-1} onClick={() => void loadBranch(r.parent, byParent.get(r.parent)?.rows.length ?? 0)}>
-                            {t.more}
-                          </Button>
-                        )}
-                        {r.type === "error" && (
-                          <>
-                            <span className="text-danger">{r.error}</span>
-                            <Button size="sm" variant="ghost" tabIndex={-1} onClick={() => void loadBranch(r.parent, 0)}>
-                              <RotateCw aria-hidden="true" />
-                              {t.retry}
-                            </Button>
-                          </>
-                        )}
-                      </span>
-                    </Td>
-                  </Tr>
-                );
-              }
-              const row = r.row;
-              const dim = filtered && !row.match;
-              const parts = filtered ? highlight(row.name, filters.q) : [{ text: row.name, hit: false }];
-              const labelEntries = Object.entries(row.labels ?? {});
-              return (
-                <Tr
-                  key={row.id}
-                  {...common}
-                  aria-expanded={r.expandable ? r.expanded : undefined}
-                  aria-setsize={r.setsize}
-                  aria-posinset={r.posinset}
-                >
-                  <Td>
-                    <span className="flex min-w-0 items-center gap-2" style={indent(r.level)}>
-                      {r.expandable ? (
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          onClick={() => toggle(row.id)}
-                          aria-label={format(r.expanded ? t.collapse : t.expand, { name: row.name })}
-                          className="motion-control grid size-6 shrink-0 place-items-center rounded text-muted hover:bg-surface-3 hover:text-ink"
-                        >
-                          <ChevronRight aria-hidden="true" className={cn("size-4 transition-transform", r.expanded && "rotate-90")} />
-                        </button>
-                      ) : (
-                        <span className="size-6 shrink-0" />
-                      )}
-                      <KindIcon kind={row.kind} />
-                      <Link
-                        href={catalogHref(locale, row.id)}
-                        tabIndex={-1}
-                        className={cn("min-w-0 truncate font-medium hover:underline", dim ? "text-muted" : "text-ink")}
-                      >
-                        {parts.map((p, k) =>
-                          p.hit ? (
-                            <mark key={k} className="rounded-sm bg-amber-soft px-0.5 text-ink">
-                              {p.text}
-                            </mark>
-                          ) : (
-                            <span key={k}>{p.text}</span>
-                          ),
-                        )}
-                      </Link>
-                      {row.access === "navigate" && <Badge tone="outline">{labels.navigateOnly}</Badge>}
-                      {row.visibility === "open" && <Badge tone="cobalt">{labels.visibility.badge}</Badge>}
-                    </span>
-                  </Td>
-                  <Td className="hidden sm:table-cell">
-                    <code className={cn("text-xs", dim ? "text-muted" : "text-ink-2")}>{row.slug}</code>
-                  </Td>
-                  <Td className="hidden lg:table-cell">
-                    <span className="flex flex-wrap gap-1">
-                      {labelEntries.slice(0, 3).map(([k, v]) => (
-                        <LabelChip key={k} name={k} value={v} />
-                      ))}
-                      {labelEntries.length > 3 && <Badge tone="outline">+{labelEntries.length - 3}</Badge>}
-                    </span>
-                  </Td>
-                  <Td className="hidden @min-[640px]:table-cell">
-                    <OwnerNames owners={row.owners ?? []} dim={dim} />
-                  </Td>
-                  <Td>
-                    <span className="grid gap-1.5">
-                      {activityCell(row)}
-                      {row.links?.length > 0 && <LinkIconRow links={row.links} locale={locale} labels={labels.linkIcons} max={6} />}
-                    </span>
-                  </Td>
-                  <Td numeric className="hidden text-muted sm:table-cell">
-                    {row.kind === "project" ? "" : row.children}
-                  </Td>
-                </Tr>
-              );
-            })}
-          </tbody>
-        </Table>
+        <PlaceTreeGrid
+          root={root}
+          sourceKey="catalog"
+          load={load}
+          preset={filtered ? preset : null}
+          labels={t}
+          refresh={version}
+          pollMs={(rows) => (rows.some((r) => busy(r.activity)) ? BUSY_MS : IDLE_MS)}
+          href={(row) => catalogHref(locale, row.id)}
+          rowName={(row) => row.name}
+          dim={(row) => !row.match}
+          columns={columns}
+          name={(row, dim) => {
+            const parts = filtered ? highlight(row.name, filters.q) : [{ text: row.name, hit: false }];
+            return (
+              <>
+                <KindIcon kind={row.kind} />
+                <Link href={catalogHref(locale, row.id)} tabIndex={-1} className={cn("min-w-0 truncate font-medium hover:underline", dim ? "text-muted" : "text-ink")}>
+                  {parts.map((p, k) =>
+                    p.hit ? (
+                      <mark key={k} className="rounded-sm bg-amber-soft px-0.5 text-ink">
+                        {p.text}
+                      </mark>
+                    ) : (
+                      <span key={k}>{p.text}</span>
+                    ),
+                  )}
+                </Link>
+                {row.access === "navigate" && <Badge tone="outline">{labels.navigateOnly}</Badge>}
+                {row.visibility === "open" && <Badge tone="cobalt">{labels.visibility.badge}</Badge>}
+              </>
+            );
+          }}
+          empty={
+            <div className="flex flex-wrap items-center gap-3 text-sm text-muted">
+              {filtered ? t.noMatch : labels.children.empty}
+              {filtered && (
+                <Button size="sm" onClick={reset}>
+                  {t.reset}
+                </Button>
+              )}
+            </div>
+          }
+        />
       )}
     </section>
   );

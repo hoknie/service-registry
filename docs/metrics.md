@@ -104,15 +104,20 @@ Other values of `job` are the periodic clean-ups (`event_retention`, `branch_ret
 
 | Metric | Labels | Meaning |
 |---|---|---|
-| `svcr_mcp_calls_total` | `kind`, `name`, `outcome` | tool calls and resource reads by name, `ok` or `error` |
+| `svcr_mcp_calls_total` | `kind`, `name`, `outcome` | tool calls and resource reads by name, `ok` or `error`; every tool of an external server counts as `gateway` |
 | `svcr_mcp_call_duration_seconds` | `kind`, `name` | duration of calls |
 | `svcr_mcp_project_calls_total` | `organization_id`, `project_id` | calls addressed to a project the caller can read |
+| `svcr_mcp_gateway_calls_total` | `server_id`, `outcome` | calls of external servers' tools ([mcp-gateway.md](mcp-gateway.md)): `ok`, `tool_error` or `failed` |
+| `svcr_mcp_gateway_call_duration_seconds` | `server_id` | duration of those calls |
+| `svcr_mcp_gateway_checks_total` | `outcome` | checks of external servers, `ok` or `failed` |
+| `svcr_mcp_gateway_servers` | `state` | external servers by state: `ok`, `failing`, `unknown`, `disabled` |
+| `svcr_mcp_gateway_server_info` | `server_id`, `slug` | always 1; the slug of a server for joins |
 
 ### External systems
 
 | Metric | Labels | Meaning |
 |---|---|---|
-| `svcr_outbound_requests_total` | `target`, `result` | requests to `forge`, `oidc`, `embeddings`, `qdrant`, `meilisearch`, `kubernetes`, `notify`, `link_check`, `client_metadata`; `result` is `2xx`…`5xx` or `error` when there was no answer |
+| `svcr_outbound_requests_total` | `target`, `result` | requests to `forge`, `oidc`, `embeddings`, `qdrant`, `meilisearch`, `kubernetes`, `notify`, `link_check`, `client_metadata`, `mcp_gateway`; `result` is `2xx`…`5xx` or `error` when there was no answer |
 | `svcr_outbound_request_duration_seconds` | `target` | duration of requests |
 
 Labels never carry email addresses, tokens, URLs or request paths.

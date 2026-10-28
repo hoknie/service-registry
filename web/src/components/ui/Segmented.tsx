@@ -15,7 +15,7 @@ export function Segmented({ label, value, options, onChange, className }: Props)
       value={value}
       onValueChange={onChange}
       orientation="horizontal"
-      className={cn("inline-flex rounded-lg border border-line bg-surface-2 p-0.5", className)}
+      className={cn("inline-flex w-fit max-w-full justify-self-start self-start rounded-lg border border-line bg-surface-2 p-0.5", className)}
     >
       {options.map((o) => (
         <R.Item

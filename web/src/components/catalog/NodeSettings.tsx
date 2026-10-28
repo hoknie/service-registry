@@ -1,13 +1,13 @@
 "use client";
 
-import { Bell, Building2, Globe, Contact, GitBranch, KeyRound, Link2, LockKeyhole, Network, Plug, ScanSearch, Settings2, ShieldCheck, SlidersHorizontal, UsersRound } from "lucide-react";
+import { Bell, Building2, Contact, GitBranch, Globe, KeyRound, Link2, LockKeyhole, Network, Plug, ScanSearch, Settings2, ShieldCheck, SlidersHorizontal, UsersRound } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { Locale } from "@/i18n/config";
 import type { CatalogNode } from "@/lib/api";
 import type { Section } from "@/lib/nodeSettings";
 
-import { SectionMenu } from "../ui/SectionMenu";
+import { SettingsSections } from "../places/SettingsSections";
 import { catalogHref, type CatalogLabels } from "./shared";
 
 const icons = {
@@ -40,16 +40,14 @@ type Props = {
 
 export function NodeSettings({ node, sections, section, branch, locale, labels, children }: Props) {
   const t = labels.settings.sections;
-  const items = sections.map((s) => ({
-    key: s,
-    href: catalogHref(locale, node.id, "settings", branch, null, s),
-    label: t[s],
-    icon: icons[s],
-    current: s === section,
-  }));
   return (
-    <SectionMenu label={labels.settings.menu} groups={[{ key: "sections", items }]}>
+    <SettingsSections
+      label={labels.settings.menu}
+      sections={sections.map((s) => ({ key: s, label: t[s], icon: icons[s] }))}
+      current={section}
+      href={(s) => catalogHref(locale, node.id, "settings", branch, null, s)}
+    >
       {children}
-    </SectionMenu>
+    </SettingsSections>
   );
 }

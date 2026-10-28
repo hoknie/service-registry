@@ -11,6 +11,8 @@ import {
   canSubmitNodes,
   CATALOG_ROOT,
   PUBLICATION_SCOPE,
+  SKILLS_SCOPE,
+  MCP_SERVERS_SCOPE,
   GLOBAL_AREAS,
   isGlobalScope,
   scopesForAccess,
@@ -27,6 +29,8 @@ import { Dialog } from "../ui/Dialog";
 import { Checkbox, Field, Input } from "../ui/Field";
 import { Select } from "../ui/Select";
 import { Message, type Note } from "../ui/Message";
+import { ServerSetPicker } from "../mcp/ServerSetPicker";
+import { useGatewayOn } from "../mcp/TokenServersDialog";
 import { NodeScopePicker } from "./NodeScopePicker";
 import type { TokenLabels } from "./TokenTable";
 
@@ -80,6 +84,8 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
   const [customDays, setCustomDays] = useState("");
   const [access, setAccess] = useState<TokenAccess>("all");
   const [nodes, setNodes] = useState<PickedNode[]>([]);
+  const [servers, setServers] = useState<string[] | null>(null);
+  const gateway = useGatewayOn();
   const [note, setNote] = useState<Note>(null);
   const [busy, setBusy] = useState(false);
 
@@ -103,6 +109,7 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
     setCustomDays("");
     setAccess("all");
     setNodes([]);
+    setServers(null);
     setNote(null);
   };
 
@@ -112,7 +119,8 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
     setNote(null);
     const days = lifetime === "forever" ? null : lifetime === "custom" ? Number(customDays) : Number(lifetime);
     try {
-      const token = await apiSend<PersonalToken>("POST", endpoint, { name, scopes, expires_in_days: days, nodes: tokenNodesBody(access, nodes) });
+      const token = await apiSend<PersonalToken>("POST", endpoint, { name, scopes, expires_in_days: days, nodes: tokenNodesBody(access, nodes),
+        ...(gateway && scopes.includes("mcp") ? { mcp_servers: servers } : {}) });
       reset();
       onIssued(token);
     } catch (e) {
@@ -194,6 +202,30 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
                 }
               />
             )}
+            {allowed(SKILLS_SCOPE) && (
+              <Checkbox
+                checked={scopes.includes(SKILLS_SCOPE)}
+                disabled={scoped}
+                onChange={(e) => toggle(SKILLS_SCOPE, e.target.checked)}
+                label={
+                  <span>
+                    <span className="font-mono">{SKILLS_SCOPE}</span> — {labels.scopeHints[SKILLS_SCOPE]}
+                  </span>
+                }
+              />
+            )}
+            {allowed(MCP_SERVERS_SCOPE) && (
+              <Checkbox
+                checked={scopes.includes(MCP_SERVERS_SCOPE)}
+                disabled={scoped}
+                onChange={(e) => toggle(MCP_SERVERS_SCOPE, e.target.checked)}
+                label={
+                  <span>
+                    <span className="font-mono">{MCP_SERVERS_SCOPE}</span> — {labels.scopeHints[MCP_SERVERS_SCOPE]}
+                  </span>
+                }
+              />
+            )}
             {scoped && <p className="text-xs text-muted">{t.nodesGlobal}</p>}
           </fieldset>
         )}
@@ -206,6 +238,9 @@ export function TokenDialog({ open, onOpenChange, superadmin, labels, fail, onIs
           labels={t}
           note={superadmin ? t.nodesSuperadmin : undefined}
         />
+        {gateway && scopes.includes("mcp") && endpoint === "/v1/account/tokens" && (
+          <ServerSetPicker value={servers} onChange={setServers} labels={labels.gateway} />
+        )}
         <Field label={t.lifetime}>
           {(p) => (
             <Select {...p} value={lifetime} onChange={(e) => setLifetime(e.target.value as Lifetime)}>

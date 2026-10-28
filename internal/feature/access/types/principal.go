@@ -19,6 +19,39 @@ type Principal struct {
 	Rights       Rights
 	App          bool
 	Method       string
+	MCPServers   ServerSet
+}
+
+type ServerSet struct {
+	Limited bool
+	IDs     []uuid.UUID
+}
+
+func ServerSetOf(ids []uuid.UUID) ServerSet {
+	if ids == nil {
+		return ServerSet{}
+	}
+	return ServerSet{Limited: true, IDs: ids}
+}
+
+func ServerSetFrom(p *[]uuid.UUID) ServerSet {
+	if p == nil {
+		return ServerSet{}
+	}
+	if *p == nil {
+		return ServerSet{Limited: true, IDs: []uuid.UUID{}}
+	}
+	return ServerSetOf(*p)
+}
+
+func (s ServerSet) Stored() []uuid.UUID {
+	if !s.Limited {
+		return nil
+	}
+	if s.IDs == nil {
+		return []uuid.UUID{}
+	}
+	return s.IDs
 }
 
 func (p Principal) ByToken() bool { return p.TokenID != uuid.Nil }
@@ -138,4 +171,11 @@ func RequireCatalogRoot(p Principal, node *uuid.UUID, action Action) error {
 func (p Principal) AddsRoots() bool {
 	return p.ByToken() && !p.App && p.Nodes != nil && p.Scopes.Has(ScopeCatalogRoot) &&
 		(p.CatalogAdmin || p.Rights.Has(SectionCatalog, ActionCreate))
+}
+
+type ServerRef struct {
+	ID             uuid.UUID
+	Slug           string
+	Title          string
+	OrganizationID *uuid.UUID
 }

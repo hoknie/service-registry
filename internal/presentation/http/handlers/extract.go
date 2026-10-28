@@ -72,12 +72,16 @@ func routeNeed(method, route string) accesstypes.Need {
 		return accesstypes.NeedWriteWhole
 	case route == "/api/v1/catalog/nodes/:id/publication" && method != fiber.MethodGet && method != fiber.MethodHead:
 		return accesstypes.NeedPublicationWrite
+	case route == "/api/v1/skills", strings.HasPrefix(route, "/api/v1/skills/"), route == "/api/v1/mcp",
+		strings.HasPrefix(route, "/api/v1/mcp/"):
+		return globalNeed(method, accesstypes.NeedRead, accesstypes.NeedWrite)
 	case strings.HasPrefix(route, "/api/v1/catalog/"):
 		if method == fiber.MethodGet || method == fiber.MethodHead {
 			return accesstypes.NeedRead
 		}
 		return accesstypes.NeedWrite
-	case route == "/api/v1/users/:id/tokens", route == "/api/v1/users/:id/apps", route == "/api/v1/users/:id/apps/:gid":
+	case route == "/api/v1/users/:id/tokens", route == "/api/v1/users/:id/apps", route == "/api/v1/users/:id/apps/:gid",
+		route == "/api/v1/users/:id/tokens/:tid/mcp-servers":
 		return accesstypes.NeedSession
 	case route == "/api/v1/users", strings.HasPrefix(route, "/api/v1/users/"):
 		return globalNeed(method, accesstypes.NeedUsersRead, accesstypes.NeedUsersWrite)

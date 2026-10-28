@@ -18,13 +18,16 @@ const (
 	ScopeSettingsWrite Scope = "settings:write"
 	ScopeCatalogRoot   Scope = "catalog.root"
 	ScopePublication   Scope = "publication:write"
+	ScopeSkills        Scope = "skills:write"
+	ScopeMCPServers    Scope = "mcp_servers:write"
 )
 
 var AllScopes = []Scope{ScopeRead, ScopeWrite, ScopeMCP, ScopeUsersRead, ScopeUsersWrite, ScopeGroupsRead, ScopeGroupsWrite,
-	ScopeClustersRead, ScopeClustersWrite, ScopeSettingsRead, ScopeSettingsWrite, ScopeCatalogRoot, ScopePublication}
+	ScopeClustersRead, ScopeClustersWrite, ScopeSettingsRead, ScopeSettingsWrite, ScopeCatalogRoot, ScopePublication, ScopeSkills,
+	ScopeMCPServers}
 
 var GlobalScopes = Scopes{ScopeUsersRead, ScopeUsersWrite, ScopeGroupsRead, ScopeGroupsWrite, ScopeClustersRead,
-	ScopeClustersWrite, ScopeSettingsRead, ScopeSettingsWrite, ScopeCatalogRoot, ScopePublication}
+	ScopeClustersWrite, ScopeSettingsRead, ScopeSettingsWrite, ScopeCatalogRoot, ScopePublication, ScopeSkills, ScopeMCPServers}
 
 func (sc Scope) Global() bool { return GlobalScopes.Has(sc) }
 
@@ -124,6 +127,8 @@ type Token struct {
 	LastUsedAt   *string
 	RevokedAt    *string
 	Status       TokenStatus
+	MCPServerSet ServerSet
+	MCPServers   []ServerRef
 }
 
 type TokenUser struct {
@@ -131,5 +136,6 @@ type TokenUser struct {
 	Scopes       Scopes
 	Nodes        []uuid.UUID
 	CatalogAdmin bool
+	MCPServers   ServerSet
 	User         User
 }

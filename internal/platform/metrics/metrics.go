@@ -28,6 +28,9 @@ type Metrics struct {
 	outbound         *prometheus.CounterVec
 	outboundDuration *prometheus.HistogramVec
 	sampleErrors     *prometheus.CounterVec
+	gatewayCalls     *prometheus.CounterVec
+	gatewayDuration  *prometheus.HistogramVec
+	gatewayChecks    *prometheus.CounterVec
 }
 
 func New(version string, eventTypes []string) *Metrics {
@@ -56,6 +59,10 @@ func New(version string, eventTypes []string) *Metrics {
 	m.outbound = f.counter("svcr_outbound_requests_total", "Outgoing requests to external systems.", "target", "result")
 	m.outboundDuration = f.histogram("svcr_outbound_request_duration_seconds", "Duration of outgoing requests.",
 		[]float64{0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30}, "target")
+	m.gatewayCalls = f.counter("svcr_mcp_gateway_calls_total", "MCP gateway tool calls by server and outcome.", "server_id", "outcome")
+	m.gatewayDuration = f.histogram("svcr_mcp_gateway_call_duration_seconds", "Duration of MCP gateway tool calls.",
+		[]float64{0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60}, "server_id")
+	m.gatewayChecks = f.counter("svcr_mcp_gateway_checks_total", "Checks of MCP gateway servers.", "outcome")
 	m.sampleErrors = f.counter("svcr_metrics_sample_errors_total", "Failed samples by source.", "source")
 	f.gauge("svcr_build_info", "Version of the running binary.", "version", "go_version").(*prometheus.GaugeVec).
 		WithLabelValues(version, runtime.Version()).Set(1)

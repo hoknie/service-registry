@@ -8,14 +8,15 @@ import { tokenNodeLabels } from "@/lib/tokenNodes";
 
 import { Badge, type Tone } from "../ui/Badge";
 import { Button } from "../ui/Button";
+import { serversLabel } from "../mcp/TokenServersDialog";
 import { Table, Td, Th, Tr } from "../ui/Table";
 import type { TokenLabels } from "./TokenTable";
 
 const statusTone: Record<OAuthApp["status"], Tone> = { active: "signal", expired: "neutral", revoked: "danger" };
 
-type Props = { apps: OAuthApp[]; locale: Locale; labels: TokenLabels; onRevoke: (app: OAuthApp) => void };
+type Props = { apps: OAuthApp[]; locale: Locale; labels: TokenLabels; onRevoke: (app: OAuthApp) => void; onServers?: (app: OAuthApp) => void };
 
-export function AppTable({ apps, locale, labels, onRevoke }: Props) {
+export function AppTable({ apps, locale, labels, onRevoke, onServers }: Props) {
   const t = labels.apps.table;
   return (
     <Table>
@@ -23,6 +24,7 @@ export function AppTable({ apps, locale, labels, onRevoke }: Props) {
         <tr>
           <Th>{t.app}</Th>
           <Th>{t.access}</Th>
+          {onServers && <Th>{labels.gateway.column}</Th>}
           <Th>{t.granted}</Th>
           <Th>{t.lastUsed}</Th>
           <Th>{t.expires}</Th>
@@ -48,6 +50,7 @@ export function AppTable({ apps, locale, labels, onRevoke }: Props) {
                 ))}
               </span>
             </Td>
+            {onServers && <Td className="min-w-28 text-ink-2">{serversLabel(app.mcp_servers, labels.gateway.allShort, labels.gateway.noneShort)}</Td>}
             <Td className="whitespace-nowrap text-ink-2" title={when(app.created_at, locale, "")}>
               {ago(app.created_at, locale, "")}
             </Td>
@@ -61,6 +64,11 @@ export function AppTable({ apps, locale, labels, onRevoke }: Props) {
               </Badge>
             </Td>
             <Td className="text-right">
+              {app.status === "active" && onServers && (
+                <Button size="sm" variant="ghost" onClick={() => onServers(app)}>
+                  {labels.gateway.change}
+                </Button>
+              )}
               {app.status === "active" && (
                 <Button size="sm" variant="danger-ghost" onClick={() => onRevoke(app)}>
                   {labels.revoke}

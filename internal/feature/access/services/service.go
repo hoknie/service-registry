@@ -117,6 +117,12 @@ func (f *AccessServices) Use(roots accessports.NodeRootsPort) {
 	f.Groups.roots = roots
 }
 
+func (f *AccessServices) UseMCPServers(servers accessports.MCPServersPort) {
+	f.Tokens.servers = servers
+	f.Apps.servers = servers
+	f.AuthorizationServer.servers = servers
+}
+
 func (f *AccessServices) UseStewards(stewards accessports.GroupStewardsPort) {
 	f.Groups.stewards = stewards
 	f.GroupContacts.stewards = stewards

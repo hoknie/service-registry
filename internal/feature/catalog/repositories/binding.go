@@ -99,3 +99,35 @@ func (s *BindingRepository) GroupNodes(ctx context.Context, groupIDs []uuid.UUID
 	}
 	return out, nil
 }
+
+func (s *BindingRepository) NodeOrganizations(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, error) {
+	return postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowTo[uuid.UUID], `
+		SELECT DISTINCT node_root(n.id)
+		FROM nodes n
+		WHERE n.id = ANY($1::uuid[])
+		ORDER BY 1`, ids)
+}
+
+func (s *BindingRepository) Organizations(ctx context.Context, v catalogtypes.Viewer, all bool) ([]catalogtypes.OrganizationRoles, error) {
+	return postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowToStructByName[catalogtypes.OrganizationRoles], `
+		WITH RECURSIVE bound AS (
+			SELECT node_id, role
+			FROM viewer_bindings($1, $2::uuid[], $3::boolean)
+		),
+		up AS (
+			SELECT n.id, n.parent_id
+			FROM nodes n
+			WHERE n.id IN (SELECT node_id FROM bound)
+			UNION
+			SELECT p.id, p.parent_id
+			FROM up
+			JOIN nodes p ON p.id = up.parent_id
+		)
+		SELECT n.id, array_remove(array_agg(DISTINCT b.role), NULL) AS roles
+		FROM nodes n
+		LEFT JOIN bound b ON b.node_id = n.id
+		WHERE n.parent_id IS NULL
+			AND ($4 OR n.id IN (SELECT id FROM up WHERE parent_id IS NULL))
+		GROUP BY n.id
+		ORDER BY n.id`, v.UserID, v.Nodes, v.Admin, all)
+}

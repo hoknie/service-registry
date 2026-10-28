@@ -86,6 +86,7 @@ type AuthorizationRequest struct {
 	Resource          *string
 	Scopes            Scopes
 	ExpiresAt         string
+	MCPServers        []ServerRef
 }
 
 type ApprovedCode struct {
@@ -97,6 +98,7 @@ type ApprovedCode struct {
 	Resource        *string
 	Scopes          Scopes
 	Nodes           []uuid.UUID
+	MCPServers      ServerSet
 	GrantID         *uuid.UUID
 	Exchanged       bool
 }
@@ -124,6 +126,7 @@ type NewGrant struct {
 	ClientID    uuid.UUID
 	Scopes      Scopes
 	Nodes       []uuid.UUID
+	MCPServers  ServerSet
 	RefreshHash [32]byte
 	RefreshDays uint32
 }
@@ -143,12 +146,15 @@ type AppGrant struct {
 	ExpiresAt         string
 	RevokedAt         *string
 	Status            TokenStatus
+	MCPServerSet      ServerSet
+	MCPServers        []ServerRef
 }
 
 type AppPrincipal struct {
 	GrantID      uuid.UUID
 	Nodes        []uuid.UUID
 	CatalogAdmin bool
+	MCPServers   ServerSet
 	User         User
 }
 

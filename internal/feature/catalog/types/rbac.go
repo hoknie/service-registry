@@ -1,5 +1,7 @@
 package types
 
+import "github.com/google/uuid"
+
 type Role int
 
 const (
@@ -18,6 +20,21 @@ func (r Role) String() string {
 		return "admin"
 	}
 	return "unknown"
+}
+
+type OrganizationRoles struct {
+	ID    uuid.UUID `db:"id"`
+	Roles []string  `db:"roles"`
+}
+
+func MaxRole(names []string) Role {
+	var out Role
+	for _, n := range names {
+		if r, ok := ParseRole(n); ok && r > out {
+			out = r
+		}
+	}
+	return out
 }
 
 func ParseRole(s string) (Role, bool) {

@@ -82,6 +82,13 @@ func (a *Handlers) PublicFile(c fiber.Ctx) error {
 	})
 }
 
+func (a *Handlers) PublicAPI(c fiber.Ctx) error {
+	return a.publicCall(c, func() (any, error) {
+		snap, d, err := a.Publishing.Public.API(c.Context(), publicEntry(c), publicSegments(c.Query("path")), publicVersion(c), c.Query("file"))
+		return responses.PublicAPIOf(snap, d), err
+	})
+}
+
 func (a *Handlers) PublicSearch(c fiber.Ctx) error {
 	return a.publicCall(c, func() (any, error) {
 		in := knowledgetypes.SearchInput{Q: c.Query("q"), Cursor: c.Query("cursor")}

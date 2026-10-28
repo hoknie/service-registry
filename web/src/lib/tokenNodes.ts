@@ -10,10 +10,16 @@ export const CATALOG_ROOT: GlobalScope = "catalog.root";
 
 export const PUBLICATION_SCOPE: GlobalScope = "publication:write";
 
+export const SKILLS_SCOPE: GlobalScope = "skills:write";
+
+export const MCP_SERVERS_SCOPE: GlobalScope = "mcp_servers:write";
+
 export const GLOBAL_SCOPES: readonly GlobalScope[] = [
   ...GLOBAL_AREAS.flatMap((a): GlobalScope[] => [`${a}:read`, `${a}:write`]),
   CATALOG_ROOT,
   PUBLICATION_SCOPE,
+  SKILLS_SCOPE,
+  MCP_SERVERS_SCOPE,
 ];
 
 export const SCOPES: readonly Scope[] = [...BASE_SCOPES, ...GLOBAL_SCOPES];

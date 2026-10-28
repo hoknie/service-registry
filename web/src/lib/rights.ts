@@ -1,4 +1,4 @@
-export type RightSection = "users" | "groups" | "tokens" | "clusters" | "environments" | "link_kinds" | "secrets" | "scans" | "catalog" | "publication";
+export type RightSection = "users" | "groups" | "tokens" | "clusters" | "environments" | "link_kinds" | "secrets" | "scans" | "catalog" | "publication" | "skills" | "mcp";
 export type RightAction = "create" | "read" | "update" | "delete";
 export type Rights = Partial<Record<RightSection, RightAction[]>>;
 
@@ -15,6 +15,8 @@ export const SECTION_ACTIONS: Record<RightSection, RightAction[]> = {
   scans: ["read"],
   catalog: ["create", "read", "update", "delete"],
   publication: ["update"],
+  skills: ["create", "update", "delete"],
+  mcp: ["create", "update", "delete"],
 };
 
 export const RIGHT_SECTIONS = Object.keys(SECTION_ACTIONS) as RightSection[];
@@ -43,7 +45,7 @@ export function sectionVisible(user: Holder, section: RightSection): boolean {
   return SECTION_ACTIONS[section].includes("read") ? held.includes("read") : held.length > 0;
 }
 
-const ADMIN_SECTIONS = RIGHT_SECTIONS.filter((s) => s !== "catalog" && s !== "publication");
+const ADMIN_SECTIONS = RIGHT_SECTIONS.filter((s) => s !== "catalog" && s !== "publication" && s !== "skills" && s !== "mcp");
 
 export function adminVisible(user: Holder): boolean {
   return ADMIN_SECTIONS.some((s) => sectionVisible(user, s));
@@ -70,6 +72,8 @@ export function scopeAllowed(user: Holder, scope: string): boolean {
   if (user.is_superadmin) return true;
   if (scope === "catalog.root") return (user.rights?.catalog ?? []).some((a) => a !== "read");
   if (scope === "publication:write") return (user.rights?.publication ?? []).includes("update");
+  if (scope === "skills:write") return (user.rights?.skills ?? []).length > 0;
+  if (scope === "mcp_servers:write") return (user.rights?.mcp ?? []).length > 0;
   const [area, half] = scope.split(":");
   const sections = area ? AREA_SECTIONS[area] : undefined;
   if (!sections || !half) return false;

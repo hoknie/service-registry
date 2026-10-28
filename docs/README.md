@@ -16,6 +16,8 @@
 | [observability-links.md](observability-links.md) | links to logs, dashboards and runbooks from templates, and their checks |
 | [project-documentation.md](project-documentation.md) | collecting documentation and API descriptions, refresh modes, limits, scan history |
 | [notifications.md](notifications.md) | webhook and Slack notifications, what a receiver gets, signatures, delivery |
+| [skills.md](skills.md) | AI skills: the catalog, uploading, versions and their policy, git sources, connecting agents, storage in S3 |
+| [mcp-gateway.md](mcp-gateway.md) | external MCP servers through the registry: the catalog, authentication, proxies, who gets which servers, servers of a token |
 
 ## Integrations
 

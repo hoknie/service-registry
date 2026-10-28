@@ -33,8 +33,9 @@ func (s *TokenRepository) Insert(ctx context.Context, nt accesstypes.NewToken) (
 	}
 	return postgres.One(ctx, s.db.From(ctx), constraints, scanToken, `
 		WITH t AS (
-			INSERT INTO personal_access_tokens (id, user_id, name, prefix, token_hash, scopes, expires_at, node_ids, catalog_admin)
-			SELECT $1, $2, $3, $4, $5, $6, now() + make_interval(days => $7::int), $8::uuid[], u.is_superadmin
+			INSERT INTO personal_access_tokens (id, user_id, name, prefix, token_hash, scopes, expires_at, node_ids, catalog_admin,
+				mcp_server_ids)
+			SELECT $1, $2, $3, $4, $5, $6, now() + make_interval(days => $7::int), $8::uuid[], u.is_superadmin, $9::uuid[]
 			FROM users u
 			WHERE u.id = $2
 			RETURNING *
@@ -45,9 +46,10 @@ func (s *TokenRepository) Insert(ctx context.Context, nt accesstypes.NewToken) (
 			CASE
 				WHEN t.revoked_at IS NOT NULL THEN 'revoked'
 				WHEN t.expires_at <= now() THEN 'expired'
-				ELSE 'active' END AS status, t.node_ids, t.catalog_admin AND u.is_superadmin AS catalog_admin
+				ELSE 'active' END AS status, t.node_ids, t.catalog_admin AND u.is_superadmin AS catalog_admin, t.mcp_server_ids
 		FROM t
-		JOIN users u ON u.id = t.user_id`, nt.ID, nt.UserID, nt.Name, nt.Prefix, nt.Hash[:], nt.Scopes.Strings(), days, nt.Nodes)
+		JOIN users u ON u.id = t.user_id`, nt.ID, nt.UserID, nt.Name, nt.Prefix, nt.Hash[:], nt.Scopes.Strings(), days, nt.Nodes,
+		nt.MCPServers.Stored())
 }
 
 func (s *TokenRepository) ListForUser(ctx context.Context, userID uuid.UUID) ([]accesstypes.Token, error) {
@@ -58,7 +60,7 @@ func (s *TokenRepository) ListForUser(ctx context.Context, userID uuid.UUID) ([]
 			CASE
 				WHEN t.revoked_at IS NOT NULL THEN 'revoked'
 				WHEN t.expires_at <= now() THEN 'expired'
-				ELSE 'active' END AS status, t.node_ids, t.catalog_admin AND u.is_superadmin AS catalog_admin
+				ELSE 'active' END AS status, t.node_ids, t.catalog_admin AND u.is_superadmin AS catalog_admin, t.mcp_server_ids
 		FROM personal_access_tokens t
 		JOIN users u ON u.id = t.user_id
 		WHERE t.user_id = $1
@@ -74,7 +76,7 @@ func (s *TokenRepository) List(ctx context.Context, f accesstypes.TokenFilter) (
 			CASE
 				WHEN t.revoked_at IS NOT NULL THEN 'revoked'
 				WHEN t.expires_at <= now() THEN 'expired'
-				ELSE 'active' END AS status, t.node_ids, t.catalog_admin AND u.is_superadmin AS catalog_admin
+				ELSE 'active' END AS status, t.node_ids, t.catalog_admin AND u.is_superadmin AS catalog_admin, t.mcp_server_ids
 		FROM personal_access_tokens t
 		JOIN users u ON u.id = t.user_id
 		WHERE t.prefix LIKE $1
@@ -136,14 +138,16 @@ func (s *TokenRepository) FindValid(ctx context.Context, tokenHash [32]byte) (*a
 		var t accesstypes.TokenUser
 		var scopes []string
 		var err error
-		if t.User, err = scanUserWith(r, []any{&t.TokenID, &scopes, &t.Nodes, &t.CatalogAdmin}, nil); err != nil {
+		var servers *[]uuid.UUID
+		if t.User, err = scanUserWith(r, []any{&t.TokenID, &scopes, &t.Nodes, &t.CatalogAdmin, &servers}, nil); err != nil {
 			return t, err
 		}
+		t.MCPServers = accesstypes.ServerSetFrom(servers)
 		t.Scopes, err = parseScopes(scopes)
 		return t, err
 	}, `
 		WITH found AS (
-			SELECT t.id AS token_id, t.scopes, t.node_ids, t.catalog_admin,
+			SELECT t.id AS token_id, t.scopes, t.node_ids, t.catalog_admin, t.mcp_server_ids,
 				(t.last_used_at IS NULL OR t.last_used_at < now() - interval '60 seconds') AS stale, u.id, u.email,
 				u.display_name, u.status, u.is_superadmin, u.is_service, u.password_hash IS NOT NULL AS has_password,
 				rfc3339(u.created_at) AS created_at, rfc3339(u.updated_at) AS updated_at
@@ -161,7 +165,7 @@ func (s *TokenRepository) FindValid(ctx context.Context, tokenHash [32]byte) (*a
 			WHERE t.id = f.token_id
 				AND f.stale
 		)
-		SELECT token_id, scopes, node_ids, catalog_admin, id, email, display_name, status, is_superadmin, is_service,
+		SELECT token_id, scopes, node_ids, catalog_admin, mcp_server_ids, id, email, display_name, status, is_superadmin, is_service,
 			has_password, created_at, updated_at
 		FROM found`, tokenHash[:])
 }
@@ -171,4 +175,16 @@ func (s *TokenRepository) Owner(ctx context.Context, id uuid.UUID) (*uuid.UUID, 
 		SELECT user_id
 		FROM personal_access_tokens
 		WHERE id = $1`, id)
+}
+
+func (s *TokenRepository) SetServers(ctx context.Context, id uuid.UUID, owner *uuid.UUID, servers []uuid.UUID) (bool, error) {
+	found, err := postgres.Find(ctx, s.db.From(ctx), constraints, pgx.RowTo[bool], `
+		UPDATE personal_access_tokens
+		SET mcp_server_ids = $3::uuid[]
+		WHERE id = $1
+			AND ($2::uuid IS NULL OR user_id = $2)
+			AND revoked_at IS NULL
+			AND (expires_at IS NULL OR expires_at > now())
+		RETURNING true`, id, owner, servers)
+	return found != nil, err
 }

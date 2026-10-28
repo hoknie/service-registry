@@ -13,7 +13,7 @@ func TestMetricsViewIsOffWithoutMetrics(t *testing.T) {
 	t.Parallel()
 	app := startApp(t)
 	admin := app.admin()
-	eq(t, jsonText(app.get("/api/v1/auth/me", admin).json(t)["features"]), `{"metrics":false}`)
+	eq(t, jsonText(app.get("/api/v1/auth/me", admin).json(t)["features"]), `{"mcp_gateway":true,"metrics":false,"skills":true}`)
 	for _, path := range []string{"/api/v1/system/metrics", "/api/v1/system/metrics/family?name=go_goroutines"} {
 		r := app.get(path, admin)
 		eq(t, r.status, 404, path)
@@ -30,7 +30,7 @@ func TestMetricsViewServesReadyValues(t *testing.T) {
 	})
 	app := startAppWith(t, []svcapp.Option{svcapp.WithMetricsSource(probe)}, "METRICS_ENABLED", "true", "METRICS_REFRESH_SECS", "30")
 	admin := app.admin()
-	eq(t, jsonText(app.get("/api/v1/auth/me", admin).json(t)["features"]), `{"metrics":true}`)
+	eq(t, jsonText(app.get("/api/v1/auth/me", admin).json(t)["features"]), `{"mcp_gateway":true,"metrics":true,"skills":true}`)
 	app.services.Sampler.SampleNow(context.Background())
 	eq(t, app.call("GET", "/api/health", "").status, 200)
 

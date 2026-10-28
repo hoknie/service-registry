@@ -2,7 +2,7 @@
 [group('quality')]
 test-db:
     docker compose up -d --wait pgsql-test
-    docker compose up -d qdrant-test meilisearch-test
+    docker compose up -d qdrant-test meilisearch-test s3-test
 
 # Drop schemas left by interrupted test runs
 [group('quality')]
@@ -12,7 +12,7 @@ test-db-reset: test-db
 # Reset the test DB, then run the Go suite with the race detector (each DB test makes its own schema)
 [group('quality')]
 test: test-db-reset
-    TEST_QDRANT_URL=localhost:6344 TEST_MEILISEARCH_URL=http://localhost:7710 {{ GO }} test -race -count=1 ./...
+    TEST_QDRANT_URL=localhost:6344 TEST_MEILISEARCH_URL=http://localhost:7710 TEST_S3_URL=http://svcr:svcr-secret@localhost:9010 {{ GO }} test -race -count=1 ./...
 
 # Format the Go code
 [group('quality')]

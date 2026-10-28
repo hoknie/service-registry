@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"golang.org/x/net/http/httpproxy"
@@ -17,6 +18,24 @@ type Options struct {
 	HTTPSProxy string
 	HTTPProxy  string
 	NoProxy    string
+	ProxyAuth  string
+}
+
+func (o Options) ProxyFunc() func(*http.Request) (*url.URL, error) {
+	proxy := (&httpproxy.Config{HTTPSProxy: o.HTTPSProxy, HTTPProxy: o.HTTPProxy, NoProxy: o.NoProxy}).ProxyFunc()
+	return func(r *http.Request) (*url.URL, error) {
+		u, err := proxy(r.URL)
+		if u == nil || err != nil || o.ProxyAuth == "" {
+			return u, err
+		}
+		with := *u
+		if name, pass, ok := strings.Cut(o.ProxyAuth, ":"); ok {
+			with.User = url.UserPassword(name, pass)
+		} else {
+			with.User = url.User(o.ProxyAuth)
+		}
+		return &with, nil
+	}
 }
 
 func New(o Options) *http.Client {
@@ -27,14 +46,9 @@ func New(o Options) *http.Client {
 	if len(o.CAPEM) > 0 {
 		roots.AppendCertsFromPEM(o.CAPEM)
 	}
-	proxy := (&httpproxy.Config{
-		HTTPSProxy: o.HTTPSProxy,
-		HTTPProxy:  o.HTTPProxy,
-		NoProxy:    o.NoProxy,
-	}).ProxyFunc()
 	timeout := o.Timeout
 	transport := &http.Transport{
-		Proxy:                 func(r *http.Request) (*url.URL, error) { return proxy(r.URL) },
+		Proxy:                 o.ProxyFunc(),
 		DialContext:           (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
 		TLSClientConfig:       &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12},
 		TLSHandshakeTimeout:   10 * time.Second,

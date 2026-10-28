@@ -16,8 +16,10 @@ var featureGraph = map[string][]string{
 	"deploy":     {"ingest", "forge", "notify", "topology", "catalog", "access"},
 	"knowledge":  {"forge", "topology", "catalog", "access"},
 	"apis":       {"knowledge", "catalog", "access"},
-	"publishing": {"knowledge", "catalog", "access"},
+	"publishing": {"apis", "knowledge", "catalog", "access"},
 	"compose":    {"knowledge", "links", "ownership", "forge", "catalog", "access"},
+	"skills":     {"knowledge", "catalog", "access"},
+	"gateway":    {"catalog", "access"},
 }
 
 type kind string

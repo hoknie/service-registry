@@ -46,18 +46,19 @@ func (s *OAuthAuthorizationRepository) FindPending(ctx context.Context, id uuid.
 			AND a.expires_at > now()`, id)
 }
 
-func (s *OAuthAuthorizationRepository) Approve(ctx context.Context, id, userID uuid.UUID, nodes []uuid.UUID, codeHash [32]byte, ttlSecs int) (*accesstypes.AuthorizationRequest, error) {
+func (s *OAuthAuthorizationRepository) Approve(ctx context.Context, id, userID uuid.UUID, nodes []uuid.UUID, servers []uuid.UUID,
+	codeHash [32]byte, ttlSecs int) (*accesstypes.AuthorizationRequest, error) {
 	return postgres.Find(ctx, s.db.From(ctx), constraints, scanAuthorizationRequest, `
 		UPDATE oauth_authorizations a
 		SET decided_at = now(), user_id = $2, node_ids = $3::uuid[], code_hash = $4,
-			expires_at = now() + make_interval(secs => $5)
+			expires_at = now() + make_interval(secs => $5), mcp_server_ids = $6::uuid[]
 		FROM oauth_clients c
 		WHERE a.id = $1
 			AND c.id = a.client_id
 			AND a.decided_at IS NULL
 			AND a.expires_at > now()
 		RETURNING a.id, a.client_id, c.name, c.metadata_url, a.redirect_uri, a.state, a.resource, a.scopes,
-			rfc3339(a.expires_at) AS expires_at`, id, userID, nodes, codeHash[:], float64(ttlSecs))
+			rfc3339(a.expires_at) AS expires_at`, id, userID, nodes, codeHash[:], float64(ttlSecs), servers)
 }
 
 func (s *OAuthAuthorizationRepository) Deny(ctx context.Context, id, userID uuid.UUID) (*accesstypes.AuthorizationRequest, error) {
@@ -76,11 +77,13 @@ func (s *OAuthAuthorizationRepository) Deny(ctx context.Context, id, userID uuid
 func scanApprovedCode(row pgx.CollectableRow) (accesstypes.ApprovedCode, error) {
 	var a accesstypes.ApprovedCode
 	var scopes []string
+	var servers *[]uuid.UUID
 	err := row.Scan(&a.AuthorizationID, &a.ClientID, &a.UserID, &a.RedirectURI, &a.CodeChallenge, &a.Resource, &scopes,
-		&a.Nodes, &a.GrantID, &a.Exchanged)
+		&a.Nodes, &a.GrantID, &a.Exchanged, &servers)
 	if err != nil {
 		return a, err
 	}
+	a.MCPServers = accesstypes.ServerSetFrom(servers)
 	a.Scopes, err = parseScopes(scopes)
 	return a, err
 }
@@ -92,12 +95,12 @@ func (s *OAuthAuthorizationRepository) TakeCode(ctx context.Context, codeHash [3
 		WHERE code_hash = $1
 			AND exchanged_at IS NULL
 			AND expires_at > now()
-		RETURNING id, client_id, user_id, redirect_uri, code_challenge, resource, scopes, node_ids, grant_id, false`, codeHash[:])
+		RETURNING id, client_id, user_id, redirect_uri, code_challenge, resource, scopes, node_ids, grant_id, false, mcp_server_ids`, codeHash[:])
 }
 
 func (s *OAuthAuthorizationRepository) FindExchanged(ctx context.Context, codeHash [32]byte) (*accesstypes.ApprovedCode, error) {
 	return postgres.Find(ctx, s.db.From(ctx), constraints, scanApprovedCode, `
-		SELECT id, client_id, user_id, redirect_uri, code_challenge, resource, scopes, node_ids, grant_id, true
+		SELECT id, client_id, user_id, redirect_uri, code_challenge, resource, scopes, node_ids, grant_id, true, mcp_server_ids
 		FROM oauth_authorizations
 		WHERE code_hash = $1
 			AND exchanged_at IS NOT NULL`, codeHash[:])

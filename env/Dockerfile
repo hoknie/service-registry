@@ -44,6 +44,6 @@ COPY --from=web /web/out /web
 COPY --from=build --chown=65534:65534 /out/data /data
 USER 65534:65534
 EXPOSE 8080
-ENV HTTP_ADDR=0.0.0.0:8080 WEB_DIST_DIR=/web UPLOADS_DIR=/data/uploads
+ENV HTTP_ADDR=0.0.0.0:8080 WEB_DIST_DIR=/web UPLOADS_DIR=/data/uploads SKILLS_DIR=/data/skills
 ENTRYPOINT ["/svc-registry"]
 CMD ["serve"]

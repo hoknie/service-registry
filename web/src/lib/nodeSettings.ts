@@ -25,6 +25,7 @@ export const RENAMED_TABS: Record<string, NodeTab> = {
 
 type NodeLike = { kind: NodeKind; parent_id?: string | null; access: "read" | "navigate"; permissions?: string[] };
 
+
 export function tabsOf(node: NodeLike | null): NodeTab[] {
   if (!node) return ["overview"];
   if (node.access !== "read") return ["overview"];

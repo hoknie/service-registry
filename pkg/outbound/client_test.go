@@ -1,6 +1,7 @@
 package outbound
 
 import (
+	"encoding/base64"
 	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
@@ -42,5 +43,23 @@ func TestProxyFollowsNoProxy(t *testing.T) {
 	}
 	if got := via("https://git.internal.example/api/v1"); got != "" {
 		t.Errorf("internal via %q", got)
+	}
+}
+
+func TestProxyAuthReachesTheProxy(t *testing.T) {
+	got := make(chan string, 1)
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got <- r.Header.Get("Proxy-Authorization")
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer proxy.Close()
+	c := New(Options{Timeout: 5 * time.Second, HTTPProxy: proxy.URL, ProxyAuth: "svc:s3cr:et"})
+	resp, err := c.Get("http://upstream.example/mcp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if want := "Basic " + base64.StdEncoding.EncodeToString([]byte("svc:s3cr:et")); <-got != want {
+		t.Fatal("proxy authorization missing")
 	}
 }

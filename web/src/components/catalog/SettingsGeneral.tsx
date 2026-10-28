@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { CatalogNode } from "@/lib/api";
 
 import { Button } from "../ui/Button";
+import { DangerZone } from "../places/DangerZone";
 import { Panel } from "../ui/Panel";
 import { DeleteDialog, EditForm, MoveDialog } from "./NodeForms";
 import { UnlinkForgeButton } from "./UnlinkForgeDialog";
@@ -37,36 +38,40 @@ export function SettingsGeneral({ node, labels, fail, canWrite, canMove, canDele
       {node.visibility && (
         <VisibilityPanel key={node.updated_at} node={node} labels={labels} fail={fail} canSwitch={canSwitchVisibility} onSaved={onSaved} />
       )}
-      {(canMove || canDelete || canUnlink) && (
-        <Panel title={t.danger}>
-          <div className="grid gap-4">
-            {canUnlink && (
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm text-ink-2">{labels.unlink.text}</p>
-                <UnlinkForgeButton node={node} labels={labels} fail={fail} onUnlinked={onSaved} />
-              </div>
-            )}
-            {canMove && (
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm text-ink-2">{t.moveText}</p>
-                <Button onClick={() => setDialog("move")}>
-                  <FolderInput aria-hidden="true" />
-                  {labels.move.title}
-                </Button>
-              </div>
-            )}
-            {canDelete && (
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm text-ink-2">{t.deleteText}</p>
-                <Button variant="danger" onClick={() => setDialog("delete")}>
-                  <Trash aria-hidden="true" />
-                  {labels.remove.button}
-                </Button>
-              </div>
-            )}
-          </div>
-        </Panel>
-      )}
+      <DangerZone
+        title={t.danger}
+        rows={[
+          ...(canUnlink ? [{ key: "unlink", text: labels.unlink.text, action: <UnlinkForgeButton node={node} labels={labels} fail={fail} onUnlinked={onSaved} /> }] : []),
+          ...(canMove
+            ? [
+                {
+                  key: "move",
+                  text: t.moveText,
+                  action: (
+                    <Button onClick={() => setDialog("move")}>
+                      <FolderInput aria-hidden="true" />
+                      {labels.move.title}
+                    </Button>
+                  ),
+                },
+              ]
+            : []),
+          ...(canDelete
+            ? [
+                {
+                  key: "delete",
+                  text: t.deleteText,
+                  action: (
+                    <Button variant="danger" onClick={() => setDialog("delete")}>
+                      <Trash aria-hidden="true" />
+                      {labels.remove.button}
+                    </Button>
+                  ),
+                },
+              ]
+            : []),
+        ]}
+      />
       {canMove && (
         <MoveDialog
           open={dialog === "move"}

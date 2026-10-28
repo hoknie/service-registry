@@ -26,7 +26,7 @@ func (e *Error) Public() (code, message string) {
 			return e.Code, e.What + " is unavailable"
 		}
 		return "service_unavailable", e.What + " is unavailable"
-	case Validation, Conflict, UpstreamRateLimited, BadGateway, Unprocessable:
+	case Validation, Conflict, UpstreamRateLimited, BadGateway, Unprocessable, TooLarge:
 		return e.Code, e.Message
 	}
 	if c, ok := fixedCodes[e.Kind]; ok {

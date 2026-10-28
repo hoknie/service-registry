@@ -4,14 +4,14 @@ Every notable change of svc-registry. Sections are written by `packaging/changel
 Conventional Commits between release tags; the release on GitHub carries the section of its tag.
 The versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.2.2] - 2026-10-27
 
 ### Fixes
 
 - Update scroll doc content and expand subtree in structure ([3376f3e](https://github.com/hoknie/service-registry/commit/3376f3e46e6ffe02b1cab9be3e4dfc517bae65fd))
 - Updated scroll to top for doc page ([323edb1](https://github.com/hoknie/service-registry/commit/323edb1d5ef3186aed72e0bad80c8f2d1ae13b3d))
 
-[Full diff](https://github.com/hoknie/service-registry/compare/v0.2.1...HEAD)
+[Full diff](https://github.com/hoknie/service-registry/compare/v0.2.1...v0.2.2)
 
 ## [0.2.1] - 2026-10-26
 

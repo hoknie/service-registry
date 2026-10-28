@@ -13,6 +13,7 @@ import (
 
 type AppsService struct {
 	roots           accessports.NodeRootsPort
+	servers         accessports.MCPServersPort
 	grantRepository *repositories.OAuthGrantRepository
 	userRepository  *repositories.UserRepository
 }
@@ -61,6 +62,9 @@ func (s *AppsService) list(ctx context.Context, userID uuid.UUID) ([]accesstypes
 	}
 	for i := range grants {
 		grants[i].Nodes = refs[i]
+		if grants[i].MCPServers, err = describeServers(ctx, s.servers, grants[i].MCPServerSet); err != nil {
+			return nil, err
+		}
 	}
 	return grants, nil
 }
@@ -107,4 +111,80 @@ func allIn(list []uuid.UUID, set map[uuid.UUID]bool) bool {
 		}
 	}
 	return len(list) > 0
+}
+
+func checkServers(ctx context.Context, port accessports.MCPServersPort, owner accesstypes.Principal, set accesstypes.ServerSet) error {
+	if !set.Limited || len(set.IDs) == 0 {
+		return nil
+	}
+	if port == nil {
+		return apperr.Wrap(accesstypes.InvalidMCPServers)
+	}
+	visible, err := port.VisibleServers(ctx, owner, set.IDs)
+	if err != nil {
+		return apperr.Wrap(err)
+	}
+	if !visible {
+		return apperr.Wrap(accesstypes.InvalidMCPServers)
+	}
+	return nil
+}
+
+func describeServers(ctx context.Context, port accessports.MCPServersPort, set accesstypes.ServerSet) ([]accesstypes.ServerRef, error) {
+	if !set.Limited {
+		return nil, nil
+	}
+	if port == nil || len(set.IDs) == 0 {
+		return []accesstypes.ServerRef{}, nil
+	}
+	refs, err := port.DescribeServers(ctx, set.IDs)
+	return refs, apperr.Wrap(err)
+}
+
+func (s *AppsService) SetOwnAppServers(ctx context.Context, p accesstypes.Principal, id uuid.UUID, raw *[]string) (accesstypes.AppGrant, error) {
+	if err := requireSession(p); err != nil {
+		return accesstypes.AppGrant{}, err
+	}
+	if s.servers == nil {
+		return accesstypes.AppGrant{}, apperr.New(apperr.NotFound)
+	}
+	owned, err := s.grantRepository.Owned(ctx, id, p.UserID)
+	if err != nil {
+		return accesstypes.AppGrant{}, apperr.Wrap(err)
+	}
+	if !owned {
+		return accesstypes.AppGrant{}, apperr.New(apperr.NotFound)
+	}
+	set, err := accesstypes.ParseServerList(raw, accesstypes.Scopes{accesstypes.ScopeMCP})
+	if err != nil {
+		return accesstypes.AppGrant{}, apperr.Wrap(err)
+	}
+	if err := checkServers(ctx, s.servers, p, set); err != nil {
+		return accesstypes.AppGrant{}, err
+	}
+	changed, err := s.grantRepository.SetServers(ctx, id, p.UserID, set.Stored())
+	if err != nil {
+		return accesstypes.AppGrant{}, apperr.Wrap(err)
+	}
+	if !changed {
+		return accesstypes.AppGrant{}, apperr.Wrap(accesstypes.ConflictTokenNotActive)
+	}
+	grants, err := s.list(ctx, p.UserID)
+	if err != nil {
+		return accesstypes.AppGrant{}, err
+	}
+	for _, g := range grants {
+		if g.ID == id {
+			return g, nil
+		}
+	}
+	return accesstypes.AppGrant{}, apperr.New(apperr.NotFound)
+}
+
+func (s *AuthorizationServerService) requestServers(ctx context.Context, p accesstypes.Principal) ([]accesstypes.ServerRef, error) {
+	if s.servers == nil {
+		return nil, nil
+	}
+	refs, err := s.servers.ListServers(ctx, p)
+	return refs, apperr.Wrap(err)
 }

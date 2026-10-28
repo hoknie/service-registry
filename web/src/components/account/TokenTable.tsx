@@ -10,6 +10,7 @@ import { isGlobalScope, showsCatalogAdmin, tokenNodeLabels } from "@/lib/tokenNo
 
 import { Badge, type Tone } from "../ui/Badge";
 import { Button } from "../ui/Button";
+import { serversLabel } from "../mcp/TokenServersDialog";
 import { Table, Td, Th, Tr } from "../ui/Table";
 
 export type TokenLabels = Messages["tokens"];
@@ -22,9 +23,10 @@ type Props = {
   labels: TokenLabels;
   showOwner?: boolean;
   onRevoke?: (token: PersonalToken) => void;
+  onServers?: (token: PersonalToken) => void;
 };
 
-export function TokenTable({ tokens, locale, labels, showOwner, onRevoke }: Props) {
+export function TokenTable({ tokens, locale, labels, showOwner, onRevoke, onServers }: Props) {
   const t = labels.table;
   return (
     <Table>
@@ -34,6 +36,7 @@ export function TokenTable({ tokens, locale, labels, showOwner, onRevoke }: Prop
           {showOwner && <Th>{t.owner}</Th>}
           <Th>{t.scopes}</Th>
           <Th>{t.nodes}</Th>
+          {onServers && <Th>{labels.gateway.column}</Th>}
           <Th>{t.created}</Th>
           <Th>{t.expires}</Th>
           <Th>{t.lastUsed}</Th>
@@ -86,6 +89,11 @@ export function TokenTable({ tokens, locale, labels, showOwner, onRevoke }: Prop
                 ))}
               </span>
             </Td>
+            {onServers && (
+              <Td className="min-w-28 text-ink-2">
+                {tok.scopes.includes("mcp") ? serversLabel(tok.mcp_servers, labels.gateway.allShort, labels.gateway.noneShort) : "—"}
+              </Td>
+            )}
             <Td className="whitespace-nowrap text-ink-2" title={when(tok.created_at, locale, "")}>
               {ago(tok.created_at, locale, "")}
             </Td>
@@ -99,6 +107,11 @@ export function TokenTable({ tokens, locale, labels, showOwner, onRevoke }: Prop
               </Badge>
             </Td>
             <Td className="text-right">
+              {tok.status === "active" && onServers && tok.scopes.includes("mcp") && (
+                <Button size="sm" variant="ghost" onClick={() => onServers(tok)}>
+                  {labels.gateway.change}
+                </Button>
+              )}
               {tok.status === "active" && onRevoke && (
                 <Button size="sm" variant="danger-ghost" onClick={() => onRevoke(tok)}>
                   {labels.revoke}

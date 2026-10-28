@@ -3,14 +3,14 @@
 import { Check, ChevronDown, CornerLeftUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Popover as P } from "radix-ui";
-import { useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import type { Locale } from "@/i18n/config";
 import { errorText } from "@/i18n/errors";
 import { format } from "@/i18n/format";
 import type { Messages } from "@/i18n/messages";
-import { errorCode, type CatalogNode } from "@/lib/api";
-import { childrenOf, filterNodes, index, siblings } from "@/lib/catalogNav";
+import { errorCode } from "@/lib/api";
+import { childrenOf, index, siblings } from "@/lib/catalogNav";
 import { useCatalogTree } from "@/lib/catalogTree";
 import { cn } from "@/lib/cn";
 
@@ -20,45 +20,85 @@ import { useUiText } from "../UiText";
 import { Spinner } from "../ui/Spinner";
 
 type Labels = Messages["header"]["navigator"];
-type Item = { key: string; node: CatalogNode; group: "up" | "near" | "inside" };
+export type MenuEntry = { key: string; id: string; name: string; slug?: string; href: string; group: "up" | "near" | "inside"; icon: ReactNode };
 
 const FILTER_FROM = 11;
 const SHOWN = 200;
 
 export function CrumbMenu({ node, name, last, locale, labels }: { node: string; name: string; last: boolean; locale: Locale; labels: Labels }) {
+  const [open, setOpen] = useState(false);
+  const { tree, error, loading } = useCatalogTree(open);
+
+  const all = useMemo<MenuEntry[]>(() => {
+    if (!tree) return [];
+    const ix = index(tree.nodes);
+    const entry = (group: MenuEntry["group"], n: (typeof tree.nodes)[number]): MenuEntry => ({
+      key: `${group}-${n.id}`,
+      id: n.id,
+      name: n.name,
+      slug: n.slug,
+      href: catalogHref(locale, n.id),
+      group,
+      icon: <KindIcon kind={n.kind} />,
+    });
+    if (node === "root") return childrenOf(ix, null).map((n) => entry("inside", n));
+    const self = ix.byId.get(node);
+    const out: MenuEntry[] = [];
+    const parent = self?.parent_id ? ix.byId.get(self.parent_id) : undefined;
+    if (last && parent) out.push(entry("up", parent));
+    for (const n of siblings(ix, node)) out.push(entry("near", n));
+    if (last) for (const n of childrenOf(ix, node)) out.push(entry("inside", n));
+    return out;
+  }, [tree, node, last, locale]);
+
+  return (
+    <CrumbMenuView
+      open={open}
+      onOpenChange={setOpen}
+      current={node}
+      name={name}
+      entries={all}
+      loading={loading && !tree}
+      error={!tree ? error : null}
+      truncated={!!tree?.truncated}
+      labels={labels}
+      top={labels.top}
+    />
+  );
+}
+
+type ViewProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  current: string;
+  name: string;
+  entries: MenuEntry[];
+  loading: boolean;
+  error: unknown;
+  truncated?: boolean;
+  labels: Labels;
+  top: string;
+};
+
+export function CrumbMenuView({ open, onOpenChange, current: node, name, entries: all, loading, error, truncated, labels, top }: ViewProps) {
   const { errors, common } = useUiText();
   const router = useRouter();
   const listId = useId();
-  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const list = useRef<HTMLUListElement>(null);
-  const { tree, error, loading } = useCatalogTree(open);
-
-  const all = useMemo<Item[]>(() => {
-    if (!tree) return [];
-    const ix = index(tree.nodes);
-    if (node === "root") return childrenOf(ix, null).map((n) => ({ key: `inside-${n.id}`, node: n, group: "inside" as const }));
-    const self = ix.byId.get(node);
-    const out: Item[] = [];
-    const parent = self?.parent_id ? ix.byId.get(self.parent_id) : undefined;
-    if (last && parent) out.push({ key: `up-${parent.id}`, node: parent, group: "up" });
-    for (const n of siblings(ix, node)) out.push({ key: `near-${n.id}`, node: n, group: "near" });
-    if (last) for (const n of childrenOf(ix, node)) out.push({ key: `inside-${n.id}`, node: n, group: "inside" });
-    return out;
-  }, [tree, node, last]);
 
   const filterable = all.filter((i) => i.group !== "up").length >= FILTER_FROM;
   const items = useMemo(() => {
-    if (!query.trim()) return all.slice(0, SHOWN);
-    const keep = new Set(filterNodes(all.filter((i) => i.group !== "up").map((i) => i.node), query).map((n) => n.id));
-    return all.filter((i) => i.group !== "up" && keep.has(i.node.id)).slice(0, SHOWN);
+    const q = query.trim().toLowerCase();
+    if (!q) return all.slice(0, SHOWN);
+    return all.filter((i) => i.group !== "up" && (i.name.toLowerCase().includes(q) || (i.slug ?? "").toLowerCase().includes(q))).slice(0, SHOWN);
   }, [all, query]);
 
-  const go = (item: Item | undefined) => {
+  const go = (item: MenuEntry | undefined) => {
     if (!item) return;
-    setOpen(false);
-    router.push(catalogHref(locale, item.node.id));
+    onOpenChange(false);
+    router.push(item.href);
   };
 
   const onKey = (e: KeyboardEvent<HTMLElement>) => {
@@ -78,14 +118,14 @@ export function CrumbMenu({ node, name, last, locale, labels }: { node: string; 
     }
   };
 
-  const heading = { up: labels.up, near: labels.near, inside: node === "root" ? labels.top : labels.inside };
+  const heading = { up: labels.up, near: labels.near, inside: node === "root" ? top : labels.inside };
   const activeId = items[active] ? `${listId}-${active}` : undefined;
 
   return (
     <P.Root
       open={open}
       onOpenChange={(next) => {
-        setOpen(next);
+        onOpenChange(next);
         setQuery("");
         setActive(0);
       }}
@@ -128,12 +168,12 @@ export function CrumbMenu({ node, name, last, locale, labels }: { node: string; 
               />
             </div>
           )}
-          {loading && !tree ? (
+          {loading ? (
             <p className="flex items-center gap-2 px-3 py-3 text-sm text-muted">
               <Spinner />
               {common.loading}
             </p>
-          ) : error && !tree ? (
+          ) : error ? (
             <p className="px-3 py-3 text-sm text-danger">{errorText(errors, errorCode(error))}</p>
           ) : (
             <ul
@@ -150,7 +190,7 @@ export function CrumbMenu({ node, name, last, locale, labels }: { node: string; 
               ) : (
                 items.map((item, i) => {
                   const first = i === 0 || items[i - 1]?.group !== item.group;
-                  const current = item.node.id === node;
+                  const current = item.id === node;
                   return (
                     <li key={item.key} role="presentation">
                       {first && (
@@ -169,13 +209,9 @@ export function CrumbMenu({ node, name, last, locale, labels }: { node: string; 
                           i === active && "bg-surface-3",
                         )}
                       >
-                        {item.group === "up" ? (
-                          <CornerLeftUp aria-hidden="true" className="size-4 shrink-0 text-muted" />
-                        ) : (
-                          <KindIcon kind={item.node.kind} />
-                        )}
+                        {item.group === "up" ? <CornerLeftUp aria-hidden="true" className="size-4 shrink-0 text-muted" /> : item.icon}
                         <span className="min-w-0 flex-1 truncate">
-                          {item.group === "up" ? format(labels.upTo, { name: item.node.name }) : item.node.name}
+                          {item.group === "up" ? format(labels.upTo, { name: item.name }) : item.name}
                         </span>
                         {current && <Check aria-hidden="true" className="size-4 shrink-0 text-signal" />}
                       </div>
@@ -185,7 +221,7 @@ export function CrumbMenu({ node, name, last, locale, labels }: { node: string; 
               )}
             </ul>
           )}
-          {tree?.truncated && <p className="border-t border-line px-3 py-2 text-xs text-muted">{labels.truncated}</p>}
+          {truncated && <p className="border-t border-line px-3 py-2 text-xs text-muted">{labels.truncated}</p>}
         </P.Content>
       </P.Portal>
     </P.Root>

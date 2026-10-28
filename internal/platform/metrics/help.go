@@ -18,6 +18,8 @@ var helps = map[string]string{ // #nosec G101 -- help texts of metrics, not cred
 	"svcr_knowledge_snapshots":                "Documentation snapshots.",
 	"svcr_knowledge_files_pending":            "Documentation files without embeddings.",
 	"svcr_project_info":                       "Project id, organization id and slug path.",
+	"svcr_mcp_gateway_servers":                "MCP gateway servers by state.",
+	"svcr_mcp_gateway_server_info":            "MCP gateway server id and slug.",
 	"svcr_deployments_recent":                 "Deployments that occurred within the window.",
 	"svcr_projects_covered":                   "Projects having the aspect.",
 	"svcr_job_queue":                          "Background job items by state.",

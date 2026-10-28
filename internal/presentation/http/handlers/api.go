@@ -11,12 +11,14 @@ import (
 	composeservices "svc-registry/internal/feature/compose/services"
 	deployservices "svc-registry/internal/feature/deploy/services"
 	forgeservices "svc-registry/internal/feature/forge/services"
+	gatewayservices "svc-registry/internal/feature/gateway/services"
 	ingestservices "svc-registry/internal/feature/ingest/services"
 	knowledgeservices "svc-registry/internal/feature/knowledge/services"
 	linksservices "svc-registry/internal/feature/links/services"
 	notifyservices "svc-registry/internal/feature/notify/services"
 	ownershipservices "svc-registry/internal/feature/ownership/services"
 	publishingservices "svc-registry/internal/feature/publishing/services"
+	skillsservices "svc-registry/internal/feature/skills/services"
 	topologyservices "svc-registry/internal/feature/topology/services"
 	"svc-registry/internal/platform/config"
 	"svc-registry/internal/platform/metrics"
@@ -38,6 +40,8 @@ type Handlers struct {
 	Apis       *apisservices.ApisServices
 	Compose    *composeservices.ComposeServices
 	Publishing *publishingservices.PublishingServices
+	Skills     *skillsservices.SkillsServices
+	Gateway    *gatewayservices.GatewayServices
 	Metrics    *metrics.Metrics
 	Version    string
 

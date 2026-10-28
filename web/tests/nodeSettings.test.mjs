@@ -45,3 +45,10 @@ test("renamed and removed project tabs redirect", () => {
   assert.deepEqual(resolveTab(project(), "events", null), { tab: "overview", section: null, redirect: { tab: "overview", section: null } });
   assert.deepEqual(resolveTab(folder(), "deployments", null), { tab: "overview", section: null, redirect: null });
 });
+
+test("organizations have no skills or MCP sections: they live in the spaces of those sections", () => {
+  const org = { kind: "organization", parent_id: null, access: "read", permissions: ["catalog.read", "catalog.write", "catalog.access"] };
+  assert.equal(sectionsOf(org).includes("skills"), false);
+  assert.equal(sectionsOf(org).includes("mcp"), false);
+  assert.equal(resolveTab(org, "settings", "skills").section, "general");
+});

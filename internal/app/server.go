@@ -38,6 +38,7 @@ func ServeUntil(ctx context.Context, cfg config.Config) error {
 	if err != nil {
 		return err
 	}
+	registry.CheckSkillsStorage(ctx)
 	app := registry.Router(dist)
 
 	ln, err := net.Listen("tcp", addr)
@@ -80,6 +81,10 @@ func ServeUntil(ctx context.Context, cfg config.Config) error {
 	knowledgeDone := jobs.SpawnKnowledgeCollection(tasks, deps)
 	indexDone := jobs.SpawnKnowledgeIndex(tasks, deps)
 	notifyDone := jobs.SpawnNotifyDeliveries(tasks, deps)
+	skillsDone := jobs.SpawnSkillSources(tasks, deps)
+	jobs.SpawnSkillBlobRetention(tasks, deps)
+	gatewayDone := jobs.SpawnMCPChecks(tasks, deps)
+	jobs.SpawnMCPCallRetention(tasks, deps)
 	if registry.Sampler != nil {
 		go registry.Sampler.Serve(tasks)
 	}
@@ -130,6 +135,16 @@ func ServeUntil(ctx context.Context, cfg config.Config) error {
 		case <-notifyDone:
 		case <-shutdown.Done():
 			slog.Warn("shutdown grace period elapsed; notification deliveries still stopping")
+		}
+		select {
+		case <-gatewayDone:
+		case <-shutdown.Done():
+			slog.Warn("shutdown grace period elapsed; MCP server checks still stopping")
+		}
+		select {
+		case <-skillsDone:
+		case <-shutdown.Done():
+			slog.Warn("shutdown grace period elapsed; skill source syncs still stopping")
 		}
 		if err := app.ShutdownWithContext(shutdown); err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {

@@ -2,6 +2,7 @@ package responses
 
 import (
 	"strings"
+	apistypes "svc-registry/internal/feature/apis/types"
 
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	publishingservices "svc-registry/internal/feature/publishing/services"
@@ -197,4 +198,13 @@ func PublicFilesOf(s knowledgetypes.Snapshot, files []knowledgetypes.FileInfo) P
 		out.Items = append(out.Items, publicFile(f))
 	}
 	return out
+}
+
+type PublicAPIDocument struct {
+	Snapshot PublicSnapshot `json:"snapshot"`
+	apistypes.Document
+}
+
+func PublicAPIOf(s knowledgetypes.Snapshot, d apistypes.Document) PublicAPIDocument {
+	return PublicAPIDocument{Snapshot: publicSnapshot(s), Document: d}
 }

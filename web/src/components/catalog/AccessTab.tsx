@@ -27,7 +27,9 @@ import type { CatalogLabels } from "./shared";
 const ROLES: Role[] = ["viewer", "editor", "admin"];
 const roleTone: Record<Role, Tone> = { viewer: "neutral", editor: "cobalt", admin: "amber" };
 
-type Props = { nodeId: string; labels: CatalogLabels };
+export type AccessLabels = Pick<CatalogLabels, "access" | "roles">;
+
+type Props = { nodeId: string; labels: AccessLabels };
 
 export function AccessTab({ nodeId, labels }: Props) {
   const { errors, common } = useUiText();
@@ -144,7 +146,7 @@ function GrantDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   nodeId: string;
-  labels: CatalogLabels;
+  labels: AccessLabels;
   fail: (e: unknown) => string;
   onGranted: () => void;
 }) {

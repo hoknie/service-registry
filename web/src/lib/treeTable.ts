@@ -7,11 +7,13 @@ export type TreeActivity = "running" | "queued" | "failed";
 export type TreeFilters = { q: string; kind: NodeKind | ""; label: string; activity: TreeActivity | ""; owner: string };
 export const NO_FILTERS: TreeFilters = { q: "", kind: "", label: "", activity: "", owner: "" };
 
-export type Branch = { rows: CatalogTableRow[]; total: number; loading: boolean; error: string | null };
+export type TreeItem = { id: string; parent_id: string | null; children: number };
 
-export type FlatRow =
-  | { type: "node"; row: CatalogTableRow; level: number; setsize: number; posinset: number; expandable: boolean; expanded: boolean }
-  | { type: "more" | "loading" | "error"; parent: string; level: number; error?: string };
+export type Branch<R extends TreeItem = CatalogTableRow> = { rows: R[]; total: number; loading: boolean; error: string | null; next?: string | null };
+
+export type FlatRow<R extends TreeItem = CatalogTableRow> =
+  | { type: "node"; row: R; level: number; setsize: number; posinset: number; expandable: boolean; expanded: boolean }
+  | { type: "more" | "loading" | "error" | "empty"; parent: string; level: number; error?: string };
 
 const KINDS = ["organization", "folder", "project"];
 const ACTIVITIES = ["running", "queued", "failed"];
@@ -63,8 +65,8 @@ export function toggleOpen(open: string[], id: string): string[] {
   return open.includes(id) ? open.filter((x) => x !== id) : [...open, id].slice(-MAX_OPEN);
 }
 
-export function groupByParent(items: CatalogTableRow[], root: string): Map<string, Branch> {
-  const out = new Map<string, Branch>();
+export function groupByParent<R extends TreeItem>(items: R[], root: string): Map<string, Branch<R>> {
+  const out = new Map<string, Branch<R>>();
   for (const row of items) {
     const key = row.parent_id ?? root;
     const b = out.get(key) ?? { rows: [], total: 0, loading: false, error: null };
@@ -75,8 +77,8 @@ export function groupByParent(items: CatalogTableRow[], root: string): Map<strin
   return out;
 }
 
-export function buildRows(byParent: Map<string, Branch>, open: Set<string>, root: string, lazy: boolean): FlatRow[] {
-  const out: FlatRow[] = [];
+export function buildRows<R extends TreeItem>(byParent: Map<string, Branch<R>>, open: Set<string>, root: string, lazy: boolean, empties = false): FlatRow<R>[] {
+  const out: FlatRow<R>[] = [];
   const walk = (parent: string, level: number) => {
     const b = byParent.get(parent);
     if (!b) return;
@@ -89,9 +91,10 @@ export function buildRows(byParent: Map<string, Branch>, open: Set<string>, root
       const child = byParent.get(row.id);
       if (!child || (child.loading && child.rows.length === 0)) out.push({ type: "loading", parent: row.id, level: level + 1 });
       else if (child.error && child.rows.length === 0) out.push({ type: "error", parent: row.id, level: level + 1, error: child.error });
+      else if (empties && child.rows.length === 0) out.push({ type: "empty", parent: row.id, level: level + 1 });
       else walk(row.id, level + 1);
     });
-    if (b.rows.length < b.total) out.push({ type: b.loading ? "loading" : b.error ? "error" : "more", parent, level, error: b.error ?? undefined });
+    if (b.rows.length < b.total || (b.next ?? null) !== null) out.push({ type: b.loading ? "loading" : b.error ? "error" : "more", parent, level, error: b.error ?? undefined });
   };
   walk(root, 1);
   return out;

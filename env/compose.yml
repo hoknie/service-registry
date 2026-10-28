@@ -60,6 +60,20 @@ services:
     volumes:
       - meili-data:/meili_data
 
+  # Optional S3-compatible storage for skills (SKILLS_STORAGE=s3, SKILLS_S3_PATH_STYLE=true):
+  # `docker compose --profile storage up -d s3`; keys svcr / svcr-secret (configs: s3-identities).
+  s3:
+    image: chrislusf/seaweedfs:3.97
+    profiles: ["storage"]
+    command: ["server", "-s3", "-s3.config=/etc/seaweedfs/s3.json", "-dir=/data", "-master.volumeSizeLimitMB=256", "-volume.max=8"]
+    configs:
+      - source: s3-identities
+        target: /etc/seaweedfs/s3.json
+    ports:
+      - "${S3_PORT:-9000}:8333"
+    volumes:
+      - s3-data:/data
+
   # Throwaway engines for `just test` (TEST_QDRANT_URL, TEST_MEILISEARCH_URL); each test uses its own
   # collection or index.
   qdrant-test:
@@ -80,6 +94,19 @@ services:
       - "7710:7700"
     tmpfs:
       - /meili_data
+
+  # Throwaway S3 storage for `just test` (TEST_S3_URL); tests share one bucket, each under its own prefix.
+  s3-test:
+    image: chrislusf/seaweedfs:3.97
+    profiles: ["test"]
+    command: ["server", "-s3", "-s3.config=/etc/seaweedfs/s3.json", "-dir=/data", "-master.volumeSizeLimitMB=16", "-volume.max=64"]
+    configs:
+      - source: s3-identities
+        target: /etc/seaweedfs/s3.json
+    ports:
+      - "9010:8333"
+    tmpfs:
+      - /data
 
   # One-shot: apply migrations before the API starts.
   migrate:
@@ -118,3 +145,10 @@ volumes:
   pgsql-data:
   qdrant-data:
   meili-data:
+  s3-data:
+
+configs:
+  s3-identities:
+    content: |
+      {"identities": [{"name": "svcr", "credentials": [{"accessKey": "svcr", "secretKey": "svcr-secret"}],
+        "actions": ["Admin", "Read", "List", "Tagging", "Write"]}]}

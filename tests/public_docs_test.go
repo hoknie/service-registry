@@ -109,3 +109,30 @@ func TestPublicDocsRateLimit(t *testing.T) {
 		t.Fatal("Retry-After")
 	}
 }
+
+func TestPublicDocsAPIDescriptions(t *testing.T) {
+	t.Parallel()
+	d, _ := startAPIDocs(t)
+	path := "/api/public/docs/api?root=acme&path=api&file=shop/v1/item.proto"
+	eq(t, d.publicGet(path).status, 404)
+
+	eq(t, d.app.send("PUT", publicationPath(d.org), d.admin, obj{"publish": true}).status, 200)
+	r := d.publicGet(path)
+	eq(t, r.status, 200, r.text())
+	eq(t, r.header("Cache-Control"), "public, max-age=60")
+	body := r.json(t)
+	eq(t, body["format"], any("proto"))
+	eq(t, body["path"], any("shop/v1/item.proto"))
+	eq(t, at(body, "snapshot", "branch"), any("main"))
+	eq(t, len(list(t, body, "messages")) > 0, true)
+	for _, key := range []string{`"id":`, `"limits":`, `"git_status":`} {
+		if strings.Contains(r.text(), key) {
+			t.Fatalf("%s leaks: %s", key, r.text())
+		}
+	}
+	openapi := d.publicGet("/api/public/docs/api?root=acme&path=api&file=api/openapi.yaml")
+	eq(t, openapi.status, 200, openapi.text())
+	eq(t, len(list(t, openapi.json(t), "operations")) > 0, true)
+	eq(t, d.publicGet("/api/public/docs/api?root=acme&path=api&file=README.md").status, 404)
+	eq(t, d.publicGet("/api/public/docs/api?root=acme&path=api&file=shop/v1/item.proto&branch=nope").status, 404)
+}

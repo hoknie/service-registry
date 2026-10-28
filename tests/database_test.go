@@ -127,10 +127,10 @@ func TestEmbeddedMigrationsApplyThroughTheBinary(t *testing.T) {
 	tdb := testsupport.NewTestDB(t)
 	code, out, errOut := run(t, []string{"db:migrate"}, "", "DATABASE_URL", tdb.URL)
 	eq(t, code, 0, errOut)
-	contains(t, out, "applied 77 migration(s)")
+	contains(t, out, "applied 104 migration(s)")
 	versions, err := embedded(t).Versions()
 	must(t, err)
-	eq(t, len(versions), 77)
+	eq(t, len(versions), 104)
 	_, out, _ = run(t, []string{"db:migrate"}, "", "DATABASE_URL", tdb.URL)
 	contains(t, out, "applied 0 migration(s)")
 	code, out, errOut = run(t, []string{"db:rollback", "--count=4"}, "", "DATABASE_URL", tdb.URL)
@@ -207,7 +207,7 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	m := embedded(t)
 	n, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	eq(t, n, 77)
+	eq(t, n, 104)
 	knowledge := []string{"knowledge_blobs", "knowledge_files", "knowledge_settings", "knowledge_snapshots"}
 	oauth := []string{"oauth_login_states", "user_identities"}
 	deploy := []string{"cluster_workloads", "clusters", "environments"}
@@ -258,10 +258,28 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	slices.Sort(withTags)
 	withPublications := append([]string{"docs_publications"}, withTags...)
 	slices.Sort(withPublications)
+	withSkills := append([]string{"skill_blobs", "skill_files", "skill_folders", "skill_sources", "skill_spaces",
+		"skill_version_policies", "skill_versions", "skills"}, withPublications...)
+	slices.Sort(withSkills)
+	withGateway := append([]string{"mcp_folders", "mcp_gateway_calls", "mcp_organization_servers", "mcp_organizations",
+		"mcp_proxy_settings", "mcp_server_access", "mcp_server_checks", "mcp_servers"}, withSkills...)
+	slices.Sort(withGateway)
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withGateway, ","))
+	n, err = rollbackThrough(t, m, tdb, "create_mcp_folders")
+	must(t, err)
+	eq(t, n, 17)
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withSkills, ","))
+	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM information_schema.columns WHERE table_schema = current_schema() "+
+		"AND column_name = 'mcp_server_ids'"), int64(0))
+	n, err = rollbackThrough(t, m, tdb, "create_skill_folders")
+	must(t, err)
+	eq(t, n, migrationsFrom(t, m, "create_skill_folders")-migrationsFrom(t, m, "create_mcp_folders"))
 	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withPublications, ","))
+	eq(t, scalar[string](t, tdb, "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'group_permissions_section_check' AND connamespace = current_schema()::regnamespace"),
+		"CHECK ((section = ANY (ARRAY['users'::text, 'groups'::text, 'tokens'::text, 'clusters'::text, 'environments'::text, 'link_kinds'::text, 'secrets'::text, 'scans'::text, 'catalog'::text, 'publication'::text])))")
 	n, err = rollbackThrough(t, m, tdb, "create_docs_publications")
 	must(t, err)
-	eq(t, n, migrationsFrom(t, m, "create_docs_publications"))
+	eq(t, n, migrationsFrom(t, m, "create_docs_publications")-migrationsFrom(t, m, "create_skill_folders"))
 	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withTags, ","))
 	n, err = rollbackThrough(t, m, tdb, "alter_knowledge_patterns_refs")
 	must(t, err)
@@ -407,7 +425,7 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	eq(t, len(embeddedTables(t, tdb)), 0)
 	n, err = m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	eq(t, n, 77)
+	eq(t, n, 104)
 }
 
 func execErr(t *testing.T, tdb *testsupport.TestDB, query string, args ...any) string {

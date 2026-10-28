@@ -102,6 +102,7 @@ type ValidatedToken struct {
 	Scopes        Scopes
 	ExpiresInDays *uint32
 	Nodes         []uuid.UUID
+	MCPServers    ServerSet
 }
 
 type Grantor struct {
@@ -155,7 +156,33 @@ func ValidateCreateToken(in CreateToken, grantor Grantor, maxDays uint32) (Valid
 		return ValidatedToken{}, err
 	}
 	out.Nodes = nodes
+	out.MCPServers, err = ParseServerList(in.MCPServers, out.Scopes)
+	if err != nil {
+		return ValidatedToken{}, err
+	}
 	return out, nil
+}
+
+const TokenMaxServers = 50
+
+func ParseServerList(raw *[]string, scopes Scopes) (ServerSet, error) {
+	if raw == nil {
+		return ServerSet{}, nil
+	}
+	if len(*raw) > TokenMaxServers || !scopes.Has(ScopeMCP) {
+		return ServerSet{}, InvalidMCPServers
+	}
+	out := make([]uuid.UUID, 0, len(*raw))
+	seen := map[uuid.UUID]bool{}
+	for _, s := range *raw {
+		id, err := uuid.Parse(s)
+		if err != nil || seen[id] {
+			return ServerSet{}, InvalidMCPServers
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	return ServerSetOf(out), nil
 }
 
 func validateTokenNodes(raw *[]string, scopes Scopes) ([]uuid.UUID, error) {

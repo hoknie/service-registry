@@ -17,11 +17,18 @@ func NewOAuthGrantRepository(db *pgtx.DB) *OAuthGrantRepository { return &OAuthG
 
 func (s *OAuthGrantRepository) Insert(ctx context.Context, g accesstypes.NewGrant) error {
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
-		INSERT INTO oauth_grants (id, user_id, client_id, scopes, node_ids, refresh_hash, refresh_expires_at, catalog_admin)
-		SELECT $1, $2, $3, $4, $5::uuid[], $6, now() + make_interval(days => $7::int), u.is_superadmin
+		INSERT INTO oauth_grants (id, user_id, client_id, scopes, node_ids, refresh_hash, refresh_expires_at, catalog_admin,
+			mcp_server_ids)
+		SELECT $1, $2, $3, $4, $5::uuid[], $6, now() + make_interval(days => $7::int), u.is_superadmin,
+			CASE WHEN $8::uuid[] IS NULL THEN NULL ELSE ARRAY(
+				SELECT s.id
+				FROM unnest($8::uuid[]) WITH ORDINALITY AS i(id, n)
+				JOIN mcp_servers s ON s.id = i.id
+				ORDER BY i.n
+			) END
 		FROM users u
 		WHERE u.id = $2`,
-		g.ID, g.UserID, g.ClientID, g.Scopes.Strings(), g.Nodes, g.RefreshHash[:], int32(g.RefreshDays))
+		g.ID, g.UserID, g.ClientID, g.Scopes.Strings(), g.Nodes, g.RefreshHash[:], int32(g.RefreshDays), g.MCPServers.Stored())
 	return err
 }
 
@@ -105,11 +112,13 @@ func (s *OAuthGrantRepository) FindValidAccess(ctx context.Context, hash [32]byt
 	return postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (accesstypes.AppPrincipal, error) {
 		var p accesstypes.AppPrincipal
 		var err error
-		p.User, err = scanUserWith(r, []any{&p.GrantID, &p.Nodes, &p.CatalogAdmin}, nil)
+		var servers *[]uuid.UUID
+		p.User, err = scanUserWith(r, []any{&p.GrantID, &p.Nodes, &p.CatalogAdmin, &servers}, nil)
+		p.MCPServers = accesstypes.ServerSetFrom(servers)
 		return p, err
 	}, `
 		WITH found AS (
-			SELECT g.id AS grant_id, g.node_ids, g.catalog_admin,
+			SELECT g.id AS grant_id, g.node_ids, g.catalog_admin, g.mcp_server_ids,
 				(g.last_used_at IS NULL OR g.last_used_at < now() - interval '60 seconds') AS stale,
 				u.id, u.email, u.display_name, u.status, u.is_superadmin, u.is_service, u.password_hash IS NOT NULL AS has_password,
 				rfc3339(u.created_at) AS created_at, rfc3339(u.updated_at) AS updated_at
@@ -128,7 +137,7 @@ func (s *OAuthGrantRepository) FindValidAccess(ctx context.Context, hash [32]byt
 			WHERE g.id = f.grant_id
 				AND f.stale
 		)
-		SELECT grant_id, node_ids, catalog_admin, id, email, display_name, status, is_superadmin, is_service, has_password,
+		SELECT grant_id, node_ids, catalog_admin, mcp_server_ids, id, email, display_name, status, is_superadmin, is_service, has_password,
 			created_at, updated_at
 		FROM found`, hash[:])
 }
@@ -141,7 +150,7 @@ func (s *OAuthGrantRepository) ListForUser(ctx context.Context, userID uuid.UUID
 			CASE
 				WHEN g.revoked_at IS NOT NULL THEN 'revoked'
 				WHEN g.refresh_expires_at <= now() THEN 'expired'
-				ELSE 'active' END AS status
+				ELSE 'active' END AS status, g.mcp_server_ids
 		FROM oauth_grants g
 		JOIN oauth_clients c ON c.id = g.client_id
 		WHERE g.user_id = $1
@@ -160,4 +169,25 @@ func (s *OAuthGrantRepository) Prune(ctx context.Context) (int64, error) {
 		WHERE revoked_at < now() - interval '30 days'
 			OR refresh_expires_at < now() - interval '30 days'`)
 	return tokens + grants, err
+}
+
+func (s *OAuthGrantRepository) SetServers(ctx context.Context, id, owner uuid.UUID, servers []uuid.UUID) (bool, error) {
+	found, err := postgres.Find(ctx, s.db.From(ctx), constraints, pgx.RowTo[bool], `
+		UPDATE oauth_grants
+		SET mcp_server_ids = $3::uuid[]
+		WHERE id = $1
+			AND user_id = $2
+			AND revoked_at IS NULL
+			AND refresh_expires_at > now()
+		RETURNING true`, id, owner, servers)
+	return found != nil, err
+}
+
+func (s *OAuthGrantRepository) Owned(ctx context.Context, id, owner uuid.UUID) (bool, error) {
+	found, err := postgres.Find(ctx, s.db.From(ctx), constraints, pgx.RowTo[bool], `
+		SELECT true
+		FROM oauth_grants
+		WHERE id = $1
+			AND user_id = $2`, id, owner)
+	return found != nil, err
 }

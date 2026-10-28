@@ -34,6 +34,7 @@ const (
 	InvalidWebhookSignature
 	InvalidAgentToken
 	PublicRateLimited
+	TooLarge
 )
 
 type Field struct {
@@ -142,6 +143,10 @@ func From(err error) *Error {
 
 func Invalid(code, message string) *Error {
 	return &Error{Kind: Validation, Code: code, Message: message}
+}
+
+func TooLargeError(code, message string) *Error {
+	return &Error{Kind: TooLarge, Code: code, Message: message}
 }
 
 func Conflicting(code, message string) *Error {

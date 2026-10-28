@@ -1,17 +1,16 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import type { SourceKind } from "@/lib/api";
 
-import { Checkbox, Field, Input, Textarea } from "../ui/Field";
-import { Segmented } from "../ui/Segmented";
+import { MarkdownField } from "../places/MarkdownField";
+import { Checkbox, Field, Input } from "../ui/Field";
 import { Select } from "../ui/Select";
 import type { Suggest } from "../ui/Suggestions";
 import { labelError as labelRule } from "../ui/TagInput";
 import { SOURCE_KINDS, SourceFields, type SecretScope, type SourceDraft } from "../knowledge/SourceFields";
 import { BranchInput } from "./BranchInput";
-import { Markdown } from "./Markdown";
 import { type CatalogLabels } from "./shared";
 
 export type Repo = { forge: string; repo_url: string; default_branch: string };
@@ -151,31 +150,5 @@ export function DescriptionField({
   hint?: string;
   rows?: number;
 }) {
-  const [preview, setPreview] = useState(false);
-  return (
-    <div className="grid gap-1.5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-sm font-medium text-ink-2">{labels.create.description}</span>
-        <Segmented
-          label={labels.create.description}
-          value={preview ? "preview" : "text"}
-          onChange={(v) => setPreview(v === "preview")}
-          options={[
-            { value: "text", label: labels.about.text },
-            { value: "preview", label: labels.about.preview },
-          ]}
-        />
-      </div>
-      {preview ? (
-        <div className="min-h-24 rounded-md border border-line bg-surface p-3">
-          {value.trim() ? <Markdown source={value} /> : <p className="text-sm text-muted">{labels.about.empty}</p>}
-        </div>
-      ) : (
-        <>
-          <Textarea aria-label={labels.create.description} rows={rows} readOnly={readOnly} value={value} onChange={(e) => onChange(e.target.value)} />
-          <p className="text-xs text-muted">{hint ?? labels.about.markdownHint}</p>
-        </>
-      )}
-    </div>
-  );
+  return <MarkdownField label={labels.create.description} value={value} onChange={onChange} readOnly={readOnly} hint={hint} rows={rows} />;
 }

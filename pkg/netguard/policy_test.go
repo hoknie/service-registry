@@ -8,6 +8,7 @@ import (
 func TestAddressPolicy(t *testing.T) {
 	open := Policy{AllowPrivate: true, DenyHosts: []string{"*.evil.example", "bad.example"}}
 	closed := Policy{AllowPrivate: false, AllowHosts: []string{"*.corp.example", "grafana.internal"}}
+	nets := Policy{AllowNets: []netip.Prefix{netip.MustParsePrefix("10.1.0.0/16"), netip.MustParsePrefix("127.0.0.1/32")}, DenyHosts: []string{"bad.example"}}
 	tests := []struct {
 		name   string
 		policy Policy
@@ -38,6 +39,12 @@ func TestAddressPolicy(t *testing.T) {
 		{"allow list exact", closed, "grafana.internal", "192.168.1.1", true},
 		{"allow list is not loopback", closed, "grafana.internal", "127.0.0.1", false},
 		{"public when closed", closed, "x", "8.8.8.8", true},
+		{"allowed network", nets, "mcp.internal", "10.1.2.3", true},
+		{"other private network", nets, "mcp.internal", "10.2.0.1", false},
+		{"allowed loopback", nets, "localhost", "127.0.0.1", true},
+		{"allowed mapped loopback", nets, "x", "::ffff:127.0.0.1", true},
+		{"other loopback", nets, "x", "127.0.0.2", false},
+		{"deny list wins over networks", nets, "bad.example", "10.1.2.3", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

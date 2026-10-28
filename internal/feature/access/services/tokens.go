@@ -83,13 +83,16 @@ func (s *TokensService) issueFor(ctx context.Context, owner accesstypes.User, in
 			return IssuedToken{}, apperr.Wrap(accesstypes.InvalidTokenNodes)
 		}
 	}
+	if err := checkServers(ctx, s.servers, accesstypes.Principal{UserID: userID, IsSuperadmin: superadmin}, valid.MCPServers); err != nil {
+		return IssuedToken{}, err
+	}
 	fresh, err := auth.GeneratePersonalToken()
 	if err != nil {
 		return IssuedToken{}, apperr.Internalf("no randomness: %v", err)
 	}
 	token, err := s.tokenRepository.Insert(ctx, accesstypes.NewToken{
 		ID: uuid.Must(uuid.NewV7()), UserID: userID, Name: valid.Name, Prefix: fresh.Prefix,
-		Hash: fresh.Hash, Scopes: valid.Scopes, ExpiresInDays: valid.ExpiresInDays, Nodes: valid.Nodes,
+		Hash: fresh.Hash, Scopes: valid.Scopes, ExpiresInDays: valid.ExpiresInDays, Nodes: valid.Nodes, MCPServers: valid.MCPServers,
 	})
 	if err != nil {
 		return IssuedToken{}, apperr.Wrap(err)
@@ -112,6 +115,9 @@ func (s *TokensService) describe(ctx context.Context, tokens []accesstypes.Token
 	}
 	for i := range tokens {
 		tokens[i].Nodes = refs[i]
+		if tokens[i].MCPServers, err = describeServers(ctx, s.servers, tokens[i].MCPServerSet); err != nil {
+			return nil, err
+		}
 	}
 	return tokens, nil
 }
@@ -203,6 +209,7 @@ type TokensService struct {
 	permissionRepository *repositories.GroupPermissionRepository
 	cfg                  *config.Config
 	roots                accessports.NodeRootsPort
+	servers              accessports.MCPServersPort
 	tokenRepository      *repositories.TokenRepository
 	userRepository       *repositories.UserRepository
 }
@@ -213,4 +220,64 @@ func (s *TokensService) AddTokenRoot(ctx context.Context, tokenID, nodeID uuid.U
 		return false, nil
 	}
 	return err == nil, apperr.Wrap(err)
+}
+
+func (s *TokensService) SetOwnTokenServers(ctx context.Context, p accesstypes.Principal, id uuid.UUID, raw *[]string) (accesstypes.Token, error) {
+	if err := requireSession(p); err != nil {
+		return accesstypes.Token{}, err
+	}
+	return s.setServers(ctx, accesstypes.User{ID: p.UserID, IsSuperadmin: p.IsSuperadmin}, id, raw)
+}
+
+func (s *TokensService) SetUserTokenServers(ctx context.Context, p accesstypes.Principal, userID, id uuid.UUID, raw *[]string) (accesstypes.Token, error) {
+	if err := requireSuperadminSession(p); err != nil {
+		return accesstypes.Token{}, err
+	}
+	user, err := s.userRepository.Find(ctx, userID)
+	if err != nil {
+		return accesstypes.Token{}, apperr.Wrap(err)
+	}
+	if user == nil {
+		return accesstypes.Token{}, apperr.New(apperr.NotFound)
+	}
+	return s.setServers(ctx, *user, id, raw)
+}
+
+func (s *TokensService) setServers(ctx context.Context, owner accesstypes.User, id uuid.UUID, raw *[]string) (accesstypes.Token, error) {
+	if s.servers == nil {
+		return accesstypes.Token{}, apperr.New(apperr.NotFound)
+	}
+	tokens, err := s.tokenRepository.ListForUser(ctx, owner.ID)
+	if err != nil {
+		return accesstypes.Token{}, apperr.Wrap(err)
+	}
+	idx := -1
+	for i, t := range tokens {
+		if t.ID == id {
+			idx = i
+		}
+	}
+	if idx < 0 {
+		return accesstypes.Token{}, apperr.New(apperr.NotFound)
+	}
+	set, err := accesstypes.ParseServerList(raw, tokens[idx].Scopes)
+	if err != nil {
+		return accesstypes.Token{}, apperr.Wrap(err)
+	}
+	if err := checkServers(ctx, s.servers, accesstypes.Principal{UserID: owner.ID, IsSuperadmin: owner.IsSuperadmin}, set); err != nil {
+		return accesstypes.Token{}, err
+	}
+	changed, err := s.tokenRepository.SetServers(ctx, id, &owner.ID, set.Stored())
+	if err != nil {
+		return accesstypes.Token{}, apperr.Wrap(err)
+	}
+	if !changed {
+		return accesstypes.Token{}, apperr.Wrap(accesstypes.ConflictTokenNotActive)
+	}
+	tokens[idx].MCPServerSet = set
+	described, err := s.describe(ctx, tokens[idx:idx+1])
+	if err != nil {
+		return accesstypes.Token{}, err
+	}
+	return described[0], nil
 }

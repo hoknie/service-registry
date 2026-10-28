@@ -94,7 +94,7 @@ type CatalogServices struct {
 func New(d Deps) *CatalogServices {
 	p := newParts(d)
 	f := &CatalogServices{
-		Access:   &AccessService{nodeRepository: p.nodeRepository},
+		Access:   &AccessService{nodeRepository: p.nodeRepository, bindingRepository: p.bindingRepository},
 		Activity: &ActivityService{activityRepository: p.activityRepository, sources: p.sources},
 		Bindings: &BindingsService{bindingRepository: p.bindingRepository},
 		Branches: &BranchesService{branchRepository: p.branchRepository, cfg: p.cfg, deleteBranch: p.deleteBranch},

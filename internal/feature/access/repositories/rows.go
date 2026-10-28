@@ -48,11 +48,13 @@ func scanToken(row pgx.CollectableRow) (accesstypes.Token, error) {
 	var t accesstypes.Token
 	var scopes []string
 	var st string
+	var servers *[]uuid.UUID
 	err := row.Scan(&t.ID, &t.UserID, &t.UserEmail, &t.Name, &t.Prefix, &scopes,
-		&t.CreatedAt, &t.ExpiresAt, &t.LastUsedAt, &t.RevokedAt, &st, &t.NodeIDs, &t.CatalogAdmin)
+		&t.CreatedAt, &t.ExpiresAt, &t.LastUsedAt, &t.RevokedAt, &st, &t.NodeIDs, &t.CatalogAdmin, &servers)
 	if err != nil {
 		return accesstypes.Token{}, err
 	}
+	t.MCPServerSet = accesstypes.ServerSetFrom(servers)
 	if t.Scopes, err = parseScopes(scopes); err != nil {
 		return accesstypes.Token{}, err
 	}
@@ -143,11 +145,13 @@ func scanAppGrant(r pgx.CollectableRow) (accesstypes.AppGrant, error) {
 	var g accesstypes.AppGrant
 	var scopes, redirects []string
 	var st string
+	var servers *[]uuid.UUID
 	err := r.Scan(&g.ID, &g.UserID, &g.ClientID, &g.ClientName, &g.ClientMetadataURL, &redirects, &scopes, &g.NodeIDs, &g.CreatedAt,
-		&g.LastUsedAt, &g.ExpiresAt, &g.RevokedAt, &st)
+		&g.LastUsedAt, &g.ExpiresAt, &g.RevokedAt, &st, &servers)
 	if err != nil {
 		return g, err
 	}
+	g.MCPServerSet = accesstypes.ServerSetFrom(servers)
 	if len(redirects) > 0 {
 		g.RedirectHost = accesstypes.RedirectHost(redirects[0])
 	}

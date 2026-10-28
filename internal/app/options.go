@@ -7,9 +7,11 @@ import (
 	accessports "svc-registry/internal/feature/access/ports"
 	"svc-registry/internal/feature/deploy/clients/k8s"
 	deployports "svc-registry/internal/feature/deploy/ports"
+	gatewayports "svc-registry/internal/feature/gateway/ports"
 	linksports "svc-registry/internal/feature/links/ports"
 	"svc-registry/internal/feature/notify/clients/sender"
 	notifyports "svc-registry/internal/feature/notify/ports"
+	skillsports "svc-registry/internal/feature/skills/ports"
 	"svc-registry/internal/platform/config"
 	"svc-registry/internal/platform/metrics"
 )
@@ -22,6 +24,8 @@ type overrides struct {
 	notifySender   notifyports.SenderPort
 	clientMetadata accessports.ClientMetadataPort
 	metricSources  []metrics.Source
+	skillsStore    skillsports.BlobStorePort
+	gatewayClient  gatewayports.ClientPort
 }
 
 func WithLinkChecker(c linksports.CheckerPort) Option {

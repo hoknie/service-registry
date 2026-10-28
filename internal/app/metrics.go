@@ -42,7 +42,7 @@ func (a *App) newSampler(extra []metrics.Source) *metrics.Sampler {
 		}),
 		metrics.SampleSource("catalog", a.Catalog.System.MetricSamples, a.Access.Users.MetricSamples, a.Ownership.Ports.MetricSamples,
 			a.Ingest.Accept.MetricSamples, a.Deploy.Ports.MetricSamples, a.Forge.Ports.MetricSamples, a.Links.Projects.MetricSamples,
-			a.Notify.Outbox.MetricSamples, a.Topology.Records.MetricSamples, a.Knowledge.Search.MetricSamples),
+			a.Notify.Outbox.MetricSamples, a.Topology.Records.MetricSamples, a.Knowledge.Search.MetricSamples, a.gatewaySamples),
 		metrics.SampleSource("jobs", a.Deploy.Ports.QueueSamples, a.Forge.Ports.QueueSamples, a.Links.Projects.QueueSamples,
 			a.Notify.Outbox.QueueSamples, a.Knowledge.Search.QueueSamples),
 	}

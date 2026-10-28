@@ -85,6 +85,8 @@ A superadmin can let a group run parts of the administration without making its 
 | Scans | read |
 | Catalog top level | create, read, update, delete |
 | Publication | update |
+| Global AI skills | create, update, delete |
+| Global MCP servers | create, update, delete |
 
 Everyone who is signed in can already read the lists of environments and link kinds.
 
@@ -99,6 +101,15 @@ see and set it up. The role can be removed under the organization's
 **Publication** lets members change the publication settings of documentation on any node they can read
 ([project-documentation.md](project-documentation.md#publication)). Editing a node does not give it. Tokens need the
 scopes `read` and `publication:write` for it.
+
+**Global AI skills** lets members create, change and delete skills and folders of the global scope and their git
+sources ([skills.md](skills.md)). Skills of an organization need a role on the organization instead. Tokens need the
+scopes `write` and `skills:write` for it.
+
+**Global MCP servers** lets members create, change and delete MCP servers and folders of the global scope, set their
+proxies and decide who may use the global servers ([mcp-gateway.md](mcp-gateway.md)). Servers of an organization need a
+role on the organization instead: editors change them, admins decide who may use them. Tokens need the scopes `write`
+and `mcp_servers:write` for it.
 
 How the rights work:
 - Every active member gets the union of the rights of all their groups. Groups assigned by a login provider count

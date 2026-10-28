@@ -11,8 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/net/http/httpproxy"
-
 	"svc-registry/pkg/outbound"
 )
 
@@ -25,8 +23,7 @@ type proxyTransport struct {
 
 func NewProxyTransport(o outbound.Options, p Policy, resolver *net.Resolver) http.RoundTripper {
 	t := NewTransport(o, p, resolver)
-	proxy := (&httpproxy.Config{HTTPSProxy: o.HTTPSProxy, HTTPProxy: o.HTTPProxy, NoProxy: o.NoProxy}).ProxyFunc()
-	t.Proxy = func(r *http.Request) (*url.URL, error) { return proxy(r.URL) }
+	t.Proxy = o.ProxyFunc()
 	guarded := t.DialContext
 	proxies := proxyAddrs(o.HTTPSProxy, o.HTTPProxy)
 	plain := (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext

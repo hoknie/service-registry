@@ -167,8 +167,32 @@ func (s *AccessService) OrganizationAccess(ctx context.Context, p accesstypes.Pr
 }
 
 type AccessService struct {
-	nodeRepository *repositories.NodeRepository
-	system         *SystemService
+	nodeRepository    *repositories.NodeRepository
+	bindingRepository *repositories.BindingRepository
+	system            *SystemService
+}
+
+func (s *AccessService) VisibleOrganizations(ctx context.Context, p accesstypes.Principal, need catalogtypes.Permission) ([]uuid.UUID, error) {
+	v := viewerOf(p)
+	orgs, err := s.bindingRepository.Organizations(ctx, v, p.IsSuperadmin || v.TopLevel)
+	if err != nil {
+		return nil, apperr.Wrap(err)
+	}
+	out := make([]uuid.UUID, 0, len(orgs))
+	for _, o := range orgs {
+		if need == catalogtypes.PermRead || p.IsSuperadmin || catalogtypes.MaxRole(o.Roles).Allows(need) {
+			out = append(out, o.ID)
+		}
+	}
+	return out, nil
+}
+
+func (s *AccessService) NodeOrganizations(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	out, err := s.bindingRepository.NodeOrganizations(ctx, ids)
+	return out, apperr.Wrap(err)
 }
 
 func (s *AccessService) ResolveNode(ctx context.Context, p accesstypes.Principal, ref string) (Scoped, error) {

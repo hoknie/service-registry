@@ -16,6 +16,8 @@ var (
 	InvalidScopes           = apperr.Invalid("validation.invalid_scopes", "scopes must be a non-empty list of distinct read, write, admin, mcp; admin only for superadmins")
 	InvalidTokenLifetime    = apperr.Invalid("validation.invalid_token_lifetime", "expires_in_days must be 1..=PAT_MAX_LIFETIME_DAYS; only superadmins may omit it")
 	InvalidTokenNodes       = apperr.Invalid("validation.invalid_token_nodes", "nodes must be 1 to 20 distinct readable catalog nodes and cannot be combined with the admin scope")
+	InvalidMCPServers       = apperr.Invalid("validation.invalid_mcp_servers", "mcp_servers is null or up to 50 distinct ids of MCP servers you can see, and needs the mcp scope")
+	ConflictTokenNotActive  = apperr.Conflicting("conflict.token_not_active", "the token or app is revoked or expired")
 	InvalidTokenPrefix      = apperr.Invalid("validation.invalid_token_prefix", "prefix must be at most 12 characters")
 	InvalidContacts         = apperr.Invalid("validation.invalid_contacts", "contacts must be at most 10 items of kind email, chat, url or phone with a valid value and a label of 1 to 100 characters or null")
 	InvalidNotGroupMember   = apperr.Invalid("validation.not_group_member", "the right can be granted only to a member of the group")

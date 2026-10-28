@@ -120,7 +120,8 @@ func (s *AuthService) authenticateApp(ctx context.Context, hash [32]byte) (acces
 		return accesstypes.Principal{}, accesstypes.User{}, apperr.New(apperr.InvalidToken)
 	}
 	p := accesstypes.Principal{UserID: found.User.ID, TokenID: found.GrantID, Scopes: accesstypes.Scopes{accesstypes.ScopeMCP},
-		Nodes: found.Nodes, CatalogAdmin: found.CatalogAdmin && found.User.IsSuperadmin, App: true, Method: "oauth_app"}
+		Nodes: found.Nodes, CatalogAdmin: found.CatalogAdmin && found.User.IsSuperadmin, App: true, Method: "oauth_app",
+		MCPServers: found.MCPServers}
 	return p, found.User, nil
 }
 
@@ -145,6 +146,7 @@ func (s *AuthService) AuthenticateToken(ctx context.Context, secret string) (acc
 		TokenID:      found.TokenID,
 		Scopes:       found.Scopes,
 		Nodes:        found.Nodes,
+		MCPServers:   found.MCPServers,
 		IsSuperadmin: superadmin,
 		CatalogAdmin: found.CatalogAdmin && found.User.IsSuperadmin && !superadmin,
 		Method:       "token",

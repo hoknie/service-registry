@@ -75,3 +75,18 @@ test("highlight marks every case-insensitive match", () => {
   ]);
   assert.deepEqual(highlight("api", ""), [{ text: "api", hit: false }]);
 });
+
+test("an expanded empty branch shows an empty row only when asked", () => {
+  const byParent = new Map([
+    ["", branch([row("a", null, 1)])],
+    ["a", branch([])],
+  ]);
+  assert.deepEqual(
+    buildRows(byParent, new Set(["a"]), "", true, true).map((r) => r.type),
+    ["node", "empty"],
+  );
+  assert.deepEqual(
+    buildRows(byParent, new Set(["a"]), "", true).map((r) => r.type),
+    ["node"],
+  );
+});

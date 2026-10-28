@@ -11,6 +11,7 @@ import { apiGet, apiSend, type Items, type PersonalToken } from "@/lib/api";
 import { TokenDialog } from "../account/TokenDialog";
 import { TokenTable, type TokenLabels } from "../account/TokenTable";
 import { KeyDialog } from "../catalog/KeyDialog";
+import { TokenServersDialog, useGatewayOn } from "../mcp/TokenServersDialog";
 import { Button } from "../ui/Button";
 import { useUiText } from "../UiText";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
@@ -35,6 +36,8 @@ export function UserTokens({ userId, locale, title, empty, labels, fail, canIssu
   const [secret, setSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<PersonalToken | null>(null);
+  const [serving, setServing] = useState<PersonalToken | null>(null);
+  const gateway = useGatewayOn() && superadmin;
 
   const load = useCallback(async () => {
     try {
@@ -64,7 +67,21 @@ export function UserTokens({ userId, locale, title, empty, labels, fail, canIssu
       {error && <Message note={{ kind: "error", text: error }} />}
       {!tokens && !error && <SkeletonTable rows={2} label={common.loading} />}
       {tokens && tokens.length === 0 && <p className="text-sm text-muted">{empty}</p>}
-      {tokens && tokens.length > 0 && <TokenTable tokens={tokens} locale={locale} labels={labels} onRevoke={setRevoking} />}
+      {tokens && tokens.length > 0 && (
+        <TokenTable tokens={tokens} locale={locale} labels={labels} onRevoke={setRevoking} onServers={gateway ? setServing : undefined} />
+      )}
+      <TokenServersDialog<PersonalToken>
+        open={serving !== null}
+        onOpenChange={(o) => !o && setServing(null)}
+        current={serving?.mcp_servers}
+        endpoint={serving ? `/v1/users/${userId}/tokens/${serving.id}/mcp-servers` : null}
+        labels={labels.gateway}
+        fail={fail}
+        onSaved={(updated) => {
+          setTokens((list) => list?.map((x) => (x.id === updated.id ? updated : x)) ?? null);
+          toast.success(labels.gateway.saved);
+        }}
+      />
       {canIssue && (
         <TokenDialog
           open={issuing}

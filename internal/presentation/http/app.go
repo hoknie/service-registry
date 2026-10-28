@@ -9,7 +9,9 @@ import (
 	"github.com/valyala/fasthttp"
 
 	deploytypes "svc-registry/internal/feature/deploy/types"
+	skillstypes "svc-registry/internal/feature/skills/types"
 	"svc-registry/internal/presentation/http/handlers"
+	"svc-registry/internal/presentation/http/requests"
 	"svc-registry/internal/presentation/http/responses"
 )
 
@@ -25,14 +27,21 @@ func newApp(api *handlers.Handlers) *fiber.App {
 		StructValidator:           handlers.NewStructValidator(),
 		ErrorHandler:              func(c fiber.Ctx, err error) error { return errorHandler(api, c, err) },
 	})
-	app.Server().HeaderReceived = routeBodyLimit
+	var skillsLimit int64
+	if api.Skills != nil && api.Config != nil {
+		skillsLimit = api.Config.Skills.MaxUploadBytes
+	}
+	app.Server().HeaderReceived = func(h *fasthttp.RequestHeader) fasthttp.RequestConfig { return routeBodyLimit(h, skillsLimit) }
 	return app
 }
 
-func routeBodyLimit(header *fasthttp.RequestHeader) fasthttp.RequestConfig {
+func routeBodyLimit(header *fasthttp.RequestHeader, skillsLimit int64) fasthttp.RequestConfig {
 	path, _, _ := strings.Cut(string(header.RequestURI()), "?")
 	if _, ok := agentReport(string(header.Method()), path); ok {
 		return fasthttp.RequestConfig{MaxRequestBodySize: deploytypes.ReportWireLimit}
+	}
+	if skillsLimit > 0 && skillUpload(string(header.Method()), path) {
+		return fasthttp.RequestConfig{MaxRequestBodySize: int(skillsLimit) + requests.UploadSlack}
 	}
 	return fasthttp.RequestConfig{}
 }
@@ -59,6 +68,9 @@ func errorHandler(api *handlers.Handlers, c fiber.Ctx, err error) error {
 		}
 		if strings.HasPrefix(path, "/api/oauth/") {
 			return handlers.OAuthBodyTooLarge(c)
+		}
+		if skillUpload(c.Method(), path) {
+			return responses.Fail(c, skillstypes.UploadTooLarge)
 		}
 		return handlers.InvalidBody("length limit exceeded").Send(c)
 	case nethttp.StatusNotFound:

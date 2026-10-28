@@ -2,7 +2,9 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-export type Crumb = { label: string; href?: string; node?: string };
+import type { PlaceCrumb } from "@/lib/placeCrumbs";
+
+export type Crumb = { label: string; href?: string; node?: string; place?: PlaceCrumb };
 
 type Api = { crumbs: Crumb[]; setCrumbs: (crumbs: Crumb[]) => void };
 

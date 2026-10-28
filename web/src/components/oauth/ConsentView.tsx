@@ -12,6 +12,7 @@ import { canSubmitNodes, tokenNodesBody, type PickedNode, type TokenAccess } fro
 
 import { NodeScopePicker } from "../account/NodeScopePicker";
 import type { NodeScopeLabels } from "../account/TokenNodes";
+import { ServerSetPicker } from "../mcp/ServerSetPicker";
 import { useSession } from "../SessionProvider";
 import { useUiText } from "../UiText";
 import { Button } from "../ui/Button";
@@ -44,6 +45,7 @@ export function ConsentView({ labels: t, scopeLabels }: Props) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [access, setAccess] = useState<TokenAccess>("all");
   const [nodes, setNodes] = useState<PickedNode[]>([]);
+  const [servers, setServers] = useState<string[] | null>(null);
   const [note, setNote] = useState<Note>(null);
   const [busy, setBusy] = useState(false);
 
@@ -93,7 +95,7 @@ export function ConsentView({ labels: t, scopeLabels }: Props) {
     setBusy(true);
     setNote(null);
     try {
-      const body = verdict === "approve" ? { nodes: tokenNodesBody(access, nodes) } : {};
+      const body = verdict === "approve" ? { nodes: tokenNodesBody(access, nodes), ...(request.mcp_servers ? { mcp_servers: servers } : {}) } : {};
       const out = await apiSend<{ redirect_to: string }>("POST", `/v1/oauth/requests/${request.id}/${verdict}`, body);
       window.location.assign(out.redirect_to);
     } catch (e) {
@@ -135,6 +137,7 @@ export function ConsentView({ labels: t, scopeLabels }: Props) {
           <p className="text-sm text-ink">{t.accessText}</p>
         </div>
         <NodeScopePicker access={access} onAccess={setAccess} nodes={nodes} onNodes={setNodes} labels={scopeLabels} />
+        {request.mcp_servers && <ServerSetPicker value={servers} onChange={setServers} labels={t.gateway} servers={request.mcp_servers} />}
         <Message note={note} />
         <div className="flex flex-wrap justify-end gap-2">
           <Button busy={busy} disabled={busy} onClick={() => void decide("deny")}>
