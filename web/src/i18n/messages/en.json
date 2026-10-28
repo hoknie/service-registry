@@ -241,7 +241,8 @@
       "oauth_not_provisioned": "There is no registry account for this email. Ask an administrator.",
       "oauth_identity_taken": "This provider account is already linked to another user.",
       "service_account": "This is a service account; it cannot sign in.",
-      "invalid_agent_token": "A valid agent token for this cluster is required."
+      "invalid_agent_token": "A valid agent token for this cluster is required.",
+      "password_login_disabled": "Sign-in with a password is turned off."
     },
     "validation": {
       "invalid_body": "The request is malformed.",
@@ -353,7 +354,12 @@
       "invalid_mcp_access": "Only existing groups of this organization or global ones, and existing users.",
       "invalid_mcp_servers": "Choose servers you can see.",
       "invalid_mcp_server": "Check the fields of the server.",
-      "invalid_mcp_proxy": "Check the proxy: an http(s)://host:port address without credentials."
+      "invalid_mcp_proxy": "Check the proxy: an http(s)://host:port address without credentials.",
+      "not_an_organization": "Members belong to organizations only.",
+      "invalid_member": "Choose a person and a role.",
+      "invalid_invitation": "Check the email, role and language.",
+      "skill_folder_too_large": "The skills of the folder are too large for one archive.",
+      "invalid_skill_set": "Choose global folders and skills only, at most 500."
     },
     "conflict": {
       "email_taken": "A user with this email already exists.",
@@ -406,7 +412,14 @@
       "mcp_folder_slug_taken": "Another folder here uses this slug.",
       "mcp_folder_not_empty": "The folder has folders or servers.",
       "mcp_folder_cycle": "A folder cannot move into itself.",
-      "token_not_active": "The token or app is revoked or expired."
+      "token_not_active": "The token or app is revoked or expired.",
+      "last_organization_admin": "The organization must keep at least one admin.",
+      "already_member": "This person is already a member.",
+      "invitation_pending": "An invitation for this address is already waiting — send it again instead.",
+      "too_many_invitations": "Too many waiting invitations in the organization.",
+      "invitation_closed": "The invitation was already accepted or revoked.",
+      "skill_disabled": "The skill or its folder is disabled.",
+      "skill_folder_empty": "No skill of the folder can be installed."
     },
     "ingest": {
       "unknown_event_type": "Unknown event type.",
@@ -483,7 +496,9 @@
       "version_invalid": "Invalid version",
       "source_unreachable": "The repository is unreachable",
       "source_unauthorized": "The credentials were rejected",
-      "branch_not_found": "The branch does not exist"
+      "branch_not_found": "The branch does not exist",
+      "archive_too_large": "The repository archive is larger than the limit.",
+      "root_missing": "The directory is not in the repository."
     },
     "gateway": {
       "unreachable": "The server cannot be reached",
@@ -495,6 +510,11 @@
       "secret_unavailable": "The credentials cannot be read",
       "result_too_large": "The answer is too large",
       "check_rate_limited": "Checked less than 10 seconds ago"
+    },
+    "invitation": {
+      "not_pending": "The invitation has expired, was accepted or was revoked.",
+      "sign_in_required": "An account with this address exists — sign in to accept.",
+      "email_mismatch": "The invitation is for another email address."
     }
   },
   "guard": {
@@ -1209,7 +1229,8 @@
       "settings": "Settings",
       "details": "Details",
       "releases": "Releases",
-      "dependencies": "Dependencies"
+      "dependencies": "Dependencies",
+      "members": "Members"
     },
     "create": {
       "title": "Add",
@@ -2163,6 +2184,62 @@
       "noVersions": "No patterns",
       "save": "Save",
       "saved": "Publication settings saved."
+    },
+    "members": {
+      "title": "Members",
+      "lead": "People of the organization. Everyone with access to the organization sees this list.",
+      "search": "Search by name or email",
+      "empty": "No members yet.",
+      "name": "Name",
+      "email": "Email",
+      "role": "Role",
+      "source": "How",
+      "since": "Member since",
+      "noRole": "No role",
+      "service": "Service",
+      "sources": {
+        "manual": "Added",
+        "invitation": "Invited",
+        "role": "By a role",
+        "owner": "Owner",
+        "group": "Through a group"
+      },
+      "more": "Show more",
+      "add": "Add",
+      "invite": "Invite",
+      "viaGroups": "See it through global groups",
+      "viaGroupsLead": "Global groups with roles in the organization; their people see it without being members.",
+      "users": "{count} users",
+      "remove": "Remove",
+      "removeOf": "Remove {name}",
+      "removeTitle": "Remove {name}?",
+      "removeText": "Their roles in the organization, ownership of its nodes and membership in its groups are taken away. Access through global groups stays.",
+      "roleChanged": "Role changed",
+      "removed": "Member removed",
+      "added": "Member added",
+      "addTitle": "Add a member",
+      "findUser": "Find a person",
+      "findHint": "Name or email, at least 3 characters",
+      "notFound": "Nobody found.",
+      "inviteInstead": "Invite {email} by email",
+      "inviteTitle": "Invite to the organization",
+      "language": "Language of the letter",
+      "send": "Invite",
+      "done": "Done",
+      "mail": {
+        "sent": "The letter was sent.",
+        "disabled": "Mail is not set up — pass the link on yourself.",
+        "failed": "The letter was not sent — pass the link on yourself."
+      },
+      "link": "Invitation link",
+      "copy": "Copy the link",
+      "invitationsTitle": "Invitations",
+      "invitedBy": "Invited by",
+      "expires": "Expires",
+      "expired": "Expired",
+      "resend": "Send again",
+      "revoke": "Revoke",
+      "revoked": "Invitation revoked"
     }
   },
   "notFound": {
@@ -2910,7 +2987,15 @@
       },
       "counters": "created {created}, updated {updated}, removed {removed}, skipped {skipped}",
       "commit": "Commit",
-      "problems": "Problems"
+      "problems": "Problems",
+      "roots": "Skill directories",
+      "rootsHint": "Paths in the repository, one per line; empty — the root",
+      "layout": "Folders",
+      "layoutFlat": "All in one folder",
+      "layoutTree": "Like the repository directories",
+      "layoutField": "By a SKILL.md field",
+      "groupField": "Field",
+      "groupFieldHint": "For example subdomain or metadata.category"
     },
     "organization": {
       "title": "Skills",
@@ -2926,6 +3011,49 @@
       "sources": "Sources",
       "skillsSection": "Skills",
       "version": "Version"
+    },
+    "statusDisabled": "Disabled",
+    "onlyActive": "Enabled only",
+    "off": {
+      "badge": "Disabled",
+      "byFolder": "Folder {name} is disabled",
+      "disable": "Disable",
+      "enable": "Enable",
+      "disabledText": "The skill is disabled: agents do not get it and it cannot be downloaded.",
+      "folderTitle": "Disable the folder",
+      "folderText": "Skills of this folder and of every folder inside it stop being given to agents and downloaded. Their own states are kept.",
+      "folderDisable": "Disable the folder",
+      "folderEnable": "Enable the folder",
+      "folderOff": "The folder is disabled — there is nothing to install.",
+      "folderOffBy": "The parent folder {name} is disabled."
+    },
+    "importDialog": {
+      "menu": "Import from git",
+      "title": "Import from git",
+      "name": "Folder name",
+      "nameHint": "Empty — the repository name ({name})",
+      "submit": "Import"
+    },
+    "folderConnect": {
+      "title": "Install the folder",
+      "count": "Skills in the archive: {count}",
+      "phrase": "Install the skills of folder {path} from the service registry",
+      "phraseTool": "The agent finds them with the get_skill_folder tool. A token with the mcp scope:"
+    },
+    "set": {
+      "section": "Skill set",
+      "title": "Global skills of the organization",
+      "lead": "Which global skills the organization gets.",
+      "all": "All global skills",
+      "selected": "Selected",
+      "search": "Find a global folder or skill",
+      "count": "skills: {count}",
+      "remove": "Remove {name}",
+      "save": "Save",
+      "saved": "The skill set is saved",
+      "note": "The set applies to tokens and apps bound to nodes of this organization. Skills of the organization itself are always available.",
+      "readonly": "Editors of the organization change the set.",
+      "empty": "Nothing is selected: tokens with nodes of the organization get no global skills."
     }
   },
   "mcp": {
@@ -3173,5 +3301,29 @@
       "tools": "Tools",
       "accessNote": "A single server is narrowed further by its own access list (Settings → Access on the server page) and by the organization’s server set:"
     }
+  },
+  "invite": {
+    "title": "Invitation",
+    "heading": "Join {organization}",
+    "lead": "You are invited as {role}.",
+    "leadBy": "{name} invites you as {role}.",
+    "until": "The invitation is valid until {date}.",
+    "invalid": "The invitation link is wrong or was replaced by a new one.",
+    "states": {
+      "expired": "The invitation has expired. Ask for a new one.",
+      "accepted": "The invitation was already accepted.",
+      "revoked": "The invitation was revoked."
+    },
+    "accept": "Accept the invitation",
+    "otherAccount": "The invitation is for {email}, and you are signed in as {current}. Sign out and open the link again.",
+    "signInFirst": "An account for {email} already exists. Sign in to accept the invitation.",
+    "signIn": "Sign in",
+    "withProvider": "Continue with {name}",
+    "email": "Email",
+    "name": "Your name",
+    "password": "Password",
+    "passwordHint": "At least 8 characters",
+    "create": "Create an account and join",
+    "or": "or"
   }
 }

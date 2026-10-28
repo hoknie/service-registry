@@ -145,7 +145,26 @@ variable with its default is in [`.env.example`](../.env.example).
 | `HTTPS_PROXY`, `NO_PROXY`, `HTTP_CA_FILE` | — | outgoing proxy and extra CA certificates |
 | `METRICS_ENABLED`, `METRICS_TOKEN` | `false`, — | Prometheus metrics at `/metrics` and the token they need ([metrics.md](metrics.md)) |
 | `SKILLS_ENABLED`, `SKILLS_STORAGE`, `SKILLS_DIR` | `true`, `local`, `data/skills` | the AI skills catalog and where its files live (packages and the image keep them in their data directory; back it up with the database); `s3` with `SKILLS_S3_*` keeps them in a bucket ([skills.md](skills.md#storage)) |
+| `SKILLS_SOURCE_ARCHIVE_MAX_BYTES`, `SKILLS_FOLDER_ARCHIVE_MAX_BYTES` | 512 MiB, 256 MiB | the largest repository archive a git source downloads and the largest archive of a skill folder ([skills.md](skills.md#git-sources)) |
+| `SMTP_URL`, `SMTP_FROM`, `SMTP_PASSWORD` | — | mail for invitations ([Mail](#mail)) |
+| `INVITE_TTL_HOURS` | `168` | how long an invitation link works |
 | `MCP_GATEWAY_ENABLED`, `MCP_GATEWAY_ALLOW_HOSTS` | `true`, empty | the gateway to external MCP servers and the private networks it may reach directly ([mcp-gateway.md](mcp-gateway.md#proxies-and-addresses)) |
+
+## Mail
+
+The registry sends mail only for invitations to organizations. Without `SMTP_URL` it sends nothing and shows the
+invitation link to pass on by hand.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `SMTP_URL` | — | `smtps://user@mail.example.com:465` (TLS from the start) or `smtp://user@mail.example.com:587` (STARTTLS); the user name, if any, is the login |
+| `SMTP_FROM` | — | the sender, e.g. `Registry <registry@example.com>`; required with `SMTP_URL` |
+| `SMTP_PASSWORD` | — | the password, or `env:NAME` / `file:/path` to read it from another variable or a file |
+| `SMTP_TIMEOUT_SECS` | `10` | how long one letter may take |
+| `INVITE_TTL_HOURS` | `168` | how long an invitation link works, 1…720 hours |
+
+The server is trusted with the system CA certificates plus `HTTP_CA_FILE`. A password is never sent over a connection
+without TLS. Links in letters are built from `PUBLIC_URL`; set it too.
 
 ## Behind a reverse proxy
 

@@ -59,6 +59,7 @@ import { SkeletonPanel } from "../ui/Skeleton";
 import { Tabs, TabsList, TabsTrigger } from "../ui/Tabs";
 import { ConnectPanel } from "./ConnectPanel";
 import { NodeHero } from "../ui/NodeHero";
+import { DisabledBadge } from "./DisabledBadge";
 import { SkillImage } from "./SkillCard";
 import { SkillOverview } from "./SkillOverview";
 import { SkillFileView } from "./SkillFileView";
@@ -252,6 +253,7 @@ export function SkillPage({ locale, labels: t }: Props) {
               {skill.name}
             </code>
             {skill.status === "draft" && <Badge tone="amber">{t.draft}</Badge>}
+            <DisabledBadge item={skill} labels={t.off} />
             {skill.managed && (
               <Badge tone="outline">
                 <GitBranch aria-hidden="true" className="size-3" /> {t.fromGit}

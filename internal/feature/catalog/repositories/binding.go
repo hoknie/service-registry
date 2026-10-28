@@ -131,3 +131,41 @@ func (s *BindingRepository) Organizations(ctx context.Context, v catalogtypes.Vi
 		GROUP BY n.id
 		ORDER BY n.id`, v.UserID, v.Nodes, v.Admin, all)
 }
+
+func (s *BindingRepository) UserRoles(ctx context.Context, nodeID uuid.UUID, userIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	return postgres.Pairs[uuid.UUID, string](ctx, s.db.From(ctx), constraints, `
+		SELECT user_id, role
+		FROM role_bindings
+		WHERE node_id = $1
+			AND user_id = ANY($2::uuid[])`, nodeID, userIDs)
+}
+
+func (s *BindingRepository) RevokeUser(ctx context.Context, nodeID, userID uuid.UUID) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		DELETE FROM role_bindings
+		WHERE node_id = $1
+			AND user_id = $2`, nodeID, userID)
+	return err
+}
+
+func (s *BindingRepository) GlobalGroupsIn(ctx context.Context, org uuid.UUID) ([]catalogtypes.GroupAccess, error) {
+	return postgres.List(ctx, s.db.From(ctx), constraints, postgres.Struct(func(r groupAccessRow) catalogtypes.GroupAccess {
+		return catalogtypes.GroupAccess(r)
+	}), `
+		WITH RECURSIVE down AS (
+			SELECT $1::uuid AS id
+			UNION ALL
+			SELECT c.id
+			FROM nodes c
+			JOIN down ON c.parent_id = down.id
+		)
+		SELECT g.id, g.name,
+			(array_agg(b.role ORDER BY CASE b.role WHEN 'admin' THEN 3 WHEN 'editor' THEN 2 ELSE 1 END DESC))[1] AS role,
+			(SELECT count(*) FROM group_members m WHERE m.group_id = g.id) AS users
+		FROM role_bindings b
+		JOIN groups g ON g.id = b.group_id
+		WHERE b.node_id IN (SELECT id FROM down)
+			AND g.organization_id IS NULL
+		GROUP BY g.id, g.name
+		ORDER BY lower(g.name), g.id`, org)
+}

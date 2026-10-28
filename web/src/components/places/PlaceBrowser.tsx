@@ -3,7 +3,7 @@
 import { ChevronDown, FolderPlus, LayoutGrid, Plus, Settings, ShieldCheck, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import type { Locale } from "@/i18n/config";
 import { errorText } from "@/i18n/errors";
@@ -110,6 +110,10 @@ export type PlaceAdapter<I, F extends PlaceFolder, Q extends PlaceFilters> = {
   actions?: (ctx: PlaceContext<F, Q>) => ReactNode;
   folderSections: (f: F, ctx: PlaceContext<F, Q>) => ExtraSection[];
   spaceSections: (org: string, ctx: PlaceContext<F, Q>) => ExtraSection[];
+  addMore?: (ctx: PlaceContext<F, Q>, changed: () => void) => { key: string; label: string; icon: LucideIcon; onSelect: () => void; dialog: ReactNode }[];
+  folderTabs?: (f: F) => { key: string; label: string; icon: LucideIcon; content: ReactNode; accent?: boolean }[];
+  folderGeneral?: (f: F, changed: () => void) => ReactNode;
+  folderBadge?: (f: F) => ReactNode;
 };
 
 type Entry<I, F> = { type: "folder"; folder: F } | { type: "item"; item: I } | { type: "space"; space: SpaceRef };
@@ -235,6 +239,7 @@ export function PlaceBrowser<I, F extends PlaceFolder, Q extends PlaceFilters>({
   const entryKey = (e: Entry<I, F>) => (e.type === "folder" ? e.folder.id : e.type === "space" ? `space:${e.space.id}` : a.item.id(e.item));
 
   const added = a.addItem(ctx);
+  const extraAdds = a.addMore?.(ctx, changed) ?? [];
   const addButton = writable && !root && (
     <Menu>
       <MenuTrigger asChild>
@@ -255,6 +260,12 @@ export function PlaceBrowser<I, F extends PlaceFolder, Q extends PlaceFilters>({
           <FolderPlus aria-hidden="true" />
           {p.folder}
         </MenuItem>
+        {extraAdds.map((m) => (
+          <MenuItem key={m.key} onSelect={m.onSelect}>
+            <m.icon aria-hidden="true" />
+            {m.label}
+          </MenuItem>
+        ))}
       </MenuContent>
     </Menu>
   );
@@ -416,6 +427,8 @@ export function PlaceBrowser<I, F extends PlaceFolder, Q extends PlaceFilters>({
             label: p.general,
             icon: Settings,
             render: () => (
+              <div className="grid gap-6">
+              {a.folderGeneral?.(folder, changed)}
               <FolderGeneral
                 key={folder.id}
                 base={a.base}
@@ -426,6 +439,7 @@ export function PlaceBrowser<I, F extends PlaceFolder, Q extends PlaceFilters>({
                 onSaved={changed}
                 onDeleted={() => router.push(folder.parent_id ? folderHref(folder.parent_id) : spaceHref(space ?? "global"))}
               />
+              </div>
             ),
           },
           ...a.folderSections(folder, ctx),
@@ -456,7 +470,9 @@ export function PlaceBrowser<I, F extends PlaceFolder, Q extends PlaceFilters>({
     sp.set("section", key);
     return `/${locale}/${a.section}?${sp.toString()}`;
   };
+  const extraTabs = folder ? (a.folderTabs?.(folder) ?? []) : [];
   const tabs = [
+    ...extraTabs,
     { key: "overview", label: p.overview, icon: LayoutGrid, content: overview },
     ...(sections.length > 0
       ? [
@@ -498,6 +514,7 @@ export function PlaceBrowser<I, F extends PlaceFolder, Q extends PlaceFilters>({
           {root && <span className="text-muted">{a.rootLead}</span>}
           {!root && !folder && space === "global" && <span className="text-muted">{a.globalLead}</span>}
           {folder && <span className="text-muted">{a.folderMeta(folder)}</span>}
+          {folder && a.folderBadge?.(folder)}
         </>
       }
       actions={
@@ -514,7 +531,7 @@ export function PlaceBrowser<I, F extends PlaceFolder, Q extends PlaceFilters>({
   return (
     <>
       <Crumbs items={trail} />
-      <PlaceShell id={placeKey} pending={pending} hero={hero} tabs={tabs} tab={tabParam === "settings" && sections.length > 0 ? "settings" : "overview"} onTab={selectTab} tabsLabel={p.tabs} />
+      <PlaceShell id={placeKey} pending={pending} hero={hero} tabs={tabs} tab={tabParam === "settings" && sections.length > 0 ? "settings" : extraTabs.some((x) => x.key === tabParam) ? (tabParam ?? "overview") : "overview"} onTab={selectTab} tabsLabel={p.tabs} />
       <NewFolderDialog<F>
         open={creating}
         onOpenChange={setCreating}
@@ -524,6 +541,9 @@ export function PlaceBrowser<I, F extends PlaceFolder, Q extends PlaceFilters>({
         labels={a.folderLabels}
         onSaved={(f) => router.push(folderHref((f as PlaceFolder).id))}
       />
+      {extraAdds.map((m) => (
+        <Fragment key={m.key}>{m.dialog}</Fragment>
+      ))}
     </>
   );
 }

@@ -3,10 +3,12 @@ package handlers
 import (
 	"archive/zip"
 	"bufio"
+	"context"
 	"errors"
 	"io"
 	"mime"
 	"net/http"
+	"strconv"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -202,5 +204,53 @@ func (a *Handlers) PutSkillImage(c fiber.Ctx) error {
 func (a *Handlers) DeleteSkillImage(c fiber.Ctx) error {
 	return a.skillCall(c, "id", http.StatusNoContent, func(p accesstypes.Principal, id uuid.UUID) (any, error) {
 		return nil, a.Skills.Images.DeleteImage(c.Context(), p, id)
+	})
+}
+
+func (a *Handlers) SkillFolderArchive(c fiber.Ctx) error {
+	p, _, err := a.currentUser(c)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	id, err := parseID(c, "id")
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	head := c.Method() == fiber.MethodHead
+	plan, err := a.Skills.Archive.FolderPlan(c.Context(), p, id, !head)
+	if err != nil {
+		return responses.Fail(c, err)
+	}
+	c.Set(fiber.HeaderContentType, "application/zip")
+	c.Set(fiber.HeaderContentDisposition, mime.FormatMediaType("attachment", map[string]string{"filename": plan.Folder.Slug + ".zip"}))
+	c.Set("X-Skills-Count", strconv.Itoa(len(plan.Skills)))
+	c.Set("X-Skills-Skipped", strconv.Itoa(plan.Skipped))
+	if head {
+		return c.SendStatus(http.StatusOK)
+	}
+	if err := a.Skills.Archive.CountDownloads(c.Context(), plan); err != nil {
+		return responses.Fail(c, err)
+	}
+	ctx := context.WithoutCancel(c.Context())
+	c.Status(http.StatusOK)
+	return c.SendStreamWriter(func(w *bufio.Writer) {
+		z := zip.NewWriter(w)
+		for _, sel := range plan.Skills {
+			for _, f := range sel.Files {
+				data, err := a.Skills.Archive.ReadFile(ctx, f)
+				if err != nil {
+					return
+				}
+				out, err := z.Create(sel.Skill.Name + "/" + f.Path)
+				if err != nil {
+					return
+				}
+				if _, err := out.Write(data); err != nil {
+					return
+				}
+			}
+		}
+		_ = z.Close()
+		_ = w.Flush()
 	})
 }

@@ -10,6 +10,7 @@ import type { Skill } from "@/lib/skills";
 
 import { Badge } from "../ui/Badge";
 import { PlaceCard } from "../places/PlaceCard";
+import { DisabledBadge } from "./DisabledBadge";
 
 export function SkillImage({
   skill,
@@ -37,10 +38,11 @@ export function SkillImage({
 
 export function SkillBadges({ skill, labels: t, max = 5 }: { skill: Skill; labels: Messages["skills"]; max?: number }) {
   const shown = skill.tags.slice(0, max);
-  if (shown.length === 0 && skill.status !== "draft" && !skill.managed) return null;
+  if (shown.length === 0 && skill.status !== "draft" && !skill.managed && skill.active) return null;
   return (
     <span className="flex flex-wrap gap-1.5">
       {skill.status === "draft" && <Badge tone="amber">{t.draft}</Badge>}
+      <DisabledBadge item={skill} labels={t.off} />
       {skill.managed && (
         <Badge tone="outline">
           <GitBranch aria-hidden="true" className="size-3" /> {t.fromGit}

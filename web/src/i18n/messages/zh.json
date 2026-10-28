@@ -241,7 +241,8 @@
       "oauth_not_provisioned": "该邮箱没有注册中心账号，请联系管理员。",
       "oauth_identity_taken": "该提供方账号已关联到其他用户。",
       "service_account": "这是服务账号，无法登录。",
-      "invalid_agent_token": "需要此集群的有效代理令牌。"
+      "invalid_agent_token": "需要此集群的有效代理令牌。",
+      "password_login_disabled": "密码登录已关闭。"
     },
     "validation": {
       "invalid_body": "请求格式错误。",
@@ -353,7 +354,12 @@
       "invalid_mcp_access": "只能使用该组织或全局的现有组，以及现有用户。",
       "invalid_mcp_servers": "请选择你能看到的服务器。",
       "invalid_mcp_server": "请检查服务器的字段。",
-      "invalid_mcp_proxy": "请检查代理：不含凭据的 http(s)://主机:端口 地址。"
+      "invalid_mcp_proxy": "请检查代理：不含凭据的 http(s)://主机:端口 地址。",
+      "not_an_organization": "只有组织才有成员。",
+      "invalid_member": "请选择人员和角色。",
+      "invalid_invitation": "请检查邮箱、角色和语言。",
+      "skill_folder_too_large": "该文件夹的技能过大，无法放入一个归档。",
+      "invalid_skill_set": "只能选择全局文件夹和技能，最多 500 个。"
     },
     "conflict": {
       "email_taken": "该邮箱已被其他用户使用。",
@@ -406,7 +412,14 @@
       "mcp_folder_slug_taken": "此处另一个文件夹已使用此 slug。",
       "mcp_folder_not_empty": "文件夹中有文件夹或服务器。",
       "mcp_folder_cycle": "文件夹不能移动到自身内部。",
-      "token_not_active": "令牌或应用已撤销或过期。"
+      "token_not_active": "令牌或应用已撤销或过期。",
+      "last_organization_admin": "组织必须至少保留一名管理员。",
+      "already_member": "此人已是成员。",
+      "invitation_pending": "该地址已有待处理的邀请——请重新发送。",
+      "too_many_invitations": "组织中待处理的邀请过多。",
+      "invitation_closed": "该邀请已被接受或撤销。",
+      "skill_disabled": "该技能或其文件夹已停用。",
+      "skill_folder_empty": "该文件夹中没有可安装的技能。"
     },
     "ingest": {
       "unknown_event_type": "未知的事件类型。",
@@ -483,7 +496,9 @@
       "version_invalid": "版本无效",
       "source_unreachable": "无法访问仓库",
       "source_unauthorized": "凭据被拒绝",
-      "branch_not_found": "分支不存在"
+      "branch_not_found": "分支不存在",
+      "archive_too_large": "仓库归档超出大小限制。",
+      "root_missing": "仓库中没有该目录。"
     },
     "gateway": {
       "unreachable": "无法访问服务器",
@@ -495,6 +510,11 @@
       "secret_unavailable": "无法读取凭据",
       "result_too_large": "响应过大",
       "check_rate_limited": "距上次检查不到 10 秒"
+    },
+    "invitation": {
+      "not_pending": "该邀请已过期、已被接受或已被撤销。",
+      "sign_in_required": "已存在使用该地址的账号——请登录后接受邀请。",
+      "email_mismatch": "该邀请是发给另一个邮箱的。"
     }
   },
   "guard": {
@@ -1209,7 +1229,8 @@
       "settings": "设置",
       "details": "详情",
       "releases": "发布",
-      "dependencies": "依赖"
+      "dependencies": "依赖",
+      "members": "成员"
     },
     "create": {
       "title": "添加",
@@ -2163,6 +2184,62 @@
       "noVersions": "没有模式",
       "save": "保存",
       "saved": "发布设置已保存。"
+    },
+    "members": {
+      "title": "成员",
+      "lead": "组织中的人员。所有能访问该组织的人都能看到此列表。",
+      "search": "按名称或邮箱搜索",
+      "empty": "暂无成员。",
+      "name": "名称",
+      "email": "邮箱",
+      "role": "角色",
+      "source": "方式",
+      "since": "加入时间",
+      "noRole": "无角色",
+      "service": "服务账号",
+      "sources": {
+        "manual": "手动添加",
+        "invitation": "通过邀请",
+        "role": "通过角色",
+        "owner": "负责人",
+        "group": "通过群组"
+      },
+      "more": "显示更多",
+      "add": "添加",
+      "invite": "邀请",
+      "viaGroups": "通过全局群组可见",
+      "viaGroupsLead": "在组织中拥有角色的全局群组；其成员无需成为组织成员即可看到组织。",
+      "users": "{count} 个用户",
+      "remove": "移除",
+      "removeOf": "移除 {name}",
+      "removeTitle": "移除 {name}？",
+      "removeText": "将撤销其在组织中的角色、节点负责人身份以及组织群组成员身份。通过全局群组的访问保持不变。",
+      "roleChanged": "角色已更改",
+      "removed": "成员已移除",
+      "added": "成员已添加",
+      "addTitle": "添加成员",
+      "findUser": "查找用户",
+      "findHint": "名称或邮箱，至少 3 个字符",
+      "notFound": "未找到任何人。",
+      "inviteInstead": "通过邮件邀请 {email}",
+      "inviteTitle": "邀请加入组织",
+      "language": "邮件语言",
+      "send": "邀请",
+      "done": "完成",
+      "mail": {
+        "sent": "邮件已发送。",
+        "disabled": "未配置邮件——请自行转交链接。",
+        "failed": "邮件未发送——请自行转交链接。"
+      },
+      "link": "邀请链接",
+      "copy": "复制链接",
+      "invitationsTitle": "邀请",
+      "invitedBy": "邀请人",
+      "expires": "到期",
+      "expired": "已过期",
+      "resend": "重新发送",
+      "revoke": "撤销",
+      "revoked": "邀请已撤销"
     }
   },
   "notFound": {
@@ -2910,7 +2987,15 @@
       },
       "counters": "新建 {created}，更新 {updated}，删除 {removed}，跳过 {skipped}",
       "commit": "提交",
-      "problems": "问题"
+      "problems": "问题",
+      "roots": "技能目录",
+      "rootsHint": "仓库中的路径，每行一个；留空表示根目录",
+      "layout": "文件夹",
+      "layoutFlat": "全部放在一个文件夹",
+      "layoutTree": "按仓库目录",
+      "layoutField": "按 SKILL.md 字段",
+      "groupField": "字段",
+      "groupFieldHint": "例如 subdomain 或 metadata.category"
     },
     "organization": {
       "title": "技能",
@@ -2926,6 +3011,49 @@
       "sources": "来源",
       "skillsSection": "技能",
       "version": "版本"
+    },
+    "statusDisabled": "已停用",
+    "onlyActive": "仅显示已启用",
+    "off": {
+      "badge": "已停用",
+      "byFolder": "文件夹 {name} 已停用",
+      "disable": "停用",
+      "enable": "启用",
+      "disabledText": "该技能已停用：智能体无法获取，也无法下载。",
+      "folderTitle": "停用文件夹",
+      "folderText": "此文件夹及其所有子文件夹中的技能将不再提供给智能体，也无法下载。技能自身的状态会保留。",
+      "folderDisable": "停用文件夹",
+      "folderEnable": "启用文件夹",
+      "folderOff": "文件夹已停用——没有可安装的内容。",
+      "folderOffBy": "上级文件夹 {name} 已停用。"
+    },
+    "importDialog": {
+      "menu": "从 git 导入",
+      "title": "从 git 导入",
+      "name": "文件夹名称",
+      "nameHint": "留空——使用仓库名称（{name}）",
+      "submit": "导入"
+    },
+    "folderConnect": {
+      "title": "安装文件夹",
+      "count": "归档中的技能：{count}",
+      "phrase": "Install the skills of folder {path} from the service registry",
+      "phraseTool": "智能体可通过 get_skill_folder 工具找到它们。需要具有 mcp 范围的令牌："
+    },
+    "set": {
+      "section": "技能集",
+      "title": "组织的全局技能",
+      "lead": "组织可获取哪些全局技能。",
+      "all": "全部全局技能",
+      "selected": "已选择",
+      "search": "查找全局文件夹或技能",
+      "count": "技能：{count}",
+      "remove": "移除 {name}",
+      "save": "保存",
+      "saved": "技能集已保存",
+      "note": "技能集作用于绑定到此组织节点的令牌和应用。组织自身的技能始终可用。",
+      "readonly": "组织的编辑者可以修改技能集。",
+      "empty": "未选择任何内容：带有本组织节点的令牌将无法获取全局技能。"
     }
   },
   "mcp": {
@@ -3173,5 +3301,29 @@
       "tools": "工具",
       "accessNote": "单个服务器还会受到其自身访问列表（服务器页面上的“设置 → 访问”）和组织服务器集合的进一步限制："
     }
+  },
+  "invite": {
+    "title": "邀请",
+    "heading": "加入 {organization}",
+    "lead": "邀请您以「{role}」角色加入。",
+    "leadBy": "{name} 邀请您以「{role}」角色加入。",
+    "until": "邀请有效期至 {date}。",
+    "invalid": "邀请链接无效或已被新链接替换。",
+    "states": {
+      "expired": "邀请已过期，请索取新的邀请。",
+      "accepted": "该邀请已被接受。",
+      "revoked": "该邀请已被撤销。"
+    },
+    "accept": "接受邀请",
+    "otherAccount": "该邀请发给 {email}，而您当前以 {current} 登录。请退出后重新打开链接。",
+    "signInFirst": "{email} 的账号已存在。请登录后接受邀请。",
+    "signIn": "登录",
+    "withProvider": "通过 {name} 继续",
+    "email": "邮箱",
+    "name": "您的姓名",
+    "password": "密码",
+    "passwordHint": "至少 8 个字符",
+    "create": "创建账号并加入",
+    "or": "或"
   }
 }

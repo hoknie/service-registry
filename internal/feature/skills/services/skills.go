@@ -33,13 +33,16 @@ type ListInput struct {
 	Query     string
 	Tags      []string
 	Status    string
+	Active    *bool
+	Agent     bool
 	Limit     int
 	Cursor    string
 	Name      string
 }
 
 func (in ListInput) query() (skillstypes.ListQuery, error) {
-	q := skillstypes.ListQuery{FolderID: in.FolderID, TopLevel: in.TopLevel && in.FolderID == nil, Recursive: in.Recursive, Query: in.Query, Limit: in.Limit}
+	q := skillstypes.ListQuery{FolderID: in.FolderID, TopLevel: in.TopLevel && in.FolderID == nil, Recursive: in.Recursive, Query: in.Query, Limit: in.Limit,
+		Active: in.Active}
 	if q.Limit == 0 {
 		q.Limit = 50
 	}
@@ -91,6 +94,12 @@ func (s *SkillsService) ListSkills(ctx context.Context, p accesstypes.Principal,
 		return Page{}, err
 	}
 	q.Organizations, q.Global, q.Writable, q.WriteGlobal = read.Organizations, read.Global, write.Organizations, write.Global
+	if in.Agent {
+		q.Status, q.Active = nil, new(true)
+		if q.SetOrgs, err = s.access.setOrgs(ctx, p); err != nil {
+			return Page{}, apperr.Wrap(err)
+		}
+	}
 	f := repositories.Filter{ListQuery: q}
 	if in.Name != "" {
 		f.Name = &in.Name
@@ -210,13 +219,13 @@ func (s *SkillsService) ResolveSkill(ctx context.Context, p accesstypes.Principa
 	ref = strings.Trim(strings.TrimSpace(ref), "/")
 	if id, err := uuid.Parse(ref); err == nil {
 		sk, err := s.GetSkill(ctx, p, id)
-		if err == nil && sk.Status != skillstypes.StatusPublished {
-			err = apperr.New(apperr.NotFound)
+		if err == nil {
+			err = forAgent(ctx, s.parts, p, sk)
 		}
 		return sk, nil, err
 	}
 	name := ref[strings.LastIndex(ref, "/")+1:]
-	page, err := s.ListSkills(ctx, p, ListInput{Name: name, Status: string(skillstypes.StatusPublished), Limit: 100})
+	page, err := s.ListSkills(ctx, p, ListInput{Name: name, Agent: true, Limit: 100})
 	if err != nil {
 		return skillstypes.Skill{}, nil, err
 	}

@@ -35,6 +35,7 @@ const (
 	InvalidAgentToken
 	PublicRateLimited
 	TooLarge
+	Refused
 )
 
 type Field struct {
@@ -147,6 +148,10 @@ func Invalid(code, message string) *Error {
 
 func TooLargeError(code, message string) *Error {
 	return &Error{Kind: TooLarge, Code: code, Message: message}
+}
+
+func Refusing(code, message string) *Error {
+	return &Error{Kind: Refused, Code: code, Message: message}
 }
 
 func Conflicting(code, message string) *Error {

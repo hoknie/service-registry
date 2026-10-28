@@ -27,12 +27,13 @@ type SkillFolderPatch struct {
 	Slug           *string             `json:"slug"`
 	Name           *string             `json:"name"`
 	Description    *string             `json:"description"`
+	Disabled       *bool               `json:"disabled"`
 	ParentID       Optional[uuid.UUID] `json:"parent_id"`
 	OrganizationID *uuid.UUID          `json:"organization_id"`
 }
 
 func (r SkillFolderPatch) Patch() skillsservices.FolderPatch {
-	return skillsservices.FolderPatch{Slug: r.Slug, Name: r.Name, Description: r.Description, Move: r.ParentID.Present,
+	return skillsservices.FolderPatch{Slug: r.Slug, Name: r.Name, Description: r.Description, Disabled: r.Disabled, Move: r.ParentID.Present,
 		ParentID: r.ParentID.Value, OrganizationID: r.OrganizationID}
 }
 
@@ -58,6 +59,7 @@ type SkillsQuery struct {
 	Query     string   `query:"q"`
 	Tags      []string `query:"tag"`
 	Status    string   `query:"status"`
+	Active    string   `query:"active"`
 	Limit     int      `query:"limit"`
 	Cursor    string   `query:"cursor"`
 }
@@ -67,6 +69,13 @@ func (q SkillsQuery) Input() (skillsservices.ListInput, error) {
 		Limit: q.Limit, Cursor: q.Cursor}
 	if q.OrgID != "" {
 		in.Scope = q.OrgID
+	}
+	switch q.Active {
+	case "":
+	case "true", "false":
+		in.Active = new(q.Active == "true")
+	default:
+		return in, skillstypes.InvalidFilter
 	}
 	if q.FolderID == "root" {
 		in.TopLevel = true
@@ -90,17 +99,20 @@ type SkillSource struct {
 	Credentials *struct {
 		SecretID *string `json:"secret_id"`
 	} `json:"credentials"`
-	Branch       string `json:"branch"`
-	Root         string `json:"root"`
-	IntervalSecs *int   `json:"interval_secs"`
-	Status       string `json:"status"`
-	Versions     string `json:"versions"`
-	TagPattern   string `json:"tag_pattern"`
+	Branch       string   `json:"branch"`
+	Root         *string  `json:"root"`
+	Roots        []string `json:"roots"`
+	Layout       string   `json:"layout"`
+	GroupField   *string  `json:"group_field"`
+	IntervalSecs *int     `json:"interval_secs"`
+	Status       string   `json:"status"`
+	Versions     string   `json:"versions"`
+	TagPattern   string   `json:"tag_pattern"`
 }
 
 func (r SkillSource) Input() skillsservices.SourceInput {
 	in := skillsservices.SourceInput{Kind: *r.Kind, Forge: r.Forge, URL: r.URL, APIURL: r.APIURL, Path: r.Path, WorkingTree: r.WorkingTree,
-		Branch: r.Branch, Root: r.Root, IntervalSecs: r.IntervalSecs, Status: r.Status, Versions: r.Versions, TagPattern: r.TagPattern}
+		Branch: r.Branch, Root: r.Root, Roots: r.Roots, Layout: r.Layout, GroupField: r.GroupField, IntervalSecs: r.IntervalSecs, Status: r.Status, Versions: r.Versions, TagPattern: r.TagPattern}
 	if r.Credentials != nil {
 		in.SecretID = r.Credentials.SecretID
 	}
@@ -123,4 +135,23 @@ type SkillSpace struct {
 
 type SkillYank struct {
 	Yanked *bool `json:"yanked" validate:"required"`
+}
+
+type SkillImport struct {
+	SkillSource
+	ParentID       *uuid.UUID `json:"parent_id"`
+	OrganizationID *uuid.UUID `json:"organization_id"`
+	Slug           string     `json:"slug"`
+	Name           string     `json:"name"`
+}
+
+func (r SkillImport) Input() skillsservices.ImportInput {
+	return skillsservices.ImportInput{ParentID: r.ParentID, OrganizationID: r.OrganizationID, Slug: r.Slug, Name: r.Name,
+		Source: r.SkillSource.Input()}
+}
+
+type SkillSet struct {
+	Mode    string      `json:"mode"`
+	Folders []uuid.UUID `json:"folders"`
+	Skills  []uuid.UUID `json:"skills"`
 }

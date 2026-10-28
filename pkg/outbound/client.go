@@ -38,7 +38,7 @@ func (o Options) ProxyFunc() func(*http.Request) (*url.URL, error) {
 	}
 }
 
-func New(o Options) *http.Client {
+func (o Options) RootCAs() *x509.CertPool {
 	roots, err := x509.SystemCertPool()
 	if err != nil || roots == nil {
 		roots = x509.NewCertPool()
@@ -46,6 +46,11 @@ func New(o Options) *http.Client {
 	if len(o.CAPEM) > 0 {
 		roots.AppendCertsFromPEM(o.CAPEM)
 	}
+	return roots
+}
+
+func New(o Options) *http.Client {
+	roots := o.RootCAs()
 	timeout := o.Timeout
 	transport := &http.Transport{
 		Proxy:                 o.ProxyFunc(),

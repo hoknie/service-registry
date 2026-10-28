@@ -127,10 +127,10 @@ func TestEmbeddedMigrationsApplyThroughTheBinary(t *testing.T) {
 	tdb := testsupport.NewTestDB(t)
 	code, out, errOut := run(t, []string{"db:migrate"}, "", "DATABASE_URL", tdb.URL)
 	eq(t, code, 0, errOut)
-	contains(t, out, "applied 104 migration(s)")
+	contains(t, out, "applied 111 migration(s)")
 	versions, err := embedded(t).Versions()
 	must(t, err)
-	eq(t, len(versions), 104)
+	eq(t, len(versions), 111)
 	_, out, _ = run(t, []string{"db:migrate"}, "", "DATABASE_URL", tdb.URL)
 	contains(t, out, "applied 0 migration(s)")
 	code, out, errOut = run(t, []string{"db:rollback", "--count=4"}, "", "DATABASE_URL", tdb.URL)
@@ -207,7 +207,7 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	m := embedded(t)
 	n, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	eq(t, n, 104)
+	eq(t, n, 111)
 	knowledge := []string{"knowledge_blobs", "knowledge_files", "knowledge_settings", "knowledge_snapshots"}
 	oauth := []string{"oauth_login_states", "user_identities"}
 	deploy := []string{"cluster_workloads", "clusters", "environments"}
@@ -264,6 +264,18 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	withGateway := append([]string{"mcp_folders", "mcp_gateway_calls", "mcp_organization_servers", "mcp_organizations",
 		"mcp_proxy_settings", "mcp_server_access", "mcp_server_checks", "mcp_servers"}, withSkills...)
 	slices.Sort(withGateway)
+	withMembers := append([]string{"organization_invitations", "organization_members"}, withGateway...)
+	slices.Sort(withMembers)
+	withSets := append([]string{"skill_organization_sets"}, withMembers...)
+	slices.Sort(withSets)
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withSets, ","))
+	n, err = rollbackThrough(t, m, tdb, "alter_skills_status_disabled")
+	must(t, err)
+	eq(t, n, 4)
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withMembers, ","))
+	n, err = rollbackThrough(t, m, tdb, "create_organization_members")
+	must(t, err)
+	eq(t, n, 3)
 	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withGateway, ","))
 	n, err = rollbackThrough(t, m, tdb, "create_mcp_folders")
 	must(t, err)
@@ -425,7 +437,7 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	eq(t, len(embeddedTables(t, tdb)), 0)
 	n, err = m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	eq(t, n, 104)
+	eq(t, n, 111)
 }
 
 func execErr(t *testing.T, tdb *testsupport.TestDB, query string, args ...any) string {

@@ -21,6 +21,7 @@ import (
 	"svc-registry/internal/feature/links/clients/uploads"
 	linksports "svc-registry/internal/feature/links/ports"
 	linksservices "svc-registry/internal/feature/links/services"
+	membershipservices "svc-registry/internal/feature/membership/services"
 	notifyservices "svc-registry/internal/feature/notify/services"
 	ownershipservices "svc-registry/internal/feature/ownership/services"
 	publishingservices "svc-registry/internal/feature/publishing/services"
@@ -57,6 +58,7 @@ type App struct {
 	Publishing  *publishingservices.PublishingServices
 	Skills      *skillsservices.SkillsServices
 	Gateway     *gatewayservices.GatewayServices
+	Membership  *membershipservices.MembershipServices
 	Apis        *apisservices.ApisServices
 	Compose     *composeservices.ComposeServices
 	Metrics     *metrics.Metrics
@@ -132,6 +134,8 @@ func New(cfg config.Config, opts ...Option) (*App, error) {
 		a.Access.UseMCPServers(a.Gateway.Ports)
 	}
 	a.Catalog.UseSecretUsers(users...)
+	a.buildMembership(o)
+	a.Access.UseInvitations(a.Membership.Ports)
 	a.Catalog.UseOwners(a.Ownership.Ports, a.Ownership.Ports)
 	a.Catalog.UseTokenRoots(a.Access.Tokens)
 	a.Forge.Use(a.Knowledge.Sources, a.Knowledge.Ports)

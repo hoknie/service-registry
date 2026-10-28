@@ -42,6 +42,7 @@ var statuses = map[apperr.Kind]int{
 	apperr.Unauthenticated:         http.StatusUnauthorized,
 	apperr.InvalidCredentials:      http.StatusUnauthorized,
 	apperr.Forbidden:               http.StatusForbidden,
+	apperr.Refused:                 http.StatusForbidden,
 	apperr.AccountDisabled:         http.StatusForbidden,
 	apperr.WrongPassword:           http.StatusForbidden,
 	apperr.RateLimited:             http.StatusTooManyRequests,

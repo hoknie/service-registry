@@ -26,12 +26,13 @@ type Config struct {
 	DocsPublic   DocsPublicConfig
 	Skills       SkillsConfig
 	MCPGateway   MCPGatewayConfig
+	Mail         MailConfig
 	Bootstrap    BootstrapConfig
 }
 
 func (c *Config) check() Errors {
 	var errs Errors
-	for _, s := range []checker{&c.DB, &c.Web, &c.Log, &c.Session, &c.Bootstrap, &c.Secrets, &c.Outbound, &c.LinkCheck, &c.Notify, &c.OAuth, &c.MCPOAuth, &c.Knowledge, &c.Search, &c.Uploads, &c.Metrics, &c.Skills, &c.MCPGateway} {
+	for _, s := range []checker{&c.DB, &c.Web, &c.Log, &c.Session, &c.Bootstrap, &c.Secrets, &c.Outbound, &c.LinkCheck, &c.Notify, &c.OAuth, &c.MCPOAuth, &c.Knowledge, &c.Search, &c.Uploads, &c.Metrics, &c.Skills, &c.MCPGateway, &c.Mail} {
 		errs = append(errs, s.check()...)
 	}
 	if c.MCPOAuth.Enabled && c.Web.PublicURL == "" {

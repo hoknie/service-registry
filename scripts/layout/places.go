@@ -20,6 +20,7 @@ var featureGraph = map[string][]string{
 	"compose":    {"knowledge", "links", "ownership", "forge", "catalog", "access"},
 	"skills":     {"knowledge", "catalog", "access"},
 	"gateway":    {"catalog", "access"},
+	"membership": {"catalog", "access"},
 }
 
 type kind string

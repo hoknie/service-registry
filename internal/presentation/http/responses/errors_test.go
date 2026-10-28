@@ -9,7 +9,7 @@ import (
 
 func TestEveryKindHasAStatus(t *testing.T) {
 	t.Parallel()
-	for k := apperr.NotFound; k <= apperr.InvalidAgentToken; k++ {
+	for k := apperr.NotFound; k <= apperr.Refused; k++ {
 		if k == apperr.Internal {
 			continue
 		}

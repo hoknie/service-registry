@@ -2,7 +2,7 @@ package services
 
 import (
 	"context"
-	"path"
+	"errors"
 	"strings"
 	"time"
 
@@ -23,6 +23,7 @@ type SourcesService struct {
 	readers knowledgeports.ReaderFactoryPort
 	limits  skillstypes.Limits
 	sync    *usecases.SyncSourceUseCase
+	imports *usecases.ImportSourceUseCase
 }
 
 type SourceInput struct {
@@ -34,7 +35,10 @@ type SourceInput struct {
 	WorkingTree  *bool
 	SecretID     *string
 	Branch       string
-	Root         string
+	Root         *string
+	Roots        []string
+	Layout       string
+	GroupField   *string
 	IntervalSecs *int
 	Status       string
 	Versions     string
@@ -113,6 +117,8 @@ func (s *SourcesService) save(ctx context.Context, p accesstypes.Principal, src 
 }
 
 func (s *SourcesService) validate(ctx context.Context, src skillstypes.Source, in SourceInput) (skillstypes.Source, error) {
+	link := skillstypes.LinkFields(in.Kind == string(knowledgetypes.SourceRemote), in.URL, in.Branch, in.Roots, in.Root)
+	in.URL, in.Branch, in.Roots = link.URL, link.Branch, link.Roots
 	v, err := knowledgetypes.ValidateSource(knowledgetypes.SourceInput{Kind: in.Kind, Forge: in.Forge, URL: in.URL, APIURL: in.APIURL,
 		Path: in.Path, SecretID: in.SecretID, WorkingTree: in.WorkingTree, HasCredential: in.SecretID != nil})
 	if err != nil {
@@ -128,7 +134,11 @@ func (s *SourcesService) validate(ctx context.Context, src skillstypes.Source, i
 			return skillstypes.Source{}, err
 		}
 	}
-	root, err := skillstypes.CleanRoot(in.Root)
+	roots, err := skillstypes.SourceRoots(in.Roots, in.Root)
+	if err != nil {
+		return skillstypes.Source{}, err
+	}
+	layout, field, err := skillstypes.CleanLayout(in.Layout, in.GroupField)
 	branch := strings.TrimSpace(in.Branch)
 	status, statusOK := skillstypes.ParseStatus(defaultTo(in.Status, string(skillstypes.StatusPublished)))
 	versions := defaultTo(in.Versions, skillstypes.VersionsBranch)
@@ -143,7 +153,8 @@ func (s *SourcesService) validate(ctx context.Context, src skillstypes.Source, i
 	}
 	src.Kind, src.WorkingTree, src.SecretID = string(v.Kind), v.WorkingTree, v.SecretID
 	src.Forge, src.URL, src.APIURL, src.Path = optional(v.Forge), optional(v.URL), optional(v.APIURL), optional(v.Path)
-	src.Branch, src.Root, src.IntervalSecs, src.NewStatus, src.Versions, src.TagPattern = branch, root, in.IntervalSecs, status, versions, pattern
+	src.Branch, src.Roots, src.IntervalSecs, src.NewStatus, src.Versions, src.TagPattern = branch, roots, in.IntervalSecs, status, versions, pattern
+	src.Layout, src.GroupField = layout, field
 	return src, nil
 }
 
@@ -217,11 +228,11 @@ func (s *SourcesService) runSource(ctx context.Context, src skillstypes.Source) 
 		}
 		token = t
 	}
-	reader, err := s.readers.Open(ctx, sourceOf(src), settingsOf(src), token)
+	reader, err := s.readers.Open(ctx, skillstypes.KnowledgeSource(src), skillstypes.KnowledgeSettings(src), token)
 	if err != nil {
 		return fail(skillstypes.FailUnreachable)
 	}
-	return s.sync.Run(ctx, usecases.SyncInput{Source: src, Reader: reader, Author: authorOf(src), Policy: s.policy(ctx)})
+	return s.sync.Run(ctx, usecases.SyncInput{Source: src, Reader: reader, Author: skillstypes.AuthorOf(src), Policy: s.policy(ctx)})
 }
 
 func (s *SourcesService) policy(ctx context.Context) func(uuid.UUID) skillstypes.Effective {
@@ -238,43 +249,44 @@ func (s *SourcesService) policy(ctx context.Context) func(uuid.UUID) skillstypes
 	}
 }
 
-func sourceOf(src skillstypes.Source) knowledgetypes.Source {
-	out := knowledgetypes.Source{Kind: knowledgetypes.SourceKind(src.Kind), WorkingTree: src.WorkingTree}
-	out.Forge, out.URL, out.APIURL, out.Path = deref(src.Forge), deref(src.URL), deref(src.APIURL), deref(src.Path)
-	return out
+type ImportInput struct {
+	ParentID       *uuid.UUID
+	OrganizationID *uuid.UUID
+	Slug           string
+	Name           string
+	Source         SourceInput
 }
 
-func settingsOf(src skillstypes.Source) knowledgetypes.Settings {
-	include := "**"
-	if src.Root != "" {
-		include = src.Root + "/**"
+func (s *SourcesService) ImportSource(ctx context.Context, p accesstypes.Principal, in ImportInput) (skillstypes.Folder, skillstypes.Source, error) {
+	if in.ParentID != nil {
+		in.OrganizationID = nil
 	}
-	refs := []knowledgetypes.RefPattern{}
-	if src.Branch != "" {
-		refs = append(refs, knowledgetypes.RefPattern{Pattern: src.Branch, Kind: knowledgetypes.RefBranch})
+	scope, err := placeOf(ctx, s.parts, p, in.ParentID, in.OrganizationID, accesstypes.ActionCreate)
+	if err != nil {
+		return skillstypes.Folder{}, skillstypes.Source{}, err
 	}
-	if src.Versions == skillstypes.VersionsTags {
-		refs = append(refs, knowledgetypes.RefPattern{Pattern: "**", Kind: knowledgetypes.RefTag})
+	name := defaultTo(in.Name, skillstypes.RepoName(in.Source.URL, in.Source.Path))
+	slug, name, _, err := skillstypes.CleanFolder(defaultTo(in.Slug, skillstypes.SlugOf(name)), name, "")
+	if err != nil {
+		return skillstypes.Folder{}, skillstypes.Source{}, apperr.Wrap(err)
 	}
-	return knowledgetypes.Settings{Include: []string{include}, Exclude: []string{}, Refs: refs}
-}
-
-func authorOf(src skillstypes.Source) string {
-	if src.URL != nil {
-		full := knowledgetypes.Source{URL: *src.URL}.FullPath()
-		if full != "" {
-			return full
-		}
+	folderID, errFolder := uuid.NewV7()
+	sourceID, errSource := uuid.NewV7()
+	if err := errors.Join(errFolder, errSource); err != nil {
+		return skillstypes.Folder{}, skillstypes.Source{}, apperr.Wrap(err)
 	}
-	if src.Path != nil {
-		return path.Base(*src.Path)
+	src, err := s.validate(ctx, skillstypes.Source{ID: sourceID, FolderID: folderID, OrganizationID: scope.OrganizationID}, in.Source)
+	if err != nil {
+		return skillstypes.Folder{}, skillstypes.Source{}, apperr.Wrap(err)
 	}
-	return ""
-}
-
-func deref(v *string) string {
-	if v == nil {
-		return ""
+	folder := skillstypes.NewFolder{ID: folderID, ParentID: in.ParentID, OrganizationID: scope.OrganizationID, Slug: slug, Name: name}
+	if err := s.imports.Run(ctx, folder, src); err != nil {
+		return skillstypes.Folder{}, skillstypes.Source{}, apperr.Wrap(err)
 	}
-	return *v
+	f, err := (&FoldersService{parts: s.parts}).GetFolder(ctx, p, folderID)
+	if err != nil {
+		return skillstypes.Folder{}, skillstypes.Source{}, err
+	}
+	out, err := s.GetSource(ctx, p, sourceID)
+	return f, out, err
 }

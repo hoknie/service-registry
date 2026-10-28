@@ -1,4 +1,4 @@
-export type SkillStatus = "draft" | "published";
+export type SkillStatus = "draft" | "published" | "disabled";
 
 export type SkillRef = { id: string; slug: string; name: string };
 
@@ -40,6 +40,8 @@ export type Skill = {
   downloads: number;
   source: { id: string; kind: string; url: string } | null;
   managed: boolean;
+  active: boolean;
+  disabled_by: SkillRef | null;
   can_write: boolean;
   created_by: { id: string; name: string } | null;
   created_at: string;
@@ -57,6 +59,10 @@ export type SkillFolder = {
   ancestors: SkillRef[];
   skills: number;
   folders: number;
+  disabled: boolean;
+  disabled_by: SkillRef | null;
+  managed: boolean;
+  source_id: string | null;
   can_write: boolean;
 };
 
@@ -111,6 +117,8 @@ export type SourceRun = {
 
 export type SkillSourceKind = "remote" | "local_git" | "local_dir";
 
+export type SourceLayout = "flat" | "tree" | "field";
+
 export type SkillSource = {
   id: string;
   folder_id: string;
@@ -123,6 +131,9 @@ export type SkillSource = {
   credentials: { secret_id: string; name: string | null } | null;
   branch: string;
   root: string;
+  roots: string[];
+  layout: SourceLayout;
+  group_field: string | null;
   interval_secs: number | null;
   status: SkillStatus;
   versions: "branch" | "tags";
@@ -138,6 +149,7 @@ export type SkillFilters = {
   q: string;
   tags: string[];
   status: string;
+  active?: boolean;
 };
 
 export const SKILLS_BASE = "/v1/skills" as const;
@@ -174,6 +186,7 @@ export function filtersFrom(search: string): SkillFilters {
     q: q.get("q") ?? "",
     tags: q.getAll("tag"),
     status: q.get("status") ?? "",
+    active: q.get("active") === "true",
   };
 }
 
@@ -188,6 +201,7 @@ export function placeHref(
   if (f?.q) q.set("q", f.q);
   for (const t of f?.tags ?? []) q.append("tag", t);
   if (f?.status) q.set("status", f.status);
+  if (f?.active) q.set("active", "true");
   const s = q.toString();
   return `/${locale}/skills${s ? `?${s}` : ""}`;
 }
@@ -213,6 +227,7 @@ export function listQuery(
   if (f.q) q.set("q", f.q);
   for (const t of f.tags) q.append("tag", t);
   if (f.status) q.set("status", f.status);
+  if (f.active) q.set("active", "true");
   if (cursor) q.set("cursor", cursor);
   return `${SKILLS_BASE}?${q.toString()}` as `/${string}`;
 }
@@ -355,4 +370,29 @@ export type SkillSpace = {
   organization: SkillRef;
   description: string;
   can_write: boolean;
+};
+
+export function folderCurlCommand(origin: string, folder: Pick<SkillFolder, "id" | "slug">, target: string): string {
+  const url = `${origin}${apiHref(`${SKILLS_BASE}/folders/${encodeURIComponent(folder.id)}/archive`)}`;
+  const file = `${folder.slug}.zip`;
+  return `curl -fsSL -H "Authorization: Bearer $SVCR_TOKEN" "${url}" -o ${file} && unzip -o ${file} -d ${target}`;
+}
+
+export function isOff(item: { status?: SkillStatus; disabled?: boolean; disabled_by: SkillRef | null }): boolean {
+  return item.status === "disabled" || item.disabled === true || item.disabled_by !== null;
+}
+
+export function archiveErrorCode(status: number): string {
+  if (status === 409) return "conflict.skill_folder_empty";
+  if (status === 413) return "validation.skill_folder_too_large";
+  return "unknown";
+}
+
+export type SkillSetItem = { id: string; path: string; name: string; skills?: number; status?: SkillStatus };
+
+export type SkillSet = {
+  mode: "all" | "selected";
+  folders: SkillSetItem[];
+  skills: SkillSetItem[];
+  can_manage: boolean;
 };

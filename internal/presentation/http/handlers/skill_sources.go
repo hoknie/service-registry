@@ -150,3 +150,35 @@ func (a *Handlers) PutOrganizationSkillSpace(c fiber.Ctx) error {
 		return responses.SkillSpaceOf(out), err
 	})
 }
+
+func (a *Handlers) ImportSkillSource(c fiber.Ctx) error {
+	return a.skillCall(c, "", http.StatusCreated, func(p accesstypes.Principal, _ uuid.UUID) (any, error) {
+		var in requests.SkillImport
+		if err := skillBody(c, &in); err != nil {
+			return nil, err
+		}
+		f, src, err := a.Skills.Sources.ImportSource(c.Context(), p, in.Input())
+		if err != nil {
+			return nil, err
+		}
+		return responses.SkillImported{Folder: responses.SkillFolderOf(f), Source: responses.SkillSourceOf(src)}, nil
+	})
+}
+
+func (a *Handlers) OrganizationSkillSet(c fiber.Ctx) error {
+	return a.skillCall(c, "id", http.StatusOK, func(p accesstypes.Principal, id uuid.UUID) (any, error) {
+		out, err := a.Skills.Spaces.OrganizationSet(c.Context(), p, id)
+		return responses.SkillSetOf(out), err
+	})
+}
+
+func (a *Handlers) PutOrganizationSkillSet(c fiber.Ctx) error {
+	return a.skillCall(c, "id", http.StatusOK, func(p accesstypes.Principal, id uuid.UUID) (any, error) {
+		var in requests.SkillSet
+		if err := skillBody(c, &in); err != nil {
+			return nil, err
+		}
+		out, err := a.Skills.Spaces.PutOrganizationSet(c.Context(), p, id, in.Mode, in.Folders, in.Skills)
+		return responses.SkillSetOf(out), err
+	})
+}

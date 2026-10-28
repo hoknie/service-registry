@@ -179,6 +179,7 @@ func NewRouter(d Deps, dist webui.Dist) *fiber.App {
 	r.add("/api/public/docs/file", false, get(api.PublicFile))
 	r.skills(api)
 	r.gateway(api)
+	r.members(api)
 	r.add("/api/public/docs/api", false, get(api.PublicAPI))
 	r.add("/api/public/docs/search", false, get(api.PublicSearch))
 	app.All("/api", handlers.APINotFound)

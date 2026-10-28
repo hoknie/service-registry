@@ -62,6 +62,8 @@ type Skill struct {
 	Downloads         int64           `json:"downloads"`
 	Source            *SkillSourceRef `json:"source"`
 	Managed           bool            `json:"managed"`
+	Active            bool            `json:"active"`
+	DisabledBy        *SkillRef       `json:"disabled_by"`
 	CanWrite          bool            `json:"can_write"`
 	CreatedBy         *SkillUser      `json:"created_by"`
 	CreatedAt         string          `json:"created_at"`
@@ -112,7 +114,8 @@ func SkillOf(s skillstypes.Skill) Skill {
 	out := Skill{ID: s.ID, FolderID: s.FolderID, OrganizationID: s.OrganizationID, Organization: skillRef(s.Organization), Path: s.Path,
 		Slug: s.Slug, Name: s.Name, Title: s.Title, Description: s.Description, About: s.About, License: s.License, Compatibility: s.Compatibility,
 		AllowedTools: strings0(s.AllowedTools), Tags: strings0(s.Tags), Author: s.Author, Status: string(s.Status),
-		VersionsAvailable: s.VersionsAvailable, Downloads: s.Downloads, Managed: s.Managed(), CanWrite: s.CanWrite,
+		VersionsAvailable: s.VersionsAvailable, Downloads: s.Downloads, Managed: s.Managed(), Active: s.Active(),
+		DisabledBy: skillRef(s.DisabledBy), CanWrite: s.CanWrite,
 		CreatedBy: skillUser(s.CreatedBy), CreatedAt: s.CreatedAt, UpdatedAt: s.UpdatedAt}
 	if s.HasImage {
 		out.ImageURL = new("/api/v1/skills/" + s.ID.String() + "/image")
@@ -145,12 +148,17 @@ type SkillFolder struct {
 	Ancestors      []SkillRef `json:"ancestors"`
 	Skills         int64      `json:"skills"`
 	Folders        int64      `json:"folders"`
+	Disabled       bool       `json:"disabled"`
+	DisabledBy     *SkillRef  `json:"disabled_by"`
+	Managed        bool       `json:"managed"`
+	SourceID       *uuid.UUID `json:"source_id"`
 	CanWrite       bool       `json:"can_write"`
 }
 
 func SkillFolderOf(f skillstypes.Folder) SkillFolder {
 	out := SkillFolder{ID: f.ID, ParentID: f.ParentID, OrganizationID: f.OrganizationID, Organization: skillRef(f.Organization),
-		Slug: f.Slug, Name: f.Name, Description: f.Description, Ancestors: []SkillRef{}, Skills: f.Skills, Folders: f.Folders, CanWrite: f.CanWrite}
+		Slug: f.Slug, Name: f.Name, Description: f.Description, Ancestors: []SkillRef{}, Skills: f.Skills, Folders: f.Folders, CanWrite: f.CanWrite,
+		Disabled: f.Disabled, DisabledBy: skillRef(f.DisabledBy), Managed: f.Managed(), SourceID: f.SourceID}
 	for _, a := range f.Ancestors {
 		out.Ancestors = append(out.Ancestors, SkillRef{ID: a.ID, Slug: a.Slug, Name: a.Name})
 	}

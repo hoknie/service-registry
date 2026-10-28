@@ -23,7 +23,7 @@ func TestGatewayToolsAreListedWithAPrefix(t *testing.T) {
 	s := a.mcpSession(a.pat(admin, "mcp"))
 	res, err := s.ListTools(context.Background(), nil)
 	must(t, err)
-	eq(t, len(res.Tools), 23)
+	eq(t, len(res.Tools), 24)
 	byName := map[string]*sdk.Tool{}
 	for _, tool := range res.Tools {
 		byName[tool.Name] = tool

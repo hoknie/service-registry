@@ -10,6 +10,8 @@ const organization = (permissions = []) => ({ kind: "organization", parent_id: n
 test("tabs of a project and of a container", () => {
   assert.deepEqual(tabsOf(project()), ["overview", "docs", "details", "releases", "dependencies", "settings"]);
   assert.deepEqual(tabsOf(folder()), ["overview", "details", "dependencies", "settings"]);
+  assert.deepEqual(tabsOf({ kind: "organization", access: "read" }), ["overview", "details", "dependencies", "members", "settings"]);
+  assert.deepEqual(tabsOf({ kind: "organization", parent_id: "p", access: "read" }), ["overview", "details", "dependencies", "settings"]);
   assert.deepEqual(tabsOf({ kind: "folder", access: "navigate" }), ["overview"]);
   assert.deepEqual(tabsOf(null), ["overview"]);
 });

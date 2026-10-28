@@ -75,6 +75,7 @@ func ServeUntil(ctx context.Context, cfg config.Config) error {
 	jobs.SpawnLinkIconRetention(tasks, deps)
 	jobs.SpawnLoginStateRetention(tasks, deps)
 	jobs.SpawnOAuthRetention(tasks, deps)
+	jobs.SpawnInvitationRetention(tasks, deps)
 	forgeDone := jobs.SpawnForgeSync(tasks, deps)
 	linksDone := jobs.SpawnLinkChecks(tasks, deps)
 	clustersDone := jobs.SpawnClusterPolls(tasks, deps)

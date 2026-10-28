@@ -104,3 +104,5 @@ func FailureCode(err error) string {
 }
 
 var ErrRepoNotFound error = &failure{code: "forge.not_found", message: "repository or commit not found on the forge"}
+
+var ErrArchiveUnsupported = errors.New("forge does not serve repository archives")

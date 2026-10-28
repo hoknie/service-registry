@@ -67,3 +67,32 @@ func (s *BindingsService) GroupNodes(ctx context.Context, groupIDs []uuid.UUID) 
 	out, err := s.bindingRepository.GroupNodes(ctx, groupIDs)
 	return out, apperr.Wrap(err)
 }
+
+type OrganizationRolesService struct {
+	bindingRepository *repositories.BindingRepository
+}
+
+func (s *OrganizationRolesService) Roles(ctx context.Context, org uuid.UUID, users []uuid.UUID) (map[uuid.UUID]string, error) {
+	out, err := s.bindingRepository.UserRoles(ctx, org, users)
+	return out, apperr.Wrap(err)
+}
+
+func (s *OrganizationRolesService) SetRole(ctx context.Context, org, user uuid.UUID, role *string) error {
+	if role == nil {
+		return apperr.Wrap(s.bindingRepository.RevokeUser(ctx, org, user))
+	}
+	r, ok := catalogtypes.ParseRole(*role)
+	if !ok {
+		return apperr.UnknownValue("role", *role)
+	}
+	id, err := uuid.NewV7()
+	if err != nil {
+		return apperr.Wrap(err)
+	}
+	return apperr.Wrap(s.bindingRepository.GrantUser(ctx, id, org, user, r))
+}
+
+func (s *OrganizationRolesService) GlobalGroups(ctx context.Context, org uuid.UUID) ([]catalogtypes.GroupAccess, error) {
+	out, err := s.bindingRepository.GlobalGroupsIn(ctx, org)
+	return out, apperr.Wrap(err)
+}

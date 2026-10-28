@@ -1,7 +1,8 @@
 "use client";
 
-import { GitBranch, Sparkles, Upload } from "lucide-react";
-import { useMemo } from "react";
+import { GitBranch, GitPullRequestArrow, ListChecks, Plug, Sparkles, Upload } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 
 import type { Locale } from "@/i18n/config";
 import { format } from "@/i18n/format";
@@ -19,19 +20,26 @@ import { PlaceBrowser, type PlaceAdapter } from "../places/PlaceBrowser";
 import { PlaceSearch } from "../places/PlaceSearch";
 import { useSession } from "../SessionProvider";
 import { useUiText } from "../UiText";
+import { Checkbox } from "../ui/Field";
 import { Select } from "../ui/Select";
+import { DisabledBadge, FolderPower } from "./DisabledBadge";
+import { FolderConnect } from "./FolderConnect";
+import { ImportDialog } from "./ImportDialog";
 import { SkillBadges, SkillCard } from "./SkillCard";
+import { SkillSetSection } from "./SkillSetSection";
 import { SourcesView } from "./SourcesView";
 
 type Props = { locale: Locale; labels: Messages["skills"]; access: AccessLabels };
 
-const empty: SkillFilters = { q: "", tags: [], status: "" };
+const empty: SkillFilters = { q: "", tags: [], status: "", active: false };
 
 export function SkillsBrowser({ locale, labels: t, access }: Props) {
   const { session } = useSession();
   const { common } = useUiText();
   const user = session.status === "signed-in" ? session.user : null;
   const canGlobal = can(user, "skills", "create");
+  const router = useRouter();
+  const [importing, setImporting] = useState(false);
 
   const adapter = useMemo<PlaceAdapter<Skill, SkillFolder, SkillFilters>>(
     () => ({
@@ -92,16 +100,21 @@ export function SkillsBrowser({ locale, labels: t, access }: Props) {
             (await apiGet<{ items: { tag: string; count: number }[] }>(`${SKILLS_BASE}/tags?q=${encodeURIComponent(draft)}`, signal)).items.map((i) => ({ value: i.tag, label: i.tag, detail: String(i.count) }))
           }
           extra={
-            writable &&
             !root && (
-              <Select className="w-40" aria-label={t.status} value={filters.status} onChange={(e) => go({ ...filters, status: e.target.value })}>
-                <option value="">{t.statusAny}</option>
-                <option value="published">{t.statusPublished}</option>
-                <option value="draft">{t.statusDraft}</option>
-              </Select>
+              <>
+                {writable && (
+                  <Select className="w-40" aria-label={t.status} value={filters.status} onChange={(e) => go({ ...filters, status: e.target.value })}>
+                    <option value="">{t.statusAny}</option>
+                    <option value="published">{t.statusPublished}</option>
+                    <option value="draft">{t.statusDraft}</option>
+                    <option value="disabled">{t.statusDisabled}</option>
+                  </Select>
+                )}
+                <Checkbox label={t.onlyActive} checked={filters.active === true} onChange={(e) => go({ ...filters, active: e.target.checked })} />
+              </>
             )
           }
-          reset={{ shown: searching(filters) || filters.status !== "", label: t.reset, onReset: () => go(empty) }}
+          reset={{ shown: searching(filters) || filters.status !== "" || filters.active === true, label: t.reset, onReset: () => go(empty) }}
         />
       ),
       addItem: ({ place, space }) => ({
@@ -110,9 +123,38 @@ export function SkillsBrowser({ locale, labels: t, access }: Props) {
         icon: Upload,
       }),
       folderSections: (f) => [{ key: "sources", label: t.place.sources, icon: GitBranch, render: () => <SourcesView key={f.id} folderId={f.id} locale={locale} labels={t} /> }],
-      spaceSections: (org) => [{ key: "skills", label: t.place.skillsSection, icon: Sparkles, render: () => <OrganizationSkills key={org} node={{ id: org }} labels={t} /> }],
+      spaceSections: (org) => [
+        { key: "skills", label: t.place.skillsSection, icon: Sparkles, render: () => <OrganizationSkills key={org} node={{ id: org }} labels={t} /> },
+        { key: "set", label: t.set.section, icon: ListChecks, render: () => <SkillSetSection key={org} org={org} labels={t} /> },
+      ],
+      addMore: ({ place, space, folder }) => [
+        {
+          key: "import",
+          label: t.importDialog.menu,
+          icon: GitPullRequestArrow,
+          onSelect: () => setImporting(true),
+          dialog: (
+            <ImportDialog
+              open={importing}
+              onOpenChange={setImporting}
+              parent={place.folder}
+              space={space}
+              secretsOn={folder ? folder.organization_id : space && space !== "global" ? space : null}
+              locale={locale}
+              labels={t}
+              onImported={(f) => {
+                setImporting(false);
+                router.push(`${placeHref(locale, { folder: f.id, space: null })}&tab=settings&section=sources`);
+              }}
+            />
+          ),
+        },
+      ],
+      folderTabs: (f) => [{ key: "connect", label: t.page.connect, icon: Plug, accent: true, content: <FolderConnect key={f.id} folder={f} locale={locale} labels={t} /> }],
+      folderGeneral: (f, changed) => <FolderPower folder={f} labels={t.off} onChanged={changed} />,
+      folderBadge: (f) => <DisabledBadge item={f} labels={t.off} />,
     }),
-    [t, locale, canGlobal, common, access],
+    [t, locale, canGlobal, common, access, importing, router],
   );
 
   return <PlaceBrowser adapter={adapter} locale={locale} />;

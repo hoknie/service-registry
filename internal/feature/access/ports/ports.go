@@ -31,3 +31,8 @@ type MCPServersPort interface {
 type OrganizationsPort interface {
 	OrganizationAccess(ctx context.Context, p accesstypes.Principal, nodeID uuid.UUID) (accesstypes.OrganizationAccess, error)
 }
+
+type InvitationsPort interface {
+	PendingInvitation(ctx context.Context, hash [32]byte) (string, bool, error)
+	AcceptInvitation(ctx context.Context, hash [32]byte, user uuid.UUID, email string) error
+}

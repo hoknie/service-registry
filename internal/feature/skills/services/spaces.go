@@ -17,6 +17,7 @@ import (
 type SpacesService struct {
 	parts
 	spaces *repositories.SpaceRepository
+	sets   *repositories.SetRepository
 }
 
 type Space struct {
@@ -57,4 +58,68 @@ func (s *SpacesService) PutOrganizationSpace(ctx context.Context, p accesstypes.
 		return Space{}, apperr.Wrap(err)
 	}
 	return s.OrganizationSpace(ctx, p, org)
+}
+
+type SkillSet struct {
+	Mode      string
+	Folders   []skillstypes.SetItem
+	Skills    []skillstypes.SetItem
+	CanManage bool
+}
+
+func (s *SpacesService) OrganizationSet(ctx context.Context, p accesstypes.Principal, org uuid.UUID) (SkillSet, error) {
+	space, err := s.OrganizationSpace(ctx, p, org)
+	if err != nil {
+		return SkillSet{}, err
+	}
+	set, err := s.sets.Get(ctx, org)
+	if err != nil {
+		return SkillSet{}, apperr.Wrap(err)
+	}
+	folders, skills, err := s.sets.Describe(ctx, set.Folders, set.Skills)
+	if err != nil {
+		return SkillSet{}, apperr.Wrap(err)
+	}
+	return SkillSet{Mode: set.Mode, Folders: nonNilItems(folders), Skills: nonNilItems(skills), CanManage: space.CanWrite}, nil
+}
+
+func (s *SpacesService) PutOrganizationSet(ctx context.Context, p accesstypes.Principal, org uuid.UUID, mode string, folders, skills []uuid.UUID) (SkillSet, error) {
+	space, err := s.OrganizationSpace(ctx, p, org)
+	if err != nil {
+		return SkillSet{}, err
+	}
+	if !space.CanWrite {
+		return SkillSet{}, apperr.New(apperr.Forbidden)
+	}
+	set, err := skillstypes.CleanSet(mode, folders, skills)
+	if err != nil {
+		return SkillSet{}, apperr.Wrap(err)
+	}
+	gotFolders, gotSkills, err := s.sets.Describe(ctx, set.Folders, set.Skills)
+	if err != nil {
+		return SkillSet{}, apperr.Wrap(err)
+	}
+	if len(gotFolders) != len(set.Folders) || len(gotSkills) != len(set.Skills) || !allGlobal(gotFolders) || !allGlobal(gotSkills) {
+		return SkillSet{}, apperr.Wrap(skillstypes.InvalidSet)
+	}
+	if err := s.sets.Put(ctx, org, set); err != nil {
+		return SkillSet{}, apperr.Wrap(err)
+	}
+	return s.OrganizationSet(ctx, p, org)
+}
+
+func allGlobal(items []skillstypes.SetItem) bool {
+	for _, it := range items {
+		if !it.Global {
+			return false
+		}
+	}
+	return true
+}
+
+func nonNilItems(items []skillstypes.SetItem) []skillstypes.SetItem {
+	if items == nil {
+		return []skillstypes.SetItem{}
+	}
+	return items
 }

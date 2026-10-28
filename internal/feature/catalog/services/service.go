@@ -84,6 +84,7 @@ type CatalogServices struct {
 	Branches       *BranchesService
 	Labels         *LabelsService
 	Nodes          *NodesService
+	OrgRoles       *OrganizationRolesService
 	ProjectKeys    *ProjectKeysService
 	Secrets        *SecretsService
 	SecretResolver *SecretResolverService
@@ -99,6 +100,7 @@ func New(d Deps) *CatalogServices {
 		Bindings: &BindingsService{bindingRepository: p.bindingRepository},
 		Branches: &BranchesService{branchRepository: p.branchRepository, cfg: p.cfg, deleteBranch: p.deleteBranch},
 		Labels:   &LabelsService{nodeRepository: p.nodeRepository},
+		OrgRoles: &OrganizationRolesService{bindingRepository: p.bindingRepository},
 		Nodes: &NodesService{managed: p.managed, nodeRepository: p.nodeRepository, db: p.db,
 			bindingRepository: p.bindingRepository, setDefaultBranch: p.setDefaultBranch, moveNode: p.moveNode},
 		ProjectKeys:    &ProjectKeysService{projectKeyRepository: p.projectKeyRepository, db: p.db},

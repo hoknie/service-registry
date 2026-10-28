@@ -153,6 +153,7 @@ type FolderPatch struct {
 	Slug           *string
 	Name           *string
 	Description    *string
+	Disabled       *bool
 	Move           bool
 	ParentID       *uuid.UUID
 	OrganizationID *uuid.UUID
@@ -170,9 +171,17 @@ func (s *FoldersService) UpdateFolder(ctx context.Context, p accesstypes.Princip
 	if err != nil {
 		return skillstypes.Folder{}, apperr.Wrap(err)
 	}
+	if f.Managed() && (slug != f.Slug || name != f.Name || in.Move) {
+		return skillstypes.Folder{}, apperr.Wrap(skillstypes.ConflictManaged)
+	}
 	err = s.db.InTx(ctx, func(ctx context.Context) error {
 		if err := s.folders.Update(ctx, id, slug, name, description); err != nil {
 			return err
+		}
+		if in.Disabled != nil {
+			if err := s.folders.SetDisabled(ctx, id, *in.Disabled); err != nil {
+				return err
+			}
 		}
 		if !in.Move {
 			return nil
@@ -233,6 +242,9 @@ func (s *FoldersService) DeleteFolder(ctx context.Context, p accesstypes.Princip
 	}
 	if err := s.access.canWrite(ctx, p, skillstypes.Scope{OrganizationID: f.OrganizationID}, accesstypes.ActionDelete); err != nil {
 		return err
+	}
+	if f.Managed() {
+		return apperr.Wrap(skillstypes.ConflictManaged)
 	}
 	return apperr.Wrap(s.db.InTx(ctx, func(ctx context.Context) error {
 		busy, err := s.folders.HasContent(ctx, id)

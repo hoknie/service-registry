@@ -80,17 +80,17 @@ func NewLoginStateRepository(db *pgtx.DB) *LoginStateRepository {
 func (s *LoginStateRepository) Insert(ctx context.Context, n accesstypes.NewLoginState) error {
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO oauth_login_states (id, browser_hash, provider, state, nonce, code_verifier, next,
-			link_user_id, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() + make_interval(secs => $9))`,
+			link_user_id, expires_at, invite_hash)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() + make_interval(secs => $9), $10)`,
 		n.ID, n.BrowserHash[:], n.Provider, n.State, n.Nonce, n.Verifier,
-		n.Next, n.LinkUserID, float64(n.TTLSecs))
+		n.Next, n.LinkUserID, float64(n.TTLSecs), n.InviteHash)
 	return err
 }
 
 func (s *LoginStateRepository) Take(ctx context.Context, browserHash [32]byte, state, provider string) (*accesstypes.LoginState, error) {
 	l, err := postgres.Find(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (accesstypes.LoginState, error) {
 		var l accesstypes.LoginState
-		err := r.Scan(&l.Provider, &l.Nonce, &l.Verifier, &l.Next, &l.LinkUserID)
+		err := r.Scan(&l.Provider, &l.Nonce, &l.Verifier, &l.Next, &l.LinkUserID, &l.InviteHash)
 		return l, err
 	}, `
 		DELETE FROM oauth_login_states
@@ -98,7 +98,7 @@ func (s *LoginStateRepository) Take(ctx context.Context, browserHash [32]byte, s
 			AND state = $2
 			AND provider = $3
 			AND expires_at > now()
-		RETURNING provider, nonce, code_verifier, next, link_user_id`, browserHash[:], state, provider)
+		RETURNING provider, nonce, code_verifier, next, link_user_id, invite_hash`, browserHash[:], state, provider)
 	return l, err
 }
 

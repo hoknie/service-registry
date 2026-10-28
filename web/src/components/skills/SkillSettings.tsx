@@ -65,7 +65,7 @@ export function SkillSettings({ skill, labels: t, onSaved, section: asked, secti
     }
   };
 
-  const publish = async (status: "draft" | "published") => {
+  const publish = async (status: "draft" | "published" | "disabled") => {
     setPublishing(true);
     try {
       onSaved(await patchSkill(skill.id, { status }));
@@ -130,10 +130,21 @@ export function SkillSettings({ skill, labels: t, onSaved, section: asked, secti
           </Panel>
           <Panel title={s.publication}>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="min-w-0 flex-1 text-sm text-ink-2">{skill.status === "draft" ? s.publicationDraft : s.publicationPublished}</p>
-              <Button busy={publishing} onClick={() => void publish(skill.status === "draft" ? "published" : "draft")}>
-                {skill.status === "draft" ? t.page.publish : t.page.unpublish}
-              </Button>
+              <p className="min-w-0 flex-1 text-sm text-ink-2">
+                {skill.status === "draft" ? s.publicationDraft : skill.status === "disabled" ? t.off.disabledText : s.publicationPublished}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {skill.status !== "disabled" && (
+                  <Button busy={publishing} onClick={() => void publish(skill.status === "draft" ? "published" : "draft")}>
+                    {skill.status === "draft" ? t.page.publish : t.page.unpublish}
+                  </Button>
+                )}
+                {skill.status !== "draft" && (
+                  <Button busy={publishing} onClick={() => void publish(skill.status === "disabled" ? "published" : "disabled")}>
+                    {skill.status === "disabled" ? t.off.enable : t.off.disable}
+                  </Button>
+                )}
+              </div>
             </div>
           </Panel>
           {!skill.managed && (

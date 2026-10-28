@@ -35,6 +35,8 @@ type SkillsConfig struct {
 	MaxFiles         int64  `env:"SKILLS_MAX_FILES" envDefault:"500"`
 	KeepVersions     int64  `env:"SKILLS_KEEP_VERSIONS" envDefault:"0"`
 	SyncIntervalSecs int64  `env:"SKILLS_SYNC_INTERVAL_SECS" envDefault:"3600"`
+	SourceArchiveMax int64  `env:"SKILLS_SOURCE_ARCHIVE_MAX_BYTES" envDefault:"536870912"`
+	FolderArchiveMax int64  `env:"SKILLS_FOLDER_ARCHIVE_MAX_BYTES" envDefault:"268435456"`
 	Dir              string `env:"-"`
 	S3AccessKey      string `env:"-"`
 	S3SecretKey      string `env:"-"`
@@ -88,6 +90,8 @@ func (c *SkillsConfig) checkRanges() Errors {
 		{"SKILLS_MAX_FILES", c.MaxFiles, 1, 10000},
 		{"SKILLS_KEEP_VERSIONS", c.KeepVersions, 0, 1000},
 		{"SKILLS_SYNC_INTERVAL_SECS", c.SyncIntervalSecs, 300, 86400},
+		{"SKILLS_SOURCE_ARCHIVE_MAX_BYTES", c.SourceArchiveMax, 1048576, 4294967296},
+		{"SKILLS_FOLDER_ARCHIVE_MAX_BYTES", c.FolderArchiveMax, 1048576, 4294967296},
 	} {
 		if r.value < r.min || r.value > r.max {
 			errs = append(errs, &Error{Var: r.name, Reason: fmt.Sprintf("must be from %d to %d, got %d", r.min, r.max, r.value)})

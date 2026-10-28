@@ -48,6 +48,10 @@ func (s *AuthService) Login(ctx context.Context, ip string, creds accesstypes.Cr
 	return s.openSession(ctx, found.User, accesstypes.MethodPassword, previousToken)
 }
 
+func (s *AuthService) SignIn(ctx context.Context, user accesstypes.User, method string, previousToken *string) (SignedIn, error) {
+	return s.openSession(ctx, user, method, previousToken)
+}
+
 func (s *AuthService) openSession(ctx context.Context, user accesstypes.User, method string, previousToken *string) (SignedIn, error) {
 	if previousToken != nil {
 		if err := s.sessionRepository.DeleteByToken(ctx, auth.TokenHash(*previousToken)); err != nil {

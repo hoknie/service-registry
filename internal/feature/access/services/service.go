@@ -128,6 +128,10 @@ func (f *AccessServices) UseStewards(stewards accessports.GroupStewardsPort) {
 	f.GroupContacts.stewards = stewards
 }
 
+func (f *AccessServices) UseInvitations(invitations accessports.InvitationsPort) {
+	f.OAuth.invitations = invitations
+}
+
 func (f *AccessServices) UseOrganizations(organizations accessports.OrganizationsPort) {
 	f.Groups.organizations = organizations
 }

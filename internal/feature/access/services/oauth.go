@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"strings"
+	accessports "svc-registry/internal/feature/access/ports"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -55,7 +56,7 @@ type LoginStart struct {
 	BrowserID string
 }
 
-func (s *OAuthService) StartLogin(ctx context.Context, provider, next string, linkUser *uuid.UUID) (LoginStart, error) {
+func (s *OAuthService) StartLogin(ctx context.Context, provider, next string, linkUser *uuid.UUID, invite string) (LoginStart, error) {
 	if _, ok := s.providerConfig(provider); !ok {
 		return LoginStart{}, apperr.New(apperr.NotFound)
 	}
@@ -73,7 +74,8 @@ func (s *OAuthService) StartLogin(ctx context.Context, provider, next string, li
 		return LoginStart{}, &apperr.Error{Kind: apperr.Unavailable, What: "login provider", Code: string(accesstypes.RefuseUnavailable)}
 	}
 	err = s.loginStateRepository.Insert(ctx, accesstypes.NewLoginState{ID: uuid.Must(uuid.NewV7()), BrowserHash: sha256.Sum256([]byte(browser)),
-		Provider: provider, State: st, Nonce: nonce, Verifier: verifier, Next: SafeNext(next), LinkUserID: linkUser, TTLSecs: LoginStateTTL})
+		Provider: provider, State: st, Nonce: nonce, Verifier: verifier, Next: SafeNext(next), LinkUserID: linkUser, TTLSecs: LoginStateTTL,
+		InviteHash: accesstypes.InviteHash(invite)})
 	if err != nil {
 		return LoginStart{}, apperr.Wrap(err)
 	}
@@ -144,7 +146,10 @@ func (s *OAuthService) CompleteLogin(ctx context.Context, cb LoginCallback, prev
 			byEmail = &found.User
 		}
 	}
-	policy := accesstypes.ProviderPolicy{Key: cfg.Key, AutoProvision: cfg.AutoProvision, AllowedDomains: cfg.AllowedDomains}
+	policy, invited, err := s.policyFor(ctx, cfg, ls, claims, email, &done)
+	if err != nil {
+		return done, err
+	}
 	outcome, err := accesstypes.Decide(user, byEmail, claims, policy)
 	if err != nil {
 		return done, err
@@ -164,6 +169,7 @@ func (s *OAuthService) CompleteLogin(ctx context.Context, cb LoginCallback, prev
 		return done, err
 	}
 	done.Token = signedIn.Token
+	s.acceptInvitation(ctx, invited, ls.InviteHash, *user)
 	return done, nil
 }
 
@@ -204,6 +210,7 @@ type OAuthService struct {
 	oauth                accesstypes.OAuthClient
 	userRepository       *repositories.UserRepository
 	auth                 *AuthService
+	invitations          accessports.InvitationsPort
 }
 
 type loginParties struct {

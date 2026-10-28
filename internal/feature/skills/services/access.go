@@ -8,6 +8,7 @@ import (
 	accesstypes "svc-registry/internal/feature/access/types"
 	catalogservices "svc-registry/internal/feature/catalog/services"
 	catalogtypes "svc-registry/internal/feature/catalog/types"
+	"svc-registry/internal/feature/skills/repositories"
 	skillstypes "svc-registry/internal/feature/skills/types"
 	"svc-registry/internal/platform/apperr"
 )
@@ -97,4 +98,40 @@ func writeSkill(ctx context.Context, p parts, pr accesstypes.Principal, id uuid.
 		return skillstypes.Skill{}, err
 	}
 	return s, nil
+}
+
+func (a *accessRules) setOrgs(ctx context.Context, p accesstypes.Principal) ([]uuid.UUID, error) {
+	if len(p.Nodes) == 0 {
+		return nil, nil
+	}
+	orgs, err := a.catalog.Access.NodeOrganizations(ctx, p.Nodes)
+	if err != nil {
+		return nil, err
+	}
+	if orgs == nil {
+		orgs = []uuid.UUID{}
+	}
+	return orgs, nil
+}
+
+func inSet(ctx context.Context, p parts, pr accesstypes.Principal, id uuid.UUID) error {
+	orgs, err := p.access.setOrgs(ctx, pr)
+	if err != nil || orgs == nil {
+		return err
+	}
+	rows, err := p.skills.List(ctx, repositories.Filter{All: true, ListQuery: skillstypes.ListQuery{IDs: []uuid.UUID{id}, SetOrgs: orgs, Limit: 1}})
+	if err != nil {
+		return apperr.Wrap(err)
+	}
+	if len(rows) == 0 {
+		return apperr.New(apperr.NotFound)
+	}
+	return nil
+}
+
+func forAgent(ctx context.Context, p parts, pr accesstypes.Principal, sk skillstypes.Skill) error {
+	if !sk.Active() {
+		return apperr.New(apperr.NotFound)
+	}
+	return inSet(ctx, p, pr, sk.ID)
 }

@@ -27,6 +27,7 @@ type SkillsServices struct {
 	Versions *VersionsService
 	Spaces   *SpacesService
 	Sources  *SourcesService
+	Archive  *ArchiveService
 	Ports    *PortsService
 }
 
@@ -56,15 +57,19 @@ func New(d Deps) *SkillsServices {
 	cards := &cardBuilder{parts: p}
 	versions := &VersionsService{parts: p, cards: cards}
 	content := &ContentService{parts: p, cards: cards, limits: limitsOf(d.Config.Skills)}
+	folders := &FoldersService{parts: p}
 	return &SkillsServices{
-		Folders:  &FoldersService{parts: p},
+		Folders:  folders,
+		Archive:  &ArchiveService{parts: p, cards: cards, content: content, folders: folders},
 		Skills:   &SkillsService{parts: p, cards: cards},
 		Content:  content,
 		Images:   &ImagesService{content: content},
 		Versions: versions,
-		Spaces:   &SpacesService{parts: p, spaces: repositories.NewSpaceRepository(d.DB)},
+		Spaces:   &SpacesService{parts: p, spaces: repositories.NewSpaceRepository(d.DB), sets: repositories.NewSetRepository(d.DB)},
 		Sources: &SourcesService{parts: p, catalog: d.Catalog, readers: d.Readers, limits: limitsOf(d.Config.Skills),
-			sync: usecases.NewSyncSource(usecases.SyncSourceDeps{Skills: p.skills, Save: p.save, Limits: limitsOf(d.Config.Skills)})},
+			sync: usecases.NewSyncSource(usecases.SyncSourceDeps{Skills: p.skills, Save: p.save, Places: usecases.NewPlaceSkills(p.folders, p.skills),
+				Limits: limitsOf(d.Config.Skills), ArchiveLimit: d.Config.Skills.SourceArchiveMax}),
+			imports: usecases.NewImportSource(d.DB, p.folders, p.sources)},
 		Ports: &PortsService{parts: p},
 	}
 }

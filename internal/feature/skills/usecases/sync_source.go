@@ -1,7 +1,6 @@
 package usecases
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -18,9 +17,11 @@ import (
 )
 
 type SyncSourceDeps struct {
-	Skills *repositories.SkillRepository
-	Save   *SaveVersionUseCase
-	Limits skillstypes.Limits
+	Skills       *repositories.SkillRepository
+	Save         *SaveVersionUseCase
+	Places       *PlaceSkillsUseCase
+	Limits       skillstypes.Limits
+	ArchiveLimit int64
 }
 
 type SyncSourceUseCase struct{ d SyncSourceDeps }
@@ -48,6 +49,7 @@ type syncRun struct {
 	run      *skillstypes.Run
 	existing map[string]skillstypes.Skill
 	touched  map[uuid.UUID]bool
+	place    *placement
 }
 
 func (u *SyncSourceUseCase) Run(ctx context.Context, in SyncInput) SyncResult {
@@ -94,6 +96,9 @@ func (u *SyncSourceUseCase) Run(ctx context.Context, in SyncInput) SyncResult {
 func failed(run skillstypes.Run, err error) SyncResult {
 	run.Status = skillstypes.RunFailed
 	run.Error = new(skillstypes.FailureCode(err, errors.Is(err, errBranchMissing)))
+	if errors.Is(err, knowledgetypes.ErrSnapshotTooLarge) {
+		run.Error = new(skillstypes.FailArchiveTooLarge)
+	}
 	run.Created, run.Updated, run.Removed, run.Skipped = 0, 0, 0, 0
 	return SyncResult{Run: run}
 }
@@ -124,40 +129,22 @@ func (s *syncRun) load(ctx context.Context) error {
 			s.existing[*r.Skill.SourcePath] = r.Skill
 		}
 	}
-	return nil
-}
-
-type tree struct {
-	entries map[string]knowledgetypes.Entry
-	paths   []string
+	s.place, err = s.d.Places.Start(ctx, s.in.Source)
+	return err
 }
 
 func (s *syncRun) tree(ctx context.Context, branch, commit string) (tree, bool, error) {
-	entries, truncated, err := s.in.Reader.Tree(ctx, branch, commit)
-	if err != nil {
-		return tree{}, false, err
-	}
-	t := tree{entries: map[string]knowledgetypes.Entry{}}
-	for _, e := range entries {
-		t.entries[e.Path] = e
-		t.paths = append(t.paths, e.Path)
-	}
-	return t, truncated, nil
+	return readTree(ctx, s.in.Reader, branch, commit, s.d.ArchiveLimit)
 }
 
-func (s *syncRun) content(ctx context.Context, t tree, dir string) (skillstypes.Content, error) {
+func (s *syncRun) content(t tree, dir string) (skillstypes.Content, error) {
 	var entries []skillstypes.Entry
 	for _, p := range skillstypes.FilesUnder(t.paths, dir) {
-		e := t.entries[p]
-		if e.Size > s.d.Limits.FileBytes && s.d.Limits.FileBytes > 0 {
+		if size := t.size[p]; size > s.d.Limits.FileBytes && s.d.Limits.FileBytes > 0 {
 			return skillstypes.Content{}, skillstypes.ContentTooLarge
 		}
 		entries = append(entries, skillstypes.Entry{Path: skillstypes.RelativePath(p, dir), Open: func() (io.ReadCloser, error) {
-			data, err := s.in.Reader.Read(ctx, e, s.d.Limits.FileBytes+1)
-			if err != nil {
-				return nil, err
-			}
-			return io.NopCloser(bytes.NewReader(data)), nil
+			return t.open(p, s.d.Limits.FileBytes+1)
 		}})
 	}
 	return skillstypes.Build(entries, s.d.Limits)
@@ -178,9 +165,14 @@ func (s *syncRun) branch(ctx context.Context, branch, head string) error {
 	if err != nil {
 		return err
 	}
-	dirs := skillstypes.FindSkillDirs(t.paths, s.in.Source.Root)
+	defer t.release()
+	roots := s.in.Source.Roots
+	for _, missing := range skillstypes.MissingRoots(t.paths, roots) {
+		s.run.Problem(skillstypes.ProblemRootMissing, missing, "")
+	}
+	dirs := skillstypes.FindSkillDirsIn(t.paths, roots)
 	for _, dir := range dirs {
-		c, err := s.content(ctx, t, dir)
+		c, err := s.content(t, dir)
 		if err != nil {
 			if err := s.problem(err, dir); err != nil {
 				return err
@@ -192,7 +184,7 @@ func (s *syncRun) branch(ctx context.Context, branch, head string) error {
 		}
 	}
 	if truncated {
-		s.run.Problem(skillstypes.ProblemTreeTruncated, s.in.Source.Root, "")
+		s.run.Problem(skillstypes.ProblemTreeTruncated, roots[0], "")
 		return nil
 	}
 	for p, sk := range s.existing {
@@ -203,13 +195,22 @@ func (s *syncRun) branch(ctx context.Context, branch, head string) error {
 			s.run.Removed++
 		}
 	}
-	return nil
+	return s.place.Tidy(ctx)
 }
 
 func (s *syncRun) save(ctx context.Context, dir string, c skillstypes.Content, commit string, tag *skillstypes.Tagged, version bool) error {
 	sk, ok := s.existing[dir]
 	if ok && sk.Name != c.Manifest.Name {
 		return s.problem(skillstypes.ConflictName, dir)
+	}
+	folder, err := s.place.Folder(ctx, s.place.key(skillstypes.RootOf(dir, s.in.Source.Roots), dir, c.Manifest))
+	if err != nil {
+		return s.problem(err, dir)
+	}
+	if ok && tag == nil {
+		if err := s.place.Move(ctx, sk, folder); err != nil {
+			return s.problem(err, dir)
+		}
 	}
 	in := SaveInput{SkillID: sk.ID, Content: c, Origin: skillstypes.OriginGit, Commit: &commit, Author: s.in.Author,
 		ManagedTags: true, Policy: s.in.Policy}
@@ -221,7 +222,6 @@ func (s *syncRun) save(ctx context.Context, dir string, c skillstypes.Content, c
 		if err != nil {
 			return err
 		}
-		folder := s.in.Source.FolderID
 		in.New = &repositories.NewSkill{ID: id, FolderID: &folder, OrganizationID: s.in.Source.OrganizationID,
 			Slug: c.Manifest.Name, Status: s.in.Source.NewStatus, Tags: c.Manifest.Tags, SourceID: &s.in.Source.ID,
 			SourcePath: &dir}
@@ -272,11 +272,12 @@ func (s *syncRun) tags(ctx context.Context, found map[string]string, pattern ski
 		if err != nil {
 			return err
 		}
-		for _, dir := range skillstypes.FindSkillDirs(t.paths, s.in.Source.Root) {
+		defer t.release()
+		for _, dir := range skillstypes.FindSkillDirsIn(t.paths, s.in.Source.Roots) {
 			if _, known := s.existing[dir]; !known {
 				continue
 			}
-			c, err := s.content(ctx, t, dir)
+			c, err := s.content(t, dir)
 			if err != nil {
 				if err := s.problem(err, dir); err != nil {
 					return err

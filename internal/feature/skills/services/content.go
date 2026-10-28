@@ -147,8 +147,8 @@ func (s *ContentService) selectFor(ctx context.Context, p accesstypes.Principal,
 		return Selected{}, err
 	}
 	if agent {
-		if sk.Status != skillstypes.StatusPublished {
-			return Selected{}, apperr.New(apperr.NotFound)
+		if err := forAgent(ctx, s.parts, p, sk); err != nil {
+			return Selected{}, err
 		}
 		sk.CanWrite = false
 	}
@@ -241,6 +241,12 @@ type ArchiveFile struct {
 func (s *ContentService) Archive(ctx context.Context, p accesstypes.Principal, id uuid.UUID, version string, count bool) (Selected, []ArchiveFile, error) {
 	sel, err := s.selectVersion(ctx, p, id, version)
 	if err != nil {
+		return Selected{}, nil, err
+	}
+	if sel.Skill.Off() {
+		return Selected{}, nil, apperr.Wrap(skillstypes.ConflictDisabled)
+	}
+	if err := inSet(ctx, s.parts, p, id); err != nil {
 		return Selected{}, nil, err
 	}
 	out := make([]ArchiveFile, 0, len(sel.Files))

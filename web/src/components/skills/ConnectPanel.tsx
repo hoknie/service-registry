@@ -10,6 +10,7 @@ import {
   agentPhrase,
   apiHref,
   curlCommand,
+  isOff,
   SKILL_TARGETS,
   skillUrl,
   withVersion,
@@ -38,6 +39,9 @@ export function ConnectPanel({ skill, versions, locale, labels: t }: Props) {
   const chosen = version || null;
   return (
     <Panel title={c.title} icon={Plug}>
+      {isOff(skill) ? (
+        <p className="rounded-md bg-amber-soft px-3 py-2 text-sm text-amber">{t.off.disabledText}</p>
+      ) : (
       <div className="grid gap-5 text-sm">
         {skill.status === "draft" && (
           <p className="rounded-md bg-amber-soft px-3 py-2 text-amber">
@@ -115,6 +119,7 @@ export function ConnectPanel({ skill, versions, locale, labels: t }: Props) {
           </div>
         </section>
       </div>
+      )}
     </Panel>
   );
 }

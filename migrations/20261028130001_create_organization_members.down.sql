@@ -1,0 +1,13 @@
+DROP TRIGGER organization_members_from_move ON nodes;
+DROP TRIGGER organization_members_from_group ON group_members;
+DROP TRIGGER organization_members_from_owner ON node_owners;
+DROP TRIGGER organization_members_from_binding ON role_bindings;
+DROP FUNCTION remove_organization_member(uuid, uuid);
+DROP FUNCTION organization_admins(uuid);
+DROP FUNCTION organization_members_from_move();
+DROP FUNCTION organization_members_from_group();
+DROP FUNCTION organization_members_from_owner();
+DROP FUNCTION organization_members_from_binding();
+DROP FUNCTION organization_member_join(uuid, uuid, text);
+DROP TABLE organization_members;
+DROP FUNCTION organization_members_top_level();

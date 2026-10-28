@@ -726,6 +726,17 @@ export function apiSend<T = void>(
   return call<T>(method, path, body);
 }
 
+export async function apiHead(path: `/${string}`): Promise<Headers> {
+  let response: Response;
+  try {
+    response = await fetch(`/api${path}`, { method: "HEAD", credentials: "same-origin" });
+  } catch {
+    throw new ApiError(0, "network", "network error");
+  }
+  if (!response.ok) throw new ApiError(response.status, "unknown", response.statusText);
+  return response.headers;
+}
+
 export function apiUpload<T>(path: `/${string}`, file: File): Promise<T> {
   const form = new FormData();
   form.append("file", file);

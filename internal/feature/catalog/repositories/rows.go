@@ -124,3 +124,10 @@ func scanBinding(row pgx.CollectableRow) (catalogtypes.Binding, error) {
 	b.Role = r
 	return b, nil
 }
+
+type groupAccessRow struct {
+	ID    uuid.UUID `db:"id"`
+	Name  string    `db:"name"`
+	Role  string    `db:"role"`
+	Users int64     `db:"users"`
+}

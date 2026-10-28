@@ -9,6 +9,7 @@ import (
 	ingestservices "svc-registry/internal/feature/ingest/services"
 	knowledgeservices "svc-registry/internal/feature/knowledge/services"
 	linksservices "svc-registry/internal/feature/links/services"
+	membershipservices "svc-registry/internal/feature/membership/services"
 	notifyservices "svc-registry/internal/feature/notify/services"
 	skillsservices "svc-registry/internal/feature/skills/services"
 	"svc-registry/internal/platform/config"
@@ -16,16 +17,17 @@ import (
 )
 
 type Deps struct {
-	Config    *config.Config
-	Access    *accessservices.AccessServices
-	Catalog   *catalogservices.CatalogServices
-	Links     *linksservices.LinksServices
-	Ingest    *ingestservices.IngestServices
-	Forge     *forgeservices.ForgeServices
-	Deploy    *deployservices.DeployServices
-	Knowledge *knowledgeservices.KnowledgeServices
-	Notify    *notifyservices.NotifyServices
-	Skills    *skillsservices.SkillsServices
-	Gateway   *gatewayservices.GatewayServices
-	Metrics   *metrics.Metrics
+	Config     *config.Config
+	Access     *accessservices.AccessServices
+	Catalog    *catalogservices.CatalogServices
+	Links      *linksservices.LinksServices
+	Ingest     *ingestservices.IngestServices
+	Forge      *forgeservices.ForgeServices
+	Deploy     *deployservices.DeployServices
+	Knowledge  *knowledgeservices.KnowledgeServices
+	Notify     *notifyservices.NotifyServices
+	Skills     *skillsservices.SkillsServices
+	Gateway    *gatewayservices.GatewayServices
+	Membership *membershipservices.MembershipServices
+	Metrics    *metrics.Metrics
 }

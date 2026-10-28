@@ -21,9 +21,14 @@ type skillSync struct {
 
 func startSkillSync(t *testing.T) *skillSync {
 	t.Helper()
+	return startSkillSyncWith(t)
+}
+
+func startSkillSyncWith(t *testing.T, extra ...string) *skillSync {
+	t.Helper()
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	must(t, err)
-	a := startApp(t, "KNOWLEDGE_LOCAL_ROOTS", root)
+	a := startApp(t, append([]string{"KNOWLEDGE_LOCAL_ROOTS", root}, extra...)...)
 	admin := a.admin()
 	acme := a.nodeID(admin, "organization", "", "acme")
 	folder := idOf(a.skillFolder(admin, obj{"organization_id": acme, "slug": "agents", "name": "Agents"}))

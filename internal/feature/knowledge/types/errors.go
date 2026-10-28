@@ -31,6 +31,9 @@ var (
 	ErrEmbeddingsDimensions  = fmt.Errorf("%w: embedding dimensions", ErrEmbeddingsUnavailable)
 	ErrEngineUnavailable     = fmt.Errorf("%w: search engine", ErrSearchUnavailable)
 	ErrEngineDimensions      = fmt.Errorf("%w: collection dimensions", ErrEngineUnavailable)
+
+	ErrSnapshotUnsupported = errors.New("source does not serve snapshots")
+	ErrSnapshotTooLarge    = errors.New("snapshot archive is too large")
 )
 
 type IndexFailure struct {

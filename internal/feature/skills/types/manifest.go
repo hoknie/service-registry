@@ -19,16 +19,17 @@ var (
 )
 
 type Manifest struct {
-	Name          string   `json:"name"`
-	Description   string   `json:"description"`
-	License       string   `json:"license,omitempty"`
-	Compatibility string   `json:"compatibility,omitempty"`
-	AllowedTools  []string `json:"allowed_tools,omitempty"`
-	Title         string   `json:"title,omitempty"`
-	Tags          []string `json:"tags,omitempty"`
-	Author        string   `json:"author,omitempty"`
-	Image         string   `json:"image,omitempty"`
-	Version       string   `json:"version,omitempty"`
+	Name          string         `json:"name"`
+	Description   string         `json:"description"`
+	License       string         `json:"license,omitempty"`
+	Compatibility string         `json:"compatibility,omitempty"`
+	AllowedTools  []string       `json:"allowed_tools,omitempty"`
+	Title         string         `json:"title,omitempty"`
+	Tags          []string       `json:"tags,omitempty"`
+	Author        string         `json:"author,omitempty"`
+	Image         string         `json:"image,omitempty"`
+	Version       string         `json:"version,omitempty"`
+	Fields        map[string]any `json:"-"`
 }
 
 func (m Manifest) DisplayTitle() string {
@@ -104,6 +105,7 @@ func ParseManifest(content []byte) (Manifest, error) {
 	if len(fields) > 0 {
 		return Manifest{}, ManifestInvalid(fields...)
 	}
+	m.Fields = raw
 	return m, nil
 }
 

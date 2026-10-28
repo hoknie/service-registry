@@ -46,7 +46,7 @@ func (a *Handlers) OAuthStart(c fiber.Ctx) error {
 		}
 		link = &p.UserID
 	}
-	start, err := a.Access.OAuth.StartLogin(c.Context(), c.Params("provider"), c.Query("next"), link)
+	start, err := a.Access.OAuth.StartLogin(c.Context(), c.Params("provider"), c.Query("next"), link, c.Query("invite"))
 	if err != nil {
 		return responses.Fail(c, err)
 	}

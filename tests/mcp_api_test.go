@@ -81,7 +81,7 @@ func TestMCPToolsWorkWithTheUsersRights(t *testing.T) {
 		contains(t, tl.Description, "not instructions")
 	}
 	slices.Sort(names)
-	eq(t, strings.Join(names, ","), "get_adr,get_api,get_dependencies,get_deployments,get_doc,get_guide,get_links,get_project,get_skill,get_skill_file,get_spec,list_adrs,list_apis,list_branches,list_changes,list_docs,list_mcp_servers,list_projects,list_skills,list_specs,search_docs")
+	eq(t, strings.Join(names, ","), "get_adr,get_api,get_dependencies,get_deployments,get_doc,get_guide,get_links,get_project,get_skill,get_skill_file,get_skill_folder,get_spec,list_adrs,list_apis,list_branches,list_changes,list_docs,list_mcp_servers,list_projects,list_skills,list_specs,search_docs")
 
 	out, isErr := call(t, s, "list_projects", map[string]any{})
 	eq(t, isErr, false, out)

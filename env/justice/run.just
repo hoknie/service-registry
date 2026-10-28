@@ -8,6 +8,11 @@ dev:
 dev-check:
     env/scripts/dev-check.sh
 
+# Import three public skill repositories into the global folder `examples` of the running dev server
+[group('run')]
+skills-seed:
+    env/scripts/skills-seed.sh
+
 # Run the server: API on HTTP_ADDR, the web UI from the static export in WEB_DIST_DIR (no migrate)
 [group('run')]
 run:

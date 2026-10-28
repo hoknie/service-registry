@@ -82,6 +82,8 @@ func (f *Fake) gitea(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			_, _ = w.Write([]byte(x.Readme))
+		case parts[3] == "archive" && len(parts) == 5:
+			f.archive(w, x)
 		case parts[3] == "languages":
 			f.calls["languages"]++
 			writeJSON(w, 200, x.Languages)

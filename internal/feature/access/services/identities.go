@@ -2,12 +2,16 @@ package services
 
 import (
 	"context"
+	"crypto/sha256"
+	"log/slog"
+	"strings"
 
 	"github.com/google/uuid"
 
 	"svc-registry/internal/feature/access/repositories"
 	accesstypes "svc-registry/internal/feature/access/types"
 	"svc-registry/internal/platform/apperr"
+	"svc-registry/internal/platform/config"
 	"svc-registry/pkg/pgtx"
 )
 
@@ -83,4 +87,40 @@ type IdentitiesService struct {
 	identityRepository *repositories.IdentityRepository
 	userRepository     *repositories.UserRepository
 	oauthService       *OAuthService
+}
+
+func (s *OAuthService) policyFor(ctx context.Context, cfg config.OAuthProvider, ls *accesstypes.LoginState, claims accesstypes.Claims,
+	email *string, done *LoginDone) (accesstypes.ProviderPolicy, bool, error) {
+	policy := accesstypes.ProviderPolicy{Key: cfg.Key, AutoProvision: cfg.AutoProvision, AllowedDomains: cfg.AllowedDomains}
+	invited, mismatch, err := s.invitedBy(ctx, ls.InviteHash, claims, email)
+	if invited {
+		policy.AutoProvision, policy.AllowedDomains = true, nil
+	}
+	if mismatch {
+		done.Next = accesstypes.WithError(done.Next, "invitation.email_mismatch")
+	}
+	return policy, invited, err
+}
+
+func (s *OAuthService) acceptInvitation(ctx context.Context, invited bool, hash []byte, user accesstypes.User) {
+	if !invited {
+		return
+	}
+	if err := s.invitations.AcceptInvitation(ctx, [32]byte(hash), user.ID, user.Email); err != nil {
+		slog.Warn("invitation was not accepted after sign-in", "user", user.ID, "error", err)
+	}
+}
+
+func (s *OAuthService) invitedBy(ctx context.Context, hash []byte, claims accesstypes.Claims, email *string) (bool, bool, error) {
+	if len(hash) != sha256.Size || s.invitations == nil {
+		return false, false, nil
+	}
+	invited, ok, err := s.invitations.PendingInvitation(ctx, [32]byte(hash))
+	if err != nil || !ok {
+		return false, false, apperr.Wrap(err)
+	}
+	if email == nil || !claims.EmailVerified || !strings.EqualFold(*email, invited) {
+		return false, true, nil
+	}
+	return true, false, nil
 }

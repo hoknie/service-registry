@@ -61,14 +61,16 @@ func querySkills(ctx context.Context, q pgtx.Querier, f Filter) ([]Listed, error
 			k.compatibility, k.allowed_tools, k.tags, k.author, k.image_path, k.image_sha256, k.image_type, k.status,
 			k.downloads, k.source_id, src.kind AS source_kind, COALESCE(src.url, src.path) AS source_url, k.source_path,
 			u.id AS created_by_id, u.display_name AS created_by_name, rfc3339(k.created_at) AS created_at,
-			rfc3339(k.updated_at) AS updated_at, k.updated_at::text AS cursor_at
+			rfc3339(k.updated_at) AS updated_at, k.updated_at::text AS cursor_at, dis.id AS disabled_by_id,
+			dis.name AS disabled_by_name, dis.slug AS disabled_by_slug
 		FROM skills k
+		LEFT JOIN skill_folders dis ON dis.id = skill_folder_disabled(k.folder_id)
 		LEFT JOIN fp ON fp.id = k.folder_id
 		LEFT JOIN nodes o ON o.id = k.organization_id
 		LEFT JOIN skill_sources src ON src.id = k.source_id
 		LEFT JOIN users u ON u.id = k.created_by
 		WHERE ($18 OR (((k.organization_id IS NULL AND $2) OR k.organization_id = ANY($1))
-				AND (k.status = 'published' OR (k.organization_id IS NULL AND $4) OR k.organization_id = ANY($3))))
+				AND (k.status <> 'draft' OR (k.organization_id IS NULL AND $4) OR k.organization_id = ANY($3))))
 			AND ($5::uuid IS NULL OR k.folder_id IN (SELECT id FROM down))
 			AND ($7::uuid IS NULL OR k.organization_id = $7)
 			AND (NOT $8 OR k.organization_id IS NULL)
@@ -82,10 +84,12 @@ func querySkills(ctx context.Context, q pgtx.Querier, f Filter) ([]Listed, error
 				OR (k.updated_at = $14::timestamptz AND (k.name, k.id) > ($15, $16)))
 			AND ($19::uuid IS NULL OR k.source_id = $19)
 			AND (NOT $20 OR k.folder_id IS NULL)
+			AND ($21::bool IS NULL OR (k.status = 'published' AND dis.id IS NULL) = $21)
+			AND skill_in_sets(k.id, k.organization_id, k.folder_id, $22::uuid[])
 		ORDER BY k.updated_at DESC, k.name, k.id
 		LIMIT $17`,
 		f.Organizations, f.Global, f.Writable, f.WriteGlobal, f.FolderID, f.Recursive, f.OnlyOrg, f.OnlyGlobal, f.Query,
-		nonNil(f.Tags), status, f.IDs, f.Name, cursorAt, cursorName, cursorID, limit, f.All, f.SourceID, f.TopLevel)
+		nonNil(f.Tags), status, f.IDs, f.Name, cursorAt, cursorName, cursorID, limit, f.All, f.SourceID, f.TopLevel, f.Active, f.SetOrgs)
 }
 
 func nonNil(tags []string) []string {
@@ -181,6 +185,14 @@ func (s *SkillRepository) CountDownload(ctx context.Context, id uuid.UUID) error
 		WHERE id = $1`, id)
 }
 
+func (s *SkillRepository) CountDownloads(ctx context.Context, ids []uuid.UUID) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		UPDATE skills
+		SET downloads = downloads + 1
+		WHERE id = ANY($1)`, ids)
+	return err
+}
+
 func (s *SkillRepository) SetImage(ctx context.Context, id uuid.UUID, sha []byte, contentType *string) error {
 	return postgres.ExecFound(ctx, s.db.From(ctx), constraints, `
 		UPDATE skills
@@ -197,7 +209,7 @@ func (s *SkillRepository) Tags(ctx context.Context, v, w skillstypes.Visible, q 
 		SELECT t.tag, count(*)
 		FROM skills k, unnest(k.tags) AS t(tag)
 		WHERE ((k.organization_id IS NULL AND $2) OR k.organization_id = ANY($1))
-			AND k.status = 'published'
+			AND k.status <> 'draft'
 			AND ($3 = '' OR strpos(t.tag, lower($3)) > 0)
 		GROUP BY t.tag
 		ORDER BY count(*) DESC, t.tag

@@ -57,6 +57,8 @@ func (f *Fake) gitlab(w http.ResponseWriter, r *http.Request) {
 				m["license"] = map[string]any{"key": strings.ToLower(x.License), "name": x.License}
 			}
 			writeJSON(w, 200, m)
+		case len(parts) == 4 && parts[2] == "repository" && parts[3] == "archive.tar.gz":
+			f.archive(w, x)
 		case len(parts) == 4 && parts[2] == "repository" && parts[3] == "tags":
 			f.calls["tags"]++
 			size, _ := strconv.Atoi(r.URL.Query().Get("per_page"))

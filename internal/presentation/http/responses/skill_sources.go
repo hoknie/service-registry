@@ -24,6 +24,9 @@ type SkillSource struct {
 	Credentials  *SkillSourceCredentials `json:"credentials"`
 	Branch       string                  `json:"branch"`
 	Root         string                  `json:"root"`
+	Roots        []string                `json:"roots"`
+	Layout       string                  `json:"layout"`
+	GroupField   *string                 `json:"group_field"`
 	IntervalSecs *int                    `json:"interval_secs"`
 	Status       string                  `json:"status"`
 	Versions     string                  `json:"versions"`
@@ -37,9 +40,12 @@ type SkillSource struct {
 
 func SkillSourceOf(s skillstypes.Source) SkillSource {
 	out := SkillSource{ID: s.ID, FolderID: s.FolderID, Kind: s.Kind, Forge: s.Forge, URL: s.URL, APIURL: s.APIURL, Path: s.Path,
-		WorkingTree: s.WorkingTree, Branch: s.Branch, Root: s.Root, IntervalSecs: s.IntervalSecs, Status: string(s.NewStatus),
+		WorkingTree: s.WorkingTree, Branch: s.Branch, Roots: s.Roots, Layout: s.Layout, GroupField: s.GroupField, IntervalSecs: s.IntervalSecs, Status: string(s.NewStatus),
 		Versions: s.Versions, TagPattern: s.TagPattern, State: s.State(), NextRunAt: s.NextRunAt, LastRun: s.LastRun,
 		CreatedAt: s.CreatedAt, UpdatedAt: s.UpdatedAt}
+	if len(s.Roots) > 0 {
+		out.Root = s.Roots[0]
+	}
 	if s.SecretID != nil {
 		out.Credentials = &SkillSourceCredentials{SecretID: *s.SecretID, Name: s.SecretName}
 	}
@@ -66,4 +72,35 @@ func SkillSourcesOf(ss []skillstypes.Source) map[string][]SkillSource {
 		out[i] = SkillSourceOf(s)
 	}
 	return map[string][]SkillSource{"items": out}
+}
+
+type SkillImported struct {
+	Folder SkillFolder `json:"folder"`
+	Source SkillSource `json:"source"`
+}
+
+type SkillSetItem struct {
+	ID     uuid.UUID `json:"id"`
+	Path   string    `json:"path"`
+	Name   string    `json:"name"`
+	Skills *int64    `json:"skills,omitempty"`
+	Status string    `json:"status,omitempty"`
+}
+
+type SkillSet struct {
+	Mode      string         `json:"mode"`
+	Folders   []SkillSetItem `json:"folders"`
+	Skills    []SkillSetItem `json:"skills"`
+	CanManage bool           `json:"can_manage"`
+}
+
+func SkillSetOf(s skillsservices.SkillSet) SkillSet {
+	out := SkillSet{Mode: s.Mode, Folders: []SkillSetItem{}, Skills: []SkillSetItem{}, CanManage: s.CanManage}
+	for _, f := range s.Folders {
+		out.Folders = append(out.Folders, SkillSetItem{ID: f.ID, Path: f.Path, Name: f.Name, Skills: new(f.Skills)})
+	}
+	for _, k := range s.Skills {
+		out.Skills = append(out.Skills, SkillSetItem{ID: k.ID, Path: k.Path, Name: k.Name, Status: string(k.Status)})
+	}
+	return out
 }

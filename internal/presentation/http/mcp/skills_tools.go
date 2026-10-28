@@ -21,7 +21,7 @@ type (
 	listSkillsIn struct {
 		Query  string   `json:"query,omitempty" jsonschema:"Words of the name, title, description or tags"`
 		Tag    []string `json:"tag,omitempty" jsonschema:"Tags the skill must all have"`
-		Folder string   `json:"folder,omitempty" jsonschema:"Only below this skill folder (id)"`
+		Folder string   `json:"folder,omitempty" jsonschema:"Only below this skill folder (id or path of slugs)"`
 		Limit  int      `json:"limit,omitempty" jsonschema:"At most this many skills, 1..100 (default 50)"`
 		Cursor string   `json:"cursor,omitempty" jsonschema:"The next_cursor of a previous call"`
 	}
@@ -56,6 +56,7 @@ func (t *tools) registerSkills(s *sdk.Server, tool func(name, description string
 	sdk.AddTool(s, tool("list_skills", "AI skills (Agent Skills folders with SKILL.md) you can install, with their available versions."), observe(t, "list_skills", t.listSkills))
 	sdk.AddTool(s, tool("get_skill", "A skill to install: SKILL.md, its files with the text ones included, and how to install it; counts as a download."), observe(t, "get_skill", t.getSkill))
 	sdk.AddTool(s, tool("get_skill_file", "One file of a skill; binary files come as base64 resource contents."), observe(t, "get_skill_file", t.getSkillFile))
+	sdk.AddTool(s, tool("get_skill_folder", "All installable skills of a skill folder and one command that installs them together."), observe(t, "get_skill_folder", t.getSkillFolder))
 	s.AddResourceTemplate(&sdk.ResourceTemplate{Name: "skills", Title: "Skill files", URITemplate: skillsTemplate,
 		Description: "A file of a published skill; add ?version=<semver> for another version." + dataNote},
 		t.observeResource(skillsTemplate, t.readSkillResource))
@@ -81,12 +82,11 @@ func summaryOf(s skillstypes.Skill) skillSummary {
 }
 
 func (t *tools) listSkills(ctx context.Context, _ *sdk.CallToolRequest, in listSkillsIn) (*sdk.CallToolResult, any, error) {
-	q := skillsservices.ListInput{Query: in.Query, Tags: in.Tag, Limit: in.Limit, Cursor: in.Cursor, Recursive: true,
-		Status: string(skillstypes.StatusPublished)}
+	q := skillsservices.ListInput{Query: in.Query, Tags: in.Tag, Limit: in.Limit, Cursor: in.Cursor, Recursive: true, Agent: true}
 	if in.Folder != "" {
-		id, err := uuid.Parse(in.Folder)
+		id, err := t.folderID(ctx, in.Folder)
 		if err != nil {
-			return failed(apperr.New(apperr.NotFound))
+			return failed(err)
 		}
 		q.FolderID = &id
 	}

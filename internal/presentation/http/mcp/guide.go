@@ -44,7 +44,7 @@ func (t *tools) guide(topic string) (string, bool) {
 	}
 	row := ""
 	if t.deps.Skills != nil {
-		row = "| Skills | `list_skills`, `get_skill`, `get_skill_file` |\n"
+		row = "| Skills | `list_skills`, `get_skill`, `get_skill_file`, `get_skill_folder` |\n"
 	}
 	if t.deps.Gateway != nil {
 		row += "| External MCP servers | `list_mcp_servers`, then the `<server>__<tool>` tools |\n"

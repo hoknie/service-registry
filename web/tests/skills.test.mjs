@@ -36,7 +36,7 @@ test("the file tree puts SKILL.md first and folders before files", () => {
 
 test("places and filters round-trip through the address", () => {
   const f = filtersFrom("?folder=x&q=go&tag=go&tag=testing");
-  assert.deepEqual(f, { q: "go", tags: ["go", "testing"], status: "" });
+  assert.deepEqual(f, { q: "go", tags: ["go", "testing"], status: "", active: false });
   assert.deepEqual(placeFrom("?space=global"), { folder: null, space: "global" });
   assert.equal(placeHref("en", { folder: "x", space: null }, f), "/en/skills?folder=x&q=go&tag=go&tag=testing");
   assert.equal(listQuery({ folder: "x", space: null }, f), "/v1/skills?folder_id=x&recursive=true&q=go&tag=go&tag=testing");

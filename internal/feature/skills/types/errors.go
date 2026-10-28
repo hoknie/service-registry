@@ -8,7 +8,7 @@ import (
 
 var (
 	InvalidSkill = apperr.Invalid("validation.invalid_skill",
-		`skill fields: status is draft or published, tags are up to 20 of a-z, 0-9, ., +, # and - (at most 40 each), slug is 1 to 64 of a-z, 0-9 and -`)
+		`skill fields: status is draft, published or disabled, tags are up to 20 of a-z, 0-9, ., +, # and - (at most 40 each), slug is 1 to 64 of a-z, 0-9 and -`)
 	InvalidSpace  = apperr.Invalid("validation.invalid_skill_space", "the description of a skills space is at most 2000 characters")
 	InvalidFolder = apperr.Invalid("validation.invalid_skill_folder",
 		"folder fields: slug is 1 to 64 of a-z, 0-9 and -, name is 1 to 200 characters, description at most 2000")
@@ -24,8 +24,8 @@ var (
 	InvalidRange       = apperr.Invalid("validation.invalid_version_range", "range is an npm-style version range such as ^1.2, ~1.4.0, >=1.0.0 <3.0.0 or 1.x")
 	InvalidPolicy      = apperr.Invalid("validation.invalid_version_policy", `version policy: {"range": string|null, "prerelease": bool|null, "exclude": [versions]|null}, exclude at most 50`)
 	InvalidTagPattern  = apperr.Invalid("validation.invalid_tag_pattern", "tag_pattern has exactly one {version}, at most one {name} and is at most 200 characters")
-	InvalidSource      = apperr.Invalid("validation.invalid_skill_source", "source fields: branch at most 255, root a relative path, interval_secs 300 to 86400, status draft or published, versions branch or tags (not for local_dir)")
-	InvalidFilter      = apperr.Invalid("validation.invalid_filter", "filters: status draft or published, scope global or an organization id, tag of a-z, 0-9, ., +, # and -")
+	InvalidSource      = apperr.Invalid("validation.invalid_skill_source", "source fields: branch at most 255, roots 1 to 20 unique relative paths (or root), interval_secs 300 to 86400, status draft, published or disabled, versions branch or tags (not for local_dir), layout flat, tree or field with group_field")
+	InvalidFilter      = apperr.Invalid("validation.invalid_filter", "filters: status draft, published or disabled, active true or false, scope global or an organization id, tag of a-z, 0-9, ., +, # and -")
 	InvalidPagination  = apperr.Invalid("validation.invalid_pagination", "limit is 1 to 100 and cursor comes from a previous page")
 	ConflictSlugTaken  = apperr.Conflicting("conflict.skill_slug_taken", "the slug is used by another skill or folder in the same place")
 	ConflictNotEmpty   = apperr.Conflicting("conflict.skill_folder_not_empty", "the folder has folders, skills or sources")
@@ -34,6 +34,10 @@ var (
 	ConflictName       = apperr.Conflicting("conflict.skill_name_changed", "the name in SKILL.md differs from the skill's name")
 	ConflictVersion    = apperr.Conflicting("conflict.skill_version_exists", "the version already exists with other content")
 	ConflictStorageOff = apperr.Conflicting("conflict.skills_storage_disabled", "SKILLS_STORAGE=off: skill files cannot be stored")
+	ConflictDisabled   = apperr.Conflicting("conflict.skill_disabled", "the skill or its folder is disabled")
+	ConflictEmpty      = apperr.Conflicting("conflict.skill_folder_empty", "no skill of the folder is available to download")
+	FolderTooLarge     = apperr.TooLargeError("validation.skill_folder_too_large", "the skills of the folder are larger than SKILLS_FOLDER_ARCHIVE_MAX_BYTES")
+	InvalidSet         = apperr.Invalid("validation.invalid_skill_set", `skill set: {"mode": "all"|"selected", "folders": [global folder ids], "skills": [global skill ids]}, at most 500 items without repeats`)
 	Ambiguous          = apperr.Conflicting("skill_ambiguous", "several skills have this name; pass the id or the path of one")
 	StorageUnavailable = &apperr.Error{Kind: apperr.Unavailable, Code: "skills.storage_unavailable", What: "skills storage"}
 )
@@ -55,11 +59,13 @@ const (
 	ProblemTagsDeferred    = "skills.tags_deferred"
 	ProblemTreeTruncated   = "skills.tree_truncated"
 	ProblemVersionInvalid  = "skills.version_invalid"
+	ProblemRootMissing     = "skills.root_missing"
 
-	FailUnreachable    = "skills.source_unreachable"
-	FailUnauthorized   = "skills.source_unauthorized"
-	FailBranchNotFound = "skills.branch_not_found"
-	FailStorage        = "skills.storage_unavailable"
+	FailUnreachable     = "skills.source_unreachable"
+	FailUnauthorized    = "skills.source_unauthorized"
+	FailBranchNotFound  = "skills.branch_not_found"
+	FailStorage         = "skills.storage_unavailable"
+	FailArchiveTooLarge = "skills.archive_too_large"
 )
 
 func ProblemOf(err error) string {

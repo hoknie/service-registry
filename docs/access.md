@@ -66,6 +66,42 @@ The administration list of groups shows organization groups too, marked with the
 in the registry-wide administration a non-superadmin cannot open, rename, delete or change the members of a group that
 belongs to an organization. Only a superadmin reaches it from the administration list.
 
+## Members of an organization
+
+Every top-level organization has a list of members on its **Members** tab. Everyone who can read the organization sees
+the list; its administrators (and superadmins) change it.
+
+A person becomes a member in one of these ways, shown in the **How** column:
+- **Added** — an administrator picked an existing user (search by name or email, at least 3 characters) and a role;
+- **Invited** — the person accepted an invitation by email;
+- **By a role**, **Owner**, **Through a group** — the person got a role on a node of the organization, became an owner
+  of one of its nodes or joined one of its groups; such people are added to the list on their own, and moving a folder
+  into another organization brings its people along.
+
+The role in the list (viewer, editor or admin) is the person's role on the organization itself; it can be changed or
+removed right in the table. The organization always keeps at least one admin: the last one cannot be demoted or
+removed.
+
+Removing a member takes away their roles in the organization, ownership of its nodes and membership in its groups.
+People who see the organization through registry-wide groups are not members; they are listed separately under
+**See it through global groups**, and removing someone from the list does not touch those groups.
+
+### Invitations
+
+An administrator invites a person by email from **Members → Invite**, choosing the role and the language of the letter.
+The registry sends a letter with a link when mail is set up ([install.md](install.md#mail)); without mail, or when
+the letter could not be sent, the dialog shows the link to pass on by hand. A link works for `INVITE_TTL_HOURS`
+(7 days by default) and only once. **Send again** issues a new link and the old one stops working; **Revoke** cancels
+the invitation. An organization has at most 100 waiting invitations, and an address can have only one.
+
+The person opens the link:
+- without an account — they create one with a name and password, or sign in through a login provider whose verified
+  email matches the invitation; the provider creates the account even when it does not create accounts otherwise;
+- with an account for that email — they sign in and accept;
+- signed in with another email — the invitation is refused; they sign out and open the link again.
+
+Accepting makes the person a member with the invited role.
+
 ## Administration rights for groups
 
 A superadmin can let a group run parts of the administration without making its members superadmins.

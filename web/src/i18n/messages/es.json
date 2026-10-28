@@ -241,7 +241,8 @@
       "oauth_not_provisioned": "No hay una cuenta del registro para este correo. Pide ayuda a un administrador.",
       "oauth_identity_taken": "Esta cuenta del proveedor ya está vinculada a otro usuario.",
       "service_account": "Es una cuenta de servicio; no puede iniciar sesión.",
-      "invalid_agent_token": "Se requiere un token de agente válido para este clúster."
+      "invalid_agent_token": "Se requiere un token de agente válido para este clúster.",
+      "password_login_disabled": "El inicio de sesión con contraseña está desactivado."
     },
     "validation": {
       "invalid_body": "La solicitud no es válida.",
@@ -353,7 +354,12 @@
       "invalid_mcp_access": "Solo grupos existentes de esta organización o globales, y usuarios existentes.",
       "invalid_mcp_servers": "Elige servidores que puedes ver.",
       "invalid_mcp_server": "Revisa los campos del servidor.",
-      "invalid_mcp_proxy": "Revisa el proxy: una dirección http(s)://host:puerto sin credenciales."
+      "invalid_mcp_proxy": "Revisa el proxy: una dirección http(s)://host:puerto sin credenciales.",
+      "not_an_organization": "Solo las organizaciones tienen miembros.",
+      "invalid_member": "Elige una persona y un rol.",
+      "invalid_invitation": "Revisa el correo, el rol y el idioma.",
+      "skill_folder_too_large": "Las habilidades de la carpeta son demasiado grandes para un archivo.",
+      "invalid_skill_set": "Elige solo carpetas y habilidades globales, como máximo 500."
     },
     "conflict": {
       "email_taken": "Ya existe un usuario con este correo.",
@@ -406,7 +412,14 @@
       "mcp_folder_slug_taken": "Otra carpeta aquí usa este slug.",
       "mcp_folder_not_empty": "La carpeta tiene carpetas o servidores.",
       "mcp_folder_cycle": "Una carpeta no puede moverse dentro de sí misma.",
-      "token_not_active": "El token o la app están revocados o caducados."
+      "token_not_active": "El token o la app están revocados o caducados.",
+      "last_organization_admin": "La organización debe conservar al menos un administrador.",
+      "already_member": "Esta persona ya es miembro.",
+      "invitation_pending": "Ya hay una invitación pendiente para esta dirección: envíala de nuevo.",
+      "too_many_invitations": "Demasiadas invitaciones pendientes en la organización.",
+      "invitation_closed": "La invitación ya fue aceptada o revocada.",
+      "skill_disabled": "La habilidad o su carpeta está desactivada.",
+      "skill_folder_empty": "Ninguna habilidad de la carpeta se puede instalar."
     },
     "ingest": {
       "unknown_event_type": "Tipo de evento desconocido.",
@@ -483,7 +496,9 @@
       "version_invalid": "Versión no válida",
       "source_unreachable": "El repositorio no es accesible",
       "source_unauthorized": "Se rechazaron las credenciales",
-      "branch_not_found": "La rama no existe"
+      "branch_not_found": "La rama no existe",
+      "archive_too_large": "El archivo del repositorio supera el límite.",
+      "root_missing": "El directorio no está en el repositorio."
     },
     "gateway": {
       "unreachable": "No se puede llegar al servidor",
@@ -495,6 +510,11 @@
       "secret_unavailable": "No se pueden leer las credenciales",
       "result_too_large": "La respuesta es demasiado grande",
       "check_rate_limited": "Se comprobó hace menos de 10 segundos"
+    },
+    "invitation": {
+      "not_pending": "La invitación venció, fue aceptada o fue revocada.",
+      "sign_in_required": "Ya existe una cuenta con esta dirección: inicia sesión para aceptar.",
+      "email_mismatch": "La invitación es para otra dirección de correo."
     }
   },
   "guard": {
@@ -1209,7 +1229,8 @@
       "settings": "Ajustes",
       "details": "Detalles",
       "releases": "Lanzamientos",
-      "dependencies": "Dependencias"
+      "dependencies": "Dependencias",
+      "members": "Miembros"
     },
     "create": {
       "title": "Añadir",
@@ -2163,6 +2184,62 @@
       "noVersions": "Sin patrones",
       "save": "Guardar",
       "saved": "Ajustes de publicación guardados."
+    },
+    "members": {
+      "title": "Miembros",
+      "lead": "Personas de la organización. Todos los que tienen acceso a la organización ven esta lista.",
+      "search": "Buscar por nombre o correo",
+      "empty": "Aún no hay miembros.",
+      "name": "Nombre",
+      "email": "Correo",
+      "role": "Rol",
+      "source": "Cómo",
+      "since": "Miembro desde",
+      "noRole": "Sin rol",
+      "service": "Servicio",
+      "sources": {
+        "manual": "Añadido",
+        "invitation": "Invitado",
+        "role": "Por un rol",
+        "owner": "Propietario",
+        "group": "Por un grupo"
+      },
+      "more": "Mostrar más",
+      "add": "Añadir",
+      "invite": "Invitar",
+      "viaGroups": "La ven por grupos globales",
+      "viaGroupsLead": "Grupos globales con roles en la organización; sus personas la ven sin ser miembros.",
+      "users": "{count} usuarios",
+      "remove": "Quitar",
+      "removeOf": "Quitar a {name}",
+      "removeTitle": "¿Quitar a {name}?",
+      "removeText": "Se quitan sus roles en la organización, la propiedad de sus nodos y la pertenencia a sus grupos. El acceso por grupos globales se mantiene.",
+      "roleChanged": "Rol cambiado",
+      "removed": "Miembro quitado",
+      "added": "Miembro añadido",
+      "addTitle": "Añadir un miembro",
+      "findUser": "Buscar a una persona",
+      "findHint": "Nombre o correo, al menos 3 caracteres",
+      "notFound": "No se encontró a nadie.",
+      "inviteInstead": "Invitar a {email} por correo",
+      "inviteTitle": "Invitar a la organización",
+      "language": "Idioma de la carta",
+      "send": "Invitar",
+      "done": "Listo",
+      "mail": {
+        "sent": "La carta se envió.",
+        "disabled": "El correo no está configurado: pasa el enlace tú mismo.",
+        "failed": "La carta no se envió: pasa el enlace tú mismo."
+      },
+      "link": "Enlace de invitación",
+      "copy": "Copiar el enlace",
+      "invitationsTitle": "Invitaciones",
+      "invitedBy": "Invitado por",
+      "expires": "Vence",
+      "expired": "Vencida",
+      "resend": "Enviar de nuevo",
+      "revoke": "Revocar",
+      "revoked": "Invitación revocada"
     }
   },
   "notFound": {
@@ -2910,7 +2987,15 @@
       },
       "counters": "creadas {created}, actualizadas {updated}, eliminadas {removed}, omitidas {skipped}",
       "commit": "Commit",
-      "problems": "Problemas"
+      "problems": "Problemas",
+      "roots": "Directorios de habilidades",
+      "rootsHint": "Rutas en el repositorio, una por línea; vacío: la raíz",
+      "layout": "Carpetas",
+      "layoutFlat": "Todo en una carpeta",
+      "layoutTree": "Como los directorios del repositorio",
+      "layoutField": "Por un campo de SKILL.md",
+      "groupField": "Campo",
+      "groupFieldHint": "Por ejemplo subdomain o metadata.category"
     },
     "organization": {
       "title": "Habilidades",
@@ -2926,6 +3011,49 @@
       "sources": "Fuentes",
       "skillsSection": "Habilidades",
       "version": "Versión"
+    },
+    "statusDisabled": "Desactivado",
+    "onlyActive": "Solo activados",
+    "off": {
+      "badge": "Desactivado",
+      "byFolder": "La carpeta {name} está desactivada",
+      "disable": "Desactivar",
+      "enable": "Activar",
+      "disabledText": "La habilidad está desactivada: los agentes no la reciben y no se puede descargar.",
+      "folderTitle": "Desactivar la carpeta",
+      "folderText": "Las habilidades de esta carpeta y de todas las internas dejan de darse a los agentes y de descargarse. Sus propios estados se conservan.",
+      "folderDisable": "Desactivar la carpeta",
+      "folderEnable": "Activar la carpeta",
+      "folderOff": "La carpeta está desactivada: no hay nada que instalar.",
+      "folderOffBy": "La carpeta superior {name} está desactivada."
+    },
+    "importDialog": {
+      "menu": "Importar desde git",
+      "title": "Importar desde git",
+      "name": "Nombre de la carpeta",
+      "nameHint": "Vacío: el nombre del repositorio ({name})",
+      "submit": "Importar"
+    },
+    "folderConnect": {
+      "title": "Instalar la carpeta",
+      "count": "Habilidades en el archivo: {count}",
+      "phrase": "Install the skills of folder {path} from the service registry",
+      "phraseTool": "El agente las encuentra con la herramienta get_skill_folder. Un token con el ámbito mcp:"
+    },
+    "set": {
+      "section": "Conjunto de habilidades",
+      "title": "Habilidades globales de la organización",
+      "lead": "Qué habilidades globales recibe la organización.",
+      "all": "Todas las habilidades globales",
+      "selected": "Seleccionadas",
+      "search": "Buscar una carpeta o habilidad global",
+      "count": "habilidades: {count}",
+      "remove": "Quitar {name}",
+      "save": "Guardar",
+      "saved": "Conjunto de habilidades guardado",
+      "note": "El conjunto se aplica a tokens y aplicaciones vinculados a nodos de esta organización. Las habilidades de la propia organización siempre están disponibles.",
+      "readonly": "Los editores de la organización cambian el conjunto.",
+      "empty": "No hay nada seleccionado: los tokens con nodos de la organización no reciben habilidades globales."
     }
   },
   "mcp": {
@@ -3173,5 +3301,29 @@
       "tools": "Herramientas",
       "accessNote": "Cada servidor se restringe además con su propia lista de acceso (Ajustes → Acceso en la página del servidor) y con el conjunto de servidores de la organización:"
     }
+  },
+  "invite": {
+    "title": "Invitación",
+    "heading": "Unirse a {organization}",
+    "lead": "Te invitan con el rol {role}.",
+    "leadBy": "{name} te invita con el rol {role}.",
+    "until": "La invitación es válida hasta {date}.",
+    "invalid": "El enlace de invitación no es válido o fue reemplazado por uno nuevo.",
+    "states": {
+      "expired": "La invitación venció. Pide una nueva.",
+      "accepted": "La invitación ya fue aceptada.",
+      "revoked": "La invitación fue revocada."
+    },
+    "accept": "Aceptar la invitación",
+    "otherAccount": "La invitación es para {email} y has iniciado sesión como {current}. Cierra sesión y abre el enlace de nuevo.",
+    "signInFirst": "Ya existe una cuenta para {email}. Inicia sesión para aceptar la invitación.",
+    "signIn": "Iniciar sesión",
+    "withProvider": "Continuar con {name}",
+    "email": "Correo",
+    "name": "Tu nombre",
+    "password": "Contraseña",
+    "passwordHint": "Al menos 8 caracteres",
+    "create": "Crear una cuenta y unirse",
+    "or": "o"
   }
 }

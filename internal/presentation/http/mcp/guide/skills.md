@@ -38,3 +38,15 @@ unzip <name>.zip -d ~/.claude/skills
 ```
 
 The response header `X-Skill-Version` names the version you got.
+
+## A whole folder
+
+To install every skill of a folder at once, call `get_skill_folder` with `folder` (id or path) or download
+the archive of the folder: one zip with a `<name>/` folder per skill.
+
+```
+curl -fsSL -H "Authorization: Bearer $SVCR_TOKEN" {{base}}/api/v1/skills/folders/<id>/archive -o skills.zip
+unzip -o skills.zip -d ~/.claude/skills
+```
+
+Disabled skills, and skills of a disabled folder, are never listed, returned or archived.

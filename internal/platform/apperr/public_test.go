@@ -35,7 +35,7 @@ func TestPublicCodesAndMessages(t *testing.T) {
 
 func TestEveryKindHasAPublicCode(t *testing.T) {
 	t.Parallel()
-	for k := NotFound; k <= InvalidWebhookSignature; k++ {
+	for k := NotFound; k <= Refused; k++ {
 		if k == Internal {
 			continue
 		}

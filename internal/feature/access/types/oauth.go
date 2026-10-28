@@ -2,6 +2,7 @@ package types
 
 import (
 	"context"
+	"crypto/sha256"
 	"slices"
 	"strings"
 )
@@ -153,4 +154,19 @@ func (m PasswordLogin) Allows(superadmin bool) bool {
 type OAuthClient interface {
 	AuthURL(ctx context.Context, provider, state, nonce, verifier string) (string, error)
 	Exchange(ctx context.Context, provider, code, verifier, nonce string) (Claims, error)
+}
+
+func InviteHash(invite string) []byte {
+	if invite == "" {
+		return nil
+	}
+	h := sha256.Sum256([]byte(invite))
+	return h[:]
+}
+
+func WithError(next, code string) string {
+	if strings.Contains(next, "?") {
+		return next + "&error=" + code
+	}
+	return next + "?error=" + code
 }

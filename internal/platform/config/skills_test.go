@@ -38,6 +38,8 @@ func TestSkillsVariablesAreChecked(t *testing.T) {
 		{[]string{"SKILLS_ENABLED", "maybe"}, []string{"SKILLS_ENABLED"}},
 		{[]string{"SKILLS_MAX_FILES", "0", "SKILLS_SYNC_INTERVAL_SECS", "60", "SKILLS_KEEP_VERSIONS", "1001"},
 			[]string{"SKILLS_KEEP_VERSIONS", "SKILLS_MAX_FILES", "SKILLS_SYNC_INTERVAL_SECS"}},
+		{[]string{"SKILLS_SOURCE_ARCHIVE_MAX_BYTES", "1000", "SKILLS_FOLDER_ARCHIVE_MAX_BYTES", "9999999999"},
+			[]string{"SKILLS_FOLDER_ARCHIVE_MAX_BYTES", "SKILLS_SOURCE_ARCHIVE_MAX_BYTES"}},
 	} {
 		_, err := config.Load[config.SkillsConfig](lookup(c.env...))
 		if got := vars(t, err); !reflect.DeepEqual(got, c.want) {

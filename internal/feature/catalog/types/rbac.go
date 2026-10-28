@@ -93,3 +93,10 @@ const (
 	VisibilityNavigate
 	VisibilityRead
 )
+
+type GroupAccess struct {
+	ID    uuid.UUID
+	Name  string
+	Role  string
+	Users int64
+}

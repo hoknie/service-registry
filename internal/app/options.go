@@ -1,6 +1,7 @@
 package app
 
 import (
+	membershipports "svc-registry/internal/feature/membership/ports"
 	"time"
 
 	"svc-registry/internal/feature/access/clients/clientmeta"
@@ -19,6 +20,7 @@ import (
 type Option func(*overrides)
 
 type overrides struct {
+	mailer         membershipports.MailerPort
 	linkChecker    linksports.CheckerPort
 	k8s            deployports.ClientFactoryPort
 	notifySender   notifyports.SenderPort
@@ -60,6 +62,8 @@ func clientMetadata(o overrides, cfg config.Config) accessports.ClientMetadataPo
 	}
 	return clientmeta.New(cfg.Outbound.Options())
 }
+
+func WithMailer(m membershipports.MailerPort) Option { return func(o *overrides) { o.mailer = m } }
 
 func WithK8s(f deployports.ClientFactoryPort) Option { return func(o *overrides) { o.k8s = f } }
 

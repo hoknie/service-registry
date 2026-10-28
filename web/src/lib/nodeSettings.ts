@@ -5,7 +5,8 @@ export type Section = (typeof SECTIONS)[number];
 
 export const PROJECT_TABS = ["overview", "docs", "details", "releases", "dependencies", "settings"] as const;
 export const CONTAINER_TABS = ["overview", "details", "dependencies", "settings"] as const;
-export type NodeTab = (typeof PROJECT_TABS)[number] | (typeof CONTAINER_TABS)[number];
+export const ORGANIZATION_TABS = ["overview", "details", "dependencies", "members", "settings"] as const;
+export type NodeTab = (typeof PROJECT_TABS)[number] | (typeof ORGANIZATION_TABS)[number];
 
 export const LEGACY_TABS: Record<string, Section> = {
   branches: "branches",
@@ -29,7 +30,8 @@ type NodeLike = { kind: NodeKind; parent_id?: string | null; access: "read" | "n
 export function tabsOf(node: NodeLike | null): NodeTab[] {
   if (!node) return ["overview"];
   if (node.access !== "read") return ["overview"];
-  return node.kind === "project" ? [...PROJECT_TABS] : [...CONTAINER_TABS];
+  if (node.kind === "project") return [...PROJECT_TABS];
+  return node.kind === "organization" && !node.parent_id ? [...ORGANIZATION_TABS] : [...CONTAINER_TABS];
 }
 
 export function sectionsOf(node: NodeLike | null): Section[] {

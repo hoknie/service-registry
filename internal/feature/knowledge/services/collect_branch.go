@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"io/fs"
 	"log/slog"
 	"slices"
 	"strings"
@@ -65,6 +66,10 @@ func (r *syncedReader) Tree(ctx context.Context, _, sha string) ([]knowledgetype
 		out = append(out, knowledgetypes.Entry{Path: e.Path, BlobSHA: e.BlobSHA, Size: e.Size})
 	}
 	return out, truncated, nil
+}
+
+func (r *syncedReader) Snapshot(context.Context, string, int64) (fs.FS, func(), error) {
+	return nil, nil, knowledgetypes.ErrSnapshotUnsupported
 }
 
 func (r *syncedReader) Read(ctx context.Context, e knowledgetypes.Entry, limit int64) ([]byte, error) {

@@ -29,6 +29,7 @@ type NewLoginState struct {
 	Verifier    string
 	Next        *string
 	LinkUserID  *uuid.UUID
+	InviteHash  []byte
 	TTLSecs     int
 }
 
@@ -38,6 +39,7 @@ type LoginState struct {
 	Verifier   string
 	Next       *string
 	LinkUserID *uuid.UUID
+	InviteHash []byte
 }
 
 func LastLoginMethod(hasPassword bool, identities int64) bool { return !hasPassword && identities <= 1 }

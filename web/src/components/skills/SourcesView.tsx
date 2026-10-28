@@ -9,120 +9,26 @@ import { format } from "@/i18n/format";
 import type { Messages } from "@/i18n/messages";
 import { ago } from "@/i18n/time";
 import { apiGet, apiSend, errorCode } from "@/lib/api";
-import { guessForge, sourceApiUrl } from "@/lib/forgeAddress";
 import {
   SKILLS_BASE,
   type SkillFolder,
   type SkillPage,
   type SkillSource,
-  type SkillSourceKind,
 } from "@/lib/skills";
 import { loadFolder } from "@/lib/skillsApi";
 
-import { SecretPicker } from "../secrets/SecretPicker";
+import { bodyOf, draftOf, emptyDraft, SourceFields, type Draft } from "./SourceForm";
+
 import { useUiText } from "../UiText";
 import { Badge, type Tone } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { Dialog } from "../ui/Dialog";
 import { EmptyState } from "../ui/EmptyState";
-import { Field, Input } from "../ui/Field";
 import { Message } from "../ui/Message";
 import { Panel } from "../ui/Panel";
-import { Select } from "../ui/Select";
 
 type Props = { locale: Locale; labels: Messages["skills"]; folderId: string };
-
-const FORGES = ["github", "gitlab", "gitea", "forgejo"] as const;
-
-type Draft = {
-  kind: SkillSourceKind;
-  forge: string;
-  url: string;
-  api_url: string;
-  path: string;
-  secret: string | null;
-  branch: string;
-  root: string;
-  interval: string;
-  status: string;
-  versions: string;
-  tag_pattern: string;
-  forgeTouched: boolean;
-  apiTouched: boolean;
-};
-
-const empty: Draft = {
-  kind: "remote",
-  forge: "gitlab",
-  url: "",
-  api_url: "",
-  path: "",
-  secret: null,
-  branch: "",
-  root: "",
-  interval: "",
-  status: "published",
-  versions: "branch",
-  tag_pattern: "v{version}",
-  forgeTouched: false,
-  apiTouched: false,
-};
-
-function draftOf(s: SkillSource): Draft {
-  const forge = s.forge ?? "gitlab";
-  return {
-    kind: s.kind,
-    forge,
-    url: s.url ?? "",
-    api_url: s.api_url ?? "",
-    path: s.path ?? "",
-    secret: s.credentials?.secret_id ?? null,
-    branch: s.branch,
-    root: s.root,
-    interval: s.interval_secs ? String(s.interval_secs) : "",
-    status: s.status,
-    versions: s.versions,
-    tag_pattern: s.tag_pattern,
-    forgeTouched: s.forge !== null,
-    apiTouched: !!s.api_url && s.api_url !== sourceApiUrl(forge, s.url ?? ""),
-  };
-}
-
-export function withRemote(
-  d: Draft,
-  patch: Partial<Pick<Draft, "forge" | "url" | "api_url">>,
-): Draft {
-  const next = { ...d, ...patch };
-  if (patch.forge !== undefined) next.forgeTouched = true;
-  if (patch.api_url !== undefined) next.apiTouched = true;
-  if (patch.url !== undefined && !next.forgeTouched)
-    next.forge = guessForge(patch.url) ?? next.forge;
-  if (
-    !next.apiTouched &&
-    (patch.url !== undefined || patch.forge !== undefined)
-  )
-    next.api_url = sourceApiUrl(next.forge, next.url) ?? "";
-  return next;
-}
-
-function bodyOf(d: Draft) {
-  const remote = d.kind === "remote";
-  return {
-    kind: d.kind,
-    forge: remote ? d.forge : "",
-    url: remote ? d.url : "",
-    api_url: remote ? d.api_url : "",
-    path: remote ? "" : d.path,
-    credentials: remote && d.secret ? { secret_id: d.secret } : null,
-    branch: d.branch,
-    root: d.root,
-    interval_secs: d.interval ? Number(d.interval) : null,
-    status: d.status,
-    versions: d.versions,
-    tag_pattern: d.tag_pattern,
-  };
-}
 
 const stateTone: Record<SkillSource["state"], Tone> = {
   queued: "cobalt",
@@ -138,7 +44,7 @@ export function SourcesView({ locale, labels: t, folderId }: Props) {
   const [sources, setSources] = useState<SkillSource[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<SkillSource | "new" | null>(null);
-  const [draft, setDraft] = useState<Draft>(empty);
+  const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<SkillSource | null>(null);
@@ -189,7 +95,7 @@ export function SourcesView({ locale, labels: t, folderId }: Props) {
 
   const open = (src: SkillSource | "new") => {
     setEditing(src);
-    setDraft(src === "new" ? empty : draftOf(src));
+    setDraft(src === "new" ? emptyDraft : draftOf(src));
     setFormError(null);
   };
 
@@ -238,7 +144,6 @@ export function SourcesView({ locale, labels: t, folderId }: Props) {
     }
   };
 
-  const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
   return (
     <>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -267,7 +172,8 @@ export function SourcesView({ locale, labels: t, folderId }: Props) {
             }
             description={[
               src.branch || null,
-              src.root || null,
+              src.roots.filter(Boolean).join(", ") || null,
+              src.layout === "field" ? `${s.layoutField}: ${src.group_field}` : src.layout === "tree" ? s.layoutTree : null,
               src.versions === "tags"
                 ? `${s.fromTags}: ${src.tag_pattern}`
                 : null,
@@ -367,178 +273,7 @@ export function SourcesView({ locale, labels: t, folderId }: Props) {
         }
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={s.kind} className="sm:col-span-2">
-            {(f) => (
-              <Select
-                id={f.id}
-                value={draft.kind}
-                onChange={(e) =>
-                  set({ kind: e.target.value as SkillSourceKind })
-                }
-              >
-                <option value="remote">{s.remote}</option>
-                <option value="local_git">{s.localGit}</option>
-                <option value="local_dir">{s.localDir}</option>
-              </Select>
-            )}
-          </Field>
-          {draft.kind === "remote" ? (
-            <>
-              <Field label={s.forge}>
-                {(f) => (
-                  <Select
-                    id={f.id}
-                    value={draft.forge}
-                    onChange={(e) =>
-                      setDraft((d) => withRemote(d, { forge: e.target.value }))
-                    }
-                  >
-                    {FORGES.map((x) => (
-                      <option key={x} value={x}>
-                        {x}
-                      </option>
-                    ))}
-                  </Select>
-                )}
-              </Field>
-              <Field label={s.url}>
-                {(f) => (
-                  <Input
-                    {...f}
-                    value={draft.url}
-                    onChange={(e) =>
-                      setDraft((d) => withRemote(d, { url: e.target.value }))
-                    }
-                  />
-                )}
-              </Field>
-              <Field label={s.apiUrl}>
-                {(f) => (
-                  <div className="flex gap-2">
-                    <Input
-                      {...f}
-                      className="min-w-0 flex-1"
-                      value={draft.api_url}
-                      onChange={(e) =>
-                        setDraft((d) =>
-                          withRemote(d, { api_url: e.target.value }),
-                        )
-                      }
-                    />
-                    {draft.apiTouched && (
-                      <Button
-                        type="button"
-                        onClick={() =>
-                          setDraft((d) => ({
-                            ...d,
-                            apiTouched: false,
-                            api_url: sourceApiUrl(d.forge, d.url) ?? "",
-                          }))
-                        }
-                      >
-                        {s.recompute}
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </Field>
-              <div className="sm:col-span-2">
-                <SecretPicker
-                  listOn={folder?.organization_id ?? null}
-                  createOn={false}
-                  value={draft.secret}
-                  onChange={(id) => set({ secret: id })}
-                  manageHref={
-                    folder?.organization_id
-                      ? `/${locale}/catalog?node=${folder.organization_id}&tab=settings&section=secrets`
-                      : `/${locale}/admin/secrets`
-                  }
-                  allowNone
-                />
-              </div>
-            </>
-          ) : (
-            <Field label={s.path} className="sm:col-span-2">
-              {(f) => (
-                <Input
-                  {...f}
-                  className="font-mono"
-                  value={draft.path}
-                  onChange={(e) => set({ path: e.target.value })}
-                />
-              )}
-            </Field>
-          )}
-          <Field label={s.branch} hint={s.branchHint}>
-            {(f) => (
-              <Input
-                {...f}
-                value={draft.branch}
-                disabled={draft.kind === "local_dir"}
-                onChange={(e) => set({ branch: e.target.value })}
-              />
-            )}
-          </Field>
-          <Field label={s.root} hint={s.rootHint}>
-            {(f) => (
-              <Input
-                {...f}
-                className="font-mono"
-                value={draft.root}
-                onChange={(e) => set({ root: e.target.value })}
-              />
-            )}
-          </Field>
-          <Field label={s.interval} hint={s.intervalHint}>
-            {(f) => (
-              <Input
-                {...f}
-                inputMode="numeric"
-                value={draft.interval}
-                onChange={(e) =>
-                  set({ interval: e.target.value.replace(/\D/g, "") })
-                }
-              />
-            )}
-          </Field>
-          <Field label={s.newStatus}>
-            {(f) => (
-              <Select
-                id={f.id}
-                value={draft.status}
-                onChange={(e) => set({ status: e.target.value })}
-              >
-                <option value="published">{t.statusPublished}</option>
-                <option value="draft">{t.statusDraft}</option>
-              </Select>
-            )}
-          </Field>
-          <Field label={s.versions}>
-            {(f) => (
-              <Select
-                id={f.id}
-                value={draft.versions}
-                onChange={(e) => set({ versions: e.target.value })}
-              >
-                <option value="branch">{s.fromBranch}</option>
-                {draft.kind !== "local_dir" && (
-                  <option value="tags">{s.fromTags}</option>
-                )}
-              </Select>
-            )}
-          </Field>
-          {draft.versions === "tags" && (
-            <Field label={s.tagPattern} hint={s.tagPatternHint}>
-              {(f) => (
-                <Input
-                  {...f}
-                  className="font-mono"
-                  value={draft.tag_pattern}
-                  onChange={(e) => set({ tag_pattern: e.target.value })}
-                />
-              )}
-            </Field>
-          )}
+          <SourceFields draft={draft} setDraft={setDraft} folder={folder} locale={locale} labels={t} />
           <Message
             note={formError ? { kind: "error", text: formError } : null}
             className="sm:col-span-2"

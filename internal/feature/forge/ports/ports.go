@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"io"
 
 	"github.com/google/uuid"
 
@@ -19,6 +20,7 @@ type ClientPort interface {
 	Repo(ctx context.Context, fullPath string) (forgetypes.RemoteRepo, error)
 	ListTree(ctx context.Context, repo forgetypes.RemoteRepo, commit string) (entries []forgetypes.TreeEntry, truncated bool, err error)
 	ReadFile(ctx context.Context, repo forgetypes.RemoteRepo, entry forgetypes.TreeEntry, limit int64) ([]byte, error)
+	Archive(ctx context.Context, repo forgetypes.RemoteRepo, commit string) (io.ReadCloser, error)
 	RegisterHook(ctx context.Context, url, secret string) (string, error)
 	DeleteHook(ctx context.Context, id string) error
 }

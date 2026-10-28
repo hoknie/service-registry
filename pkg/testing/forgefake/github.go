@@ -107,6 +107,8 @@ func (f *Fake) github(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, 200, x.Languages)
+	case len(parts) == 5 && parts[0] == "repos" && parts[3] == "tarball":
+		f.archive(w, f.byPath(parts[1]+"/"+parts[2]))
 	case len(parts) == 6 && parts[0] == "repos" && parts[3] == "git" && parts[4] == "trees":
 		f.calls["tree"]++
 		x := f.byPath(parts[1] + "/" + parts[2])

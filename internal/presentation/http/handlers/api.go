@@ -15,6 +15,7 @@ import (
 	ingestservices "svc-registry/internal/feature/ingest/services"
 	knowledgeservices "svc-registry/internal/feature/knowledge/services"
 	linksservices "svc-registry/internal/feature/links/services"
+	membershipservices "svc-registry/internal/feature/membership/services"
 	notifyservices "svc-registry/internal/feature/notify/services"
 	ownershipservices "svc-registry/internal/feature/ownership/services"
 	publishingservices "svc-registry/internal/feature/publishing/services"
@@ -42,6 +43,7 @@ type Handlers struct {
 	Publishing *publishingservices.PublishingServices
 	Skills     *skillsservices.SkillsServices
 	Gateway    *gatewayservices.GatewayServices
+	Membership *membershipservices.MembershipServices
 	Metrics    *metrics.Metrics
 	Version    string
 

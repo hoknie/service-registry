@@ -116,23 +116,51 @@ see every version with marks, and the skill settings show which versions the val
 ## Git sources
 
 A folder can follow git repositories: **Settings → Sources** on the folder page. Every folder with `SKILL.md` under the chosen
-path becomes a skill of the folder; a folder inside another skill belongs to that skill.
+directories becomes a skill; a folder inside another skill belongs to that skill.
+
+**Add → Import from git** on a space or folder creates a folder and its source in one step. Paste a link to a
+directory of a repository — `https://github.com/apollographql/skills/tree/main/skills`, GitLab's `…/-/tree/<branch>/<path>`
+or Gitea's and Forgejo's `…/src/branch/<branch>/<path>` — and the address, branch and directory are filled in from it.
+The folder is named after the repository unless you give it a name.
 
 | Field | Meaning |
 |---|---|
 | Kind | a repository on GitHub, GitLab, Forgejo or Gitea (with a secret for its token), a local git repository or a local directory inside `KNOWLEDGE_LOCAL_ROOTS` |
 | Branch | empty — the default branch |
-| Folder in the repository | empty — the whole repository |
+| Skill directories | up to 20 paths in the repository, one per line; empty — the whole repository |
+| Folders | all skills in the folder of the source; like the directories of the repository; or by a field of `SKILL.md` such as `subdomain` or `metadata.category` |
 | Interval | seconds between runs; empty — `SKILLS_SYNC_INTERVAL_SECS` (1 h) |
-| New skills | draft or published |
+| New skills | published, draft or disabled — for a repository with hundreds of skills you may want them disabled and enable what you need |
 | Versions | from the branch (`metadata.version` or the next patch on every change) or from tags |
 
 With versions from tags every tag that matches the pattern becomes a version: `v{version}` for one skill per
 repository, `{name}/v{version}` when the repository holds several skills. Removing a tag does not remove its version.
 
-A run reads the branch only when its commit moved. Skills whose folder disappeared are removed; a skill from git
+A run reads the branch only when its commit moved. A repository on GitHub, GitLab, Gitea or Forgejo is downloaded as one
+archive (at most `SKILLS_SOURCE_ARCHIVE_MAX_BYTES`, 512 MiB by default), so even a large public repository syncs without a
+token: GitHub allows 60 API requests an hour without one, and a run takes a few. If the forge does not give an archive, the
+run reads the files one by one, and then a token is worth adding.
+
+The folders a source creates for its layout belong to it: they appear and disappear with the skills, and only their
+description and the **Disable** switch can be changed by hand.
+
+ Skills whose folder disappeared are removed; a skill from git
 is changed only in git (its content, name and tags), its status and image can be changed in the registry.
 **Sync now** queues a run at once. The last run lists what was created, updated, removed and skipped, and why.
+
+## Disabling skills
+
+A skill can be disabled from **Settings → General** of its page, a whole folder from **Settings → General** of the folder.
+A disabled skill stays in the catalog with the mark **Disabled**, but agents do not get it over MCP and it cannot be
+downloaded. Disabling a folder disables everything inside it; enabling it again restores the skills as they were, so a
+skill disabled on its own stays disabled. A sync never enables a skill. **Enabled only** in the filters hides disabled skills.
+
+## Skill set of an organization
+
+**Settings → Skill set** of an organization's space chooses which global skills the organization gets: all of them (the
+default) or only chosen global folders and skills. The organization's own skills are always available. The set applies to
+tokens and apps that are bound to nodes of the organization; a token without nodes and the browser see every global skill.
+Editors of the organization change the set.
 
 ## Connecting to an agent
 
@@ -143,6 +171,11 @@ is changed only in git (its content, name and tags), its status and image can be
 - **Archive** — `GET /api/v1/skills/<id>/archive?version=<version>` with a token that has the `read` scope; the zip holds
   the folder `<name>/` for the skills directory of the agent, e.g. `~/.claude/skills`.
 - **Download** in a row of **Versions** — the same archive from the browser.
+
+A folder has its own **Connect** tab to install all its skills at once:
+`GET /api/v1/skills/folders/<id>/archive` gives one zip with a `<name>/` folder per enabled, published skill of the folder and
+the folders inside it, at most `SKILLS_FOLDER_ARCHIVE_MAX_BYTES` (256 MiB by default). Over MCP the agent uses
+`get_skill_folder`.
 
 ## Storage
 

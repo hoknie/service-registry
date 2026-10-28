@@ -17,6 +17,10 @@ func TestParseManifestReadsMetadata(t *testing.T) {
 	}
 	want := Manifest{Name: "go-testing", Description: "Table-driven tests", AllowedTools: []string{"Bash", "Read"}, Title: "Go testing",
 		Tags: []string{"go", "testing"}, Author: "Platform team", Image: "assets/cover.png", Version: "1.2.0"}
+	if m.Fields["name"] != "go-testing" {
+		t.Fatalf("fields %v", m.Fields)
+	}
+	m.Fields = nil
 	if !reflect.DeepEqual(m, want) {
 		t.Fatalf("got %+v", m)
 	}

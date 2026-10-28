@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, ChevronDown, FolderTree, GitBranch, Info, LayoutGrid, Network, Plus, Rocket, Settings } from "lucide-react";
+import { BookOpen, ChevronDown, FolderTree, GitBranch, Info, LayoutGrid, Network, Plus, Rocket, Settings, UsersRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -63,6 +63,7 @@ import { ProjectSummary } from "./ProjectSummary";
 import { ReleasesTab } from "./ReleasesTab";
 import { RepositoryBlock } from "./RepositoryBlock";
 import { SettingsGeneral } from "./SettingsGeneral";
+import { OrganizationMembers } from "./OrganizationMembers";
 import { TreeTable } from "./TreeTable";
 import { catalogHref, childKinds, newNodeHref, type CatalogLabels } from "./shared";
 
@@ -74,6 +75,7 @@ const tabIcons = {
   dependencies: Network,
   docs: BookOpen,
   details: Info,
+  members: UsersRound,
   settings: Settings,
 } as const;
 
@@ -558,6 +560,11 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: ver
             {tabs.includes("dependencies") && (
               <TabsContent value="dependencies">
                 <DependenciesTab node={node} locale={locale} labels={t} canWrite={canWrite} fail={fail} />
+              </TabsContent>
+            )}
+            {tabs.includes("members") && (
+              <TabsContent value="members">
+                <OrganizationMembers node={node} locale={locale} labels={t} />
               </TabsContent>
             )}
             {tabs.includes("settings") && (

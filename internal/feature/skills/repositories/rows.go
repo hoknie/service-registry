@@ -27,12 +27,22 @@ type folderRow struct {
 	Folders        int64      `db:"folders"`
 	CreatedAt      string     `db:"created_at"`
 	UpdatedAt      string     `db:"updated_at"`
+	Disabled       bool       `db:"disabled"`
+	SourceID       *uuid.UUID `db:"source_id"`
+	DisabledByID   *uuid.UUID `db:"disabled_by_id"`
+	DisabledByName *string    `db:"disabled_by_name"`
+	DisabledBySlug *string    `db:"disabled_by_slug"`
 }
 
 func (r folderRow) folder() skillstypes.Folder {
-	return skillstypes.Folder{ID: r.ID, ParentID: r.ParentID, OrganizationID: r.OrganizationID,
+	f := skillstypes.Folder{ID: r.ID, ParentID: r.ParentID, OrganizationID: r.OrganizationID,
 		Organization: refOf(r.OrganizationID, r.OrgSlug, r.OrgName), Slug: r.Slug, Name: r.Name, Description: r.Description,
-		Depth: r.Depth, Skills: r.Skills, Folders: r.Folders, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, Ancestors: []skillstypes.Ref{}}
+		Depth: r.Depth, Skills: r.Skills, Folders: r.Folders, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, Ancestors: []skillstypes.Ref{},
+		Disabled: r.Disabled, SourceID: r.SourceID}
+	if r.DisabledByID != nil {
+		f.DisabledBy = &skillstypes.Ref{ID: *r.DisabledByID, Slug: deref(r.DisabledBySlug), Name: deref(r.DisabledByName)}
+	}
+	return f
 }
 
 type skillRow struct {
@@ -66,6 +76,9 @@ type skillRow struct {
 	CreatedAt      string     `db:"created_at"`
 	UpdatedAt      string     `db:"updated_at"`
 	CursorAt       string     `db:"cursor_at"`
+	DisabledByID   *uuid.UUID `db:"disabled_by_id"`
+	DisabledByName *string    `db:"disabled_by_name"`
+	DisabledBySlug *string    `db:"disabled_by_slug"`
 }
 
 func (r skillRow) skill() skillstypes.Skill {
@@ -77,6 +90,9 @@ func (r skillRow) skill() skillstypes.Skill {
 		SourcePath: r.SourcePath, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
 	if r.SourceID != nil {
 		s.Source = &skillstypes.SourceRef{ID: *r.SourceID, Kind: deref(r.SourceKind), URL: deref(r.SourceURL)}
+	}
+	if r.DisabledByID != nil {
+		s.DisabledBy = &skillstypes.Ref{ID: *r.DisabledByID, Slug: deref(r.DisabledBySlug), Name: deref(r.DisabledByName)}
 	}
 	if r.CreatedByID != nil {
 		s.CreatedBy = &skillstypes.UserRef{ID: *r.CreatedByID, Name: deref(r.CreatedByName)}

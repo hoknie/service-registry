@@ -30,6 +30,7 @@ type Repo struct {
 	Tags          []Tag
 	Files         map[string]string
 	TreeTruncated bool
+	NoArchive     bool
 }
 
 func BlobSHA(content string) string {

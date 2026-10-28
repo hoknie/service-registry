@@ -11,6 +11,7 @@ import (
 	ingestservices "svc-registry/internal/feature/ingest/services"
 	knowledgeservices "svc-registry/internal/feature/knowledge/services"
 	linksservices "svc-registry/internal/feature/links/services"
+	membershipservices "svc-registry/internal/feature/membership/services"
 	notifyservices "svc-registry/internal/feature/notify/services"
 	ownershipservices "svc-registry/internal/feature/ownership/services"
 	publishingservices "svc-registry/internal/feature/publishing/services"
@@ -40,11 +41,12 @@ type Deps struct {
 	Publishing *publishingservices.PublishingServices
 	Skills     *skillsservices.SkillsServices
 	Gateway    *gatewayservices.GatewayServices
+	Membership *membershipservices.MembershipServices
 	Metrics    *metrics.Metrics
 }
 
 func (d Deps) handlers() *handlers.Handlers {
 	return &handlers.Handlers{Config: d.Config, Readiness: d.Readiness, Version: d.Version, Access: d.Access, Catalog: d.Catalog, Links: d.Links,
 		Ingest: d.Ingest, Forge: d.Forge, Deploy: d.Deploy, Knowledge: d.Knowledge,
-		Ownership: d.Ownership, Notify: d.Notify, Topology: d.Topology, Apis: d.Apis, Compose: d.Compose, Publishing: d.Publishing, Skills: d.Skills, Gateway: d.Gateway, Metrics: d.Metrics}
+		Ownership: d.Ownership, Notify: d.Notify, Topology: d.Topology, Apis: d.Apis, Compose: d.Compose, Publishing: d.Publishing, Skills: d.Skills, Gateway: d.Gateway, Membership: d.Membership, Metrics: d.Metrics}
 }

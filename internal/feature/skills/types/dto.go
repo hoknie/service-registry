@@ -7,11 +7,12 @@ type Status string
 const (
 	StatusDraft     Status = "draft"
 	StatusPublished Status = "published"
+	StatusDisabled  Status = "disabled"
 )
 
 func ParseStatus(s string) (Status, bool) {
 	switch Status(s) {
-	case StatusDraft, StatusPublished:
+	case StatusDraft, StatusPublished, StatusDisabled:
 		return Status(s), true
 	}
 	return "", false
@@ -56,7 +57,14 @@ type Folder struct {
 	CanWrite       bool
 	CreatedAt      string
 	UpdatedAt      string
+	Disabled       bool
+	SourceID       *uuid.UUID
+	DisabledBy     *Ref
 }
+
+func (f Folder) Managed() bool { return f.SourceID != nil }
+
+func (f Folder) Off() bool { return f.Disabled || f.DisabledBy != nil }
 
 type NewFolder struct {
 	ID             uuid.UUID
@@ -105,7 +113,12 @@ type Skill struct {
 	VersionsAvailable int
 	HasImage          bool
 	CanWrite          bool
+	DisabledBy        *Ref
 }
+
+func (s Skill) Active() bool { return s.Status == StatusPublished && s.DisabledBy == nil }
+
+func (s Skill) Off() bool { return s.Status == StatusDisabled || s.DisabledBy != nil }
 
 func (s Skill) Scope() Scope { return Scope{OrganizationID: s.OrganizationID} }
 
@@ -166,6 +179,8 @@ type ListQuery struct {
 	Query         string
 	Tags          []string
 	Status        *Status
+	Active        *bool
+	SetOrgs       []uuid.UUID
 	IDs           []uuid.UUID
 	Limit         int
 	After         *Cursor
@@ -200,7 +215,9 @@ type Source struct {
 	SecretID        *uuid.UUID
 	SecretName      *string
 	Branch          string
-	Root            string
+	Roots           []string
+	Layout          string
+	GroupField      *string
 	IntervalSecs    *int
 	NewStatus       Status
 	Versions        string

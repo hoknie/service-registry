@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"io/fs"
 	"strings"
 
 	"github.com/go-git/go-git/v5"
@@ -120,6 +121,10 @@ func (g *localGit) Heads(ctx context.Context) (map[string]string, string, error)
 		}
 	}
 	return heads, def, nil
+}
+
+func (g *localGit) Snapshot(context.Context, string, int64) (fs.FS, func(), error) {
+	return nil, nil, knowledgetypes.ErrSnapshotUnsupported
 }
 
 func (g *localGit) Tags(context.Context) (map[string]string, error) {

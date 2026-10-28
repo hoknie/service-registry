@@ -65,3 +65,25 @@ export function ownerUrlOf(apiUrl: string, ownerPath: string): string {
   const host = u.hostname === "api.github.com" ? "github.com" : u.host;
   return `${u.protocol}//${host}/${ownerPath.replace(/^\/+|\/+$/g, "")}`;
 }
+
+export type TreeLink = { url: string; branch: string; root: string };
+
+const TREE_MARKERS = ["/-/tree/", "/-/blob/", "/src/branch/", "/tree/", "/blob/"];
+
+export function parseTreeLink(raw: string): TreeLink | null {
+  let u: URL;
+  try {
+    u = new URL(raw.trim());
+  } catch {
+    return null;
+  }
+  for (const marker of TREE_MARKERS) {
+    const at = u.pathname.indexOf(marker);
+    if (at <= 0) continue;
+    const repo = u.pathname.slice(0, at).replace(/\/+$/, "");
+    const [branch, ...rest] = u.pathname.slice(at + marker.length).replace(/^\/+|\/+$/g, "").split("/");
+    if (!repo.replace(/^\/+/, "") || !branch) continue;
+    return { url: `${u.protocol}//${u.host}${repo}`, branch, root: rest.join("/") };
+  }
+  return null;
+}

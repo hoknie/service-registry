@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"io/fs"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,6 +30,7 @@ type ReaderPort interface {
 	Tags(ctx context.Context) (map[string]string, error)
 	Tree(ctx context.Context, branch, head string) ([]knowledgetypes.Entry, bool, error)
 	Read(ctx context.Context, e knowledgetypes.Entry, limit int64) ([]byte, error)
+	Snapshot(ctx context.Context, commit string, limit int64) (files fs.FS, release func(), err error)
 }
 
 type RepoMetadataPort interface {
