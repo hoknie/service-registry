@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/hostingfake"
 )
 
 func (d *docsProject) publicGet(path string, extra ...string) reply {
@@ -17,7 +17,7 @@ func publicDocs(t *testing.T, extra ...string) (*docsProject, string) {
 	d := startDocs(t, map[string]string{"README.md": "# Public API\nHow to deploy the service.", "docs/guide.md": "# Guide\ndeploy steps"}, extra...)
 	eq(t, d.app.send("PUT", knowledgePath(d.id)+"/settings", d.admin, obj{"include": []string{"README.md", "docs/**"},
 		"refs": []obj{{"pattern": "v*", "kind": "tag"}, {"pattern": "feat/*", "kind": "branch"}}}).status, 200)
-	d.push(nil, forgefake.Branch{Name: "main", SHA: sha(1)}, forgefake.Branch{Name: "feat/x", SHA: sha(2)})
+	d.push(nil, hostingfake.Branch{Name: "main", SHA: sha(1)}, hostingfake.Branch{Name: "feat/x", SHA: sha(2)})
 	d.tags(tagged("v1.0.0", 3))
 	d.app.collect()
 	secret := d.app.nodeID(d.admin, "project", d.org, "secret")

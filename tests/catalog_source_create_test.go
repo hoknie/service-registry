@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/hostingfake"
 )
 
 func TestCreateProjectWithSource(t *testing.T) {
@@ -26,15 +26,15 @@ func TestCreateProjectWithSource(t *testing.T) {
 	eq(t, a.collect() >= 1, true)
 	eq(t, scalar[int64](t, a.db, "SELECT count(*) FROM knowledge_snapshots WHERE project_id = $1", id), int64(1))
 
-	f := forgefake.Start(t, "gitlab", forgeToken, "platform")
-	f.Put(forgefake.Repo{ID: 7, Path: "platform/api", Files: map[string]string{"README.md": "# API"},
-		Branches: []forgefake.Branch{{Name: "main", SHA: sha(7)}}})
-	r = create("api2", obj{"kind": "remote", "forge": "gitlab", "url": "https://gitlab.example.com/platform/api",
-		"api_url": f.APIURL() + "/api/v4", "credentials": a.tokenOn(a.admin, a.org, forgeToken)})
+	f := hostingfake.Start(t, "gitlab", hostingToken, "platform")
+	f.Put(hostingfake.Repo{ID: 7, Path: "platform/api", Files: map[string]string{"README.md": "# API"},
+		Branches: []hostingfake.Branch{{Name: "main", SHA: sha(7)}}})
+	r = create("api2", obj{"kind": "remote", "hosting": "gitlab", "url": "https://gitlab.example.com/platform/api",
+		"api_url": f.APIURL() + "/api/v4", "credentials": a.tokenOn(a.admin, a.org, hostingToken)})
 	eq(t, r.status, 201, r.text())
-	lacks(t, r.text(), forgeToken)
+	lacks(t, r.text(), hostingToken)
 	node := r.json(t)
-	eq(t, node["forge"], any("gitlab"))
+	eq(t, node["hosting"], any("gitlab"))
 	eq(t, node["repo_url"], any("https://gitlab.example.com/platform/api"))
 	eq(t, node["key"] != nil, true, "the project still gets its key")
 	remote := idOf(node)
@@ -48,7 +48,7 @@ func TestCreateProjectWithSource(t *testing.T) {
 		code   string
 	}{
 		{obj{"kind": "local_dir", "path": "/etc"}, 400, "validation.knowledge_path_not_allowed"},
-		{obj{"kind": "remote", "forge": "svn", "url": "https://x.example/a/b"}, 400, "validation.invalid_knowledge_source"},
+		{obj{"kind": "remote", "hosting": "svn", "url": "https://x.example/a/b"}, 400, "validation.invalid_knowledge_source"},
 		{obj{"path": dir}, 400, "validation.invalid_body"},
 	} {
 		r := create("bad", c.source)
@@ -75,11 +75,11 @@ func TestCreateProjectWithSourceConflicts(t *testing.T) {
 	r := create(obj{"kind": "local_git", "path": "/srv/repos/api"})
 	eq(t, r.status, 409)
 	eq(t, code(t, r), any("conflict.local_sources_disabled"))
-	r = create(obj{"kind": "remote", "forge": "github", "url": "https://github.com/a/b", "credentials": obj{"token": "ghp_x"}})
+	r = create(obj{"kind": "remote", "hosting": "github", "url": "https://github.com/a/b", "credentials": obj{"token": "ghp_x"}})
 	eq(t, r.status, 400)
 	eq(t, code(t, r), any("validation.credentials_inline_removed"))
 	other := plain.nodeID(admin, "organization", "", "other")
-	r = create(obj{"kind": "remote", "forge": "github", "url": "https://github.com/a/b",
+	r = create(obj{"kind": "remote", "hosting": "github", "url": "https://github.com/a/b",
 		"credentials": plain.refOn(admin, other, "env:GH_TOKEN")})
 	eq(t, r.status, 400)
 	eq(t, code(t, r), any("validation.secret_not_available"))

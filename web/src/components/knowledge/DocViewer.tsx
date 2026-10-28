@@ -80,7 +80,7 @@ export function DocViewer({ node, branch, path, paths, docHref, onOpenDoc, label
           const dir = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : undefined;
           const known = new Set(paths);
           const docLink = (p: string) => (known.has(p) ? docHref(p) : null);
-          html = renderReadme(f.content, { webUrl: node.repo_url, branch: splitVersion(branch).name, kind: node.forge, dir, docLink, alerts: common.alerts, anchorLabel: common.headingAnchor });
+          html = renderReadme(f.content, { webUrl: node.repo_url, branch: splitVersion(branch).name, kind: node.hosting, dir, docLink, alerts: common.alerts, anchorLabel: common.headingAnchor });
         }
         const api = await apiDoc;
         if (!live) return;
@@ -93,7 +93,7 @@ export function DocViewer({ node, branch, path, paths, docHref, onOpenDoc, label
       live = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, node.repo_url, node.forge, errors, common.alerts, common.headingAnchor]);
+  }, [key, node.repo_url, node.hosting, errors, common.alerts, common.headingAnchor]);
 
   const current = doc?.key === key ? doc : null;
   const error = failure?.key === key ? failure.text : null;

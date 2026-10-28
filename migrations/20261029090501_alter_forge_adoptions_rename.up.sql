@@ -1,0 +1,4 @@
+ALTER TABLE forge_adoptions RENAME TO repo_sync_adoptions;
+ALTER TABLE repo_sync_adoptions RENAME CONSTRAINT forge_adoptions_connection_id_fkey TO repo_sync_adoptions_connection_id_fkey;
+ALTER TABLE repo_sync_adoptions RENAME CONSTRAINT forge_adoptions_external_id_check TO repo_sync_adoptions_external_id_check;
+ALTER TABLE repo_sync_adoptions RENAME CONSTRAINT forge_adoptions_pkey TO repo_sync_adoptions_pkey;

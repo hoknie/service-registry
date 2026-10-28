@@ -9,7 +9,7 @@ type ProcessKind string
 const (
 	ProcessCollect  ProcessKind = "collect"
 	ProcessIndex    ProcessKind = "index"
-	ProcessForge    ProcessKind = "forge"
+	ProcessRepoSync ProcessKind = "repo_sync"
 	ProcessClusters ProcessKind = "clusters"
 )
 

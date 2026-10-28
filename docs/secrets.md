@@ -1,7 +1,7 @@
 # Secrets
 
 Tokens and passwords that the registry needs to reach other systems are kept as **named secrets**. A record that
-needs one — a forge connection, a documentation source, a cluster, a notification address — picks a secret by name
+needs one — a repository sync connection, a documentation source, a cluster, a notification address — picks a secret by name
 instead of holding the value itself. Change the value once, and every record using it follows.
 
 ## Where secrets live
@@ -41,5 +41,5 @@ everything with the first key; after that the old keys can go.
 
 ## Upgrading from inline tokens
 
-Old versions kept tokens inside forge connections, documentation sources and clusters. They are moved into named
+Old versions kept tokens inside repository sync connections, documentation sources and clusters. They are moved into named
 secrets during the upgrade; see [install.md](install.md#upgrading-from-a-version-with-inline-tokens).

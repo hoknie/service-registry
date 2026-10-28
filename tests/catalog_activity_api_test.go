@@ -21,14 +21,14 @@ func (a *sourcesApp) processes(id string) map[string]obj {
 	return out
 }
 
-func (a *sourcesApp) failForge(project, code string) {
+func (a *sourcesApp) failRepoSync(project, code string) {
 	a.t.Helper()
 	conn, run := uuid.NewString(), uuid.NewString()
-	execSQL(a.t, a.db, `INSERT INTO forge_connections (id, node_id, kind, api_url, owner_path, interval_secs, credentials_secret_id, next_run_at)
+	execSQL(a.t, a.db, `INSERT INTO repo_sync_connections (id, node_id, kind, api_url, owner_path, interval_secs, credentials_secret_id, next_run_at)
 		VALUES ($1, $2, 'github', 'https://api.github.example', 'acme', 600, $3, now() + interval '1 hour')`, conn, a.org, refSecret(a.t, a.db, a.org))
-	execSQL(a.t, a.db, `INSERT INTO forge_repositories (project_id, connection_id, external_id, full_path, web_url, visibility)
+	execSQL(a.t, a.db, `INSERT INTO repo_sync_repositories (project_id, connection_id, external_id, full_path, web_url, visibility)
 		VALUES ($1, $2, $3, $4, 'https://github.example/acme/x', 'private')`, project, conn, uuid.NewString(), "acme/"+project)
-	execSQL(a.t, a.db, `INSERT INTO forge_sync_runs (id, connection_id, trigger, status, finished_at, error_code)
+	execSQL(a.t, a.db, `INSERT INTO repo_sync_runs (id, connection_id, trigger, status, finished_at, error_code)
 		VALUES ($1, $2, 'schedule', 'failed', now(), $3)`, run, conn, code)
 	execSQL(a.t, a.db, `INSERT INTO knowledge_settings (project_id, next_run_at) VALUES ($1, now() + interval '1 hour')
 		ON CONFLICT (project_id) DO UPDATE SET next_run_at = EXCLUDED.next_run_at`, project)
@@ -79,13 +79,13 @@ func TestCatalogActivityCountsFilesWaitingForEmbeddings(t *testing.T) {
 	eq(t, index["code"], any("search.embeddings_unavailable"))
 }
 
-func TestCatalogActivityOfForgeAndClusters(t *testing.T) {
+func TestCatalogActivityOfRepoSyncAndClusters(t *testing.T) {
 	t.Parallel()
 	a := startSources(t)
-	a.failForge(a.project, "forge.unauthorized")
-	forge := a.processes(a.project)["forge"]
-	eq(t, forge["state"], any("failed"))
-	eq(t, forge["code"], any("forge.unauthorized"))
+	a.failRepoSync(a.project, "hosting.unauthorized")
+	sync := a.processes(a.project)["repo_sync"]
+	eq(t, sync["state"], any("failed"))
+	eq(t, sync["code"], any("hosting.unauthorized"))
 
 	cluster := uuid.NewString()
 	execSQL(t, a.db, `INSERT INTO clusters (id, name, environment, in_cluster, status, last_error, next_run_at)
@@ -110,7 +110,7 @@ func TestCatalogActivitySummaryOfAFolder(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "README.md"), "# Billing")
 	a.useSource(billing, "local_dir", dir)
 	execSQL(t, a.db, "UPDATE knowledge_settings SET lease_until = now() + interval '1 minute' WHERE project_id = $1", billing)
-	a.failForge(users, "forge.unauthorized")
+	a.failRepoSync(users, "hosting.unauthorized")
 
 	r := a.get(activityPath(backend), a.admin)
 	eq(t, r.status, 200, r.text())
@@ -132,23 +132,23 @@ func TestCatalogActivitySummaryOfAFolder(t *testing.T) {
 	eq(t, a.bearer("GET", activityPath(billing), a.pat(viewer, "write"), nil).status, 403)
 }
 
-func TestCatalogActivityShowsTheContainersOwnForgeSync(t *testing.T) {
+func TestCatalogActivityShowsTheContainersOwnRepoSync(t *testing.T) {
 	t.Parallel()
 	a := startSources(t)
 	org := a.nodeID(a.admin, "organization", "", "fresh")
 	r := a.get(activityPath(org), a.admin).json(t)
 	eq(t, jsonText(r["processes"]), `[]`)
 	conn := uuid.NewString()
-	execSQL(t, a.db, `INSERT INTO forge_connections (id, node_id, kind, api_url, owner_path, interval_secs, credentials_secret_id, next_run_at, lease_until)
+	execSQL(t, a.db, `INSERT INTO repo_sync_connections (id, node_id, kind, api_url, owner_path, interval_secs, credentials_secret_id, next_run_at, lease_until)
 		VALUES ($1, $2, 'github', 'https://api.github.example', 'fresh', 600, $3, now() + interval '1 hour', now() + interval '1 minute')`, conn, org, refSecret(t, a.db, org))
 	r = a.get(activityPath(org), a.admin).json(t)
 	eq(t, jsonText(r["summary"]), `{"failed":0,"queued":0,"running":0}`)
-	eq(t, at(r, "processes", 0, "kind"), any("forge"))
+	eq(t, at(r, "processes", 0, "kind"), any("repo_sync"))
 	eq(t, at(r, "processes", 0, "state"), any("running"))
-	execSQL(t, a.db, "UPDATE forge_connections SET lease_until = NULL WHERE id = $1", conn)
-	execSQL(t, a.db, `INSERT INTO forge_sync_runs (id, connection_id, trigger, status, finished_at, error_code)
-		VALUES ($1, $2, 'schedule', 'failed', now(), 'forge.unauthorized')`, uuid.NewString(), conn)
+	execSQL(t, a.db, "UPDATE repo_sync_connections SET lease_until = NULL WHERE id = $1", conn)
+	execSQL(t, a.db, `INSERT INTO repo_sync_runs (id, connection_id, trigger, status, finished_at, error_code)
+		VALUES ($1, $2, 'schedule', 'failed', now(), 'hosting.unauthorized')`, uuid.NewString(), conn)
 	r = a.get(activityPath(org), a.admin).json(t)
 	eq(t, at(r, "processes", 0, "state"), any("failed"))
-	eq(t, at(r, "processes", 0, "code"), any("forge.unauthorized"))
+	eq(t, at(r, "processes", 0, "code"), any("hosting.unauthorized"))
 }

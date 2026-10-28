@@ -102,7 +102,7 @@ func TestDeliveryOutcomes(t *testing.T) {
 
 func TestDeliveryToCloudMetadataIsBlocked(t *testing.T) {
 	t.Parallel()
-	app := startForgeApp(t)
+	app := startRepoSyncApp(t)
 	root := app.admin()
 	acme := app.nodeID(root, "organization", "", "acme")
 	p := app.node(root, "project", acme, "api")
@@ -188,7 +188,7 @@ func TestDeliveryThroughTheProxy(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	t.Cleanup(proxy.Close)
-	app := startForgeApp(t, "NOTIFY_USE_PROXY", "true", "HTTP_PROXY", proxy.URL, "NOTIFY_ALLOW_PRIVATE", "false")
+	app := startRepoSyncApp(t, "NOTIFY_USE_PROXY", "true", "HTTP_PROXY", proxy.URL, "NOTIFY_ALLOW_PRIVATE", "false")
 	root := app.admin()
 	acme := app.nodeID(root, "organization", "", "acme")
 	app.mustSubscribe(root, acme, "named", app.hook(root, acme, "http://hooks.example/x"))

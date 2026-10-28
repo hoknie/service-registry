@@ -9,7 +9,7 @@ import (
 	deploytypes "svc-registry/internal/feature/deploy/types"
 	linkstypes "svc-registry/internal/feature/links/types"
 	"svc-registry/internal/testsupport/k8sfake"
-	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/hostingfake"
 )
 
 func (n *notifyTree) events(typ string) int64 {
@@ -112,13 +112,13 @@ func TestLinkRecoveryNeedsANotifiedFailure(t *testing.T) {
 	eq(t, n.events("link.check_failed"), int64(2))
 }
 
-func TestForgeSyncRecoveryAfterAFailure(t *testing.T) {
+func TestRepoSyncRecoveryAfterAFailure(t *testing.T) {
 	t.Parallel()
 	n := startNotifyTree(t, nil)
-	n.mustSubscribe(n.root, n.acme, "forge", n.hook(n.root, n.acme, "https://hooks.example/x", "forge.sync_failed",
-		"forge.sync_recovered"))
-	f := forgefake.Start(t, "gitlab", forgeToken, "acme")
-	secret := n.secret(n.root, n.acme, obj{"value": forgeToken})
+	n.mustSubscribe(n.root, n.acme, "repo-sync", n.hook(n.root, n.acme, "https://hooks.example/x", "repo_sync.failed",
+		"repo_sync.recovered"))
+	f := hostingfake.Start(t, "gitlab", hostingToken, "acme")
+	secret := n.secret(n.root, n.acme, obj{"value": hostingToken})
 	conn := idOf(n.connect(n.root, n.acme, f, obj{"credentials": obj{"secret_id": secret}}))
 	eq(t, n.syncNow(n.root, n.acme, conn)["status"], any("succeeded"))
 	eq(t, n.count("notification_events"), int64(0), "success without a failure")
@@ -128,15 +128,15 @@ func TestForgeSyncRecoveryAfterAFailure(t *testing.T) {
 	}
 	setToken("revoked")
 	eq(t, n.syncNow(n.root, n.acme, conn)["status"], any("failed"))
-	setToken(forgeToken)
+	setToken(hostingToken)
 	eq(t, n.syncNow(n.root, n.acme, conn)["status"], any("succeeded"))
-	eq(t, n.events("forge.sync_recovered"), int64(1))
-	n.recoversLast("forge.sync_failed", "forge.sync_recovered")
-	eq(t, scalar[string](t, n.db, "SELECT (payload->'data'->>'forge') || ' ' || coalesce(payload->'data'->>'error_code', 'none') FROM notification_events WHERE type = 'forge.sync_recovered'"),
+	eq(t, n.events("repo_sync.recovered"), int64(1))
+	n.recoversLast("repo_sync.failed", "repo_sync.recovered")
+	eq(t, scalar[string](t, n.db, "SELECT (payload->'data'->>'hosting') || ' ' || coalesce(payload->'data'->>'error_code', 'none') FROM notification_events WHERE type = 'repo_sync.recovered'"),
 		"gitlab none")
 	eq(t, n.syncNow(n.root, n.acme, conn)["status"], any("succeeded"))
-	eq(t, n.events("forge.sync_recovered"), int64(1))
+	eq(t, n.events("repo_sync.recovered"), int64(1))
 	setToken("revoked")
 	eq(t, n.syncNow(n.root, n.acme, conn)["status"], any("failed"))
-	eq(t, n.events("forge.sync_failed"), int64(2))
+	eq(t, n.events("repo_sync.failed"), int64(2))
 }

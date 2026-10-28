@@ -3,18 +3,18 @@ package tests
 import (
 	"testing"
 
-	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/hostingfake"
 )
 
 func TestRemoteSourceGivesRepositoryMetadataAndDefaultBranch(t *testing.T) {
 	t.Parallel()
 	a := startSources(t)
-	f := forgefake.Start(t, "github", forgeToken, "acme")
-	f.Put(forgefake.Repo{ID: 1, Path: "acme/api", DefaultBranch: "trunk", Topics: []string{"go"}, License: "MIT", Stars: 3,
+	f := hostingfake.Start(t, "github", hostingToken, "acme")
+	f.Put(hostingfake.Repo{ID: 1, Path: "acme/api", DefaultBranch: "trunk", Topics: []string{"go"}, License: "MIT", Stars: 3,
 		Readme: "# API\n", Languages: map[string]int{"Go": 1}, Files: map[string]string{"README.md": "# API\n"},
-		Branches: []forgefake.Branch{{Name: "trunk", SHA: sha(1)}}})
-	r := a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "remote", "forge": "github",
-		"url": "https://github.example/acme/api", "api_url": f.APIURL(), "credentials": a.tokenOn(a.admin, a.org, forgeToken)})
+		Branches: []hostingfake.Branch{{Name: "trunk", SHA: sha(1)}}})
+	r := a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "remote", "hosting": "github",
+		"url": "https://github.example/acme/api", "api_url": f.APIURL(), "credentials": a.tokenOn(a.admin, a.org, hostingToken)})
 	eq(t, r.status, 200, r.text())
 	eq(t, a.get(nodePath(a.project), a.admin).json(t)["repository"], nil)
 	a.collect()

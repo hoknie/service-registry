@@ -9,7 +9,7 @@ import { Button } from "../ui/Button";
 import { DangerZone } from "../places/DangerZone";
 import { Panel } from "../ui/Panel";
 import { DeleteDialog, EditForm, MoveDialog } from "./NodeForms";
-import { UnlinkForgeButton } from "./UnlinkForgeDialog";
+import { UnlinkRepoSyncButton } from "./UnlinkRepoSyncDialog";
 import { VisibilityPanel } from "./VisibilityPanel";
 import type { CatalogLabels } from "./shared";
 
@@ -41,7 +41,7 @@ export function SettingsGeneral({ node, labels, fail, canWrite, canMove, canDele
       <DangerZone
         title={t.danger}
         rows={[
-          ...(canUnlink ? [{ key: "unlink", text: labels.unlink.text, action: <UnlinkForgeButton node={node} labels={labels} fail={fail} onUnlinked={onSaved} /> }] : []),
+          ...(canUnlink ? [{ key: "unlink", text: labels.unlink.text, action: <UnlinkRepoSyncButton node={node} labels={labels} fail={fail} onUnlinked={onSaved} /> }] : []),
           ...(canMove
             ? [
                 {

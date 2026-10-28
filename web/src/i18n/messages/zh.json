@@ -258,7 +258,7 @@
       "invalid_node_name": "名称须为 1 到 100 个字符。",
       "invalid_description": "描述最多 2000 个字符。",
       "invalid_labels": "标签最多 32 个；键由小写字母、数字、点、下划线、连字符组成；值最多 63 个字符。",
-      "invalid_forge": "请选择 GitHub、GitLab、Forgejo 或 Gitea。",
+      "invalid_hosting": "请选择 GitHub、GitLab、Forgejo 或 Gitea。",
       "invalid_repo_url": "请输入 http(s) 仓库地址。",
       "invalid_branch": "分支名须为 1 到 255 个字符且不含空格。",
       "repo_fields_not_allowed": "仓库字段仅适用于项目。",
@@ -272,12 +272,12 @@
       "invalid_token_lifetime": "请选择不超过允许上限的有效期。",
       "invalid_token_nodes": "请选择 1 到 20 个你可读取的不同节点；节点不能与 admin 范围同时使用。",
       "invalid_token_prefix": "前缀最多 12 个字符。",
-      "invalid_api_url": "请输入有效的 API 地址：forge 使用 http(s)（Forgejo 和 Gitea 必填），集群使用 https（注册表运行在该集群内时无需填写）。",
+      "invalid_api_url": "请输入有效的 API 地址：代码托管平台使用 http(s)（Forgejo 和 Gitea 必填），集群使用 https（注册表运行在该集群内时无需填写）。",
       "invalid_owner_path": "请输入组织、用户或群组路径。",
       "invalid_name_patterns": "最多 32 个名称模式，每个 1 到 100 个字符。",
       "invalid_sync_interval": "间隔必须在 1 分钟到 24 小时之间。",
       "invalid_credentials": "请输入令牌或引用 env:名称 / file:/路径。",
-      "invalid_forge_container": "forge 连接只能属于组织和文件夹。",
+      "invalid_repo_sync_container": "仓库同步连接只能属于组织和文件夹。",
       "invalid_webhook_mode": "请选择 webhook 的设置方式。",
       "invalid_branch_state": "未知的分支筛选条件。",
       "invalid_link_kind_key": "键必须为 1–63 个字母 a–z、数字和“-”，且不能以“-”开头或结尾。",
@@ -359,7 +359,8 @@
       "invalid_member": "请选择人员和角色。",
       "invalid_invitation": "请检查邮箱、角色和语言。",
       "skill_folder_too_large": "该文件夹的技能过大，无法放入一个归档。",
-      "invalid_skill_set": "只能选择全局文件夹和技能，最多 500 个。"
+      "invalid_skill_set": "只能选择全局文件夹和技能，最多 500 个。",
+      "invalid_builtin_tools": "工具名称：最多 100 个，不可重复，由 a-z、0-9 和 _ 组成，以字母开头。"
     },
     "conflict": {
       "email_taken": "该邮箱已被其他用户使用。",
@@ -370,10 +371,10 @@
       "cycle": "不能将条目移动到其自身或其子孙中。",
       "node_not_empty": "只能删除空的条目。",
       "idempotency_key_reused": "此幂等键已用于另一个事件。",
-      "forge_owner_taken": "该 forge 所有者已连接。",
+      "repo_sync_owner_taken": "该代码托管平台所有者已连接。",
       "secrets_key_missing": "服务器没有加密密钥（SECRETS_KEYS）：请使用密钥引用代替令牌。",
       "public_url_missing": "未设置服务器的外部地址（PUBLIC_URL）。",
-      "managed_by_forge": "此项由 forge 同步管理。",
+      "managed_by_repo_sync": "此项由仓库同步管理。",
       "branch_is_default": "不能删除默认分支。",
       "link_kind_taken": "已存在使用此键的链接类型。",
       "link_kind_in_use": "此链接类型正被链接模板使用；请先删除或修改这些模板。",
@@ -382,7 +383,7 @@
       "membership_managed": "该成员关系来自登录提供方，不能在此移除。",
       "contact_editor_managed": "该联系人编辑权限来自登录提供方，不能在此移除。",
       "last_login_method": "这是你唯一的登录方式，请先设置密码。",
-      "knowledge_not_synced": "只有与 forge 同步的项目才会收集文档。",
+      "knowledge_not_synced": "只有关联仓库同步的项目才会收集文档。",
       "local_sources_disabled": "此服务器已关闭本地来源。",
       "self_service": "不能将自己的账号设为服务账号。",
       "user_disabled": "该用户已停用。",
@@ -390,7 +391,7 @@
       "secret_in_use": "密钥正在使用中——请先在连接、来源和集群中替换它。",
       "secret_name_taken": "此处已有同名密钥。",
       "link_kind_order_stale": "链接类型列表已变化并已重新加载，请重试。",
-      "forge_not_linked": "此项目未关联 forge 仓库。",
+      "repo_sync_not_linked": "此项目未关联仓库同步。",
       "cluster_mode_agent": "此集群的代理自行发送报告；注册表不轮询它。",
       "cluster_mode_poll": "注册表轮询此集群：它没有代理令牌。",
       "cluster_disabled": "集群已停用。",
@@ -428,15 +429,14 @@
       "payload_too_large": "事件过大。",
       "rate_limited": "事件过多，请稍后再试。"
     },
-    "forge": {
-      "unauthorized": "forge 拒绝了该令牌。",
-      "owner_not_found": "forge 上没有这个组织、用户或群组（或无权访问）。",
+    "hosting": {
+      "unauthorized": "代码托管平台拒绝了该令牌。",
+      "owner_not_found": "代码托管平台上没有这个组织、用户或群组（或无权访问）。",
       "credentials_unavailable": "无法读取令牌：缺少加密密钥、变量或文件。",
-      "rate_limited": "forge 的请求限额已用完，请稍后重试。",
-      "upstream_error": "forge 未正确响应。",
-      "interrupted": "同步被中断。",
-      "not_found": "forge 上已不存在该仓库或提交。",
-      "value_too_long": "forge 上的仓库路径或地址过长，已跳过该仓库。"
+      "rate_limited": "代码托管平台的请求限额已用完，请稍后重试。",
+      "upstream_error": "代码托管平台未正确响应。",
+      "not_found": "代码托管平台上已不存在该仓库或提交。",
+      "value_too_long": "代码托管平台上的仓库路径或地址过长，已跳过该仓库。"
     },
     "branches": {
       "truncated": "仓库的分支数超过上限，部分分支未被获取。"
@@ -515,6 +515,9 @@
       "not_pending": "该邀请已过期、已被接受或已被撤销。",
       "sign_in_required": "已存在使用该地址的账号——请登录后接受邀请。",
       "email_mismatch": "该邀请是发给另一个邮箱的。"
+    },
+    "repo_sync": {
+      "interrupted": "同步被中断。"
     }
   },
   "guard": {
@@ -1221,7 +1224,6 @@
       "label": "分区",
       "keys": "密钥",
       "connect": "发送事件",
-      "forge": "Forge",
       "branches": "分支",
       "links": "链接",
       "docs": "文档",
@@ -1257,8 +1259,8 @@
       "submit": "保存",
       "done": "已保存。",
       "titleOf": "编辑“{name}”",
-      "fromForge": "来自 forge",
-      "managedNote": "从 forge 同步：描述和仓库字段需在 forge 上修改。"
+      "fromRepoSync": "来自仓库同步",
+      "managedNote": "从代码托管平台同步：描述和仓库字段需在代码托管平台上修改。"
     },
     "move": {
       "title": "移动",
@@ -1277,17 +1279,17 @@
     },
     "repo": {
       "title": "代码仓库",
-      "forge": "托管平台",
+      "hosting": "代码托管平台",
       "url": "仓库地址",
       "branch": "默认分支",
-      "noForge": "未设置",
+      "noHosting": "未设置",
       "clusterObservation": "在集群中观测",
       "clusterObservationHint": "关闭后，将隐藏该项目在 Kubernetes 集群中的状态，也不再记录来自集群的部署。",
       "section": "仓库与文档",
       "mode": "类型",
       "link": "仅链接（不收集文档）",
       "checkSource": "检查来源",
-      "managedSource": "链接和文档来源来自 forge；如需修改，请先解除项目关联。",
+      "managedSource": "链接和文档来源来自代码托管平台；如需修改，请先解除项目关联。",
       "branchHint": "选择已知分支或输入名称。"
     },
     "keys": {
@@ -1433,13 +1435,13 @@
     "actions": {
       "more": "更多操作"
     },
-    "forge": {
-      "title": "Forge 连接",
+    "repoSync": {
+      "title": "仓库同步",
       "lead": "将 GitHub、GitLab、Forgejo 或 Gitea 所有者的仓库导入为此节点下的项目，并保持其元数据最新。",
       "empty": "还没有连接。",
-      "emptyText": "连接一个 forge 所有者以导入其仓库。",
+      "emptyText": "连接一个代码托管平台所有者以导入其仓库。",
       "add": "新建连接",
-      "kind": "Forge",
+      "kind": "代码托管平台",
       "owner": "所有者",
       "ownerHint": "组织或用户；GitLab 填写完整群组路径，例如 acme/platform。",
       "apiUrl": "API 地址",
@@ -1487,7 +1489,7 @@
         "running": "运行中",
         "succeeded": "成功",
         "failed": "失败",
-        "rate_limited": "受 forge 限流"
+        "rate_limited": "受代码托管平台限流"
       },
       "counts": "创建 {created} · 更新 {updated} · 孤立 {orphaned} · 跳过 {skipped}",
       "lastRun": "上次运行",
@@ -1505,16 +1507,16 @@
       "confirmDelete": "删除与 {owner} 的连接？其项目将作为手动项目保留在目录中。",
       "deleted": "连接已删除。",
       "webhook": "Webhook",
-      "webhookLead": "forge 会通知注册表推送和仓库变更；定时同步作为备用。",
-      "register": "在 forge 上注册",
+      "webhookLead": "代码托管平台会通知注册表推送和仓库变更；定时同步作为备用。",
+      "register": "在代码托管平台上注册",
       "registerHint": "令牌需要所有者的管理员权限。",
       "manual": "手动设置",
       "registered": "Webhook 已注册。",
       "webhookUrl": "地址",
       "webhookSecret": "密钥",
-      "secretOnce": "密钥只显示这一次。请将其粘贴到 forge 的 webhook 设置中。",
+      "secretOnce": "密钥只显示这一次。请将其粘贴到代码托管平台的 webhook 设置中。",
       "modes": {
-        "register": "已在 forge 上注册",
+        "register": "已在代码托管平台上注册",
         "manual": "手动设置"
       },
       "noWebhook": "没有 webhook。",
@@ -1529,14 +1531,14 @@
       "recompute": "重新计算",
       "exclusions": {
         "title": "已排除的仓库",
-        "empty": "没有排除项。在项目页面使用“与 forge 解除关联”即可排除项目。",
+        "empty": "没有排除项。在项目页面使用“解除仓库同步关联”即可排除项目。",
         "restore": "恢复同步",
         "confirm": "删除排除项？项目将在下次运行时重新同步。",
         "restored": "排除项已删除；下次同步将恢复该项目。"
       }
     },
     "repoMeta": {
-      "open": "在 forge 上打开",
+      "open": "在代码托管平台上打开",
       "topics": "主题",
       "languages": "语言",
       "stars": "星标",
@@ -1551,14 +1553,14 @@
       "synced": "同步时间",
       "archived": "已归档",
       "orphaned": "孤立",
-      "orphanedText": "该仓库已从 forge 消失（被删除、移动或无法访问）。项目不再同步，可以删除。",
+      "orphanedText": "该仓库已从代码托管平台消失（被删除、移动或无法访问）。项目不再同步，可以删除。",
       "managed": "同步中",
       "readme": "README",
       "readmeTruncated": "README 在此处被截断。",
-      "readmeFull": "在 forge 上查看完整 README",
+      "readmeFull": "在代码托管平台上查看完整 README",
       "none": "—",
       "origin": "来源",
-      "originForge": "从 forge 同步：{owner}",
+      "originRepoSync": "从代码托管平台同步：{owner}",
       "originSource": "文档来源：{kind}",
       "originLink": "仅链接",
       "collected": "上次收集"
@@ -1571,7 +1573,7 @@
       "pickerTags": "标签",
       "pickerRelease": "当前发布",
       "title": "分支",
-      "lead": "来自 forge、CI 事件以及默认分支的项目分支。已消失和长期不活跃的分支会自动清理；默认分支和固定的分支会保留。",
+      "lead": "来自代码托管平台、CI 事件以及默认分支的项目分支。已消失和长期不活跃的分支会自动清理；默认分支和固定的分支会保留。",
       "search": "分支名开头为",
       "states": {
         "active": "活跃",
@@ -1589,7 +1591,7 @@
         "actions": "操作"
       },
       "sources": {
-        "forge": "forge",
+        "repo_sync": "仓库同步",
         "ingest": "CI",
         "manual": "项目",
         "cluster": "集群",
@@ -1608,7 +1610,7 @@
       "unpinned": "分支已取消固定。",
       "delete": "删除记录",
       "deleteTitle": "删除分支记录",
-      "confirmDelete": "删除 {name} 的记录？该分支的部署记录会保留；如果 forge 或 CI 再次出现该分支，它会重新出现。",
+      "confirmDelete": "删除 {name} 的记录？该分支的部署记录会保留；如果代码托管平台或 CI 再次出现该分支，它会重新出现。",
       "deleted": "分支记录已删除。",
       "never": "无活动",
       "searchSubmit": "搜索",
@@ -1716,7 +1718,7 @@
         "failed": "失败"
       },
       "partialHint": "部分文件未保存：过大、不是文本或超出限制。",
-      "truncated": "forge 返回的文件树不完整。",
+      "truncated": "代码托管平台返回的文件树不完整。",
       "failed": "上次尝试失败：{error}",
       "pending": "等待收集。",
       "never": "尚未收集。",
@@ -1789,24 +1791,24 @@
         "eventServiceDeployedHint": "已接收的 service.deployed 事件。",
         "eventClusterDeployed": "在集群中发现的部署",
         "eventClusterDeployedHint": "Kubernetes 中出现新版本，但没有 CI 事件。",
-        "eventForgeWebhook": "Forge Webhook",
-        "eventForgeWebhookHint": "通过 Webhook 送达的 push 移动了分支头。",
-        "eventForgeManual": "手动 Forge 同步",
-        "eventForgeManualHint": "“同步”按钮或 forge:sync 移动了分支头。"
+        "eventRepoSyncWebhook": "代码托管平台 Webhook",
+        "eventRepoSyncWebhookHint": "通过 Webhook 送达的 push 移动了分支头。",
+        "eventRepoSyncManual": "手动仓库同步",
+        "eventRepoSyncManualHint": "“同步”按钮或 repo:sync 移动了分支头。"
       },
-      "noSource": "文档需要来源：将项目与 forge 同步，或在文档设置中设置来源。",
+      "noSource": "文档需要来源：将项目关联到仓库同步，或在文档设置中设置来源。",
       "source": {
         "title": "来源",
         "lead": "此项目文档的收集来源。",
-        "forgeSync": "通过 forge 同步收集。",
+        "repoSync": "通过仓库同步收集。",
         "none": "无来源。",
         "kind": "类型",
         "kinds": {
-          "remote": "按地址的仓库",
-          "local_dir": "本地目录",
-          "local_git": "本地 git 仓库"
+          "remote": "仓库",
+          "local_dir": "本地文件夹",
+          "local_git": "本地仓库"
         },
-        "forge": "Forge",
+        "hosting": "代码托管平台",
         "url": "仓库地址",
         "urlHint": "例如 https://gitlab.example.com/platform/api",
         "apiUrl": "API 地址",
@@ -1836,8 +1838,8 @@
         "includeIgnoredHint": "匹配包含模式的文件即使被 git 忽略也会被收集；其他被忽略的文件不会。建议使用较窄的模式，例如 openspec/**/*.md。",
         "includeIgnoredOn": "提交、未提交的文件以及按模式匹配的被 git 忽略的文件",
         "recompute": "重新计算",
-        "fromForge": "来自 forge：{owner}",
-        "unlinkLink": "与 forge 解除关联…"
+        "fromRepoSync": "来自仓库同步：{owner}",
+        "unlinkLink": "解除仓库同步关联…"
       },
       "onlyReadme": "只收集根目录的 README——请在文档设置中选择目录。",
       "toSettings": "打开文档设置",
@@ -1936,7 +1938,7 @@
       "kinds": {
         "collect": "文档收集",
         "index": "搜索索引",
-        "forge": "Forge 同步",
+        "repo_sync": "仓库同步",
         "clusters": "集群轮询"
       },
       "states": {
@@ -2005,7 +2007,7 @@
         "keys": "密钥",
         "access": "访问",
         "connect": "发送事件",
-        "forge": "Forge",
+        "repo-sync": "仓库同步",
         "secrets": "密钥",
         "scans": "扫描历史",
         "owners": "负责人",
@@ -2035,13 +2037,13 @@
       "template": "模板"
     },
     "unlink": {
-      "button": "与 forge 解除关联",
-      "title": "与 forge 解除关联",
-      "text": "停止与 forge 同步此项目，改为手动编辑。",
+      "button": "解除仓库同步关联",
+      "title": "解除仓库同步关联",
+      "text": "停止通过仓库同步更新此项目，改为手动编辑。",
       "confirm": "仓库将加入连接的排除列表，项目变为手动项目。其文档来源保留为按地址的仓库，并使用连接的密钥。如需恢复，请在连接对话框中删除该排除项。",
       "noSecret": "该连接没有命名密钥：新来源将没有令牌。",
       "submit": "解除关联",
-      "done": "项目已与 forge 解除关联。"
+      "done": "项目已解除仓库同步关联。"
     },
     "owners": {
       "title": "负责人",
@@ -2295,10 +2297,10 @@
       "event": "按事件"
     },
     "sources": {
-      "forge": "Forge 同步",
-      "remote": "按地址的仓库",
-      "local_dir": "本地目录",
-      "local_git": "本地 git",
+      "repo_sync": "仓库同步",
+      "remote": "仓库",
+      "local_dir": "本地文件夹",
+      "local_git": "本地仓库",
       "none": "无来源"
     },
     "columns": {
@@ -2379,7 +2381,7 @@
         },
         "truncated": {
           "title": "仓库文件树被截断",
-          "text": "Forge 只返回了部分文件树，可能缺少一些文件。",
+          "text": "代码托管平台只返回了部分文件树，可能缺少一些文件。",
           "hint": "缩小包含模式，或从更小的仓库收集。"
         },
         "no_branches": {
@@ -2389,8 +2391,8 @@
         },
         "no_source": {
           "title": "项目没有文档来源",
-          "text": "既没有文档来源，也没有 forge 同步，因此没有可收集的内容。",
-          "hint": "在“文档设置”→“来源”中设置来源，或将文件夹连接到 forge。"
+          "text": "既没有文档来源，也没有仓库同步，因此没有可收集的内容。",
+          "hint": "在“文档设置”→“来源”中设置来源，或将文件夹连接到仓库同步。"
         },
         "manifest_invalid": {
           "title": "项目描述文件未完整读取",
@@ -2420,35 +2422,35 @@
           "hint": "将文档移到允许的根目录下，或扩展 KNOWLEDGE_LOCAL_ROOTS。"
         }
       },
-      "forge": {
+      "hosting": {
         "credentials_unavailable": {
           "title": "访问令牌不可用",
           "text": "已保存的令牌无法解密，或 env:/file: 引用无法解析。",
           "hint": "重新输入令牌，或检查 SECRETS_KEYS 以及所引用的变量或文件。"
         },
         "unauthorized": {
-          "title": "Forge 拒绝了令牌",
+          "title": "代码托管平台拒绝了令牌",
           "text": "令牌无效、已过期或没有该仓库的权限。",
           "hint": "签发具有仓库读取权限的令牌，并保存到来源或连接中。"
         },
         "not_found": {
-          "title": "Forge 上找不到该仓库",
-          "text": "Forge 不认识该仓库，或对该令牌隐藏了它。",
+          "title": "代码托管平台上找不到该仓库",
+          "text": "代码托管平台不认识该仓库，或对该令牌隐藏了它。",
           "hint": "检查地址以及令牌能否看到该仓库。"
         },
         "owner_not_found": {
-          "title": "Forge 上找不到所有者",
+          "title": "代码托管平台上找不到所有者",
           "text": "连接所指的组织、群组或用户不存在或被隐藏。",
-          "hint": "检查 forge 连接中的所有者路径。"
+          "hint": "检查仓库同步连接中的所有者路径。"
         },
         "rate_limited": {
-          "title": "Forge 请求配额已用完",
+          "title": "代码托管平台请求配额已用完",
           "text": "API 请求过多；下一次运行会等待配额重置。",
           "hint": "使用配额更高的令牌，或减少收集的分支。"
         },
         "upstream_error": {
-          "title": "Forge 或存储出错",
-          "text": "Forge 返回了错误，或快照未能保存。",
+          "title": "代码托管平台或存储出错",
+          "text": "代码托管平台返回了错误，或快照未能保存。",
           "hint": "查看技术详情；运行会自动重试。"
         }
       },
@@ -2492,7 +2494,7 @@
   },
   "secrets": {
     "title": "密钥",
-    "nodeIntro": "此节点的令牌和访问密钥。此处及下级的 forge 连接和文档来源可选择它们；保存后不再显示值。",
+    "nodeIntro": "此节点的令牌和访问密钥。此处及下级的仓库同步连接和文档来源可选择它们；保存后不再显示值。",
     "globalIntro": "全局密钥可供所有节点和集群使用。保存后不再显示值。",
     "name": "名称",
     "description": "描述",
@@ -2625,7 +2627,7 @@
     "title": "通知",
     "lead": "此节点及其下所有内容的事件发送到哪里：Webhook 或 Slack。上级设置的订阅在这里同样生效，直到被覆盖或停用。",
     "empty": "没有订阅",
-    "emptyText": "添加 Webhook 或 Slack 频道，以便获知部署、版本偏差、失效链接和代码托管同步失败。",
+    "emptyText": "添加 Webhook 或 Slack 频道，以便获知部署、版本偏差、失效链接和仓库同步失败。",
     "add": "新建订阅",
     "columns": {
       "key": "键",
@@ -2645,10 +2647,10 @@
       "deployment.created": "部署",
       "deployment.drift": "版本偏差",
       "link.check_failed": "链接失效",
-      "forge.sync_failed": "代码托管同步失败",
+      "repo_sync.failed": "仓库同步失败",
       "deployment.drift_resolved": "版本偏差已消除",
       "link.check_recovered": "链接已恢复",
-      "forge.sync_recovered": "同步已恢复",
+      "repo_sync.recovered": "仓库同步已恢复",
       "test": "测试"
     },
     "allEnvironments": "全部",
@@ -2678,7 +2680,7 @@
       "secretHint": "密钥中保存 Webhook 地址；Slack 使用 https://hooks.slack.com/ incoming webhook。",
       "events": "事件",
       "environments": "环境",
-      "environmentsHint": "留空表示所有环境。失效链接和代码托管失败没有环境，总会通过。",
+      "environmentsHint": "留空表示所有环境。失效链接和仓库同步失败没有环境，总会通过。",
       "locale": "消息语言",
       "disabled": "已停用",
       "disabledHint": "停用的订阅不接收任何内容，并会关闭上级的同键订阅。",
@@ -2950,10 +2952,10 @@
       "deleteText": "删除来源及其 {count} 个技能？",
       "empty": "没有 git 来源",
       "kind": "类型",
-      "remote": "代码托管平台上的仓库",
-      "localGit": "本地 git 仓库",
-      "localDir": "本地目录",
-      "forge": "代码托管平台",
+      "remote": "仓库",
+      "localGit": "本地仓库",
+      "localDir": "本地文件夹",
+      "hosting": "代码托管平台",
       "url": "仓库地址",
       "apiUrl": "API 地址",
       "recompute": "重新计算",
@@ -3027,13 +3029,6 @@
       "folderOff": "文件夹已停用——没有可安装的内容。",
       "folderOffBy": "上级文件夹 {name} 已停用。"
     },
-    "importDialog": {
-      "menu": "从 git 导入",
-      "title": "从 git 导入",
-      "name": "文件夹名称",
-      "nameHint": "留空——使用仓库名称（{name}）",
-      "submit": "导入"
-    },
     "folderConnect": {
       "title": "安装文件夹",
       "count": "归档中的技能：{count}",
@@ -3054,6 +3049,16 @@
       "note": "技能集作用于绑定到此组织节点的令牌和应用。组织自身的技能始终可用。",
       "readonly": "组织的编辑者可以修改技能集。",
       "empty": "未选择任何内容：带有本组织节点的令牌将无法获取全局技能。"
+    },
+    "importPage": {
+      "menu": "从 git 导入",
+      "title": "从 git 导入",
+      "name": "文件夹名称",
+      "nameHint": "留空——使用仓库名称（{name}）",
+      "submit": "导入",
+      "lead": "创建一个跟随 git 仓库的文件夹：所选目录下每个包含 SKILL.md 的文件夹都会成为一个技能。",
+      "space": "空间",
+      "cancel": "取消"
     }
   },
   "mcp": {
@@ -3300,6 +3305,13 @@
       "state": "状态",
       "tools": "工具",
       "accessNote": "单个服务器还会受到其自身访问列表（服务器页面上的“设置 → 访问”）和组织服务器集合的进一步限制："
+    },
+    "builtin": {
+      "badge": "内置",
+      "aboutTitle": "注册中心的工具",
+      "description": "注册中心自身的 MCP 服务器：通过与外部服务器相同的 /api/mcp 端点提供目录中的项目、部署、链接、依赖、文档、API 描述和技能。",
+      "noPrefix": "注册中心自身的工具没有前缀：list_projects、get_doc、get_skill 等。",
+      "toolsOf": "工具：{count} / {total}"
     }
   },
   "invite": {

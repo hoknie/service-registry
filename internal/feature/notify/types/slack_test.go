@@ -131,8 +131,8 @@ func TestSlackRecoveries(t *testing.T) {
 			PreviousStatus: "server_error"}), "es", []string{"Enlace restablecido", "grafana", "ok"}},
 		{"drift in russian", payloadOf(t, EventDriftResolved, DriftResolvedData{Service: "api", Environment: "production",
 			Version: "1.5.0"}), "ru", []string{"Расхождение ушло", "1.5.0", "production"}},
-		{"forge in chinese", payloadOf(t, EventForgeRecovered, ForgeData{Forge: "github", OwnerPath: "acme"}), "zh",
-			[]string{"代码托管同步已恢复", "github acme"}},
+		{"hosting in chinese", payloadOf(t, EventRepoSyncRecovered, RepoSyncData{Hosting: "github", OwnerPath: "acme"}), "zh",
+			[]string{"仓库同步已恢复", "github acme"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -151,7 +151,7 @@ func TestEpisodeKeysFitTheColumn(t *testing.T) {
 	t.Parallel()
 	id := uuid.Must(uuid.NewV7())
 	for _, k := range []string{DriftEpisode(id, strings.Repeat("s", 63), strings.Repeat("e", 63)),
-		LinkEpisode(id, id, strings.Repeat("k", 63)), ForgeEpisode(id)} {
+		LinkEpisode(id, id, strings.Repeat("k", 63)), RepoSyncEpisode(id)} {
 		if len(k) > 200 {
 			t.Errorf("%d bytes: %s", len(k), k)
 		}

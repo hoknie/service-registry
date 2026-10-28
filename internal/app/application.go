@@ -11,8 +11,6 @@ import (
 	catalogservices "svc-registry/internal/feature/catalog/services"
 	composeservices "svc-registry/internal/feature/compose/services"
 	deployservices "svc-registry/internal/feature/deploy/services"
-	"svc-registry/internal/feature/forge/clients/forgeclient"
-	forgeservices "svc-registry/internal/feature/forge/services"
 	gatewayservices "svc-registry/internal/feature/gateway/services"
 	ingestservices "svc-registry/internal/feature/ingest/services"
 	"svc-registry/internal/feature/knowledge/clients/source"
@@ -25,6 +23,8 @@ import (
 	notifyservices "svc-registry/internal/feature/notify/services"
 	ownershipservices "svc-registry/internal/feature/ownership/services"
 	publishingservices "svc-registry/internal/feature/publishing/services"
+	"svc-registry/internal/feature/reposync/clients/hostingclient"
+	reposyncservices "svc-registry/internal/feature/reposync/services"
 	skillsports "svc-registry/internal/feature/skills/ports"
 	skillsservices "svc-registry/internal/feature/skills/services"
 	topologyservices "svc-registry/internal/feature/topology/services"
@@ -52,7 +52,7 @@ type App struct {
 	Notify      *notifyservices.NotifyServices
 	Topology    *topologyservices.TopologyServices
 	Ingest      *ingestservices.IngestServices
-	Forge       *forgeservices.ForgeServices
+	RepoSync    *reposyncservices.RepoSyncServices
 	Deploy      *deployservices.DeployServices
 	Knowledge   *knowledgeservices.KnowledgeServices
 	Publishing  *publishingservices.PublishingServices
@@ -88,8 +88,8 @@ func New(cfg config.Config, opts ...Option) (*App, error) {
 		Metrics: m,
 		search:  srch,
 	}
-	forges := forgeclient.NewFactoryClient(m.Client("forge", outbound.New(cfg.Outbound.Options())))
-	readers := &source.FactoryClient{Roots: cfg.Knowledge.LocalRoots, Forges: forges,
+	hostings := hostingclient.NewFactoryClient(m.Client("hosting", outbound.New(cfg.Outbound.Options())))
+	readers := &source.FactoryClient{Roots: cfg.Knowledge.LocalRoots, Hostings: hostings,
 		MaxFileBytes: cfg.Knowledge.MaxFileBytes, MaxBranches: int(cfg.Branches.SyncMaxPerRepo)}
 	a.Access = accessservices.New(accessservices.Deps{DB: db, Config: &cfg, Hasher: a.Hasher,
 		OAuth:          oidc.NewOIDCClient(cfg.OAuth, cfg.Web.PublicURL, m.Client("oidc", outbound.New(cfg.Outbound.Options()))),
@@ -104,27 +104,27 @@ func New(cfg config.Config, opts ...Option) (*App, error) {
 	a.Topology = topologyservices.New(topologyservices.Deps{DB: db, Catalog: a.Catalog})
 	a.Ingest = ingestservices.New(ingestservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Limiter: auth.NewIngestLimiter(cfg.Ingest),
 		Notify: a.Notify, Topology: a.Topology, Metrics: m})
-	a.Forge = forgeservices.New(forgeservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Clients: forges, Secrets: a.Secrets,
+	a.RepoSync = reposyncservices.New(reposyncservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Clients: hostings, Secrets: a.Secrets,
 		Notify: a.Notify})
 	a.Deploy = deployservices.New(deployservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Ingest: a.Ingest,
 		K8s: instrument(m, "kubernetes", k8sFactory(o, cfg.Outbound, cfg.K8s.K8sClientConfig)), Secrets: a.Secrets, Notify: a.Notify, Topology: a.Topology})
-	a.Knowledge = knowledgeservices.New(knowledgeservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Forge: a.Forge,
+	a.Knowledge = knowledgeservices.New(knowledgeservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, RepoSync: a.RepoSync,
 		Engine: srch.engine, External: srch.external, Embedder: srch.embedder, Secrets: a.Secrets, Topology: a.Topology,
 		Readers: readers})
 	a.Apis = apisservices.New(apisservices.Deps{Knowledge: a.Knowledge})
 	a.Publishing = publishingservices.New(publishingservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Knowledge: a.Knowledge, Apis: a.Apis,
 		Limiter: auth.NewPublicDocsLimiter(cfg.DocsPublic.RatePerMinute)})
-	a.Compose = composeservices.New(composeservices.Deps{Catalog: a.Catalog, Forge: a.Forge, Knowledge: a.Knowledge, Links: a.Links,
+	a.Compose = composeservices.New(composeservices.Deps{Catalog: a.Catalog, RepoSync: a.RepoSync, Knowledge: a.Knowledge, Links: a.Links,
 		Ownership: a.Ownership})
 	a.Access.Use(a.Catalog.Access)
 	a.Access.UseStewards(a.Ownership.Ports)
 	a.Access.UseOrganizations(a.Catalog.Access)
-	a.Catalog.Use(a.Forge.Ports, a.Knowledge.Ports, a.Forge.Ports, a.Deploy.Ports)
+	a.Catalog.Use(a.RepoSync.Ports, a.Knowledge.Ports, a.RepoSync.Ports, a.Deploy.Ports)
 	if err := a.buildSkills(o, readers); err != nil {
 		pool.Close()
 		return nil, err
 	}
-	users := []catalogports.SecretUserPort{a.Forge.Ports, a.Knowledge.Ports, a.Deploy.Ports, a.Notify.Ports}
+	users := []catalogports.SecretUserPort{a.RepoSync.Ports, a.Knowledge.Ports, a.Deploy.Ports, a.Notify.Ports}
 	if a.Skills != nil {
 		users = append(users, a.Skills.Ports)
 	}
@@ -138,7 +138,7 @@ func New(cfg config.Config, opts ...Option) (*App, error) {
 	a.Access.UseInvitations(a.Membership.Ports)
 	a.Catalog.UseOwners(a.Ownership.Ports, a.Ownership.Ports)
 	a.Catalog.UseTokenRoots(a.Access.Tokens)
-	a.Forge.Use(a.Knowledge.Sources, a.Knowledge.Ports)
+	a.RepoSync.Use(a.Knowledge.Sources, a.Knowledge.Ports)
 	a.Ingest.Use(a.Knowledge.Ports)
 	a.Sampler = a.newSampler(o.metricSources)
 	if !a.Catalog.Wired() {

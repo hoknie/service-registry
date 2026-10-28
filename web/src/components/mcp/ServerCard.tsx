@@ -85,10 +85,11 @@ export function StateBadge({
 export function ServerCard({ server, locale, labels: t }: { server: McpServer; locale: Locale; labels: Messages["mcp"] }) {
   const shown = server.tags.slice(0, 5);
   return (
-    <PlaceCard href={`/${locale}/mcp/server?id=${server.id}`} icon={<ServerIcon server={server} size="sm" />} name={server.title} kind={t.place.server} slug={`${server.slug}__*`}>
+    <PlaceCard href={`/${locale}/mcp/server?id=${server.id}`} icon={<ServerIcon server={server} size="sm" />} name={server.title} kind={t.place.server} slug={server.builtin ? server.slug : `${server.slug}__*`}>
       {server.description && <p className="mt-3 line-clamp-3 text-sm text-ink-2">{server.description}</p>}
       <span className="mt-3 flex flex-wrap gap-1.5">
         <StateBadge server={server} labels={t} />
+        {server.builtin && <Badge tone="cobalt">{t.builtin.badge}</Badge>}
         {server.status === "draft" && <Badge tone="amber">{t.statuses.draft}</Badge>}
         {shown.map((tag) => (
           <Badge key={tag} tone="neutral">
@@ -99,13 +100,19 @@ export function ServerCard({ server, locale, labels: t }: { server: McpServer; l
       <span className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
         <span className="inline-flex items-center gap-1">
           <Wrench aria-hidden="true" className="size-3" />
-          {format(t.toolsCount, { count: server.tools_count })}
+          {server.tools_total !== undefined
+            ? format(t.builtin.toolsOf, { count: server.tools_count, total: server.tools_total })
+            : format(t.toolsCount, { count: server.tools_count })}
         </span>
-        <span className="inline-flex items-center gap-1">
-          <Activity aria-hidden="true" className="size-3" />
-          {format(t.callsCount, { count: server.calls })}
-        </span>
-        <span title={when(server.updated_at, locale, "")}>{format(t.updated, { when: ago(server.updated_at, locale, "") })}</span>
+        {!server.builtin && (
+          <>
+            <span className="inline-flex items-center gap-1">
+              <Activity aria-hidden="true" className="size-3" />
+              {format(t.callsCount, { count: server.calls })}
+            </span>
+            <span title={when(server.updated_at, locale, "")}>{format(t.updated, { when: ago(server.updated_at, locale, "") })}</span>
+          </>
+        )}
         {server.author && <span>{server.author}</span>}
       </span>
     </PlaceCard>

@@ -71,9 +71,9 @@ func TestAdoptedSecretName(t *testing.T) {
 		taken []string
 		want  string
 	}{
-		{"free", "forge-acme", nil, "forge-acme"},
-		{"taken", "forge-acme", []string{"forge-acme"}, "forge-acme-2"},
-		{"taken case-insensitive", "forge-acme", []string{"FORGE-ACME", "forge-acme-2"}, "forge-acme-3"},
+		{"free", "repo-acme", nil, "repo-acme"},
+		{"taken", "repo-acme", []string{"repo-acme"}, "repo-acme-2"},
+		{"taken case-insensitive", "repo-acme", []string{"REPO-ACME", "repo-acme-2"}, "repo-acme-3"},
 		{"control characters", "source-a\tb", nil, "source-a-b"},
 		{"empty", "  ", nil, "secret"},
 		{"long", long, nil, strings.Repeat("a", 100)},

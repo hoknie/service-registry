@@ -99,7 +99,7 @@ func TestRefreshModeIsInheritedAndChecked(t *testing.T) {
 
 	r := a.send("PUT", settingsPath(a.org), a.admin, obj{"refresh": "event"})
 	eq(t, r.status, 200, r.text())
-	contains(t, r.text(), `"refresh":"event","refresh_events":["service.deployed","cluster.deployed","forge.webhook","forge.manual"],"interval_secs":300`)
+	contains(t, r.text(), `"refresh":"event","refresh_events":["service.deployed","cluster.deployed","repo_sync.webhook","repo_sync.manual"],"interval_secs":300`)
 	contains(t, r.text(), `"own":{"refresh":"event"}`)
 	s := a.get(settingsPath(other), a.admin).json(t)
 	eq(t, s["refresh"], any("event"))

@@ -11,6 +11,7 @@ import {
   type McpServerPage,
   type McpSpace,
   type McpTool,
+  type McpBuiltin,
   type McpVisibility,
 } from "./mcp";
 
@@ -81,3 +82,8 @@ export const loadVisibility = (org?: string | null) =>
   apiGet<McpVisibility>(
     `${MCP_BASE}/visibility${org ? `?organization_id=${encodeURIComponent(org)}` : ""}`,
   );
+
+export const loadBuiltin = () => apiGet<McpBuiltin>(`${MCP_BASE}/builtin`);
+
+export const putBuiltinDisabled = (tools: string[]) =>
+  apiSend<McpBuiltin>("PUT", `${MCP_BASE}/builtin/tools/disabled`, { tools });

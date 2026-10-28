@@ -10,7 +10,7 @@ import (
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/hostingfake"
 )
 
 type bearerTransport struct{ token string }
@@ -130,7 +130,7 @@ func TestMCPResultsAreBoundedAndResourcesRead(t *testing.T) {
 	t.Parallel()
 	d, token := mcpDocs(t, "KNOWLEDGE_MCP_MAX_RESULT_BYTES", "4096")
 	d.app.send("PUT", knowledgePath(d.id)+"/settings", d.admin, obj{"include": []string{"README.md", "big.md"}})
-	d.push(map[string]string{"README.md": "# API", "big.md": strings.Repeat("word ", 4096)}, forgefake.Branch{Name: "main", SHA: sha(2)})
+	d.push(map[string]string{"README.md": "# API", "big.md": strings.Repeat("word ", 4096)}, hostingfake.Branch{Name: "main", SHA: sha(2)})
 	d.app.collect()
 	s := d.app.mcpSession(token)
 	out, _ := call(t, s, "get_doc", map[string]any{"project": "acme/api", "path": "big.md"})

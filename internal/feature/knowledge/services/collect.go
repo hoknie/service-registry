@@ -12,12 +12,12 @@ import (
 	accesstypes "svc-registry/internal/feature/access/types"
 	catalogservices "svc-registry/internal/feature/catalog/services"
 	catalogtypes "svc-registry/internal/feature/catalog/types"
-	forgeservices "svc-registry/internal/feature/forge/services"
-	forgetypes "svc-registry/internal/feature/forge/types"
 	knowledgeports "svc-registry/internal/feature/knowledge/ports"
 	"svc-registry/internal/feature/knowledge/repositories"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/feature/knowledge/usecases"
+	reposyncservices "svc-registry/internal/feature/reposync/services"
+	reposynctypes "svc-registry/internal/feature/reposync/types"
 	topologyservices "svc-registry/internal/feature/topology/services"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
@@ -88,7 +88,7 @@ func (s *CollectService) RunKnowledgeCollect(ctx context.Context, id uuid.UUID) 
 	case src != nil:
 		reader, heads, err = run.sourceHeads(ctx, src)
 	case p.Synced:
-		reader, heads, err = run.forgeHeads(ctx)
+		reader, heads, err = run.repoSyncHeads(ctx)
 	default:
 		run.scan.Warn(knowledgetypes.WarnNoSource)
 		return run.release(ctx)
@@ -167,16 +167,16 @@ func failureOf(err error) (string, *time.Time) {
 	if f, ok := errors.AsType[knowledgetypes.Failure](err); ok {
 		return string(f), nil
 	}
-	if limited, ok := errors.AsType[*forgetypes.RateLimited](err); ok {
+	if limited, ok := errors.AsType[*reposynctypes.RateLimited](err); ok {
 		if limited.Reset.IsZero() {
-			return "forge.rate_limited", nil
+			return "hosting.rate_limited", nil
 		}
-		return "forge.rate_limited", new(limited.Reset)
+		return "hosting.rate_limited", new(limited.Reset)
 	}
-	if code := forgetypes.FailureCode(err); code != "" && code != "forge.interrupted" {
+	if code := reposynctypes.FailureCode(err); code != "" && code != "repo_sync.interrupted" {
 		return code, nil
 	}
-	return "forge.upstream_error", nil
+	return "hosting.upstream_error", nil
 }
 
 type CollectService struct {
@@ -184,7 +184,7 @@ type CollectService struct {
 	catalog              *catalogservices.CatalogServices
 	cfg                  *config.Config
 	db                   *pgtx.DB
-	forge                *forgeservices.ForgeServices
+	repoSync             *reposyncservices.RepoSyncServices
 	scanRepository       *repositories.ScanRepository
 	secrets              *secretbox.Box
 	collectionRepository *repositories.CollectionRepository

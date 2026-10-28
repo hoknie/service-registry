@@ -13,7 +13,7 @@ import (
 	linkstypes "svc-registry/internal/feature/links/types"
 	notifytypes "svc-registry/internal/feature/notify/types"
 	"svc-registry/internal/testsupport/k8sfake"
-	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/hostingfake"
 )
 
 type notifyTree struct {
@@ -219,12 +219,12 @@ func TestBrokenLinkNotifiesOnTransition(t *testing.T) {
 	eq(t, failed(), int64(1), "blocked is not working")
 }
 
-func TestForgeSyncFailureNotifiesOnce(t *testing.T) {
+func TestRepoSyncFailureNotifiesOnce(t *testing.T) {
 	t.Parallel()
 	n := startNotifyTree(t, nil)
-	n.mustSubscribe(n.root, n.acme, "forge", n.hook(n.root, n.acme, "https://hooks.example/x", "forge.sync_failed"))
-	f := forgefake.Start(t, "gitlab", forgeToken, "acme")
-	secret := n.secret(n.root, n.acme, obj{"value": forgeToken})
+	n.mustSubscribe(n.root, n.acme, "repo-sync", n.hook(n.root, n.acme, "https://hooks.example/x", "repo_sync.failed"))
+	f := hostingfake.Start(t, "gitlab", hostingToken, "acme")
+	secret := n.secret(n.root, n.acme, obj{"value": hostingToken})
 	conn := idOf(n.connect(n.root, n.acme, f, obj{"credentials": obj{"secret_id": secret}}))
 	eq(t, n.syncNow(n.root, n.acme, conn)["status"], any("succeeded"))
 	eq(t, n.send("PATCH", secretsPath(n.acme)+"/"+secret, n.root, obj{"value": "revoked"}).status, 200)
@@ -232,5 +232,13 @@ func TestForgeSyncFailureNotifiesOnce(t *testing.T) {
 	eq(t, n.syncNow(n.root, n.acme, conn)["status"], any("failed"))
 	eq(t, n.count("notification_events"), int64(1))
 	eq(t, scalar[string](t, n.db, "SELECT (payload->'data'->>'error_code') || ' ' || (payload->'node'->>'path') FROM notification_events"),
-		"forge.unauthorized acme")
+		"hosting.unauthorized acme")
+}
+
+func TestSubscriptionsTakeOnlyRepoSyncEventNames(t *testing.T) {
+	t.Parallel()
+	n := startNotifyTree(t, nil)
+	r := n.subscribe(n.root, n.acme, "old", n.hook(n.root, n.acme, "https://hooks.example/x", "forge.sync_failed"))
+	eq(t, r.status, 400, r.text())
+	n.mustSubscribe(n.root, n.acme, "new", n.hook(n.root, n.acme, "https://hooks.example/x", "repo_sync.failed", "repo_sync.recovered"))
 }

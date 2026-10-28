@@ -8,8 +8,8 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	catalogtypes "svc-registry/internal/feature/catalog/types"
-	forgetypes "svc-registry/internal/feature/forge/types"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
+	reposynctypes "svc-registry/internal/feature/reposync/types"
 	"svc-registry/internal/platform/postgres"
 	"svc-registry/pkg/pgtx"
 )
@@ -21,7 +21,7 @@ func NewSourceRepository(db *pgtx.DB) *SourceRepository { return &SourceReposito
 func scanSource(row pgx.CollectableRow) (knowledgetypes.StoredSource, error) {
 	var s knowledgetypes.StoredSource
 	var kind string
-	err := row.Scan(&kind, &s.Forge, &s.URL, &s.APIURL, &s.Path, &s.CredentialsSecretID,
+	err := row.Scan(&kind, &s.Hosting, &s.URL, &s.APIURL, &s.Path, &s.CredentialsSecretID,
 		&s.Heads, &s.DefaultBranch,
 		&s.WorkingTree, &s.IncludeIgnored, &s.UpdatedAt)
 	s.Kind = knowledgetypes.SourceKind(kind)
@@ -37,7 +37,7 @@ func scanSource(row pgx.CollectableRow) (knowledgetypes.StoredSource, error) {
 
 func (s *SourceRepository) Get(ctx context.Context, projectID uuid.UUID) (*knowledgetypes.StoredSource, error) {
 	return postgres.Find(ctx, s.db.From(ctx), constraints, scanSource, `
-		SELECT s.kind, COALESCE(s.forge, ''), COALESCE(s.url, ''), COALESCE(s.api_url, ''),
+		SELECT s.kind, COALESCE(s.hosting, ''), COALESCE(s.url, ''), COALESCE(s.api_url, ''),
 			COALESCE(s.path, ''), s.credentials_secret_id, s.heads,
 			COALESCE(s.default_branch, ''), s.working_tree, s.include_ignored, rfc3339(s.updated_at)
 		FROM knowledge_sources s
@@ -46,11 +46,11 @@ func (s *SourceRepository) Get(ctx context.Context, projectID uuid.UUID) (*knowl
 
 func (s *SourceRepository) Upsert(ctx context.Context, projectID uuid.UUID, n knowledgetypes.NewSource) (knowledgetypes.Source, error) {
 	out, err := postgres.One(ctx, s.db.From(ctx), constraints, scanSource, `
-		INSERT INTO knowledge_sources AS s (project_id, kind, forge, url, api_url, path, credentials_secret_id,
+		INSERT INTO knowledge_sources AS s (project_id, kind, hosting, url, api_url, path, credentials_secret_id,
 			working_tree, include_ignored)
 		VALUES ($1, $2, NULLIF($3, ''), NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), $7, $9, $10)
 		ON CONFLICT (project_id)
-		DO UPDATE SET kind = EXCLUDED.kind, forge = EXCLUDED.forge, url = EXCLUDED.url,
+		DO UPDATE SET kind = EXCLUDED.kind, hosting = EXCLUDED.hosting, url = EXCLUDED.url,
 			api_url = EXCLUDED.api_url, path = EXCLUDED.path, working_tree = EXCLUDED.working_tree,
 			include_ignored = EXCLUDED.include_ignored,
 			credentials_secret_id = CASE
@@ -60,10 +60,10 @@ func (s *SourceRepository) Upsert(ctx context.Context, projectID uuid.UUID, n kn
 				WHEN s.kind = EXCLUDED.kind AND s.url IS NOT DISTINCT FROM EXCLUDED.url AND s.path IS NOT DISTINCT FROM EXCLUDED.path THEN s.heads
 				ELSE '{}' END,
 			updated_at = now()
-		RETURNING s.kind, COALESCE(s.forge, ''), COALESCE(s.url, ''), COALESCE(s.api_url, ''),
+		RETURNING s.kind, COALESCE(s.hosting, ''), COALESCE(s.url, ''), COALESCE(s.api_url, ''),
 			COALESCE(s.path, ''), s.credentials_secret_id, s.heads,
 			COALESCE(s.default_branch, ''), s.working_tree, s.include_ignored, rfc3339(s.updated_at)`, projectID, string(n.Kind),
-		n.Forge, n.URL, n.APIURL, n.Path, n.SecretID, n.Keep, n.WorkingTree, n.IncludeIgnored)
+		n.Hosting, n.URL, n.APIURL, n.Path, n.SecretID, n.Keep, n.WorkingTree, n.IncludeIgnored)
 	return out.Source, err
 }
 
@@ -153,25 +153,25 @@ func (s *SourceRepoRepository) Upsert(ctx context.Context, projectID uuid.UUID, 
 	return err
 }
 
-func (s *SourceRepoRepository) Find(ctx context.Context, projectID uuid.UUID) (*forgetypes.Repository, error) {
+func (s *SourceRepoRepository) Find(ctx context.Context, projectID uuid.UUID) (*reposynctypes.Repository, error) {
 	return postgres.Find(ctx, s.db.From(ctx), constraints, scanRepository, `
 		SELECT k.full_path, k.web_url, k.description, k.topics, k.languages, k.default_branch, k.archived, k.visibility,
-			k.stars, k.license, rfc3339(k.pushed_at), rfc3339(k.synced_at), k.readme_md IS NOT NULL, s.forge
+			k.stars, k.license, rfc3339(k.pushed_at), rfc3339(k.synced_at), k.readme_md IS NOT NULL, s.hosting
 		FROM knowledge_source_repos k
 		JOIN knowledge_sources s ON s.project_id = k.project_id AND s.kind = 'remote'
 		WHERE k.project_id = $1`, projectID)
 }
 
-func scanRepository(row pgx.CollectableRow) (forgetypes.Repository, error) {
-	var r forgetypes.Repository
+func scanRepository(row pgx.CollectableRow) (reposynctypes.Repository, error) {
+	var r reposynctypes.Repository
 	var vis, kind string
 	if err := row.Scan(&r.FullPath, &r.WebURL, &r.Description, &r.Topics, &r.Languages,
 		&r.DefaultBranch, &r.Archived, &vis, &r.Stars, &r.License, &r.PushedAt, &r.SyncedAt, &r.HasReadme, &kind); err != nil {
 		return r, err
 	}
-	r.Visibility = forgetypes.Visibility(vis)
-	r.Kind = forgetypes.Kind(kind)
-	r.Origin = forgetypes.OriginSource
+	r.Visibility = reposynctypes.Visibility(vis)
+	r.Kind = reposynctypes.Kind(kind)
+	r.Origin = reposynctypes.OriginSource
 	if r.Topics == nil {
 		r.Topics = []string{}
 	}
@@ -181,15 +181,15 @@ func scanRepository(row pgx.CollectableRow) (forgetypes.Repository, error) {
 	return r, nil
 }
 
-func (s *SourceRepoRepository) Readme(ctx context.Context, projectID uuid.UUID) (*forgetypes.Readme, error) {
-	return postgres.Find(ctx, s.db.From(ctx), constraints, func(row pgx.CollectableRow) (forgetypes.Readme, error) {
-		var r forgetypes.Readme
+func (s *SourceRepoRepository) Readme(ctx context.Context, projectID uuid.UUID) (*reposynctypes.Readme, error) {
+	return postgres.Find(ctx, s.db.From(ctx), constraints, func(row pgx.CollectableRow) (reposynctypes.Readme, error) {
+		var r reposynctypes.Readme
 		var kind string
 		err := row.Scan(&r.Markdown, &r.Truncated, &r.WebURL, &r.DefaultBranch, &kind)
-		r.Kind = forgetypes.Kind(kind)
+		r.Kind = reposynctypes.Kind(kind)
 		return r, err
 	}, `
-		SELECT k.readme_md, k.readme_truncated, k.web_url, k.default_branch, s.forge
+		SELECT k.readme_md, k.readme_truncated, k.web_url, k.default_branch, s.hosting
 		FROM knowledge_source_repos k
 		JOIN knowledge_sources s ON s.project_id = k.project_id AND s.kind = 'remote'
 		WHERE k.project_id = $1

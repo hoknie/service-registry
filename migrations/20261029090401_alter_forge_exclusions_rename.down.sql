@@ -1,0 +1,5 @@
+ALTER TABLE repo_sync_exclusions RENAME CONSTRAINT repo_sync_exclusions_connection_id_fkey TO forge_exclusions_connection_id_fkey;
+ALTER TABLE repo_sync_exclusions RENAME CONSTRAINT repo_sync_exclusions_external_id_check TO forge_exclusions_external_id_check;
+ALTER TABLE repo_sync_exclusions RENAME CONSTRAINT repo_sync_exclusions_full_path_check TO forge_exclusions_full_path_check;
+ALTER TABLE repo_sync_exclusions RENAME CONSTRAINT repo_sync_exclusions_pkey TO forge_exclusions_pkey;
+ALTER TABLE repo_sync_exclusions RENAME TO forge_exclusions;

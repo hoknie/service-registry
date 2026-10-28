@@ -12,7 +12,7 @@ var helps = map[string]string{ // #nosec G101 -- help texts of metrics, not cred
 	"svcr_service_environments":               "Current versions: pairs of service and environment.",
 	"svcr_drifts":                             "Current pairs whose cluster version differs from the event.",
 	"svcr_branches":                           "Branches by state.",
-	"svcr_forge_connections":                  "Forge connections by forge and state.",
+	"svcr_repo_sync_connections":              "Repository sync connections by hosting and state.",
 	"svcr_link_targets":                       "Link addresses by check state.",
 	"svcr_notification_subscriptions":         "Notification subscriptions by channel.",
 	"svcr_knowledge_snapshots":                "Documentation snapshots.",

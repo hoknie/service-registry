@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/hostingfake"
 )
 
 func (a *testApp) patOn(cookie string, nodes []string, scopes ...string) reply {
@@ -151,8 +151,8 @@ func TestTokenNodesSurviveMovesAndDeletes(t *testing.T) {
 func TestTokenNodesLimitSearchAndMCP(t *testing.T) {
 	t.Parallel()
 	d := startDocs(t, map[string]string{"README.md": "# API\nThe cache lives here."})
-	d.fake.Put(forgefake.Repo{ID: 2, Path: "acme-inc/web", Files: map[string]string{"README.md": "# Web\nThe cache of the web."},
-		Branches: []forgefake.Branch{{Name: "main", SHA: sha(2)}}})
+	d.fake.Put(hostingfake.Repo{ID: 2, Path: "acme-inc/web", Files: map[string]string{"README.md": "# Web\nThe cache of the web."},
+		Branches: []hostingfake.Branch{{Name: "main", SHA: sha(2)}}})
 	if run := d.app.syncNow(d.admin, d.org, d.conn); run["status"] != "succeeded" {
 		t.Fatalf("sync: %v", run)
 	}

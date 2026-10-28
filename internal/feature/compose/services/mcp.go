@@ -8,17 +8,17 @@ import (
 	accesstypes "svc-registry/internal/feature/access/types"
 	catalogservices "svc-registry/internal/feature/catalog/services"
 	catalogtypes "svc-registry/internal/feature/catalog/types"
-	forgeservices "svc-registry/internal/feature/forge/services"
-	forgetypes "svc-registry/internal/feature/forge/types"
 	knowledgeservices "svc-registry/internal/feature/knowledge/services"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	ownershipservices "svc-registry/internal/feature/ownership/services"
 	ownershiptypes "svc-registry/internal/feature/ownership/types"
+	reposyncservices "svc-registry/internal/feature/reposync/services"
+	reposynctypes "svc-registry/internal/feature/reposync/types"
 	"svc-registry/internal/platform/apperr"
 )
 
 type ProjectOverview struct {
-	Repository    *forgetypes.Repository
+	Repository    *reposynctypes.Repository
 	Documentation knowledgeservices.KnowledgeOverview
 	Owners        ownershiptypes.OwnerSet
 }
@@ -29,7 +29,7 @@ type DocResource struct {
 }
 
 func (s *MCPService) ProjectOverview(ctx context.Context, p accesstypes.Principal, id uuid.UUID) (ProjectOverview, error) {
-	repo, err := s.forge.Projects.ProjectRepository(ctx, id)
+	repo, err := s.repoSync.Projects.ProjectRepository(ctx, id)
 	if err != nil {
 		return ProjectOverview{}, apperr.Wrap(err)
 	}
@@ -69,7 +69,7 @@ func (s *MCPService) DocResources(ctx context.Context, p accesstypes.Principal) 
 
 type MCPService struct {
 	catalog   *catalogservices.CatalogServices
-	forge     *forgeservices.ForgeServices
+	repoSync  *reposyncservices.RepoSyncServices
 	knowledge *knowledgeservices.KnowledgeServices
 	ownership *ownershipservices.OwnershipServices
 }

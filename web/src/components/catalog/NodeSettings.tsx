@@ -22,7 +22,7 @@ const icons = {
   access: ShieldCheck,
   notifications: Bell,
   connect: Plug,
-  forge: Building2,
+  "repo-sync": Building2,
   secrets: LockKeyhole,
   scans: ScanSearch,
   publication: Globe,

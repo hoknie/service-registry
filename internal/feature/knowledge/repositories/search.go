@@ -45,7 +45,7 @@ func (s *SearchRepository) Search(ctx context.Context, v knowledgetypes.Viewer, 
 			FROM knowledge_snapshots s
 			JOIN nodes n ON n.id = s.project_id
 			LEFT JOIN knowledge_sources src ON src.project_id = s.project_id
-			LEFT JOIN forge_repositories r ON r.project_id = s.project_id AND r.orphaned_at IS NULL
+			LEFT JOIN repo_sync_repositories r ON r.project_id = s.project_id AND r.orphaned_at IS NULL
 			WHERE s.status <> 'failed'
 				AND s.project_id IN (SELECT id FROM readable)
 				AND ($3::uuid IS NULL OR s.project_id = $3)
@@ -235,7 +235,7 @@ func (s *SearchRepository) DefaultBranches(ctx context.Context, projects []uuid.
 				ELSE COALESCE(n.default_branch, r.default_branch, NULLIF(src.default_branch, ''), '') END
 		FROM nodes n
 		LEFT JOIN knowledge_sources src ON src.project_id = n.id
-		LEFT JOIN forge_repositories r ON r.project_id = n.id AND r.orphaned_at IS NULL
+		LEFT JOIN repo_sync_repositories r ON r.project_id = n.id AND r.orphaned_at IS NULL
 		WHERE n.id = ANY($1)`, projects)
 }
 

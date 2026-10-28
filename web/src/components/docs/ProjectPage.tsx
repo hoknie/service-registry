@@ -47,7 +47,7 @@ export function ProjectPage({ locale, labels, space, branch: branchParam, nodePa
   const isPublic = isPublicSource();
   const branch = branchParam ?? defaultBranch;
   const [loadedNode, setNode] = useState<CatalogNode | null>(null);
-  const node = isPublicSource() ? ({ id: project.id, repo_url: null, forge: null } as unknown as CatalogNode) : loadedNode;
+  const node = isPublicSource() ? ({ id: project.id, repo_url: null, hosting: null } as unknown as CatalogNode) : loadedNode;
 
   useEffect(() => {
     if (isPublicSource()) return;

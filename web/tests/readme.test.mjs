@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { forgeBases, renderReadme } from "../src/lib/readme.ts";
+import { hostingBases, renderReadme } from "../src/lib/readme.ts";
 
 const src = { webUrl: "https://github.example/acme/api", branch: "main", kind: "github" };
 
@@ -21,7 +21,7 @@ test("dangerous link schemes are dropped", () => {
   }
 });
 
-test("links open in a new tab, relative ones point at the forge", () => {
+test("links open in a new tab, relative ones point at the hosting", () => {
   const html = renderReadme("[docs](docs/guide.md) [site](https://example.com) [top](#top)\n\n![logo](./img/logo.png)", src);
   assert.ok(html.includes('href="https://github.example/acme/api/blob/main/docs/guide.md"'), html);
   assert.ok(html.includes('href="https://example.com" target="_blank" rel="noopener nofollow"'), html);
@@ -29,9 +29,9 @@ test("links open in a new tab, relative ones point at the forge", () => {
   assert.ok(html.includes('src="https://github.example/acme/api/raw/main/img/logo.png"'), html);
 });
 
-test("bases follow the forge", () => {
-  assert.equal(forgeBases({ webUrl: "https://gl.example/g/p", branch: "release/1", kind: "gitlab" }).raw, "https://gl.example/g/p/-/raw/release/1/");
-  assert.equal(forgeBases({ webUrl: "https://code.example/o/r/", branch: null, kind: "gitea" }).blob, "https://code.example/o/r/src/branch/HEAD/");
+test("bases follow the hosting", () => {
+  assert.equal(hostingBases({ webUrl: "https://gl.example/g/p", branch: "release/1", kind: "gitlab" }).raw, "https://gl.example/g/p/-/raw/release/1/");
+  assert.equal(hostingBases({ webUrl: "https://code.example/o/r/", branch: null, kind: "gitea" }).blob, "https://code.example/o/r/src/branch/HEAD/");
 });
 
 test("a link to a collected file opens it in the app", () => {
@@ -48,13 +48,13 @@ test("a link to a collected file opens it in the app", () => {
   assert.ok(html.includes('href="https://example.com" target="_blank"'), html);
 });
 
-test("without a forge relative images show their alt text", () => {
+test("without a hosting relative images show their alt text", () => {
   const html = renderReadme("![the logo](img/logo.png) ![remote](https://example.com/x.png)", { branch: "local" });
   assert.ok(!html.includes('src="img/logo.png"') && html.includes("the logo"), html);
   assert.ok(html.includes('src="https://example.com/x.png"'), html);
 });
 
-test("with a forge, links to files outside the snapshot still go to the forge", () => {
+test("with a hosting, links to files outside the snapshot still go to the hosting", () => {
   const html = renderReadme("[x](x.md) [a](a.md)", { ...src, dir: "docs", docLink: (p) => (p === "docs/a.md" ? "/in-app" : null) });
   assert.ok(html.includes('href="https://github.example/acme/api/blob/main/docs/x.md"'), html);
   assert.ok(html.includes('<a href="/in-app">a</a>'), html);

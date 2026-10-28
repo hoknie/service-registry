@@ -28,7 +28,7 @@ export function newNodeHref(locale: Locale, parent: string | null, kind: NodeKin
   return `/${locale}/catalog/new?${parent ? `parent=${parent}&` : ""}kind=${kind}`;
 }
 
-export const FORGE_NAMES = { github: "GitHub", gitlab: "GitLab", forgejo: "Forgejo", gitea: "Gitea" } as const;
+export const HOSTING_NAMES = { github: "GitHub", gitlab: "GitLab", forgejo: "Forgejo", gitea: "Gitea" } as const;
 
 export function childKinds(parent: NodeKind | null): NodeKind[] {
   if (parent === null) return ["organization"];

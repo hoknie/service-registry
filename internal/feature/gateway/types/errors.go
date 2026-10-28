@@ -9,6 +9,7 @@ var (
 	FolderTooDeep       = apperr.Invalid("validation.mcp_folder_too_deep", "MCP folders nest at most 8 levels")
 	InvalidSpace        = apperr.Invalid("validation.invalid_mcp_space", "the description of an MCP space is at most 2000 characters")
 	SlugFixed           = apperr.Invalid("validation.mcp_server_slug_fixed", "the slug of a server names its tools and cannot change")
+	InvalidBuiltin      = apperr.Invalid("validation.invalid_builtin_tools", "tools is a list of at most 100 distinct names of a-z, 0-9 and _ starting with a letter")
 	InvalidTools        = apperr.Invalid("validation.invalid_mcp_tools", "tools is a list of at most 500 distinct tool names")
 	InvalidAccess       = apperr.Invalid("validation.invalid_mcp_access", "access: at most 100 groups and 100 users, existing, groups global or of the server's organization")
 	InvalidServers      = apperr.Invalid("validation.invalid_mcp_servers", "servers: distinct ids of MCP servers you can see, at most the allowed number")

@@ -13,14 +13,14 @@ var (
 	BranchesReplaced  = apperr.Invalid("validation.knowledge_branches_replaced", `branches is replaced by refs: [{"pattern","kind":"branch"|"tag","release"?}]`)
 	InvalidRef        = apperr.Invalid("validation.invalid_ref", "give at most one of branch, tag and release; tag must be 1 to 255 characters and release must be current")
 	InvalidBranch     = apperr.Invalid("validation.invalid_branch", "branch must be a valid branch name")
-	InvalidSource     = apperr.Invalid("validation.invalid_knowledge_source", `source must be {"kind":"remote","forge","url","api_url"?,"credentials"?} or {"kind":"local_dir"|"local_git","path"}`)
+	InvalidSource     = apperr.Invalid("validation.invalid_knowledge_source", `source must be {"kind":"remote","hosting","url","api_url"?,"credentials"?} or {"kind":"local_dir"|"local_git","path"}`)
 	InvalidPath       = apperr.Invalid("validation.knowledge_path_not_allowed", "path must be an absolute path inside one of KNOWLEDGE_LOCAL_ROOTS")
 	InvalidSearchMode = apperr.Invalid("validation.search_mode_unavailable", "mode must be one of the modes the search engine offers (GET /api/v1/knowledge/search/modes)")
 	InvalidScanFilter = apperr.Invalid("validation.invalid_scan_filter", "project must be a UUID, kind collect|index, trigger schedule|manual, status a comma-separated list of ok, unchanged, warning, failed")
 )
 
 var (
-	ConflictNotSynced     = apperr.Conflicting("conflict.knowledge_not_synced", "the project has no documentation source and is not synchronized with a forge")
+	ConflictNotSynced     = apperr.Conflicting("conflict.knowledge_not_synced", "the project has no documentation source and is not linked to repository sync")
 	ConflictLocalDisabled = apperr.Conflicting("conflict.local_sources_disabled", "local documentation sources are off: KNOWLEDGE_LOCAL_ROOTS is empty")
 )
 

@@ -19,12 +19,19 @@ import { Checkbox } from "../ui/Field";
 import { Message } from "../ui/Message";
 import { SkeletonRows } from "../ui/Skeleton";
 
+type ToolsSource = {
+  load: () => Promise<{ items: McpTool[] }>;
+  save: (disabled: string[]) => Promise<{ items: McpTool[] }>;
+};
+
 export function ToolsTab({
   server,
   labels: t,
+  source,
 }: {
   server: McpServer;
   labels: Messages["mcp"];
+  source?: ToolsSource;
 }) {
   const x = t.tools;
   const { errors } = useUiText();
@@ -41,10 +48,10 @@ export function ToolsTab({
   }, [focused, tools]);
 
   useEffect(() => {
-    loadTools(server.id)
+    (source ? source.load() : loadTools(server.id))
       .then((r) => setTools(r.items))
       .catch((e: unknown) => setError(errorText(errors, errorCode(e))));
-  }, [server.id, errors]);
+  }, [server.id, errors, source]);
 
   const toggle = async (tool: McpTool, enabled: boolean) => {
     if (!tools) return;
@@ -54,7 +61,7 @@ export function ToolsTab({
       )
       .map((x) => x.name);
     try {
-      setTools((await disableTools(server.id, disabled)).items);
+      setTools((await (source ? source.save(disabled) : disableTools(server.id, disabled))).items);
       setError(null);
     } catch (e) {
       setError(errorText(errors, errorCode(e)));

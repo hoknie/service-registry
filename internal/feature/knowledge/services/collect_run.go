@@ -123,10 +123,10 @@ func (r *collectRun) sourceHeads(ctx context.Context, src *knowledgetypes.Stored
 	return reader, heads, nil
 }
 
-func (r *collectRun) forgeHeads(ctx context.Context) (knowledgeports.ReaderPort, []head, error) {
+func (r *collectRun) repoSyncHeads(ctx context.Context) (knowledgeports.ReaderPort, []head, error) {
 	s, p, id := r.s, r.project, r.id
-	r.scan.Source = "forge"
-	repo, client, code := s.forge.Projects.ProjectClient(ctx, id)
+	r.scan.Source = "repo_sync"
+	repo, client, code := s.repoSync.Projects.ProjectClient(ctx, id)
 	branches, err := s.snapshotRepository.Branches(ctx, id)
 	if err != nil {
 		return nil, nil, apperr.Wrap(err)

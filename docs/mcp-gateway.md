@@ -24,6 +24,16 @@ folder and server has a **scope**:
 A server is a **draft** (only those who can change it see it and its tools), **published** or **disabled** (kept, not
 checked, no tools).
 
+## The registry's own server
+
+The first card of the **Global** space is **Service Registry**, marked **Built-in**: the registry's own MCP tools on
+`/api/mcp` — `list_projects`, `get_doc`, `get_skill`, `get_guide` and the others. It cannot be moved, deleted or checked,
+and its tools have no prefix. Its page has **Connect**, **Overview** and **Tools**.
+
+On **Tools**, a superadmin or a holder of the `mcp` right can switch any built-in tool off. A switched-off tool is gone
+from `tools/list` for every user, token and app, and calling it fails as an unknown tool. The list applies while the
+gateway is on; with `MCP_GATEWAY_ENABLED=false` every built-in tool is available again.
+
 ## Adding a server
 
 **Add → Server** asks for:

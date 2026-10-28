@@ -79,3 +79,30 @@ test("slugs come from names, with a length limit", () => {
   assert.equal(slugOf("Джира Трекер", 32), "dzhira-treker");
   assert.equal(slugOf("x".repeat(40), 32).length, 32);
 });
+
+test("the built-in server becomes a card of the global space", async () => {
+  const { builtinServer, builtinTools, builtinMatches } = await import("../src/lib/mcp.ts");
+  const b = {
+    id: "builtin",
+    slug: "svc-registry",
+    title: "Service Registry",
+    builtin: true,
+    version: "1.2.3",
+    instructions: "use get_guide",
+    endpoint: "/api/mcp",
+    tools: [
+      { name: "list_projects", title: "", description: "", input_schema: { type: "object" }, annotations: null, enabled: true },
+      { name: "search_docs", title: "", description: "", input_schema: { type: "object" }, annotations: null, enabled: false },
+    ],
+    disabled: ["search_docs"],
+    can_write: false,
+  };
+  const s = builtinServer(b, "own tools");
+  assert.equal(s.id, "builtin");
+  assert.equal(s.builtin, true);
+  assert.equal(s.tools_count, 1);
+  assert.equal(s.tools_total, 2);
+  assert.equal(builtinTools(b)[1].gateway_name, "search_docs");
+  assert.equal(builtinMatches(s, "registry"), true);
+  assert.equal(builtinMatches(s, "jira"), false);
+});

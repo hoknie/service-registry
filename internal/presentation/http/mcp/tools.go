@@ -37,7 +37,7 @@ type (
 	}
 	branchesIn struct {
 		Project     string `json:"project" jsonschema:"Project id or slug path from the top level, e.g. acme/backend/api"`
-		IncludeGone bool   `json:"include_gone,omitempty" jsonschema:"Also branches gone from the forge"`
+		IncludeGone bool   `json:"include_gone,omitempty" jsonschema:"Also branches gone from the hosting"`
 	}
 	deploymentsIn struct {
 		Project string `json:"project" jsonschema:"Project id or slug path from the top level, e.g. acme/backend/api"`
@@ -131,7 +131,7 @@ type projectSummary struct {
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
 	Labels      map[string]string `json:"labels"`
-	Forge       *string           `json:"forge"`
+	Hosting     *string           `json:"hosting"`
 	RepoURL     *string           `json:"repo_url"`
 }
 
@@ -186,16 +186,16 @@ func (t *tools) listProjects(ctx context.Context, _ *sdk.CallToolRequest, in lis
 		if q != "" && !strings.Contains(hay, q) {
 			continue
 		}
-		var forgeKind *string
-		if n.Repo.Forge != nil {
-			forgeKind = new(string(*n.Repo.Forge))
+		var hostingKind *string
+		if n.Repo.Hosting != nil {
+			hostingKind = new(string(*n.Repo.Hosting))
 		}
 		labels := map[string]string(n.Labels)
 		if labels == nil {
 			labels = map[string]string{}
 		}
 		all = append(all, projectSummary{ID: n.ID, Path: path, Name: n.Name, Description: n.Description, Labels: labels,
-			Forge: forgeKind, RepoURL: n.Repo.RepoURL})
+			Hosting: hostingKind, RepoURL: n.Repo.RepoURL})
 	}
 	page := all[min(offset, len(all)):min(offset+limit, len(all))]
 	out := map[string]any{"items": page, "next_cursor": nil, "truncated": more}

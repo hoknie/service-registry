@@ -10,11 +10,11 @@ import (
 	accesstypes "svc-registry/internal/feature/access/types"
 	catalogservices "svc-registry/internal/feature/catalog/services"
 	catalogtypes "svc-registry/internal/feature/catalog/types"
-	forgeservices "svc-registry/internal/feature/forge/services"
-	forgetypes "svc-registry/internal/feature/forge/types"
 	knowledgeports "svc-registry/internal/feature/knowledge/ports"
 	"svc-registry/internal/feature/knowledge/repositories"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
+	reposyncservices "svc-registry/internal/feature/reposync/services"
+	reposynctypes "svc-registry/internal/feature/reposync/types"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
 	"svc-registry/pkg/pgtx"
@@ -33,13 +33,13 @@ func (s *SourcesService) GetKnowledgeSource(ctx context.Context, p accesstypes.P
 		out.Origin = knowledgetypes.OriginOwn
 		return &out, err
 	}
-	link, err := s.forge.Unlink.ProjectLink(ctx, id)
+	link, err := s.repoSync.Unlink.ProjectLink(ctx, id)
 	if err != nil || link == nil {
 		return nil, err
 	}
-	out, err := s.decorateSource(ctx, knowledgetypes.Source{Kind: knowledgetypes.SourceRemote, Forge: string(link.Kind), URL: link.WebURL,
+	out, err := s.decorateSource(ctx, knowledgetypes.Source{Kind: knowledgetypes.SourceRemote, Hosting: string(link.Kind), URL: link.WebURL,
 		APIURL: link.APIURL, Credentials: link.Credentials, UpdatedAt: link.SyncedAt, Heads: map[string]string{}})
-	out.Origin = knowledgetypes.OriginForge
+	out.Origin = knowledgetypes.OriginRepoSync
 	return &out, err
 }
 
@@ -91,11 +91,11 @@ func (s *SourcesService) checkSecret(ctx context.Context, projectID uuid.UUID, s
 	return err
 }
 
-func sourceRepo(s knowledgetypes.Source) (f *catalogtypes.Forge, url *string, ok bool) {
+func sourceRepo(s knowledgetypes.Source) (f *catalogtypes.Hosting, url *string, ok bool) {
 	if s.Kind != knowledgetypes.SourceRemote {
 		return nil, nil, false
 	}
-	f, ferr := catalogtypes.ValidateForge(s.Forge)
+	f, ferr := catalogtypes.ValidateHosting(s.Hosting)
 	url, uerr := catalogtypes.ValidateRepoURL(s.URL)
 	return f, url, ferr == nil && uerr == nil && f != nil && url != nil
 }
@@ -104,12 +104,12 @@ func (s *SourcesService) PutKnowledgeSource(ctx context.Context, p accesstypes.P
 	if _, err := s.documents.knowledgeProject(ctx, p, catalogtypes.PermWrite, id); err != nil {
 		return knowledgetypes.Source{}, err
 	}
-	managed, err := s.forge.Ports.Managed(ctx, []uuid.UUID{id})
+	managed, err := s.repoSync.Ports.Managed(ctx, []uuid.UUID{id})
 	if err != nil {
 		return knowledgetypes.Source{}, apperr.Wrap(err)
 	}
 	if managed[id] {
-		return knowledgetypes.Source{}, apperr.Wrap(catalogtypes.ConflictManagedByForge)
+		return knowledgetypes.Source{}, apperr.Wrap(catalogtypes.ConflictManagedByRepoSync)
 	}
 	n, err := s.prepareSource(ctx, id, in, true)
 	if err != nil {
@@ -127,19 +127,19 @@ func (s *SourcesService) PutKnowledgeSource(ctx context.Context, p accesstypes.P
 	if !ok {
 		return saved, nil
 	}
-	changes := catalogtypes.NodeChanges{Forge: catalogtypes.Change[catalogtypes.Forge]{Set: true, Value: f}, RepoURL: catalogtypes.Change[string]{Set: true, Value: url}}
+	changes := catalogtypes.NodeChanges{Hosting: catalogtypes.Change[catalogtypes.Hosting]{Set: true, Value: f}, RepoURL: catalogtypes.Change[string]{Set: true, Value: url}}
 	if _, err := s.catalog.System.ChangeNode(ctx, id, changes); err != nil {
 		return knowledgetypes.Source{}, apperr.Wrap(err)
 	}
 	return saved, nil
 }
 
-func (s *SourcesService) AdoptRemote(ctx context.Context, projectID uuid.UUID, src forgetypes.RemoteSource) error {
+func (s *SourcesService) AdoptRemote(ctx context.Context, projectID uuid.UUID, src reposynctypes.RemoteSource) error {
 	own, err := s.sourceRepository.Get(ctx, projectID)
 	if err != nil || own != nil {
 		return err
 	}
-	in := knowledgetypes.SourceInput{Kind: string(knowledgetypes.SourceRemote), Forge: string(src.Kind), URL: src.WebURL, APIURL: src.APIURL,
+	in := knowledgetypes.SourceInput{Kind: string(knowledgetypes.SourceRemote), Hosting: string(src.Kind), URL: src.WebURL, APIURL: src.APIURL,
 		HasCredential: true, NoCredentials: src.SecretID == nil}
 	if src.SecretID != nil {
 		in.SecretID = new(src.SecretID.String())
@@ -157,12 +157,12 @@ func (s *SourcesService) AdoptRemote(ctx context.Context, projectID uuid.UUID, s
 	return err
 }
 
-func (s *SourcesService) SourceRepository(ctx context.Context, id uuid.UUID) (*forgetypes.Repository, error) {
+func (s *SourcesService) SourceRepository(ctx context.Context, id uuid.UUID) (*reposynctypes.Repository, error) {
 	r, err := s.sourceRepoRepository.Find(ctx, id)
 	return r, apperr.Wrap(err)
 }
 
-func (s *SourcesService) SourceReadme(ctx context.Context, id uuid.UUID) (*forgetypes.Readme, error) {
+func (s *SourcesService) SourceReadme(ctx context.Context, id uuid.UUID) (*reposynctypes.Readme, error) {
 	r, err := s.sourceRepoRepository.Readme(ctx, id)
 	return r, apperr.Wrap(err)
 }
@@ -283,7 +283,7 @@ type SourcesService struct {
 	cfg                  *config.Config
 	db                   *pgtx.DB
 	collectionRepository *repositories.CollectionRepository
-	forge                *forgeservices.ForgeServices
+	repoSync             *reposyncservices.RepoSyncServices
 	readers              knowledgeports.ReaderFactoryPort
 	sourceRepoRepository *repositories.SourceRepoRepository
 	sourceRepository     *repositories.SourceRepository

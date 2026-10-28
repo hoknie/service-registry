@@ -3,7 +3,7 @@
 import { ChevronDown, FolderPlus, LayoutGrid, Plus, Settings, ShieldCheck, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import type { Locale } from "@/i18n/config";
 import { errorText } from "@/i18n/errors";
@@ -110,7 +110,7 @@ export type PlaceAdapter<I, F extends PlaceFolder, Q extends PlaceFilters> = {
   actions?: (ctx: PlaceContext<F, Q>) => ReactNode;
   folderSections: (f: F, ctx: PlaceContext<F, Q>) => ExtraSection[];
   spaceSections: (org: string, ctx: PlaceContext<F, Q>) => ExtraSection[];
-  addMore?: (ctx: PlaceContext<F, Q>, changed: () => void) => { key: string; label: string; icon: LucideIcon; onSelect: () => void; dialog: ReactNode }[];
+  addMore?: (ctx: PlaceContext<F, Q>) => { key: string; label: string; icon: LucideIcon; href: string }[];
   folderTabs?: (f: F) => { key: string; label: string; icon: LucideIcon; content: ReactNode; accent?: boolean }[];
   folderGeneral?: (f: F, changed: () => void) => ReactNode;
   folderBadge?: (f: F) => ReactNode;
@@ -239,7 +239,7 @@ export function PlaceBrowser<I, F extends PlaceFolder, Q extends PlaceFilters>({
   const entryKey = (e: Entry<I, F>) => (e.type === "folder" ? e.folder.id : e.type === "space" ? `space:${e.space.id}` : a.item.id(e.item));
 
   const added = a.addItem(ctx);
-  const extraAdds = a.addMore?.(ctx, changed) ?? [];
+  const extraAdds = a.addMore?.(ctx) ?? [];
   const addButton = writable && !root && (
     <Menu>
       <MenuTrigger asChild>
@@ -261,9 +261,11 @@ export function PlaceBrowser<I, F extends PlaceFolder, Q extends PlaceFilters>({
           {p.folder}
         </MenuItem>
         {extraAdds.map((m) => (
-          <MenuItem key={m.key} onSelect={m.onSelect}>
-            <m.icon aria-hidden="true" />
-            {m.label}
+          <MenuItem key={m.key} asChild>
+            <Link href={m.href}>
+              <m.icon aria-hidden="true" />
+              {m.label}
+            </Link>
           </MenuItem>
         ))}
       </MenuContent>
@@ -541,9 +543,6 @@ export function PlaceBrowser<I, F extends PlaceFolder, Q extends PlaceFilters>({
         labels={a.folderLabels}
         onSaved={(f) => router.push(folderHref((f as PlaceFolder).id))}
       />
-      {extraAdds.map((m) => (
-        <Fragment key={m.key}>{m.dialog}</Fragment>
-      ))}
     </>
   );
 }

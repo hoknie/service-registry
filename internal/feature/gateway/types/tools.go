@@ -113,3 +113,19 @@ func CleanDisabledTools(names []string) ([]string, error) {
 	}
 	return out, nil
 }
+
+var builtinName = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
+
+func CleanBuiltinTools(names []string) ([]string, error) {
+	out := make([]string, 0, len(names))
+	for _, n := range names {
+		if !builtinName.MatchString(n) || slices.Contains(out, n) {
+			return nil, InvalidBuiltin
+		}
+		out = append(out, n)
+	}
+	if len(out) > 100 {
+		return nil, InvalidBuiltin
+	}
+	return out, nil
+}

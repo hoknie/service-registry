@@ -56,7 +56,7 @@ func New(d Deps) *GatewayServices {
 	call := usecases.NewCallTool(usecases.CallToolDeps{Calls: p.calls, Checks: p.checks, Client: d.Client, Observer: d.Observer})
 	return &GatewayServices{
 		Folders:    &FoldersService{parts: p},
-		Servers:    &ServersService{parts: p},
+		Servers:    &ServersService{parts: p, builtin: repositories.NewBuiltinRepository(d.DB)},
 		Checks:     &ChecksService{parts: p, check: check},
 		Visibility: &VisibilityService{parts: p},
 		Proxy:      &ProxyService{parts: p},

@@ -10,15 +10,15 @@ interface, and for AI agents through MCP.
   tree. → [docs/catalog.md](docs/catalog.md)
 - **Deployments from CI** — one pipeline step reports what was deployed where; the registry keeps the current version
   per environment and the history. → [docs/ci-events.md](docs/ci-events.md)
-- **Repositories from a forge** — GitHub, GitLab, Forgejo or Gitea owners imported as projects and kept in sync, with
-  their branches. → [docs/forge-sync.md](docs/forge-sync.md)
+- **Repository sync** — GitHub, GitLab, Forgejo or Gitea owners imported as projects and kept in sync, with
+  their branches. → [docs/repo-sync.md](docs/repo-sync.md)
 - **Kubernetes** — what really runs in clusters next to what CI reported, with drift; isolated clusters report
   through an agent. → [docs/kubernetes.md](docs/kubernetes.md)
 - **Owners** — groups and people responsible for each node, with contacts and on-call links.
   → [docs/owners.md](docs/owners.md)
 - **Dependencies** — which services depend on which, as a list and a graph.
   → [docs/dependencies.md](docs/dependencies.md)
-- **Notifications** — webhook and Slack messages on deployments, drift, broken links and failed forge
+- **Notifications** — webhook and Slack messages on deployments, drift, broken links and failed repository
   synchronizations, and when they recover. → [docs/notifications.md](docs/notifications.md)
 - **Observability links** — links to logs, dashboards, alerts and runbooks from templates, checked for availability.
   → [docs/observability-links.md](docs/observability-links.md)

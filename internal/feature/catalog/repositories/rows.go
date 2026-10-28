@@ -17,7 +17,7 @@ type nodeRow struct {
 	Name          *string             `db:"name"`
 	Description   *string             `db:"description"`
 	Labels        catalogtypes.Labels `db:"labels"`
-	Forge         *string             `db:"forge"`
+	Hosting       *string             `db:"hosting"`
 	RepoURL       *string             `db:"repo_url"`
 	DefaultBranch *string             `db:"default_branch"`
 	ClusterObs    *bool               `db:"cluster_observation"`
@@ -36,12 +36,12 @@ func (r nodeRow) node() (catalogtypes.Node, error) {
 		labels = catalogtypes.Labels{}
 	}
 	repo := catalogtypes.Repo{RepoURL: r.RepoURL, DefaultBranch: r.DefaultBranch}
-	if r.Forge != nil {
-		f, ok := catalogtypes.ParseForge(*r.Forge)
+	if r.Hosting != nil {
+		f, ok := catalogtypes.ParseHosting(*r.Hosting)
 		if !ok {
-			return catalogtypes.Node{}, apperr.UnknownValue("forge", *r.Forge)
+			return catalogtypes.Node{}, apperr.UnknownValue("hosting", *r.Hosting)
 		}
-		repo.Forge = &f
+		repo.Hosting = &f
 	}
 	return catalogtypes.Node{
 		ID: *r.ID, Kind: kind, ParentID: r.ParentID, Slug: ptr.Value(r.Slug), Name: ptr.Value(r.Name),

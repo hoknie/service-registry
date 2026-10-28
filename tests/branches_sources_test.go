@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/hostingfake"
 )
 
 func branchesPath(project string) string { return nodePath(project) + "/branches" }
@@ -94,14 +94,14 @@ func TestDefaultBranchOfAProjectIsABranch(t *testing.T) {
 	eq(t, scalar[int64](t, app.db, "SELECT count(*) FROM branches WHERE is_default"), int64(0), "other edits leave it")
 }
 
-func TestForgeSyncRecordsBranches(t *testing.T) {
+func TestRepoSyncRecordsBranches(t *testing.T) {
 	t.Parallel()
-	app := startForgeApp(t, "BRANCH_SYNC_MAX_PER_REPO", "3")
+	app := startRepoSyncApp(t, "BRANCH_SYNC_MAX_PER_REPO", "3")
 	root := app.admin()
 	acme := app.nodeID(root, "organization", "", "acme")
-	f := forgefake.Start(t, "gitlab", forgeToken, "acme")
+	f := hostingfake.Start(t, "gitlab", hostingToken, "acme")
 	day := time.Date(2026, 5, 1, 10, 0, 0, 0, time.UTC)
-	f.Put(forgefake.Repo{ID: 1, Path: "acme/api", Branches: []forgefake.Branch{
+	f.Put(hostingfake.Repo{ID: 1, Path: "acme/api", Branches: []hostingfake.Branch{
 		{Name: "main", SHA: strings.Repeat("a", 40), Protected: true, Date: day},
 		{Name: "feature/a", SHA: strings.Repeat("b", 40), Date: day},
 		{Name: "old", SHA: strings.Repeat("c", 40), Date: day},
@@ -113,11 +113,11 @@ func TestForgeSyncRecordsBranches(t *testing.T) {
 	eq(t, main["is_default"], any(true))
 	eq(t, main["protected"], any(true))
 	eq(t, main["last_activity_at"], any("2026-05-01T10:00:00Z"))
-	eq(t, strings.Join(strs(t, main["sources"]), ","), "forge")
+	eq(t, strings.Join(strs(t, main["sources"]), ","), "repo_sync")
 	eq(t, app.branchNames(root, api, "state=all"), "main,feature/a,old")
 
 	pushed := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	f.Put(forgefake.Repo{ID: 1, Path: "acme/api", Pushed: pushed, Branches: []forgefake.Branch{
+	f.Put(hostingfake.Repo{ID: 1, Path: "acme/api", Pushed: pushed, Branches: []hostingfake.Branch{
 		{Name: "main", SHA: strings.Repeat("a", 40), Protected: true, Date: day},
 		{Name: "feature/a", SHA: strings.Repeat("b", 40), Date: day},
 	}})
@@ -125,7 +125,7 @@ func TestForgeSyncRecordsBranches(t *testing.T) {
 	eq(t, app.branch(root, api, "old")["gone_at"] != nil, true)
 	eq(t, app.branchNames(root, api, "state=gone"), "old")
 
-	f.Put(forgefake.Repo{ID: 1, Path: "acme/api", Pushed: pushed.Add(time.Hour), Branches: []forgefake.Branch{
+	f.Put(hostingfake.Repo{ID: 1, Path: "acme/api", Pushed: pushed.Add(time.Hour), Branches: []hostingfake.Branch{
 		{Name: "main", SHA: strings.Repeat("a", 40), Date: day}, {Name: "x1", SHA: strings.Repeat("1", 40), Date: day},
 		{Name: "x2", SHA: strings.Repeat("2", 40), Date: day}, {Name: "x3", SHA: strings.Repeat("3", 40), Date: day},
 	}})
@@ -136,16 +136,16 @@ func TestForgeSyncRecordsBranches(t *testing.T) {
 	key := app.issueProjectKey(root, api)
 	eq(t, app.ingest(api, key, deployedFrom("k-1", "old", "", "2026-06-02T00:00:00Z")).status, 201)
 	eq(t, app.branch(root, api, "old")["gone_at"], nil)
-	eq(t, strings.Join(strs(t, app.branch(root, api, "old")["sources"]), ","), "forge,ingest")
+	eq(t, strings.Join(strs(t, app.branch(root, api, "old")["sources"]), ","), "repo_sync,ingest")
 }
 
 func TestBranchPatternsOfAConnection(t *testing.T) {
 	t.Parallel()
-	app := startForgeApp(t)
+	app := startRepoSyncApp(t)
 	root := app.admin()
 	acme := app.nodeID(root, "organization", "", "acme")
-	f := forgefake.Start(t, "github", forgeToken, "acme-inc")
-	f.Put(forgefake.Repo{ID: 1, Path: "acme-inc/api", Branches: []forgefake.Branch{
+	f := hostingfake.Start(t, "github", hostingToken, "acme-inc")
+	f.Put(hostingfake.Repo{ID: 1, Path: "acme-inc/api", Branches: []hostingfake.Branch{
 		{Name: "main", SHA: strings.Repeat("a", 40)}, {Name: "release/1", SHA: strings.Repeat("b", 40)}, {Name: "feature/a", SHA: strings.Repeat("c", 40)},
 	}})
 	c := app.connect(root, acme, f, obj{"branch_include": []string{"release/*"}})

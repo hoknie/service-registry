@@ -258,7 +258,7 @@
       "invalid_node_name": "The name must be 1 to 100 characters.",
       "invalid_description": "The description must be at most 2000 characters.",
       "invalid_labels": "Labels: at most 32; keys of lowercase letters, digits, dots, underscores, hyphens; values up to 63 characters.",
-      "invalid_forge": "Choose GitHub, GitLab, Forgejo or Gitea.",
+      "invalid_hosting": "Choose GitHub, GitLab, Forgejo or Gitea.",
       "invalid_repo_url": "Enter an http(s) repository URL.",
       "invalid_branch": "The branch name must be 1 to 255 characters without spaces.",
       "repo_fields_not_allowed": "Repository fields are only for projects.",
@@ -272,12 +272,12 @@
       "invalid_token_lifetime": "Choose a lifetime within the allowed maximum.",
       "invalid_token_nodes": "Choose 1 to 20 different nodes you can read; nodes cannot be combined with the admin scope.",
       "invalid_token_prefix": "The prefix is at most 12 characters.",
-      "invalid_api_url": "Enter a valid API address: http(s) for a forge (required for Forgejo and Gitea), https for a cluster (none when the registry runs in it).",
+      "invalid_api_url": "Enter a valid API address: http(s) for a hosting service (required for Forgejo and Gitea), https for a cluster (none when the registry runs in it).",
       "invalid_owner_path": "Enter an organization, user or group path.",
       "invalid_name_patterns": "At most 32 name patterns of 1 to 100 characters.",
       "invalid_sync_interval": "The interval must be from 1 minute to 24 hours.",
       "invalid_credentials": "Enter a token or a reference env:NAME / file:/path.",
-      "invalid_forge_container": "Forge connections belong to organizations and folders.",
+      "invalid_repo_sync_container": "Repository sync connections belong to organizations and folders.",
       "invalid_webhook_mode": "Choose how to set up the webhook.",
       "invalid_branch_state": "Unknown branch filter.",
       "invalid_link_kind_key": "The key must be 1–63 letters a–z, digits and '-', not starting or ending with '-'.",
@@ -359,7 +359,8 @@
       "invalid_member": "Choose a person and a role.",
       "invalid_invitation": "Check the email, role and language.",
       "skill_folder_too_large": "The skills of the folder are too large for one archive.",
-      "invalid_skill_set": "Choose global folders and skills only, at most 500."
+      "invalid_skill_set": "Choose global folders and skills only, at most 500.",
+      "invalid_builtin_tools": "Tool names: at most 100, distinct, a-z, 0-9 and _ starting with a letter."
     },
     "conflict": {
       "email_taken": "A user with this email already exists.",
@@ -370,10 +371,10 @@
       "cycle": "An item cannot be moved into itself or its descendant.",
       "node_not_empty": "Only empty items can be deleted.",
       "idempotency_key_reused": "This idempotency key was already used for a different event.",
-      "forge_owner_taken": "This forge owner is already connected.",
+      "repo_sync_owner_taken": "This hosting owner is already connected.",
       "secrets_key_missing": "The server has no encryption key (SECRETS_KEYS): use a secret reference instead of a token.",
       "public_url_missing": "The server's external address (PUBLIC_URL) is not set.",
-      "managed_by_forge": "This is managed by forge synchronization.",
+      "managed_by_repo_sync": "This is managed by repository sync.",
       "branch_is_default": "The default branch cannot be deleted.",
       "link_kind_taken": "A link kind with this key already exists.",
       "link_kind_in_use": "This link kind is used by link templates; delete or change them first.",
@@ -382,7 +383,7 @@
       "membership_managed": "This membership comes from the sign-in provider and cannot be removed here.",
       "contact_editor_managed": "This contact editor right comes from the sign-in provider and cannot be removed here.",
       "last_login_method": "This is your only way to sign in. Set a password first.",
-      "knowledge_not_synced": "Documentation is collected only for projects synchronized with a forge.",
+      "knowledge_not_synced": "Documentation is collected only for projects linked to repository sync.",
       "local_sources_disabled": "Local sources are turned off on this server.",
       "self_service": "You cannot make your own account a service account.",
       "user_disabled": "The user is disabled.",
@@ -390,7 +391,7 @@
       "secret_in_use": "The secret is in use — replace it in connections, sources and clusters first.",
       "secret_name_taken": "A secret with this name already exists here.",
       "link_kind_order_stale": "The list of link kinds has changed; it was reloaded — try again.",
-      "forge_not_linked": "This project is not linked to a forge repository.",
+      "repo_sync_not_linked": "This project is not linked to a synchronized repository.",
       "cluster_mode_agent": "The agent of this cluster sends its reports; the registry does not poll it.",
       "cluster_mode_poll": "The registry polls this cluster: it has no agent tokens.",
       "cluster_disabled": "The cluster is disabled.",
@@ -428,15 +429,14 @@
       "payload_too_large": "The event is too large.",
       "rate_limited": "Too many events. Try again later."
     },
-    "forge": {
-      "unauthorized": "The forge rejected the token.",
-      "owner_not_found": "No such organization, user or group on the forge (or no access to it).",
+    "hosting": {
+      "unauthorized": "The hosting rejected the token.",
+      "owner_not_found": "No such organization, user or group on the hosting (or no access to it).",
       "credentials_unavailable": "The token cannot be read: the encryption key, variable or file is missing.",
-      "rate_limited": "The forge's rate limit is exhausted. Try again later.",
-      "upstream_error": "The forge did not answer properly.",
-      "interrupted": "The synchronization was interrupted.",
-      "not_found": "The repository or commit is not on the forge any more.",
-      "value_too_long": "The repository path or address on the forge is too long; the repository is skipped."
+      "rate_limited": "The hosting's rate limit is exhausted. Try again later.",
+      "upstream_error": "The hosting did not answer properly.",
+      "not_found": "The repository or commit is not on the hosting any more.",
+      "value_too_long": "The repository path or address on the hosting is too long; the repository is skipped."
     },
     "branches": {
       "truncated": "The repository has more branches than the limit; some were not taken."
@@ -515,6 +515,9 @@
       "not_pending": "The invitation has expired, was accepted or was revoked.",
       "sign_in_required": "An account with this address exists — sign in to accept.",
       "email_mismatch": "The invitation is for another email address."
+    },
+    "repo_sync": {
+      "interrupted": "The synchronization was interrupted."
     }
   },
   "guard": {
@@ -1221,7 +1224,6 @@
       "label": "Sections",
       "keys": "Keys",
       "connect": "Send events",
-      "forge": "Forge",
       "branches": "Branches",
       "links": "Links",
       "docs": "Documentation",
@@ -1257,8 +1259,8 @@
       "submit": "Save",
       "done": "Saved.",
       "titleOf": "Edit {name}",
-      "fromForge": "From forge",
-      "managedNote": "Synchronized from the forge: the description and repository fields change there."
+      "fromRepoSync": "From repository sync",
+      "managedNote": "Synchronized from the hosting: the description and repository fields change there."
     },
     "move": {
       "title": "Move",
@@ -1277,17 +1279,17 @@
     },
     "repo": {
       "title": "Repository",
-      "forge": "Forge",
+      "hosting": "Hosting",
       "url": "Repository URL",
       "branch": "Default branch",
-      "noForge": "Not set",
+      "noHosting": "Not set",
       "clusterObservation": "Observe in clusters",
       "clusterObservationHint": "Turned off, the project's state from Kubernetes clusters is hidden and no deployments are recorded from them.",
       "section": "Repository and documentation",
       "mode": "What it is",
       "link": "Link only (no documentation)",
       "checkSource": "Check source",
-      "managedSource": "The link and the documentation source come from the forge; unlink the project to change them.",
+      "managedSource": "The link and the documentation source come from the hosting; unlink the project to change them.",
       "branchHint": "Pick a known branch or type a name."
     },
     "keys": {
@@ -1433,13 +1435,13 @@
     "actions": {
       "more": "More actions"
     },
-    "forge": {
-      "title": "Forge connections",
+    "repoSync": {
+      "title": "Repository sync",
       "lead": "Import the repositories of a GitHub, GitLab, Forgejo or Gitea owner as projects under this node and keep their metadata current.",
       "empty": "No connections yet.",
-      "emptyText": "Connect a forge owner to import its repositories.",
+      "emptyText": "Connect a hosting owner to import its repositories.",
       "add": "New connection",
-      "kind": "Forge",
+      "kind": "Hosting",
       "owner": "Owner",
       "ownerHint": "Organization or user; for GitLab the full group path, e.g. acme/platform.",
       "apiUrl": "API address",
@@ -1505,16 +1507,16 @@
       "confirmDelete": "Delete the connection to {owner}? Its projects stay in the catalog as manual projects.",
       "deleted": "Connection deleted.",
       "webhook": "Webhook",
-      "webhookLead": "The forge notifies the registry about pushes and repository changes; scheduled syncs stay as a fallback.",
-      "register": "Register on the forge",
+      "webhookLead": "The hosting notifies the registry about pushes and repository changes; scheduled syncs stay as a fallback.",
+      "register": "Register on the hosting",
       "registerHint": "The token needs administrator rights on the owner.",
       "manual": "Set up manually",
       "registered": "Webhook registered.",
       "webhookUrl": "Address",
       "webhookSecret": "Secret",
-      "secretOnce": "The secret is shown only now. Paste it into the forge's webhook settings.",
+      "secretOnce": "The secret is shown only now. Paste it into the hosting's webhook settings.",
       "modes": {
-        "register": "Registered on the forge",
+        "register": "Registered on the hosting",
         "manual": "Set up manually"
       },
       "noWebhook": "No webhook.",
@@ -1525,18 +1527,18 @@
       "branchInclude": "Branch patterns",
       "branchIncludeHint": "Glob patterns of full branch names separated by commas, e.g. main, release/*; empty — every branch. The default branch is always taken.",
       "ownerUrl": "Owner address",
-      "ownerUrlHint": "Web address of the group, organization or user, e.g. https://gitlab.example.com/platform/team — the forge, owner and API address are filled in from it.",
+      "ownerUrlHint": "Web address of the group, organization or user, e.g. https://gitlab.example.com/platform/team — the hosting, owner and API address are filled in from it.",
       "recompute": "Compute again",
       "exclusions": {
         "title": "Excluded repositories",
-        "empty": "No exclusions. A project is excluded with “Unlink from forge” on its page.",
+        "empty": "No exclusions. A project is excluded with “Unlink from repository sync” on its page.",
         "restore": "Bring back under sync",
         "confirm": "Remove the exclusion? The project becomes synchronized again on the next run.",
         "restored": "Exclusion removed; the next sync brings the project back."
       }
     },
     "repoMeta": {
-      "open": "Open on the forge",
+      "open": "Open on the hosting",
       "topics": "Topics",
       "languages": "Languages",
       "stars": "Stars",
@@ -1551,14 +1553,14 @@
       "synced": "Synchronized",
       "archived": "Archived",
       "orphaned": "Orphaned",
-      "orphanedText": "The repository is gone from the forge (deleted, moved or no longer accessible). The project is no longer synchronized and can be deleted.",
+      "orphanedText": "The repository is gone from the hosting (deleted, moved or no longer accessible). The project is no longer synchronized and can be deleted.",
       "managed": "Synchronized",
       "readme": "README",
       "readmeTruncated": "The README is cut here.",
-      "readmeFull": "Open the full README on the forge",
+      "readmeFull": "Open the full README on the hosting",
       "none": "—",
       "origin": "Origin",
-      "originForge": "Synchronized from the forge: {owner}",
+      "originRepoSync": "Synchronized from the hosting: {owner}",
       "originSource": "Documentation source: {kind}",
       "originLink": "Link only",
       "collected": "Last collected"
@@ -1571,7 +1573,7 @@
       "pickerTags": "Tags",
       "pickerRelease": "Current release",
       "title": "Branches",
-      "lead": "Branches of the project from the forge, CI events and the default branch. Gone and idle branches are cleaned up automatically; the default and pinned ones are kept.",
+      "lead": "Branches of the project from the hosting, CI events and the default branch. Gone and idle branches are cleaned up automatically; the default and pinned ones are kept.",
       "search": "Branch name starts with",
       "states": {
         "active": "Active",
@@ -1589,7 +1591,7 @@
         "actions": "Actions"
       },
       "sources": {
-        "forge": "forge",
+        "repo_sync": "repository sync",
         "ingest": "CI",
         "manual": "project",
         "cluster": "cluster",
@@ -1608,7 +1610,7 @@
       "unpinned": "Branch unpinned.",
       "delete": "Delete record",
       "deleteTitle": "Delete branch record",
-      "confirmDelete": "Delete the record of {name}? Deployments of this branch stay; the branch comes back if the forge or CI shows it again.",
+      "confirmDelete": "Delete the record of {name}? Deployments of this branch stay; the branch comes back if the hosting or CI shows it again.",
       "deleted": "Branch record deleted.",
       "never": "No activity",
       "searchSubmit": "Find",
@@ -1716,7 +1718,7 @@
         "failed": "Failed"
       },
       "partialHint": "Some files were not stored: they are too large, not text or over the limits.",
-      "truncated": "The forge returned an incomplete file tree.",
+      "truncated": "The hosting returned an incomplete file tree.",
       "failed": "The last attempt failed: {error}",
       "pending": "Waiting for collection.",
       "never": "Not collected yet.",
@@ -1789,24 +1791,24 @@
         "eventServiceDeployedHint": "An accepted service.deployed event.",
         "eventClusterDeployed": "Deployment seen in a cluster",
         "eventClusterDeployedHint": "A new version in Kubernetes without a CI event.",
-        "eventForgeWebhook": "Forge webhook",
-        "eventForgeWebhookHint": "A push delivered by a webhook moved a branch head.",
-        "eventForgeManual": "Manual forge sync",
-        "eventForgeManualHint": "The “Sync” button or forge:sync moved a branch head."
+        "eventRepoSyncWebhook": "Hosting webhook",
+        "eventRepoSyncWebhookHint": "A push delivered by a webhook moved a branch head.",
+        "eventRepoSyncManual": "Manual repository sync",
+        "eventRepoSyncManualHint": "The “Sync” button or repo:sync moved a branch head."
       },
-      "noSource": "Documentation needs a source: synchronize the project with a forge or set a source in the documentation settings.",
+      "noSource": "Documentation needs a source: link the project to repository sync or set a source in the documentation settings.",
       "source": {
         "title": "Source",
         "lead": "Where the documentation of this project is collected from.",
-        "forgeSync": "Collected through the forge synchronization.",
+        "repoSync": "Collected through the repository sync.",
         "none": "No source.",
         "kind": "Kind",
         "kinds": {
-          "remote": "Repository by address",
-          "local_dir": "Local directory",
-          "local_git": "Local git repository"
+          "remote": "Repository",
+          "local_dir": "Local folder",
+          "local_git": "Local repository"
         },
-        "forge": "Forge",
+        "hosting": "Hosting",
         "url": "Repository address",
         "urlHint": "e.g. https://gitlab.example.com/platform/api",
         "apiUrl": "API address",
@@ -1836,8 +1838,8 @@
         "includeIgnoredHint": "Files matching the include patterns are collected even when git ignores them; other ignored files stay out. Prefer narrow patterns like openspec/**/*.md.",
         "includeIgnoredOn": "commits, uncommitted and git-ignored files matching the patterns",
         "recompute": "Compute again",
-        "fromForge": "From the forge: {owner}",
-        "unlinkLink": "Unlink from the forge…"
+        "fromRepoSync": "From repository sync: {owner}",
+        "unlinkLink": "Unlink from repository sync…"
       },
       "onlyReadme": "Only the README at the root is collected — choose folders in the documentation settings.",
       "toSettings": "Open documentation settings",
@@ -1936,7 +1938,7 @@
       "kinds": {
         "collect": "Documentation collection",
         "index": "Search indexing",
-        "forge": "Forge sync",
+        "repo_sync": "Repository sync",
         "clusters": "Cluster polling"
       },
       "states": {
@@ -2005,7 +2007,7 @@
         "keys": "Keys",
         "access": "Access",
         "connect": "Sending events",
-        "forge": "Forge",
+        "repo-sync": "Repository sync",
         "secrets": "Secrets",
         "scans": "Scan history",
         "owners": "Owners",
@@ -2035,13 +2037,13 @@
       "template": "Template"
     },
     "unlink": {
-      "button": "Unlink from forge",
-      "title": "Unlink from the forge",
-      "text": "Stop synchronizing this project with the forge and edit it by hand.",
+      "button": "Unlink from repository sync",
+      "title": "Unlink from repository sync",
+      "text": "Stop synchronizing this project with the hosting and edit it by hand.",
       "confirm": "The repository is added to the connection's exclusions and the project becomes manual. Its documentation source stays a repository by address with the connection's secret. To bring it back, remove the exclusion in the connection dialog.",
       "noSecret": "The connection has no named secret: the new source will have no token.",
       "submit": "Unlink",
-      "done": "Project unlinked from the forge."
+      "done": "Project unlinked from repository sync."
     },
     "owners": {
       "title": "Owners",
@@ -2295,10 +2297,10 @@
       "event": "By event"
     },
     "sources": {
-      "forge": "Forge sync",
-      "remote": "Repository by address",
-      "local_dir": "Local directory",
-      "local_git": "Local git",
+      "repo_sync": "Repository sync",
+      "remote": "Repository",
+      "local_dir": "Local folder",
+      "local_git": "Local repository",
       "none": "No source"
     },
     "columns": {
@@ -2379,7 +2381,7 @@
         },
         "truncated": {
           "title": "The repository tree was truncated",
-          "text": "The forge returned only part of the file tree, so some files may be missing.",
+          "text": "The hosting returned only part of the file tree, so some files may be missing.",
           "hint": "Narrow the include patterns or collect from a smaller repository."
         },
         "no_branches": {
@@ -2389,8 +2391,8 @@
         },
         "no_source": {
           "title": "The project has no documentation source",
-          "text": "There is neither a documentation source nor a forge synchronization, so there is nothing to collect.",
-          "hint": "Set a source on the Documentation settings tab → Source, or connect the folder to a forge."
+          "text": "There is neither a documentation source nor a repository sync, so there is nothing to collect.",
+          "hint": "Set a source on the Documentation settings tab → Source, or connect the folder to repository sync."
         },
         "manifest_invalid": {
           "title": "The project description file was not read in full",
@@ -2420,35 +2422,35 @@
           "hint": "Move the documentation under an allowed root or extend KNOWLEDGE_LOCAL_ROOTS."
         }
       },
-      "forge": {
+      "hosting": {
         "credentials_unavailable": {
           "title": "The access token is unavailable",
           "text": "The stored token cannot be decrypted or the env:/file: reference does not resolve.",
           "hint": "Enter the token again or check SECRETS_KEYS and the referenced variable or file."
         },
         "unauthorized": {
-          "title": "The forge rejected the token",
+          "title": "The hosting rejected the token",
           "text": "The token is invalid, expired or lacks rights to the repository.",
           "hint": "Issue a token with read access to the repository and save it in the source or connection."
         },
         "not_found": {
-          "title": "The repository was not found on the forge",
-          "text": "The forge does not know the repository or hides it from the token.",
+          "title": "The repository was not found on the hosting",
+          "text": "The hosting does not know the repository or hides it from the token.",
           "hint": "Check the address and that the token can see the repository."
         },
         "owner_not_found": {
-          "title": "The forge owner was not found",
+          "title": "The hosting owner was not found",
           "text": "The organization, group or user of the connection does not exist or is hidden.",
-          "hint": "Check the owner path of the forge connection."
+          "hint": "Check the owner path of the repository sync connection."
         },
         "rate_limited": {
-          "title": "The forge rate limit is exhausted",
+          "title": "The hosting rate limit is exhausted",
           "text": "Too many API requests; the next run waits for the limit to reset.",
           "hint": "Use a token with a higher limit or collect fewer branches."
         },
         "upstream_error": {
-          "title": "The forge or storage failed",
-          "text": "The forge answered with an error or the snapshot could not be saved.",
+          "title": "The hosting or storage failed",
+          "text": "The hosting answered with an error or the snapshot could not be saved.",
           "hint": "Look at the technical details; the run is retried automatically."
         }
       },
@@ -2492,7 +2494,7 @@
   },
   "secrets": {
     "title": "Secrets",
-    "nodeIntro": "Tokens and access keys of this node. Forge connections and documentation sources here and below pick them; values are not shown after saving.",
+    "nodeIntro": "Tokens and access keys of this node. Repository sync connections and documentation sources here and below pick them; values are not shown after saving.",
     "globalIntro": "Global secrets are available to every node and cluster. Values are not shown after saving.",
     "name": "Name",
     "description": "Description",
@@ -2625,7 +2627,7 @@
     "title": "Notifications",
     "lead": "Where events of this node and everything inside are sent: a webhook or Slack. A subscription set above applies here too until it is overridden or disabled.",
     "empty": "No subscriptions",
-    "emptyText": "Add a webhook or a Slack channel to hear about deployments, drift, broken links and failed forge syncs.",
+    "emptyText": "Add a webhook or a Slack channel to hear about deployments, drift, broken links and failed repository syncs.",
     "add": "New subscription",
     "columns": {
       "key": "Key",
@@ -2645,10 +2647,10 @@
       "deployment.created": "Deployment",
       "deployment.drift": "Drift",
       "link.check_failed": "Broken link",
-      "forge.sync_failed": "Forge sync failed",
+      "repo_sync.failed": "Repository sync failed",
       "deployment.drift_resolved": "Drift resolved",
       "link.check_recovered": "Link restored",
-      "forge.sync_recovered": "Forge sync recovered",
+      "repo_sync.recovered": "Repository sync recovered",
       "test": "Test"
     },
     "allEnvironments": "all",
@@ -2678,7 +2680,7 @@
       "secretHint": "The secret holds the webhook address; for Slack an https://hooks.slack.com/ incoming webhook.",
       "events": "Events",
       "environments": "Environments",
-      "environmentsHint": "Empty — all environments. Broken links and forge failures have no environment and always pass.",
+      "environmentsHint": "Empty — all environments. Broken links and repository sync failures have no environment and always pass.",
       "locale": "Message language",
       "disabled": "Disabled",
       "disabledHint": "A disabled subscription receives nothing and switches off the one with the same key above.",
@@ -2950,10 +2952,10 @@
       "deleteText": "Delete the source and its {count} skills?",
       "empty": "No git sources",
       "kind": "Kind",
-      "remote": "Repository on a forge",
-      "localGit": "Local git repository",
-      "localDir": "Local directory",
-      "forge": "Forge",
+      "remote": "Repository",
+      "localGit": "Local repository",
+      "localDir": "Local folder",
+      "hosting": "Hosting",
       "url": "Repository address",
       "apiUrl": "API address",
       "recompute": "Recompute",
@@ -3027,13 +3029,6 @@
       "folderOff": "The folder is disabled — there is nothing to install.",
       "folderOffBy": "The parent folder {name} is disabled."
     },
-    "importDialog": {
-      "menu": "Import from git",
-      "title": "Import from git",
-      "name": "Folder name",
-      "nameHint": "Empty — the repository name ({name})",
-      "submit": "Import"
-    },
     "folderConnect": {
       "title": "Install the folder",
       "count": "Skills in the archive: {count}",
@@ -3054,6 +3049,16 @@
       "note": "The set applies to tokens and apps bound to nodes of this organization. Skills of the organization itself are always available.",
       "readonly": "Editors of the organization change the set.",
       "empty": "Nothing is selected: tokens with nodes of the organization get no global skills."
+    },
+    "importPage": {
+      "menu": "Import from git",
+      "title": "Import from git",
+      "name": "Folder name",
+      "nameHint": "Empty — the repository name ({name})",
+      "submit": "Import",
+      "lead": "Create a folder that follows a git repository: every folder with SKILL.md under the chosen directories becomes a skill.",
+      "space": "Space",
+      "cancel": "Cancel"
     }
   },
   "mcp": {
@@ -3300,6 +3305,13 @@
       "state": "State",
       "tools": "Tools",
       "accessNote": "A single server is narrowed further by its own access list (Settings → Access on the server page) and by the organization’s server set:"
+    },
+    "builtin": {
+      "badge": "Built-in",
+      "aboutTitle": "Tools of the registry",
+      "description": "The registry's own MCP server: projects, deployments, links, dependencies, documentation, API descriptions and skills of the catalog, through the same /api/mcp endpoint as the external servers.",
+      "noPrefix": "The registry's own tools have no prefix: list_projects, get_doc, get_skill and the others.",
+      "toolsOf": "{count} of {total} tools"
     }
   },
   "invite": {

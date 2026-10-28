@@ -5,17 +5,17 @@ import (
 	"strings"
 	"time"
 
-	forgeports "svc-registry/internal/feature/forge/ports"
-	forgetypes "svc-registry/internal/feature/forge/types"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
+	reposyncports "svc-registry/internal/feature/reposync/ports"
+	reposynctypes "svc-registry/internal/feature/reposync/types"
 )
 
 type remote struct {
-	client      forgeports.ClientPort
+	client      reposyncports.ClientPort
 	fullPath    string
 	settings    knowledgetypes.Settings
 	maxBranches int
-	repo        *forgetypes.RemoteRepo
+	repo        *reposynctypes.RemoteRepo
 }
 
 func (r *remote) Heads(ctx context.Context) (map[string]string, string, error) {
@@ -57,10 +57,10 @@ func (r *remote) Tags(ctx context.Context) (map[string]string, error) {
 	return out, nil
 }
 
-func (r *remote) current(ctx context.Context) (forgetypes.RemoteRepo, error) {
+func (r *remote) current(ctx context.Context) (reposynctypes.RemoteRepo, error) {
 	if r.repo == nil {
 		if _, _, err := r.Heads(ctx); err != nil {
-			return forgetypes.RemoteRepo{}, err
+			return reposynctypes.RemoteRepo{}, err
 		}
 	}
 	return *r.repo, nil
@@ -87,13 +87,13 @@ func (r *remote) Read(ctx context.Context, e knowledgetypes.Entry, limit int64) 
 	if err != nil {
 		return nil, err
 	}
-	return r.client.ReadFile(ctx, repo, forgetypes.TreeEntry{Path: e.Path, BlobSHA: e.BlobSHA, Size: e.Size}, limit)
+	return r.client.ReadFile(ctx, repo, reposynctypes.TreeEntry{Path: e.Path, BlobSHA: e.BlobSHA, Size: e.Size}, limit)
 }
 
-func (r *remote) Metadata(ctx context.Context, known *time.Time) (forgetypes.RemoteRepo, *forgetypes.Details, error) {
+func (r *remote) Metadata(ctx context.Context, known *time.Time) (reposynctypes.RemoteRepo, *reposynctypes.Details, error) {
 	repo, err := r.current(ctx)
 	if err != nil {
-		return forgetypes.RemoteRepo{}, nil, err
+		return reposynctypes.RemoteRepo{}, nil, err
 	}
 	if changed := repo.ChangedAt(); known != nil && changed != nil && !changed.After(*known) {
 		return repo, nil, nil

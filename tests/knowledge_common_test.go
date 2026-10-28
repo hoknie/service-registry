@@ -6,13 +6,13 @@ import (
 	"testing"
 	"time"
 
-	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/hostingfake"
 )
 
 type docsProject struct {
 	app   *testApp
-	fake  *forgefake.Fake
-	repo  forgefake.Repo
+	fake  *hostingfake.Fake
+	repo  hostingfake.Repo
 	admin string
 	org   string
 	conn  string
@@ -21,16 +21,16 @@ type docsProject struct {
 
 func startDocs(t *testing.T, files map[string]string, extra ...string) *docsProject {
 	t.Helper()
-	return startDocsOn(t, startForgeApp(t, extra...), files)
+	return startDocsOn(t, startRepoSyncApp(t, extra...), files)
 }
 
 func startDocsOn(t *testing.T, app *testApp, files map[string]string) *docsProject {
 	t.Helper()
 	root := app.admin()
 	org := app.nodeID(root, "organization", "", "acme")
-	f := forgefake.Start(t, "github", forgeToken, "acme-inc")
-	repo := forgefake.Repo{ID: 1, Path: "acme-inc/api", Files: files,
-		Branches: []forgefake.Branch{{Name: "main", SHA: sha(1)}}}
+	f := hostingfake.Start(t, "github", hostingToken, "acme-inc")
+	repo := hostingfake.Repo{ID: 1, Path: "acme-inc/api", Files: files,
+		Branches: []hostingfake.Branch{{Name: "main", SHA: sha(1)}}}
 	f.Put(repo)
 	conn := idOf(app.connect(root, org, f, nil))
 	if run := app.syncNow(root, org, conn); run["status"] != "succeeded" {
@@ -42,7 +42,7 @@ func startDocsOn(t *testing.T, app *testApp, files map[string]string) *docsProje
 
 func sha(n int) string { return fmt.Sprintf("%040x", n) }
 
-func (d *docsProject) push(files map[string]string, branches ...forgefake.Branch) {
+func (d *docsProject) push(files map[string]string, branches ...hostingfake.Branch) {
 	d.app.t.Helper()
 	if files != nil {
 		d.repo.Files = files

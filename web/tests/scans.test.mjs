@@ -17,7 +17,7 @@ test("a known code reads from the book, git gets its own hint", () => {
 });
 
 test("an unknown code is shown as is", () => {
-  assert.deepEqual(scanCodeText(book, "forge.brand_new", null), { title: "forge.brand_new", text: "", hint: "" });
+  assert.deepEqual(scanCodeText(book, "hosting.brand_new", null), { title: "hosting.brand_new", text: "", hint: "" });
   assert.equal(scanCodeText(book, "internal", null).title, "internal");
 });
 

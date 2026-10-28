@@ -149,7 +149,7 @@ func batchVars(ctx context.Context, tx pgtx.Querier, ids []uuid.UUID, out map[uu
 func batchRepos(ctx context.Context, tx pgtx.Querier, ids []uuid.UUID, out map[uuid.UUID]linkstypes.ProjectBatch) error {
 	repos, err := postgres.List(ctx, tx, constraints, pgx.RowToStructByName[batchRepoRow], `
 		SELECT project_id, full_path
-		FROM forge_repositories
+		FROM repo_sync_repositories
 		WHERE project_id = ANY($1)
 			AND orphaned_at IS NULL`, ids)
 	if err != nil {

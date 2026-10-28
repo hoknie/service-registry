@@ -3,15 +3,15 @@ package source
 import (
 	"context"
 
-	forgeports "svc-registry/internal/feature/forge/ports"
-	forgetypes "svc-registry/internal/feature/forge/types"
 	knowledgeports "svc-registry/internal/feature/knowledge/ports"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
+	reposyncports "svc-registry/internal/feature/reposync/ports"
+	reposynctypes "svc-registry/internal/feature/reposync/types"
 )
 
 type FactoryClient struct {
 	Roots        []string
-	Forges       forgeports.ClientFactoryPort
+	Hostings     reposyncports.ClientFactoryPort
 	MaxFileBytes int64
 	MaxBranches  int
 }
@@ -25,7 +25,7 @@ func (f *FactoryClient) Open(_ context.Context, s knowledgetypes.Source, setting
 			includeIgnored: s.IncludeIgnored}, nil
 	case knowledgetypes.SourceRemote:
 		full := s.FullPath()
-		client, err := f.Forges.New(forgetypes.Endpoint{Kind: forgetypes.Kind(s.Forge), APIURL: s.APIURL, Owner: owner(full), Token: token})
+		client, err := f.Hostings.New(reposynctypes.Endpoint{Kind: reposynctypes.Kind(s.Hosting), APIURL: s.APIURL, Owner: owner(full), Token: token})
 		if err != nil {
 			return nil, err
 		}

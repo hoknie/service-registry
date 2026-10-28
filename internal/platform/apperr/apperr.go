@@ -84,7 +84,7 @@ func (e *Error) Error() string {
 	case SessionRequired:
 		return "this request needs a session, not a token"
 	case UpstreamRateLimited:
-		return "the forge's rate limit is exceeded"
+		return "the hosting's rate limit is exceeded"
 	case InvalidWebhookSignature:
 		return "the webhook delivery is not signed by this connection"
 	case InvalidAgentToken:

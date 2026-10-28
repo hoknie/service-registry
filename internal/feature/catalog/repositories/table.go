@@ -50,7 +50,7 @@ func (s *NodeRepository) Table(ctx context.Context, w catalogtypes.Walk) ([]cata
 					WHERE c.parent_id = n.id
 						AND (n.readable OR c.id IN (SELECT node_id FROM bound) OR c.id IN (SELECT id FROM lineage))
 				) AS children,
-				n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url, n.default_branch,
+				n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.hosting, n.repo_url, n.default_branch,
 				n.cluster_observation, n.visibility, rfc3339(n.created_at) AS created_at, rfc3339(n.updated_at) AS updated_at
 			FROM visible n
 			ORDER BY CASE n.kind WHEN 'organization' THEN 0 WHEN 'folder' THEN 1 ELSE 2 END, lower(n.name), n.id
@@ -134,7 +134,7 @@ func (s *NodeRepository) Search(ctx context.Context, q catalogtypes.Search) ([]c
 				WHERE c.parent_id = v.id
 					AND (v.readable OR c.id IN (SELECT node_id FROM bound) OR c.id IN (SELECT id FROM lineage))
 			) AS children,
-			v.id, v.kind, v.parent_id, v.slug, v.name, v.description, v.labels, v.forge, v.repo_url, v.default_branch,
+			v.id, v.kind, v.parent_id, v.slug, v.name, v.description, v.labels, v.hosting, v.repo_url, v.default_branch,
 			v.cluster_observation, v.visibility, rfc3339(v.created_at) AS created_at, rfc3339(v.updated_at) AS updated_at
 		FROM visible v
 		WHERE v.id IN (SELECT id FROM shown)
@@ -220,7 +220,7 @@ func (s *NodeRepository) searchNames(ctx context.Context, q catalogtypes.Search,
 				WHERE c.parent_id = v.id
 					AND (v.readable OR c.id IN (SELECT node_id FROM bound) OR c.id IN (SELECT id FROM lineage))
 			) AS children,
-			v.id, v.kind, v.parent_id, v.slug, v.name, v.description, v.labels, v.forge, v.repo_url, v.default_branch,
+			v.id, v.kind, v.parent_id, v.slug, v.name, v.description, v.labels, v.hosting, v.repo_url, v.default_branch,
 			v.cluster_observation, v.visibility, rfc3339(v.created_at) AS created_at, rfc3339(v.updated_at) AS updated_at
 		FROM visible v
 		WHERE v.id IN (SELECT id FROM shown)

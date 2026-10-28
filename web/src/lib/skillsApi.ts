@@ -56,3 +56,13 @@ export async function folderArchiveCount(id: string): Promise<number> {
     throw e;
   }
 }
+
+let defaults: Promise<{ sync_interval_secs: number }> | null = null;
+
+export function loadSkillDefaults(): Promise<{ sync_interval_secs: number }> {
+  defaults ??= apiGet<{ sync_interval_secs: number }>(`${SKILLS_BASE}/defaults`).catch((e: unknown) => {
+    defaults = null;
+    throw e;
+  });
+  return defaults;
+}

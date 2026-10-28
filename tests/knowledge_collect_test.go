@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/hostingfake"
 )
 
 func TestTheReadmeIsCollectedByDefault(t *testing.T) {
@@ -29,8 +29,8 @@ func TestPatternsBranchesAndLimits(t *testing.T) {
 	}, "KNOWLEDGE_MAX_FILE_BYTES", "1024")
 	execSQL(t, d.app.db, "INSERT INTO knowledge_patterns (node_id, include_set, include, exclude, refs) VALUES ($1, true, $2, $3, $4)",
 		d.id, []string{"openspec/**", "docs/**"}, []string{"docs/drafts/**"}, `[{"pattern":"release/*","kind":"branch"}]`)
-	d.push(nil, forgefake.Branch{Name: "main", SHA: sha(1)}, forgefake.Branch{Name: "release/1", SHA: sha(2)},
-		forgefake.Branch{Name: "dev", SHA: sha(3)})
+	d.push(nil, hostingfake.Branch{Name: "main", SHA: sha(1)}, hostingfake.Branch{Name: "release/1", SHA: sha(2)},
+		hostingfake.Branch{Name: "dev", SHA: sha(3)})
 	d.app.collect()
 	want := "docs/big.md:too_large,docs/img.png:binary,docs/z.md:,openspec/decisions/0036-branches.md:,openspec/specs/catalog/branches/spec.md:"
 	eq(t, d.files("main"), want)
@@ -61,17 +61,17 @@ func TestANewCommitMakesANewSnapshotAndKnownContentIsNotDownloaded(t *testing.T)
 	blobs := d.fake.Calls("blob")
 	eq(t, blobs, 2)
 
-	d.push(map[string]string{"README.md": "one", "docs/a.md": "alpha", "main.go": "package main"}, forgefake.Branch{Name: "main", SHA: sha(2)})
+	d.push(map[string]string{"README.md": "one", "docs/a.md": "alpha", "main.go": "package main"}, hostingfake.Branch{Name: "main", SHA: sha(2)})
 	d.app.collect()
 	eq(t, d.snapshots("main"), int64(1))
 	eq(t, d.last("main", "commit_sha"), sha(2))
 	eq(t, d.fake.Calls("blob"), blobs, "nothing downloaded again")
 
-	d.push(map[string]string{"README.md": "two", "docs/a.md": "alpha"}, forgefake.Branch{Name: "main", SHA: sha(3)})
+	d.push(map[string]string{"README.md": "two", "docs/a.md": "alpha"}, hostingfake.Branch{Name: "main", SHA: sha(3)})
 	d.app.collect()
 	eq(t, d.snapshots("main"), int64(2))
 	eq(t, d.fake.Calls("blob"), blobs+1)
-	d.push(map[string]string{"README.md": "three", "docs/a.md": "alpha"}, forgefake.Branch{Name: "main", SHA: sha(4)})
+	d.push(map[string]string{"README.md": "three", "docs/a.md": "alpha"}, hostingfake.Branch{Name: "main", SHA: sha(4)})
 	d.app.collect()
 	eq(t, d.snapshots("main"), int64(2), "KNOWLEDGE_KEEP=1 keeps the latest and one more")
 }
@@ -90,20 +90,20 @@ func TestAFailureKeepsTheLastSnapshot(t *testing.T) {
 	t.Parallel()
 	d := startDocs(t, map[string]string{"README.md": "x"})
 	d.app.collect()
-	d.push(nil, forgefake.Branch{Name: "main", SHA: sha(2)})
+	d.push(nil, hostingfake.Branch{Name: "main", SHA: sha(2)})
 	d.fake.RateLimitUntil(time.Now().Add(time.Hour))
 	d.app.collect()
 	eq(t, d.last("main", "status"), "failed")
-	eq(t, d.last("main", "error_code"), "forge.rate_limited")
+	eq(t, d.last("main", "error_code"), "hosting.rate_limited")
 	eq(t, d.files("main"), "README.md:", "the last successful snapshot stays")
 	next := scalar[bool](t, d.app.db, "SELECT next_run_at > now() + interval '50 minutes' FROM knowledge_settings WHERE project_id = $1", d.id)
 	eq(t, next, true, "retried at the reset")
 	d.fake.RateLimitUntil(time.Time{})
 	d.fake.Token = "other"
 	d.app.collect()
-	eq(t, d.last("main", "error_code"), "forge.unauthorized")
+	eq(t, d.last("main", "error_code"), "hosting.unauthorized")
 	eq(t, scalar[int64](t, d.app.db, "SELECT count(*) FROM knowledge_snapshots WHERE status = 'failed'"), int64(1), "one failed attempt kept")
-	d.fake.Token = forgeToken
+	d.fake.Token = hostingToken
 	d.app.collect()
 	eq(t, d.last("main", "status"), "ok")
 	eq(t, d.last("main", "commit_sha"), sha(2))
@@ -137,12 +137,12 @@ func TestDeletingABranchDeletesItsSnapshots(t *testing.T) {
 	t.Parallel()
 	d := startDocs(t, map[string]string{"README.md": "x"})
 	execSQL(t, d.app.db, `INSERT INTO knowledge_patterns (node_id, refs) VALUES ($1, '[{"pattern":"feature/*","kind":"branch"}]')`, d.id)
-	d.push(nil, forgefake.Branch{Name: "main", SHA: sha(1)}, forgefake.Branch{Name: "feature/x", SHA: sha(5)})
+	d.push(nil, hostingfake.Branch{Name: "main", SHA: sha(1)}, hostingfake.Branch{Name: "feature/x", SHA: sha(5)})
 	d.app.collect()
 	eq(t, d.snapshots("feature/x"), int64(1))
 	eq(t, d.app.call("DELETE", nodePath(d.id)+"/branches/item?name=feature%2Fx", d.admin).status, 204)
 	eq(t, d.snapshots("feature/x"), int64(0))
-	d.push(nil, forgefake.Branch{Name: "main", SHA: sha(1)}, forgefake.Branch{Name: "feature/y", SHA: sha(6)})
+	d.push(nil, hostingfake.Branch{Name: "main", SHA: sha(1)}, hostingfake.Branch{Name: "feature/y", SHA: sha(6)})
 	d.app.collect()
 	eq(t, d.snapshots("feature/y"), int64(1))
 	execSQL(t, d.app.db, "UPDATE branches SET gone_at = now() - interval '100 days' WHERE name = 'feature/y'")

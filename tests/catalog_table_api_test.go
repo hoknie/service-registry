@@ -29,7 +29,7 @@ type tableTree struct {
 
 func startTable(t *testing.T) *tableTree {
 	t.Helper()
-	a := startForgeApp(t)
+	a := startRepoSyncApp(t)
 	admin := a.admin()
 	acme := a.nodeID(admin, "organization", "", "acme")
 	backend := a.nodeID(admin, "folder", acme, "backend")
@@ -95,11 +95,11 @@ func TestCatalogTableActivityFilter(t *testing.T) {
 	t.Parallel()
 	a := startTable(t)
 	s := &sourcesApp{testApp: a.testApp, admin: a.admin, org: a.acme}
-	s.failForge(a.users, "forge.unauthorized")
+	s.failRepoSync(a.users, "hosting.unauthorized")
 	r := a.get(tablePath("activity=failed"), a.admin)
 	eq(t, r.status, 200, r.text())
 	eq(t, names(t, r), "(acme),(backend),users-api")
-	eq(t, at(r.json(t), "items", 2, "activity", 1, "kind"), any("forge"))
+	eq(t, at(r.json(t), "items", 2, "activity", 1, "kind"), any("repo_sync"))
 	eq(t, at(r.json(t), "items", 2, "activity", 1, "state"), any("failed"))
 	eq(t, at(r.json(t), "items", 2, "activity", 1, "pending"), nil)
 	eq(t, jsonText(at(r.json(t), "items", 1, "activity")), `{"failed":1,"queued":0,"running":0}`)
@@ -167,7 +167,7 @@ func TestCatalogTableSearchByNameMatchesTheWalk(t *testing.T) {
 		FROM (VALUES ('pct', '100% ready'), ('thousand', '1000 ready'), ('snake', 'snake_case'), ('snakex', 'snakeXcase'),
 			('bs', 'back\slash')) v(s, n)`, a.web)
 	s := &sourcesApp{testApp: a.testApp, admin: a.admin, org: a.acme}
-	s.failForge(a.users, "forge.unauthorized")
+	s.failRepoSync(a.users, "hosting.unauthorized")
 
 	for _, c := range []struct{ query, want string }{
 		{"q=" + url.QueryEscape("100%"), "(acme),(web),100% ready"},

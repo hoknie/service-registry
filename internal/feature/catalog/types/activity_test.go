@@ -8,7 +8,7 @@ import (
 
 func TestStateOfPrefersRunningThenQueuedThenFailed(t *testing.T) {
 	t.Parallel()
-	code := "forge.unauthorized"
+	code := "hosting.unauthorized"
 	cases := []struct {
 		name string
 		in   ProcessSignals

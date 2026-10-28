@@ -40,7 +40,7 @@ func TestGlobalGroupRoutesRejectOrgGroupsForNonSuperadmin(t *testing.T) {
 
 func TestNodeSecretListingHidesGlobalFromReaders(t *testing.T) {
 	t.Parallel()
-	app := startForgeApp(t)
+	app := startRepoSyncApp(t)
 	root := app.admin()
 	acme := app.nodeID(root, "organization", "", "acme")
 	backend := app.nodeID(root, "folder", acme, "backend")

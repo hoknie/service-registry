@@ -73,13 +73,13 @@ func (a *Handlers) CountAgentReport(h fiber.Handler) fiber.Handler {
 	}
 }
 
-func (a *Handlers) CountForgeHook(h fiber.Handler) fiber.Handler {
+func (a *Handlers) CountRepoSyncHook(h fiber.Handler) fiber.Handler {
 	if a.Metrics == nil {
 		return h
 	}
 	return func(c fiber.Ctx) error {
 		err := h(c)
-		a.Metrics.ForgeWebhook(c.Response().StatusCode() < http.StatusBadRequest)
+		a.Metrics.RepoSyncWebhook(c.Response().StatusCode() < http.StatusBadRequest)
 		return err
 	}
 }

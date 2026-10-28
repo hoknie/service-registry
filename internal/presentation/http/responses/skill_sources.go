@@ -16,7 +16,7 @@ type SkillSource struct {
 	ID           uuid.UUID               `json:"id"`
 	FolderID     uuid.UUID               `json:"folder_id"`
 	Kind         string                  `json:"kind"`
-	Forge        *string                 `json:"forge"`
+	Hosting      *string                 `json:"hosting"`
 	URL          *string                 `json:"url"`
 	APIURL       *string                 `json:"api_url"`
 	Path         *string                 `json:"path"`
@@ -39,7 +39,7 @@ type SkillSource struct {
 }
 
 func SkillSourceOf(s skillstypes.Source) SkillSource {
-	out := SkillSource{ID: s.ID, FolderID: s.FolderID, Kind: s.Kind, Forge: s.Forge, URL: s.URL, APIURL: s.APIURL, Path: s.Path,
+	out := SkillSource{ID: s.ID, FolderID: s.FolderID, Kind: s.Kind, Hosting: s.Hosting, URL: s.URL, APIURL: s.APIURL, Path: s.Path,
 		WorkingTree: s.WorkingTree, Branch: s.Branch, Roots: s.Roots, Layout: s.Layout, GroupField: s.GroupField, IntervalSecs: s.IntervalSecs, Status: string(s.NewStatus),
 		Versions: s.Versions, TagPattern: s.TagPattern, State: s.State(), NextRunAt: s.NextRunAt, LastRun: s.LastRun,
 		CreatedAt: s.CreatedAt, UpdatedAt: s.UpdatedAt}
@@ -103,4 +103,8 @@ func SkillSetOf(s skillsservices.SkillSet) SkillSet {
 		out.Skills = append(out.Skills, SkillSetItem{ID: k.ID, Path: k.Path, Name: k.Name, Status: string(k.Status)})
 	}
 	return out
+}
+
+type SkillDefaults struct {
+	SyncIntervalSecs int64 `json:"sync_interval_secs"`
 }

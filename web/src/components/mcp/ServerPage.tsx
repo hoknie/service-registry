@@ -19,7 +19,7 @@ import { format } from "@/i18n/format";
 import type { Messages } from "@/i18n/messages";
 import { ago, when } from "@/i18n/time";
 import { apiSend, errorCode } from "@/lib/api";
-import { serverUrl, type McpServer } from "@/lib/mcp";
+import { BUILTIN_ID, serverUrl, type McpServer } from "@/lib/mcp";
 import { checkServer, loadServer } from "@/lib/mcpApi";
 import { placeTrail } from "@/lib/placeCrumbs";
 import { can } from "@/lib/rights";
@@ -41,6 +41,7 @@ import { SectionMenu } from "../ui/SectionMenu";
 import { SkeletonPanel } from "../ui/Skeleton";
 import { Tabs, TabsList, TabsTrigger } from "../ui/Tabs";
 import { AccessTab } from "./AccessTab";
+import { BuiltinServerPage } from "./BuiltinServerPage";
 import { CallsTab } from "./CallsTab";
 import { ConnectTab } from "./ConnectTab";
 import { ProxyForm } from "./ProxyForm";
@@ -174,7 +175,12 @@ function Overview({
   );
 }
 
-export function ServerPage({
+export function ServerPage({ locale, labels }: { locale: Locale; labels: Messages["mcp"] }) {
+  const id = useSearchParams().get("id");
+  return id === BUILTIN_ID ? <BuiltinServerPage locale={locale} labels={labels} /> : <ExternalServerPage locale={locale} labels={labels} />;
+}
+
+function ExternalServerPage({
   locale,
   labels: t,
 }: {

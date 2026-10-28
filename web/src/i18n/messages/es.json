@@ -258,7 +258,7 @@
       "invalid_node_name": "El nombre debe tener de 1 a 100 caracteres.",
       "invalid_description": "La descripción admite como máximo 2000 caracteres.",
       "invalid_labels": "Etiquetas: como máximo 32; claves con minúsculas, dígitos, puntos, guiones bajos y guiones; valores de hasta 63 caracteres.",
-      "invalid_forge": "Elige GitHub, GitLab, Forgejo o Gitea.",
+      "invalid_hosting": "Elige GitHub, GitLab, Forgejo o Gitea.",
       "invalid_repo_url": "Introduce una URL de repositorio http(s).",
       "invalid_branch": "El nombre de la rama debe tener de 1 a 255 caracteres sin espacios.",
       "repo_fields_not_allowed": "Los campos de repositorio son solo para proyectos.",
@@ -272,12 +272,12 @@
       "invalid_token_lifetime": "Elige una duración dentro del máximo permitido.",
       "invalid_token_nodes": "Elige de 1 a 20 nodos distintos que puedas leer; los nodos no se combinan con el ámbito admin.",
       "invalid_token_prefix": "El prefijo tiene como máximo 12 caracteres.",
-      "invalid_api_url": "Indique una dirección de API válida: http(s) para un forge (obligatoria para Forgejo y Gitea), https para un clúster (ninguna si el registro se ejecuta en él).",
+      "invalid_api_url": "Indique una dirección de API válida: http(s) para un hosting (obligatoria para Forgejo y Gitea), https para un clúster (ninguna si el registro se ejecuta en él).",
       "invalid_owner_path": "Introduce una organización, un usuario o la ruta de un grupo.",
       "invalid_name_patterns": "Como máximo 32 patrones de nombre de 1 a 100 caracteres.",
       "invalid_sync_interval": "El intervalo debe ser de 1 minuto a 24 horas.",
       "invalid_credentials": "Introduce un token o una referencia env:NOMBRE / file:/ruta.",
-      "invalid_forge_container": "Las conexiones con forges pertenecen a organizaciones y carpetas.",
+      "invalid_repo_sync_container": "Las conexiones de sincronización pertenecen a organizaciones y carpetas.",
       "invalid_webhook_mode": "Elige cómo configurar el webhook.",
       "invalid_branch_state": "Filtro de ramas desconocido.",
       "invalid_link_kind_key": "La clave debe tener 1–63 letras a–z, dígitos y '-', sin empezar ni terminar en '-'.",
@@ -359,7 +359,8 @@
       "invalid_member": "Elige una persona y un rol.",
       "invalid_invitation": "Revisa el correo, el rol y el idioma.",
       "skill_folder_too_large": "Las habilidades de la carpeta son demasiado grandes para un archivo.",
-      "invalid_skill_set": "Elige solo carpetas y habilidades globales, como máximo 500."
+      "invalid_skill_set": "Elige solo carpetas y habilidades globales, como máximo 500.",
+      "invalid_builtin_tools": "Nombres de herramientas: como máximo 100, sin repetir, a-z, 0-9 y _, empezando por una letra."
     },
     "conflict": {
       "email_taken": "Ya existe un usuario con este correo.",
@@ -370,10 +371,10 @@
       "cycle": "Un elemento no puede moverse dentro de sí mismo o de un descendiente.",
       "node_not_empty": "Solo se pueden eliminar elementos vacíos.",
       "idempotency_key_reused": "Esta clave de idempotencia ya se usó para otro evento.",
-      "forge_owner_taken": "Este propietario del forge ya está conectado.",
+      "repo_sync_owner_taken": "Este propietario del hosting ya está conectado.",
       "secrets_key_missing": "El servidor no tiene clave de cifrado (SECRETS_KEYS): usa una referencia a un secreto en lugar de un token.",
       "public_url_missing": "No está configurada la dirección externa del servidor (PUBLIC_URL).",
-      "managed_by_forge": "Esto lo gestiona la sincronización con el forge.",
+      "managed_by_repo_sync": "Esto lo gestiona la sincronización de repositorios.",
       "branch_is_default": "No se puede eliminar la rama predeterminada.",
       "link_kind_taken": "Ya existe un tipo de enlace con esta clave.",
       "link_kind_in_use": "Este tipo de enlace lo usan plantillas; elimínelas o cámbielas primero.",
@@ -382,7 +383,7 @@
       "membership_managed": "Esta pertenencia proviene del proveedor de inicio de sesión y no se puede quitar aquí.",
       "contact_editor_managed": "Este permiso de editor de contactos proviene del proveedor de inicio de sesión y no se puede quitar aquí.",
       "last_login_method": "Es tu única forma de iniciar sesión. Establece primero una contraseña.",
-      "knowledge_not_synced": "La documentación solo se recopila en proyectos sincronizados con un forge.",
+      "knowledge_not_synced": "La documentación solo se recopila en proyectos vinculados a la sincronización de repositorios.",
       "local_sources_disabled": "Las fuentes locales están desactivadas en este servidor.",
       "self_service": "No puedes convertir tu propia cuenta en cuenta de servicio.",
       "user_disabled": "El usuario está desactivado.",
@@ -390,7 +391,7 @@
       "secret_in_use": "El secreto está en uso: reemplázalo primero en conexiones, fuentes y clústeres.",
       "secret_name_taken": "Ya existe aquí un secreto con este nombre.",
       "link_kind_order_stale": "La lista de tipos de enlace ha cambiado; se ha recargado, inténtelo de nuevo.",
-      "forge_not_linked": "Este proyecto no está vinculado a un repositorio de la forja.",
+      "repo_sync_not_linked": "Este proyecto no está vinculado a la sincronización de repositorios.",
       "cluster_mode_agent": "El agente de este clúster envía sus informes; el registro no lo sondea.",
       "cluster_mode_poll": "El registro sondea este clúster: no tiene tokens de agente.",
       "cluster_disabled": "El clúster está desactivado.",
@@ -428,15 +429,14 @@
       "payload_too_large": "El evento es demasiado grande.",
       "rate_limited": "Demasiados eventos. Inténtalo más tarde."
     },
-    "forge": {
-      "unauthorized": "El forge rechazó el token.",
-      "owner_not_found": "No existe esa organización, usuario o grupo en el forge (o no hay acceso).",
+    "hosting": {
+      "unauthorized": "El hosting rechazó el token.",
+      "owner_not_found": "No existe esa organización, usuario o grupo en el hosting (o no hay acceso).",
       "credentials_unavailable": "No se puede leer el token: falta la clave de cifrado, la variable o el archivo.",
-      "rate_limited": "Se agotó el límite de peticiones del forge. Inténtalo más tarde.",
-      "upstream_error": "El forge no respondió correctamente.",
-      "interrupted": "La sincronización se interrumpió.",
-      "not_found": "El repositorio o el commit ya no está en el forge.",
-      "value_too_long": "La ruta o dirección del repositorio en el forge es demasiado larga; el repositorio se omite."
+      "rate_limited": "Se agotó el límite de peticiones del hosting. Inténtalo más tarde.",
+      "upstream_error": "El hosting no respondió correctamente.",
+      "not_found": "El repositorio o el commit ya no está en el hosting.",
+      "value_too_long": "La ruta o dirección del repositorio en el hosting es demasiado larga; el repositorio se omite."
     },
     "branches": {
       "truncated": "El repositorio tiene más ramas que el límite; algunas no se incluyeron."
@@ -515,6 +515,9 @@
       "not_pending": "La invitación venció, fue aceptada o fue revocada.",
       "sign_in_required": "Ya existe una cuenta con esta dirección: inicia sesión para aceptar.",
       "email_mismatch": "La invitación es para otra dirección de correo."
+    },
+    "repo_sync": {
+      "interrupted": "La sincronización se interrumpió."
     }
   },
   "guard": {
@@ -1221,7 +1224,6 @@
       "label": "Secciones",
       "keys": "Claves",
       "connect": "Enviar eventos",
-      "forge": "Forge",
       "branches": "Ramas",
       "links": "Enlaces",
       "docs": "Documentación",
@@ -1257,8 +1259,8 @@
       "submit": "Guardar",
       "done": "Guardado.",
       "titleOf": "Editar {name}",
-      "fromForge": "Desde el forge",
-      "managedNote": "Sincronizado desde el forge: la descripción y los campos del repositorio se cambian allí."
+      "fromRepoSync": "Desde la sincronización de repositorios",
+      "managedNote": "Sincronizado desde el hosting: la descripción y los campos del repositorio se cambian allí."
     },
     "move": {
       "title": "Mover",
@@ -1277,17 +1279,17 @@
     },
     "repo": {
       "title": "Repositorio",
-      "forge": "Forge",
+      "hosting": "Hosting",
       "url": "URL del repositorio",
       "branch": "Rama predeterminada",
-      "noForge": "Sin definir",
+      "noHosting": "Sin definir",
       "clusterObservation": "Observar en los clústeres",
       "clusterObservationHint": "Si se desactiva, se oculta el estado del proyecto en los clústeres de Kubernetes y no se registran despliegues desde ellos.",
       "section": "Repositorio y documentación",
       "mode": "Qué es",
       "link": "Solo enlace (sin documentación)",
       "checkSource": "Comprobar fuente",
-      "managedSource": "El enlace y la fuente de documentación vienen de la forja; desvincula el proyecto para cambiarlos.",
+      "managedSource": "El enlace y la fuente de documentación vienen del hosting; desvincula el proyecto para cambiarlos.",
       "branchHint": "Elige una rama conocida o escribe un nombre."
     },
     "keys": {
@@ -1433,13 +1435,13 @@
     "actions": {
       "more": "Más acciones"
     },
-    "forge": {
-      "title": "Conexiones con forges",
+    "repoSync": {
+      "title": "Sincronización de repositorios",
       "lead": "Importa los repositorios de un propietario de GitHub, GitLab, Forgejo o Gitea como proyectos de este nodo y mantiene sus metadatos al día.",
       "empty": "Todavía no hay conexiones.",
-      "emptyText": "Conecta un propietario de un forge para importar sus repositorios.",
+      "emptyText": "Conecta un propietario de un hosting para importar sus repositorios.",
       "add": "Nueva conexión",
-      "kind": "Forge",
+      "kind": "Hosting",
       "owner": "Propietario",
       "ownerHint": "Organización o usuario; en GitLab, la ruta completa del grupo, p. ej. acme/platform.",
       "apiUrl": "Dirección de la API",
@@ -1487,7 +1489,7 @@
         "running": "En curso",
         "succeeded": "Correcta",
         "failed": "Fallida",
-        "rate_limited": "Límite del forge"
+        "rate_limited": "Límite del hosting"
       },
       "counts": "{created} creados · {updated} actualizados · {orphaned} huérfanos · {skipped} omitidos",
       "lastRun": "Última ejecución",
@@ -1505,16 +1507,16 @@
       "confirmDelete": "¿Eliminar la conexión con {owner}? Sus proyectos se quedan en el catálogo como proyectos manuales.",
       "deleted": "Conexión eliminada.",
       "webhook": "Webhook",
-      "webhookLead": "El forge avisa al registro de los pushes y cambios de repositorios; la sincronización programada queda como respaldo.",
-      "register": "Registrar en el forge",
+      "webhookLead": "El hosting avisa al registro de los pushes y cambios de repositorios; la sincronización programada queda como respaldo.",
+      "register": "Registrar en el hosting",
       "registerHint": "El token necesita permisos de administrador del propietario.",
       "manual": "Configurar manualmente",
       "registered": "Webhook registrado.",
       "webhookUrl": "Dirección",
       "webhookSecret": "Secreto",
-      "secretOnce": "El secreto solo se muestra ahora. Pégalo en la configuración del webhook del forge.",
+      "secretOnce": "El secreto solo se muestra ahora. Pégalo en la configuración del webhook del hosting.",
       "modes": {
-        "register": "Registrado en el forge",
+        "register": "Registrado en el hosting",
         "manual": "Configurado manualmente"
       },
       "noWebhook": "Sin webhook.",
@@ -1525,18 +1527,18 @@
       "branchInclude": "Patrones de ramas",
       "branchIncludeHint": "Patrones glob de nombres completos de ramas separados por comas, p. ej. main, release/*; vacío — todas. La rama predeterminada siempre se incluye.",
       "ownerUrl": "Dirección del propietario",
-      "ownerUrlHint": "Dirección web del grupo, organización o usuario, p. ej. https://gitlab.example.com/platform/team; de ella se rellenan la forja, el propietario y la dirección de la API.",
+      "ownerUrlHint": "Dirección web del grupo, organización o usuario, p. ej. https://gitlab.example.com/platform/team; de ella se rellenan el hosting, el propietario y la dirección de la API.",
       "recompute": "Calcular de nuevo",
       "exclusions": {
         "title": "Repositorios excluidos",
-        "empty": "No hay exclusiones. Un proyecto se excluye con «Desvincular de la forja» en su página.",
+        "empty": "No hay exclusiones. Un proyecto se excluye con «Desvincular de la sincronización» en su página.",
         "restore": "Volver a sincronizar",
         "confirm": "¿Quitar la exclusión? El proyecto volverá a sincronizarse en la próxima ejecución.",
         "restored": "Exclusión eliminada; la próxima sincronización recupera el proyecto."
       }
     },
     "repoMeta": {
-      "open": "Abrir en el forge",
+      "open": "Abrir en el hosting",
       "topics": "Temas",
       "languages": "Lenguajes",
       "stars": "Estrellas",
@@ -1551,14 +1553,14 @@
       "synced": "Sincronizado",
       "archived": "Archivado",
       "orphaned": "Huérfano",
-      "orphanedText": "El repositorio ya no está en el forge (eliminado, movido o sin acceso). El proyecto ya no se sincroniza y se puede eliminar.",
+      "orphanedText": "El repositorio ya no está en el hosting (eliminado, movido o sin acceso). El proyecto ya no se sincroniza y se puede eliminar.",
       "managed": "Sincronizado",
       "readme": "README",
       "readmeTruncated": "El README se corta aquí.",
-      "readmeFull": "Abrir el README completo en el forge",
+      "readmeFull": "Abrir el README completo en el hosting",
       "none": "—",
       "origin": "Origen",
-      "originForge": "Sincronizado desde la forja: {owner}",
+      "originRepoSync": "Sincronizado desde el hosting: {owner}",
       "originSource": "Fuente de documentación: {kind}",
       "originLink": "Solo enlace",
       "collected": "Última recopilación"
@@ -1571,7 +1573,7 @@
       "pickerTags": "Etiquetas",
       "pickerRelease": "Versión actual",
       "title": "Ramas",
-      "lead": "Ramas del proyecto desde el forge, los eventos de CI y la rama predeterminada. Las ramas desaparecidas e inactivas se limpian automáticamente; la predeterminada y las fijadas se conservan.",
+      "lead": "Ramas del proyecto desde el hosting, los eventos de CI y la rama predeterminada. Las ramas desaparecidas e inactivas se limpian automáticamente; la predeterminada y las fijadas se conservan.",
       "search": "El nombre de la rama empieza por",
       "states": {
         "active": "Activas",
@@ -1589,7 +1591,7 @@
         "actions": "Acciones"
       },
       "sources": {
-        "forge": "forge",
+        "repo_sync": "sincronización de repositorios",
         "ingest": "CI",
         "manual": "proyecto",
         "cluster": "clúster",
@@ -1608,7 +1610,7 @@
       "unpinned": "Rama soltada.",
       "delete": "Eliminar registro",
       "deleteTitle": "Eliminar registro de rama",
-      "confirmDelete": "¿Eliminar el registro de {name}? Los despliegues de esta rama se conservan; la rama vuelve si el forge o la CI la muestran de nuevo.",
+      "confirmDelete": "¿Eliminar el registro de {name}? Los despliegues de esta rama se conservan; la rama vuelve si el hosting o la CI la muestran de nuevo.",
       "deleted": "Registro de rama eliminado.",
       "never": "Sin actividad",
       "searchSubmit": "Buscar",
@@ -1716,7 +1718,7 @@
         "failed": "Fallido"
       },
       "partialHint": "Algunos archivos no se guardaron: son demasiado grandes, no son texto o superan los límites.",
-      "truncated": "El forge devolvió un árbol de archivos incompleto.",
+      "truncated": "El hosting devolvió un árbol de archivos incompleto.",
       "failed": "El último intento falló: {error}",
       "pending": "Pendiente de recopilar.",
       "never": "Aún no se ha recopilado.",
@@ -1789,24 +1791,24 @@
         "eventServiceDeployedHint": "Un evento service.deployed aceptado.",
         "eventClusterDeployed": "Despliegue visto en un clúster",
         "eventClusterDeployedHint": "Una versión nueva en Kubernetes sin evento de CI.",
-        "eventForgeWebhook": "Webhook de forge",
-        "eventForgeWebhookHint": "Un push recibido por webhook movió la cabeza de una rama.",
-        "eventForgeManual": "Sincronización manual de forge",
-        "eventForgeManualHint": "El botón «Sincronizar» o forge:sync movieron la cabeza de una rama."
+        "eventRepoSyncWebhook": "Webhook del hosting",
+        "eventRepoSyncWebhookHint": "Un push recibido por webhook movió la cabeza de una rama.",
+        "eventRepoSyncManual": "Sincronización manual de repositorios",
+        "eventRepoSyncManualHint": "El botón «Sincronizar» o repo:sync movieron la cabeza de una rama."
       },
-      "noSource": "La documentación necesita una fuente: sincroniza el proyecto con un forge o define una fuente en los ajustes de documentación.",
+      "noSource": "La documentación necesita una fuente: vincula el proyecto a la sincronización de repositorios o define una fuente en los ajustes de documentación.",
       "source": {
         "title": "Fuente",
         "lead": "De dónde se recopila la documentación de este proyecto.",
-        "forgeSync": "Se recopila mediante la sincronización con el forge.",
+        "repoSync": "Se recopila mediante la sincronización de repositorios.",
         "none": "Sin fuente.",
         "kind": "Tipo",
         "kinds": {
-          "remote": "Repositorio por dirección",
-          "local_dir": "Directorio local",
-          "local_git": "Repositorio git local"
+          "remote": "Repositorio",
+          "local_dir": "Carpeta local",
+          "local_git": "Repositorio local"
         },
-        "forge": "Forge",
+        "hosting": "Hosting",
         "url": "Dirección del repositorio",
         "urlHint": "p. ej. https://gitlab.example.com/platform/api",
         "apiUrl": "Dirección de la API",
@@ -1836,8 +1838,8 @@
         "includeIgnoredHint": "Los archivos que coinciden con los patrones de inclusión se recopilan aunque git los ignore; los demás ignorados no. Mejor patrones acotados como openspec/**/*.md.",
         "includeIgnoredOn": "commits, archivos sin confirmar y archivos ignorados por git según los patrones",
         "recompute": "Calcular de nuevo",
-        "fromForge": "Desde la forja: {owner}",
-        "unlinkLink": "Desvincular de la forja…"
+        "fromRepoSync": "Desde la sincronización: {owner}",
+        "unlinkLink": "Desvincular de la sincronización…"
       },
       "onlyReadme": "Solo se recopila el README de la raíz: elige carpetas en los ajustes de documentación.",
       "toSettings": "Abrir ajustes de documentación",
@@ -1936,7 +1938,7 @@
       "kinds": {
         "collect": "Recopilación de documentación",
         "index": "Indexación para búsqueda",
-        "forge": "Sincronización con forge",
+        "repo_sync": "Sincronización de repositorios",
         "clusters": "Sondeo de clústeres"
       },
       "states": {
@@ -2005,7 +2007,7 @@
         "keys": "Claves",
         "access": "Acceso",
         "connect": "Envío de eventos",
-        "forge": "Forge",
+        "repo-sync": "Sincronización de repositorios",
         "secrets": "Secretos",
         "scans": "Historial de escaneos",
         "owners": "Responsables",
@@ -2035,13 +2037,13 @@
       "template": "Plantilla"
     },
     "unlink": {
-      "button": "Desvincular de la forja",
-      "title": "Desvincular de la forja",
-      "text": "Deja de sincronizar este proyecto con la forja y edítalo a mano.",
+      "button": "Desvincular de la sincronización",
+      "title": "Desvincular de la sincronización",
+      "text": "Deja de sincronizar este proyecto con el hosting y edítalo a mano.",
       "confirm": "El repositorio se añade a las exclusiones de la conexión y el proyecto pasa a ser manual. Su fuente de documentación queda como repositorio por dirección con el secreto de la conexión. Para recuperarlo, quita la exclusión en el diálogo de la conexión.",
       "noSecret": "La conexión no tiene un secreto con nombre: la nueva fuente no tendrá token.",
       "submit": "Desvincular",
-      "done": "Proyecto desvinculado de la forja."
+      "done": "Proyecto desvinculado de la sincronización."
     },
     "owners": {
       "title": "Responsables",
@@ -2295,10 +2297,10 @@
       "event": "Por evento"
     },
     "sources": {
-      "forge": "Sincronización con forge",
-      "remote": "Repositorio por dirección",
+      "repo_sync": "Sincronización de repositorios",
+      "remote": "Repositorio",
       "local_dir": "Carpeta local",
-      "local_git": "Git local",
+      "local_git": "Repositorio local",
       "none": "Sin fuente"
     },
     "columns": {
@@ -2379,7 +2381,7 @@
         },
         "truncated": {
           "title": "El árbol del repositorio se truncó",
-          "text": "El forge devolvió solo parte del árbol de archivos; pueden faltar archivos.",
+          "text": "El hosting devolvió solo parte del árbol de archivos; pueden faltar archivos.",
           "hint": "Restringe los patrones de inclusión o recopila de un repositorio más pequeño."
         },
         "no_branches": {
@@ -2389,8 +2391,8 @@
         },
         "no_source": {
           "title": "El proyecto no tiene fuente de documentación",
-          "text": "No hay fuente de documentación ni sincronización con un forge: no hay nada que recopilar.",
-          "hint": "Define una fuente en «Ajustes de documentación» → «Fuente» o conecta la carpeta a un forge."
+          "text": "No hay fuente de documentación ni sincronización de repositorios: no hay nada que recopilar.",
+          "hint": "Define una fuente en «Ajustes de documentación» → «Fuente» o conecta la carpeta a la sincronización de repositorios."
         },
         "manifest_invalid": {
           "title": "El archivo de descripción del proyecto no se leyó por completo",
@@ -2420,35 +2422,35 @@
           "hint": "Mueve la documentación a una raíz permitida o amplía KNOWLEDGE_LOCAL_ROOTS."
         }
       },
-      "forge": {
+      "hosting": {
         "credentials_unavailable": {
           "title": "El token de acceso no está disponible",
           "text": "El token guardado no se descifra o la referencia env:/file: no se resuelve.",
           "hint": "Introduce el token de nuevo o revisa SECRETS_KEYS y la variable o archivo indicado."
         },
         "unauthorized": {
-          "title": "El forge rechazó el token",
+          "title": "El hosting rechazó el token",
           "text": "El token no es válido, caducó o no tiene permisos sobre el repositorio.",
           "hint": "Emite un token con lectura del repositorio y guárdalo en la fuente o conexión."
         },
         "not_found": {
-          "title": "El repositorio no existe en el forge",
-          "text": "El forge no conoce el repositorio o lo oculta al token.",
+          "title": "El repositorio no existe en el hosting",
+          "text": "El hosting no conoce el repositorio o lo oculta al token.",
           "hint": "Revisa la dirección y que el token vea el repositorio."
         },
         "owner_not_found": {
-          "title": "No se encontró el propietario en el forge",
+          "title": "No se encontró el propietario en el hosting",
           "text": "La organización, grupo o usuario de la conexión no existe o está oculto.",
-          "hint": "Revisa la ruta del propietario en la conexión al forge."
+          "hint": "Revisa la ruta del propietario en la conexión de sincronización."
         },
         "rate_limited": {
-          "title": "Se agotó el límite de peticiones al forge",
+          "title": "Se agotó el límite de peticiones al hosting",
           "text": "Demasiadas peticiones a la API; la siguiente ejecución espera al reinicio del límite.",
           "hint": "Usa un token con mayor límite o recopila menos ramas."
         },
         "upstream_error": {
-          "title": "Fallo del forge o del almacenamiento",
-          "text": "El forge respondió con un error o no se pudo guardar la instantánea.",
+          "title": "Fallo del hosting o del almacenamiento",
+          "text": "El hosting respondió con un error o no se pudo guardar la instantánea.",
           "hint": "Mira los detalles técnicos; la ejecución se repite automáticamente."
         }
       },
@@ -2492,7 +2494,7 @@
   },
   "secrets": {
     "title": "Secretos",
-    "nodeIntro": "Tokens y claves de acceso de este nodo. Las conexiones de forge y las fuentes de documentación de aquí y de abajo los eligen; los valores no se muestran tras guardar.",
+    "nodeIntro": "Tokens y claves de acceso de este nodo. Las conexiones de sincronización y las fuentes de documentación de aquí y de abajo los eligen; los valores no se muestran tras guardar.",
     "globalIntro": "Los secretos globales están disponibles para todos los nodos y clústeres. Los valores no se muestran tras guardar.",
     "name": "Nombre",
     "description": "Descripción",
@@ -2625,7 +2627,7 @@
     "title": "Notificaciones",
     "lead": "Adónde se envían los eventos de este nodo y de todo lo que contiene: un webhook o Slack. Una suscripción definida más arriba también se aplica aquí hasta que se reemplace o desactive.",
     "empty": "No hay suscripciones",
-    "emptyText": "Añade un webhook o un canal de Slack para enterarte de despliegues, desviaciones, enlaces rotos y fallos de sincronización con la forja.",
+    "emptyText": "Añade un webhook o un canal de Slack para enterarte de despliegues, desviaciones, enlaces rotos y fallos de sincronización de repositorios.",
     "add": "Nueva suscripción",
     "columns": {
       "key": "Clave",
@@ -2645,10 +2647,10 @@
       "deployment.created": "Despliegue",
       "deployment.drift": "Desviación",
       "link.check_failed": "Enlace roto",
-      "forge.sync_failed": "Falló la sincronización",
+      "repo_sync.failed": "Falló la sincronización de repositorios",
       "deployment.drift_resolved": "Desviación resuelta",
       "link.check_recovered": "Enlace restablecido",
-      "forge.sync_recovered": "Sincronización restablecida",
+      "repo_sync.recovered": "Sincronización de repositorios restablecida",
       "test": "Prueba"
     },
     "allEnvironments": "todos",
@@ -2678,7 +2680,7 @@
       "secretHint": "El secreto guarda la dirección del webhook; para Slack, un incoming webhook https://hooks.slack.com/.",
       "events": "Eventos",
       "environments": "Entornos",
-      "environmentsHint": "Vacío — todos los entornos. Los enlaces rotos y los fallos de la forja no tienen entorno y siempre pasan.",
+      "environmentsHint": "Vacío — todos los entornos. Los enlaces rotos y los fallos de sincronización no tienen entorno y siempre pasan.",
       "locale": "Idioma de los mensajes",
       "disabled": "Desactivada",
       "disabledHint": "Una suscripción desactivada no recibe nada y apaga la de la misma clave definida más arriba.",
@@ -2950,10 +2952,10 @@
       "deleteText": "¿Eliminar la fuente y sus {count} habilidades?",
       "empty": "No hay fuentes git",
       "kind": "Tipo",
-      "remote": "Repositorio en una forja",
-      "localGit": "Repositorio git local",
-      "localDir": "Directorio local",
-      "forge": "Forja",
+      "remote": "Repositorio",
+      "localGit": "Repositorio local",
+      "localDir": "Carpeta local",
+      "hosting": "Hosting",
       "url": "Dirección del repositorio",
       "apiUrl": "Dirección de la API",
       "recompute": "Recalcular",
@@ -3027,13 +3029,6 @@
       "folderOff": "La carpeta está desactivada: no hay nada que instalar.",
       "folderOffBy": "La carpeta superior {name} está desactivada."
     },
-    "importDialog": {
-      "menu": "Importar desde git",
-      "title": "Importar desde git",
-      "name": "Nombre de la carpeta",
-      "nameHint": "Vacío: el nombre del repositorio ({name})",
-      "submit": "Importar"
-    },
     "folderConnect": {
       "title": "Instalar la carpeta",
       "count": "Habilidades en el archivo: {count}",
@@ -3054,6 +3049,16 @@
       "note": "El conjunto se aplica a tokens y aplicaciones vinculados a nodos de esta organización. Las habilidades de la propia organización siempre están disponibles.",
       "readonly": "Los editores de la organización cambian el conjunto.",
       "empty": "No hay nada seleccionado: los tokens con nodos de la organización no reciben habilidades globales."
+    },
+    "importPage": {
+      "menu": "Importar desde git",
+      "title": "Importar desde git",
+      "name": "Nombre de la carpeta",
+      "nameHint": "Vacío: el nombre del repositorio ({name})",
+      "submit": "Importar",
+      "lead": "Crea una carpeta que sigue un repositorio git: cada carpeta con SKILL.md en los directorios elegidos se convierte en una habilidad.",
+      "space": "Espacio",
+      "cancel": "Cancelar"
     }
   },
   "mcp": {
@@ -3300,6 +3305,13 @@
       "state": "Estado",
       "tools": "Herramientas",
       "accessNote": "Cada servidor se restringe además con su propia lista de acceso (Ajustes → Acceso en la página del servidor) y con el conjunto de servidores de la organización:"
+    },
+    "builtin": {
+      "badge": "Integrado",
+      "aboutTitle": "Herramientas del registro",
+      "description": "El servidor MCP propio del registro: proyectos, despliegues, enlaces, dependencias, documentación, descripciones de API y habilidades del catálogo, a través del mismo endpoint /api/mcp que los servidores externos.",
+      "noPrefix": "Las herramientas propias del registro no tienen prefijo: list_projects, get_doc, get_skill y las demás.",
+      "toolsOf": "{count} de {total} herramientas"
     }
   },
   "invite": {

@@ -45,7 +45,7 @@ func lacks(t *testing.T, s, sub string) {
 func TestNoCommandPrintsHelp(t *testing.T) {
 	code, out, _ := run(t, nil, "")
 	eq(t, code, 0)
-	for _, cmd := range []string{"serve", "db:migrate", "db:rollback", "user:create", "forge:sync", "mcp:stdio", "agent", "secrets:rotate", "secrets:adopt-legacy", "skills:storage-copy"} {
+	for _, cmd := range []string{"serve", "db:migrate", "db:rollback", "user:create", "repo:sync", "mcp:stdio", "agent", "secrets:rotate", "secrets:adopt-legacy", "skills:storage-copy"} {
 		contains(t, out, cmd)
 	}
 }

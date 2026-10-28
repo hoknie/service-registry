@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	catalogtypes "svc-registry/internal/feature/catalog/types"
-	forgetypes "svc-registry/internal/feature/forge/types"
+	reposynctypes "svc-registry/internal/feature/reposync/types"
 )
 
 const (
@@ -249,7 +249,7 @@ func ValidateCluster(base Settings, hasCredentials bool, in ClusterInput) (Setti
 			return Settings{}, nil, InvalidAPIURL
 		}
 		if in.Credentials != nil {
-			return Settings{}, nil, forgetypes.InvalidCredentials
+			return Settings{}, nil, reposynctypes.InvalidCredentials
 		}
 		return s, nil, nil
 	}
@@ -258,11 +258,11 @@ func ValidateCluster(base Settings, hasCredentials bool, in ClusterInput) (Setti
 	}
 	if in.Credentials == nil {
 		if !hasCredentials {
-			return Settings{}, nil, forgetypes.InvalidCredentials
+			return Settings{}, nil, reposynctypes.InvalidCredentials
 		}
 		return s, nil, nil
 	}
-	secret, err := catalogtypes.ParseCredentials(in.Credentials, forgetypes.InvalidCredentials)
+	secret, err := catalogtypes.ParseCredentials(in.Credentials, reposynctypes.InvalidCredentials)
 	if err != nil {
 		return Settings{}, nil, err
 	}
@@ -278,7 +278,7 @@ func agentSettings(s Settings, in ClusterInput) error {
 	case s.CAPEM != nil:
 		return InvalidCA
 	case in.Credentials != nil:
-		return forgetypes.InvalidCredentials
+		return reposynctypes.InvalidCredentials
 	}
 	return nil
 }

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/hostingfake"
 )
 
 func (a *testApp) tick() int {
@@ -49,7 +49,7 @@ func eventDocs(t *testing.T) (*docsProject, string) {
 }
 
 func (d *docsProject) putHead(n int) {
-	d.repo.Branches = []forgefake.Branch{{Name: "main", SHA: sha(n)}}
+	d.repo.Branches = []hostingfake.Branch{{Name: "main", SHA: sha(n)}}
 	d.fake.Put(d.repo)
 }
 
@@ -95,23 +95,23 @@ func TestDeployEventInIntervalModeQueuesNothing(t *testing.T) {
 	eq(t, d.app.lastScanTrigger(d.id), "schedule")
 }
 
-func TestForgeRunsQueueCollectionOnlyWhenNotScheduled(t *testing.T) {
+func TestRepoSyncRunsQueueCollectionOnlyWhenNotScheduled(t *testing.T) {
 	t.Parallel()
 	d, _ := eventDocs(t)
-	d.push(nil, forgefake.Branch{Name: "main", SHA: sha(3)})
+	d.push(nil, hostingfake.Branch{Name: "main", SHA: sha(3)})
 	eq(t, d.app.tick(), 1, "a manual sync that moved the head")
 	eq(t, d.last("main", "commit_sha"), sha(3))
 	eq(t, d.app.lastScanTrigger(d.id), "event")
 
 	d.repo.Pushed = d.repo.Pushed.Add(time.Hour)
 	d.putHead(4)
-	execSQL(t, d.app.db, "UPDATE forge_connections SET next_run_at = now(), next_trigger = 'schedule' WHERE id = $1", d.conn)
+	execSQL(t, d.app.db, "UPDATE repo_sync_connections SET next_run_at = now(), next_trigger = 'schedule' WHERE id = $1", d.conn)
 	eq(t, d.app.runDue(), 1)
 	eq(t, scalar[string](t, d.app.db, "SELECT head_sha FROM branches WHERE project_id = $1 AND name = 'main'", d.id), sha(4))
 	eq(t, d.app.tick(), 0, "a scheduled sync does not trigger")
 	eq(t, d.last("main", "commit_sha"), sha(3))
 
-	d.push(nil, forgefake.Branch{Name: "main", SHA: sha(4)})
+	d.push(nil, hostingfake.Branch{Name: "main", SHA: sha(4)})
 	eq(t, d.app.tick(), 0, "the head did not move")
 }
 
@@ -163,20 +163,20 @@ func TestLocalDirInEventModeWaitsForAnEvent(t *testing.T) {
 func TestDeployEventCollectsARemoteSource(t *testing.T) {
 	t.Parallel()
 	a := startSources(t)
-	f := forgefake.Start(t, "gitlab", forgeToken, "platform")
-	repo := forgefake.Repo{ID: 7, Path: "platform/api", Files: map[string]string{"README.md": "# API"},
-		Branches: []forgefake.Branch{{Name: "main", SHA: sha(7)}}}
+	f := hostingfake.Start(t, "gitlab", hostingToken, "platform")
+	repo := hostingfake.Repo{ID: 7, Path: "platform/api", Files: map[string]string{"README.md": "# API"},
+		Branches: []hostingfake.Branch{{Name: "main", SHA: sha(7)}}}
 	f.Put(repo)
 	r := a.send("POST", "/api/v1/catalog/nodes", a.admin, obj{"kind": "project", "parent_id": a.org, "slug": "remote", "name": "Remote",
-		"source": obj{"kind": "remote", "forge": "gitlab", "url": "https://gitlab.example.com/platform/api",
-			"api_url": f.APIURL() + "/api/v4", "credentials": a.tokenOn(a.admin, a.org, forgeToken)}})
+		"source": obj{"kind": "remote", "hosting": "gitlab", "url": "https://gitlab.example.com/platform/api",
+			"api_url": f.APIURL() + "/api/v4", "credentials": a.tokenOn(a.admin, a.org, hostingToken)}})
 	eq(t, r.status, 201, r.text())
 	id, key := idOf(r.json(t)), at(r.json(t), "key", "secret").(string)
 	eq(t, a.send("PUT", settingsPath(id), a.admin, obj{"refresh": "event"}).status, 200)
 	a.tick()
 	eq(t, scalar[string](t, a.db, "SELECT commit_sha FROM knowledge_snapshots WHERE project_id = $1 ORDER BY collected_at DESC LIMIT 1", id), sha(7))
 
-	repo.Branches = []forgefake.Branch{{Name: "main", SHA: sha(8)}}
+	repo.Branches = []hostingfake.Branch{{Name: "main", SHA: sha(8)}}
 	f.Put(repo)
 	a.collect()
 	eq(t, a.tick(), 0)

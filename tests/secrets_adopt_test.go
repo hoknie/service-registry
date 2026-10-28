@@ -7,7 +7,7 @@ import (
 
 	"svc-registry/internal/platform/postgres"
 	"svc-registry/pkg/secretbox"
-	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/hostingfake"
 )
 
 type legacySetup struct {
@@ -28,14 +28,14 @@ func inlineColumns(t *testing.T, a *testApp) int64 {
 
 func withInlineCredentials(t *testing.T) legacySetup {
 	t.Helper()
-	app := startForgeApp(t)
+	app := startRepoSyncApp(t)
 	s := legacySetup{app: app, root: app.admin()}
 	s.acme = app.nodeID(s.root, "organization", "", "acme")
-	f := forgefake.Start(t, "github", forgeToken, "acme-inc")
+	f := hostingfake.Start(t, "github", hostingToken, "acme-inc")
 	s.conn = idOf(app.connect(s.root, s.acme, f, nil))
 	s.cluster = idOf(app.cluster(s.root, "prod", nil))
 	s.source = app.nodeID(s.root, "project", s.acme, "docs")
-	r := app.send("PUT", nodePath(s.source)+"/knowledge/source", s.root, obj{"kind": "remote", "forge": "github",
+	r := app.send("PUT", nodePath(s.source)+"/knowledge/source", s.root, obj{"kind": "remote", "hosting": "github",
 		"url": "https://github.example/acme-inc/docs", "api_url": f.APIURL(), "credentials": nil})
 	eq(t, r.status, 200, r.text())
 
@@ -43,15 +43,15 @@ func withInlineCredentials(t *testing.T) legacySetup {
 	must(t, err)
 	eq(t, inlineColumns(t, app), int64(9))
 	box := secretbox.New(app.services.Config.Secrets.Keys)
-	connEnc, err := box.Seal(forgeToken, secretbox.AAD("forge_connections", s.conn, "credentials_enc"))
+	connEnc, err := box.Seal(hostingToken, secretbox.AAD("forge_connections", s.conn, "credentials_enc"))
 	must(t, err)
-	sourceEnc, err := box.Seal(forgeToken, secretbox.AAD("knowledge_sources", s.source, "credentials_enc"))
+	sourceEnc, err := box.Seal(hostingToken, secretbox.AAD("knowledge_sources", s.source, "credentials_enc"))
 	must(t, err)
 	execSQL(t, app.db, "UPDATE forge_connections SET credentials_secret_id = NULL, credentials_enc = $2 WHERE id = $1", s.conn, connEnc)
 	execSQL(t, app.db, "UPDATE clusters SET credentials_secret_id = NULL, credentials_ref = 'env:K8S_PROD_TOKEN' WHERE id = $1", s.cluster)
 	execSQL(t, app.db, "UPDATE knowledge_sources SET credentials_enc = $2 WHERE project_id = $1", s.source, sourceEnc)
 	execSQL(t, app.db, "DELETE FROM secrets")
-	execSQL(t, app.db, "INSERT INTO secrets (id, node_id, name, value_ref) VALUES (gen_random_uuid(), $1, 'forge-acme-inc', 'env:OTHER')", s.acme)
+	execSQL(t, app.db, "INSERT INTO secrets (id, node_id, name, value_ref) VALUES (gen_random_uuid(), $1, 'repo-acme-inc', 'env:OTHER')", s.acme)
 	return s
 }
 
@@ -71,8 +71,8 @@ func TestMigrateStopsBeforeDroppingInlineCredentials(t *testing.T) {
 	eq(t, code, 0, errOut)
 	lines := strings.Split(strings.TrimSpace(out), "\n")
 	eq(t, len(lines), 4, out)
-	contains(t, lines[0], "forge "+s.conn+" → forge-acme-inc-2 (new)")
-	contains(t, lines[1], "source "+s.source+" → forge-acme-inc-2 (reused)")
+	contains(t, lines[0], "repo "+s.conn+" → repo-acme-inc-2 (new)")
+	contains(t, lines[1], "source "+s.source+" → repo-acme-inc-2 (reused)")
 	contains(t, lines[2], "cluster "+s.cluster+" → cluster-prod (new)")
 	eq(t, lines[3], "would adopt 3 credential(s)")
 	eq(t, scalar[int64](t, a.db, "SELECT count(*) FROM secrets"), int64(1), "a dry run changes nothing")
@@ -80,7 +80,7 @@ func TestMigrateStopsBeforeDroppingInlineCredentials(t *testing.T) {
 	code, out, errOut = run(t, []string{"secrets:adopt-legacy"}, "", env...)
 	eq(t, code, 0, errOut)
 	eq(t, strings.TrimSpace(out), "adopted 3 credential(s) into 2 secret(s)")
-	lacks(t, out+errOut, forgeToken)
+	lacks(t, out+errOut, hostingToken)
 	shared := scalar[string](t, a.db, "SELECT credentials_secret_id::text FROM forge_connections WHERE id = $1", s.conn)
 	eq(t, scalar[string](t, a.db, "SELECT credentials_secret_id::text FROM knowledge_sources WHERE project_id = $1", s.source), shared)
 	eq(t, scalar[string](t, a.db, "SELECT node_id::text FROM secrets WHERE id = $1", shared), s.acme)
@@ -98,9 +98,9 @@ func TestMigrateStopsBeforeDroppingInlineCredentials(t *testing.T) {
 	eq(t, inlineColumns(t, a), int64(0))
 	c := a.get(connectionPath(s.acme, s.conn), s.root).json(t)
 	eq(t, at(c, "credentials", "kind"), any("secret"))
-	eq(t, at(c, "credentials", "secret", "name"), any("forge-acme-inc-2"))
+	eq(t, at(c, "credentials", "secret", "name"), any("repo-acme-inc-2"))
 	lacks(t, a.get(clustersPath+"/"+s.cluster, s.root).text(), "legacy")
-	code, out, errOut = run(t, []string{"forge:sync", s.conn}, "", env...)
+	code, out, errOut = run(t, []string{"repo:sync", s.conn}, "", env...)
 	eq(t, code, 0, errOut+out)
 
 	code, out, errOut = run(t, []string{"db:rollback", "--count", fmt.Sprint(dropped)}, "", env...)
@@ -116,7 +116,7 @@ func TestAdoptLegacyWithoutTheKeyChangesNothing(t *testing.T) {
 	a := s.app
 	code, _, errOut := run(t, []string{"secrets:adopt-legacy"}, "", "DATABASE_URL", a.db.URL, "SECRETS_KEYS", secretsKey2)
 	eq(t, code, 1)
-	contains(t, errOut, "forge connection "+s.conn)
+	contains(t, errOut, "repository sync connection "+s.conn)
 	eq(t, scalar[int64](t, a.db, "SELECT count(*) FROM secrets"), int64(1))
 	eq(t, scalar[int64](t, a.db, "SELECT count(*) FROM forge_connections WHERE credentials_enc IS NOT NULL"), int64(1))
 	eq(t, scalar[int64](t, a.db, "SELECT count(*) FROM clusters WHERE credentials_ref IS NOT NULL"), int64(1))

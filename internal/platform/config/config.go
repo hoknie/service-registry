@@ -44,7 +44,7 @@ func (c *Config) check() Errors {
 func FromEnv() (Config, error) { return Load[Config](ProcessEnv()) }
 
 func (c *Config) checkEnv(vars Env) Errors {
-	errs := c.OAuth.checkEnv(vars)
+	errs := append(c.OAuth.checkEnv(vars), c.Jobs.checkEnv(vars)...)
 	if len(c.OAuth.Providers) > 0 && c.Web.PublicURL == "" {
 		errs = append(errs, &Error{Var: "PUBLIC_URL", Reason: "is required for the callback addresses of OAUTH_PROVIDERS"})
 	}

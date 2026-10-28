@@ -189,7 +189,7 @@ they see.
 
 ## Upgrading from a version with inline tokens
 
-Older versions could keep a forge, documentation source or cluster token inside the record itself. Such tokens must
+Older versions could keep a repository sync, documentation source or cluster token inside the record itself. Such tokens must
 be moved into named [secrets](secrets.md) before the upgrade completes. Until then `db:migrate` applies everything up
 to the step that drops them, then stops with
 

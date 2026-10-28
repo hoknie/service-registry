@@ -7,13 +7,13 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { Locale } from "@/i18n/config";
 import { format } from "@/i18n/format";
 import { ago, when } from "@/i18n/time";
-import { apiGet, type CatalogNode, type ForgeConnection, type Items, type KnowledgeSource } from "@/lib/api";
+import { apiGet, type CatalogNode, type RepoSyncConnection, type Items, type KnowledgeSource } from "@/lib/api";
 
-import { Readme } from "../forge/Readme";
+import { Readme } from "../reposync/Readme";
 import { Badge } from "../ui/Badge";
 import { Panel } from "../ui/Panel";
-import { UnlinkForgeButton } from "./UnlinkForgeDialog";
-import { catalogHref, FORGE_NAMES, type CatalogLabels } from "./shared";
+import { UnlinkRepoSyncButton } from "./UnlinkRepoSyncDialog";
+import { catalogHref, HOSTING_NAMES, type CatalogLabels } from "./shared";
 
 type Props = {
   node: CatalogNode;
@@ -33,7 +33,7 @@ export function RepositoryBlock({ node, locale, labels, canWrite, fail, onChange
   const r = node.repository ?? null;
   const [source, setSource] = useState<KnowledgeSource | null | undefined>(undefined);
   const [owner, setOwner] = useState<Owner | null>(null);
-  const connectionId = r?.origin === "forge" ? r.connection_id : null;
+  const connectionId = r?.origin === "repo_sync" ? r.connection_id : null;
   const ancestors = (node.path ?? []).map((p) => p.id).join(",");
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export function RepositoryBlock({ node, locale, labels, canWrite, fail, onChange
     let live = true;
     Promise.all(
       ancestors.split(",").map((id) =>
-        apiGet<Items<ForgeConnection>>(`/v1/catalog/nodes/${id}/forge/connections`)
+        apiGet<Items<RepoSyncConnection>>(`/v1/catalog/nodes/${id}/repo-sync/connections`)
           .then((res) => res.items.find((c) => c.id === connectionId) ?? null)
           .catch(() => null),
       ),
@@ -72,14 +72,14 @@ export function RepositoryBlock({ node, locale, labels, canWrite, fail, onChange
   const managed = !!node.managed;
 
   let origin: ReactNode;
-  if (r?.origin === "forge" || managed) {
+  if (r?.origin === "repo_sync" || managed) {
     const name = owner?.owner ?? r?.full_path.split("/").slice(0, -1).join("/") ?? "";
     origin = owner ? (
-      <Link href={catalogHref(locale, owner.nodeId, "settings", null, null, "forge")} className="text-signal hover:underline">
-        {format(t.originForge, { owner: name })}
+      <Link href={catalogHref(locale, owner.nodeId, "settings", null, null, "repo-sync")} className="text-signal hover:underline">
+        {format(t.originRepoSync, { owner: name })}
       </Link>
     ) : (
-      format(t.originForge, { owner: name })
+      format(t.originRepoSync, { owner: name })
     );
   } else if (source) {
     origin = format(t.originSource, { kind: labels.docs.source.kinds[source.kind] });
@@ -119,8 +119,8 @@ export function RepositoryBlock({ node, locale, labels, canWrite, fail, onChange
           )}
           {r?.orphaned_at && <p className="text-sm text-ink-2">{t.orphanedText}</p>}
           <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-2.5 text-sm">
-            <dt className="text-muted">{labels.repo.forge}</dt>
-            <dd className="text-ink">{node.forge ? FORGE_NAMES[node.forge] : (source?.forge && FORGE_NAMES[source.forge]) || t.none}</dd>
+            <dt className="text-muted">{labels.repo.hosting}</dt>
+            <dd className="text-ink">{node.hosting ? HOSTING_NAMES[node.hosting] : (source?.hosting && HOSTING_NAMES[source.hosting]) || t.none}</dd>
             <dt className="text-muted">{labels.repo.url}</dt>
             <dd className="min-w-0">
               {webUrl ? (
@@ -198,7 +198,7 @@ export function RepositoryBlock({ node, locale, labels, canWrite, fail, onChange
           {managed && canWrite && (
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
               <p className="text-sm text-ink-2">{labels.unlink.text}</p>
-              <UnlinkForgeButton node={node} labels={labels} fail={fail} onUnlinked={onChanged} />
+              <UnlinkRepoSyncButton node={node} labels={labels} fail={fail} onUnlinked={onChanged} />
             </div>
           )}
         </div>

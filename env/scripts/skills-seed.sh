@@ -36,7 +36,7 @@ seed() {
     return
   fi
   api -o /dev/null -X POST "$BASE/api/v1/skills/imports" \
-    -d "{\"parent_id\":\"$examples\",\"slug\":\"$slug\",\"kind\":\"remote\",\"forge\":\"github\",$body}"
+    -d "{\"parent_id\":\"$examples\",\"slug\":\"$slug\",\"kind\":\"remote\",\"hosting\":\"github\",$body}"
   echo "imported $slug"
 }
 

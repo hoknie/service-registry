@@ -17,7 +17,7 @@ func key(id string, b byte) Key {
 
 func TestSealOpenRoundTrip(t *testing.T) {
 	box := New([]Key{key("k1", 1)})
-	aad := AAD("forge_connections", "id-1", "credentials_enc")
+	aad := AAD("repo_sync_connections", "id-1", "credentials_enc")
 	ct, err := box.Seal("glpat-secret", aad)
 	if err != nil {
 		t.Fatal(err)
@@ -36,18 +36,18 @@ func TestSealOpenRoundTrip(t *testing.T) {
 
 func TestCiphertextIsBoundToItsRow(t *testing.T) {
 	box := New([]Key{key("k1", 1)})
-	ct, _ := box.Seal("x", AAD("forge_connections", "id-1", "credentials_enc"))
-	if _, err := box.Open(ct, AAD("forge_connections", "id-2", "credentials_enc")); !errors.Is(err, ErrCorrupt) {
+	ct, _ := box.Seal("x", AAD("repo_sync_connections", "id-1", "credentials_enc"))
+	if _, err := box.Open(ct, AAD("repo_sync_connections", "id-2", "credentials_enc")); !errors.Is(err, ErrCorrupt) {
 		t.Fatalf("another row: %v", err)
 	}
-	if _, err := box.Open(ct, AAD("forge_connections", "id-1", "webhook_secret_enc")); !errors.Is(err, ErrCorrupt) {
+	if _, err := box.Open(ct, AAD("repo_sync_connections", "id-1", "webhook_secret_enc")); !errors.Is(err, ErrCorrupt) {
 		t.Fatalf("another column: %v", err)
 	}
 	prefix := ct[:strings.LastIndexByte(ct, '.')+1]
 	raw, _ := base64.RawURLEncoding.DecodeString(ct[len(prefix):])
 	raw[len(raw)-1] ^= 1
 	tampered := prefix + base64.RawURLEncoding.EncodeToString(raw)
-	if _, err := box.Open(tampered, AAD("forge_connections", "id-1", "credentials_enc")); !errors.Is(err, ErrCorrupt) {
+	if _, err := box.Open(tampered, AAD("repo_sync_connections", "id-1", "credentials_enc")); !errors.Is(err, ErrCorrupt) {
 		t.Fatalf("tampered: %v", err)
 	}
 }

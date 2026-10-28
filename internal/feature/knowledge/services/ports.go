@@ -28,7 +28,7 @@ type preparedSource struct {
 	source knowledgetypes.NewSource
 }
 
-func (p preparedSource) Repo() (*catalogtypes.Forge, *string, bool) {
+func (p preparedSource) Repo() (*catalogtypes.Hosting, *string, bool) {
 	return sourceRepo(p.source.Source)
 }
 

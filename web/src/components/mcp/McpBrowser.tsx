@@ -9,8 +9,8 @@ import { format } from "@/i18n/format";
 import type { Messages } from "@/i18n/messages";
 import { ago, when } from "@/i18n/time";
 import { apiGet } from "@/lib/api";
-import { filtersFrom, listQuery, MCP_BASE, placeHref, searching, type McpFilters, type McpFolder, type McpServer, type McpServerPage, type McpSpace } from "@/lib/mcp";
-import { loadFolder, loadFolders, loadSpace } from "@/lib/mcpApi";
+import { builtinMatches, builtinServer, filtersFrom, listQuery, MCP_BASE, placeHref, searching, type McpFilters, type McpFolder, type McpServer, type McpServerPage, type McpSpace } from "@/lib/mcp";
+import { loadBuiltin, loadFolder, loadFolders, loadSpace } from "@/lib/mcpApi";
 import { can } from "@/lib/rights";
 
 import { OrganizationMcp } from "../catalog/OrganizationMcp";
@@ -53,7 +53,14 @@ export function McpBrowser({ locale, labels: t, access }: Props) {
       canGlobal,
       globalRight: "mcp",
       access,
-      list: (place, filters, cursor) => apiGet<McpServerPage>(listQuery(place, filters, cursor)),
+      list: async (place, filters, cursor) => {
+        const page = await apiGet<McpServerPage>(listQuery(place, filters, cursor));
+        if (place.folder || place.space !== "global" || cursor) return page;
+        const lead = await loadBuiltin()
+          .then((b) => builtinServer(b, t.builtin.description))
+          .catch(() => null);
+        return lead && builtinMatches(lead, filters.q) ? { ...page, items: [lead, ...page.items] } : page;
+      },
       loadFolder,
       loadFolders,
       loadSpace: async (org) => {

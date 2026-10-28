@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/hostingfake"
 )
 
 func apiFixture(t *testing.T, name string) string {
@@ -62,7 +62,7 @@ func TestAPIDescriptionsAreCollectedByDefault(t *testing.T) {
 
 	r := d.app.send("PUT", knowledgePath(d.org)+"/settings", d.admin, obj{"api_paths": []string{"**/*.proto", "**/openapi*.{yaml,yml,json}", "contracts/**"}})
 	eq(t, r.status, 200, r.text())
-	d.push(nil, forgefake.Branch{Name: "main", SHA: sha(2)})
+	d.push(nil, hostingfake.Branch{Name: "main", SHA: sha(2)})
 	d.app.collect()
 	eq(t, d.files("main"), "api/openapi.yaml:,contracts/v1.yaml:,proto/pets/v1/pets.proto:,README.md:,third_party/google/api/http.proto:")
 	body = d.app.get(knowledgePath(d.id)+"/apis", bob).json(t)
@@ -70,7 +70,7 @@ func TestAPIDescriptionsAreCollectedByDefault(t *testing.T) {
 	eq(t, body["hidden_vendored"], any(float64(1)))
 
 	eq(t, d.app.send("PUT", knowledgePath(d.id)+"/settings", d.admin, obj{"apis": false}).status, 200)
-	d.push(nil, forgefake.Branch{Name: "main", SHA: sha(3)})
+	d.push(nil, hostingfake.Branch{Name: "main", SHA: sha(3)})
 	d.app.collect()
 	eq(t, d.files("main"), "README.md:")
 }

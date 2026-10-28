@@ -21,7 +21,7 @@ func TestCreateNormalizesAndReturnsTheNode(t *testing.T) {
 	eq(t, n["description"], any(""))
 	contains(t, r.text(), `"labels":{}`)
 	eq(t, n["access"], any("read"))
-	eq(t, has(n, "forge"), false, "no repository fields on an organization")
+	eq(t, has(n, "hosting"), false, "no repository fields on an organization")
 	eq(t, has(n, "key"), false)
 	eq(t, uuid.MustParse(idOf(n)).Version(), uuid.Version(7))
 
@@ -131,11 +131,11 @@ func TestProjectRepositoryFields(t *testing.T) {
 	app := startApp(t)
 	admin := app.admin()
 	acme := app.nodeID(admin, "organization", "", "acme")
-	r := app.createNode(admin, obj{"kind": "project", "parent_id": acme, "slug": "api", "name": "API", "forge": "forgejo",
+	r := app.createNode(admin, obj{"kind": "project", "parent_id": acme, "slug": "api", "name": "API", "hosting": "forgejo",
 		"repo_url": "https://git.example.com/acme/api", "default_branch": "main"})
 	eq(t, r.status, 201, r.text())
 	p := r.json(t)
-	eq(t, p["forge"], any("forgejo"))
+	eq(t, p["hosting"], any("forgejo"))
 	eq(t, p["repo_url"], any("https://git.example.com/acme/api"))
 	eq(t, p["default_branch"], any("main"))
 	eq(t, strings.HasPrefix(at(p, "key", "secret").(string), "svcr_"), true)
@@ -143,13 +143,13 @@ func TestProjectRepositoryFields(t *testing.T) {
 	r = app.send("PATCH", nodePath(idOf(p)), admin, obj{"default_branch": ""})
 	eq(t, r.status, 200)
 	eq(t, r.json(t)["default_branch"], any(nil))
-	eq(t, r.json(t)["forge"], any("forgejo"), "other fields kept")
+	eq(t, r.json(t)["hosting"], any("forgejo"), "other fields kept")
 
 	bare := app.node(admin, "project", acme, "bare")
-	eq(t, has(bare, "forge") && bare["forge"] == nil, true, "null, not absent, on a project")
+	eq(t, has(bare, "hosting") && bare["hosting"] == nil, true, "null, not absent, on a project")
 
 	for _, c := range []struct{ field, value, code string }{
-		{"forge", "svn", "validation.invalid_forge"},
+		{"hosting", "svn", "validation.invalid_hosting"},
 		{"repo_url", "ftp://example.com/x", "validation.invalid_repo_url"},
 		{"default_branch", "-x", "validation.invalid_branch"},
 	} {
@@ -158,7 +158,7 @@ func TestProjectRepositoryFields(t *testing.T) {
 		eq(t, r.status, 400, c.field)
 		eq(t, r.json(t)["code"], any(c.code))
 	}
-	r = app.send("PATCH", nodePath(acme), admin, obj{"forge": "github"})
+	r = app.send("PATCH", nodePath(acme), admin, obj{"hosting": "github"})
 	eq(t, r.json(t)["code"], any("validation.repo_fields_not_allowed"))
 }
 

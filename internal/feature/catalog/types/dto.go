@@ -33,13 +33,13 @@ type UpdateNode struct {
 }
 
 type RepoInput struct {
-	Forge         *string
+	Hosting       *string
 	RepoURL       *string
 	DefaultBranch *string
 }
 
 func (r RepoInput) IsEmpty() bool {
-	return r.Forge == nil && r.RepoURL == nil && r.DefaultBranch == nil
+	return r.Hosting == nil && r.RepoURL == nil && r.DefaultBranch == nil
 }
 
 type NewNode struct {
@@ -74,7 +74,7 @@ type NodeChanges struct {
 	Name               *string
 	Description        *string
 	Labels             Labels
-	Forge              Change[Forge]
+	Hosting            Change[Hosting]
 	RepoURL            Change[string]
 	DefaultBranch      Change[string]
 	ClusterObservation *bool

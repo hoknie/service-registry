@@ -17,7 +17,7 @@ type Metrics struct {
 	ingestEvents     *prometheus.CounterVec
 	deployments      *prometheus.CounterVec
 	agentReports     *prometheus.CounterVec
-	forgeWebhooks    *prometheus.CounterVec
+	repoSyncWebhooks *prometheus.CounterVec
 	jobRuns          *prometheus.CounterVec
 	jobDuration      *prometheus.HistogramVec
 	mcpCalls         *prometheus.CounterVec
@@ -46,7 +46,7 @@ func New(version string, eventTypes []string) *Metrics {
 	m.ingestEvents = f.counter("svcr_ingest_events_total", "Ingest requests by event type and outcome.", "type", "outcome", "code")
 	m.deployments = f.counter("svcr_deployments_total", "Deployments recorded.", "source")
 	m.agentReports = f.counter("svcr_agent_reports_total", "Cluster agent reports.", "outcome")
-	m.forgeWebhooks = f.counter("svcr_forge_webhooks_total", "Forge webhook requests.", "outcome")
+	m.repoSyncWebhooks = f.counter("svcr_repo_sync_webhooks_total", "Hosting webhook requests.", "outcome")
 	m.jobRuns = f.counter("svcr_job_runs_total", "Background job runs.", "job", "outcome")
 	m.jobDuration = f.histogram("svcr_job_run_duration_seconds", "Duration of background job runs.",
 		[]float64{0.1, 0.5, 1, 5, 15, 60, 300, 900}, "job")

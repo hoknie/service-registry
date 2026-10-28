@@ -1,11 +1,12 @@
 "use client";
 
-import type { Dispatch, SetStateAction } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 
 import type { Locale } from "@/i18n/config";
 import type { Messages } from "@/i18n/messages";
-import { guessForge, parseTreeLink, sourceApiUrl } from "@/lib/forgeAddress";
+import { guessHosting, parseTreeLink, sourceApiUrl } from "@/lib/hostingAddress";
 import type { SkillFolder, SkillSource, SkillSourceKind, SourceLayout } from "@/lib/skills";
+import { loadSkillDefaults } from "@/lib/skillsApi";
 import { toTags } from "@/lib/tags";
 
 import { SecretPicker } from "../secrets/SecretPicker";
@@ -14,11 +15,11 @@ import { Field, Input } from "../ui/Field";
 import { Select } from "../ui/Select";
 import { TagInput } from "../ui/TagInput";
 
-const FORGES = ["github", "gitlab", "gitea", "forgejo"] as const;
+const HOSTINGS = ["github", "gitlab", "gitea", "forgejo"] as const;
 
 export type Draft = {
   kind: SkillSourceKind;
-  forge: string;
+  hosting: string;
   url: string;
   api_url: string;
   path: string;
@@ -31,13 +32,13 @@ export type Draft = {
   status: string;
   versions: string;
   tag_pattern: string;
-  forgeTouched: boolean;
+  hostingTouched: boolean;
   apiTouched: boolean;
 };
 
 export const emptyDraft: Draft = {
   kind: "remote",
-  forge: "gitlab",
+  hosting: "gitlab",
   url: "",
   api_url: "",
   path: "",
@@ -50,15 +51,15 @@ export const emptyDraft: Draft = {
   status: "published",
   versions: "branch",
   tag_pattern: "v{version}",
-  forgeTouched: false,
+  hostingTouched: false,
   apiTouched: false,
 };
 
 export function draftOf(s: SkillSource): Draft {
-  const forge = s.forge ?? "gitlab";
+  const hosting = s.hosting ?? "gitlab";
   return {
     kind: s.kind,
-    forge,
+    hosting,
     url: s.url ?? "",
     api_url: s.api_url ?? "",
     path: s.path ?? "",
@@ -71,17 +72,17 @@ export function draftOf(s: SkillSource): Draft {
     status: s.status,
     versions: s.versions,
     tag_pattern: s.tag_pattern,
-    forgeTouched: s.forge !== null,
-    apiTouched: !!s.api_url && s.api_url !== sourceApiUrl(forge, s.url ?? ""),
+    hostingTouched: s.hosting !== null,
+    apiTouched: !!s.api_url && s.api_url !== sourceApiUrl(hosting, s.url ?? ""),
   };
 }
 
 export function withRemote(
   d: Draft,
-  patch: Partial<Pick<Draft, "forge" | "url" | "api_url">>,
+  patch: Partial<Pick<Draft, "hosting" | "url" | "api_url">>,
 ): Draft {
   const next = { ...d, ...patch };
-  if (patch.forge !== undefined) next.forgeTouched = true;
+  if (patch.hosting !== undefined) next.hostingTouched = true;
   if (patch.api_url !== undefined) next.apiTouched = true;
   const link = patch.url !== undefined ? parseTreeLink(patch.url) : null;
   if (link) {
@@ -89,13 +90,13 @@ export function withRemote(
     if (!next.branch.trim()) next.branch = link.branch;
     if (!next.roots.trim() && link.root) next.roots = link.root;
   }
-  if (patch.url !== undefined && !next.forgeTouched)
-    next.forge = guessForge(next.url) ?? next.forge;
+  if (patch.url !== undefined && !next.hostingTouched)
+    next.hosting = guessHosting(next.url) ?? next.hosting;
   if (
     !next.apiTouched &&
-    (patch.url !== undefined || patch.forge !== undefined)
+    (patch.url !== undefined || patch.hosting !== undefined)
   )
-    next.api_url = sourceApiUrl(next.forge, next.url) ?? "";
+    next.api_url = sourceApiUrl(next.hosting, next.url) ?? "";
   return next;
 }
 
@@ -103,7 +104,7 @@ export function bodyOf(d: Draft) {
   const remote = d.kind === "remote";
   return {
     kind: d.kind,
-    forge: remote ? d.forge : "",
+    hosting: remote ? d.hosting : "",
     url: remote ? d.url : "",
     api_url: remote ? d.api_url : "",
     path: remote ? "" : d.path,
@@ -130,6 +131,17 @@ type Props = {
 export function SourceFields({ draft, setDraft, folder, locale, labels: t }: Props) {
   const s = t.sourcesPage;
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
+  const [defaultInterval, setDefaultInterval] = useState<number | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    loadSkillDefaults()
+      .then((d) => alive && setDefaultInterval(d.sync_interval_secs))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
   return (
     <>
           <Field label={s.kind} className="sm:col-span-2">
@@ -149,16 +161,16 @@ export function SourceFields({ draft, setDraft, folder, locale, labels: t }: Pro
           </Field>
           {draft.kind === "remote" ? (
             <>
-              <Field label={s.forge}>
+              <Field label={s.hosting}>
                 {(f) => (
                   <Select
                     id={f.id}
-                    value={draft.forge}
+                    value={draft.hosting}
                     onChange={(e) =>
-                      setDraft((d) => withRemote(d, { forge: e.target.value }))
+                      setDraft((d) => withRemote(d, { hosting: e.target.value }))
                     }
                   >
-                    {FORGES.map((x) => (
+                    {HOSTINGS.map((x) => (
                       <option key={x} value={x}>
                         {x}
                       </option>
@@ -197,7 +209,7 @@ export function SourceFields({ draft, setDraft, folder, locale, labels: t }: Pro
                           setDraft((d) => ({
                             ...d,
                             apiTouched: false,
-                            api_url: sourceApiUrl(d.forge, d.url) ?? "",
+                            api_url: sourceApiUrl(d.hosting, d.url) ?? "",
                           }))
                         }
                       >
@@ -268,6 +280,7 @@ export function SourceFields({ draft, setDraft, folder, locale, labels: t }: Pro
               <Input
                 {...f}
                 inputMode="numeric"
+                placeholder={defaultInterval === null ? undefined : String(defaultInterval)}
                 value={draft.interval}
                 onChange={(e) =>
                   set({ interval: e.target.value.replace(/\D/g, "") })

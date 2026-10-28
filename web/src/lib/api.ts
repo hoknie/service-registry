@@ -121,7 +121,7 @@ export type CatalogNode = {
   access: "read" | "navigate";
   description?: string;
   labels?: Record<string, string>;
-  forge?: ForgeKind | null;
+  hosting?: HostingKind | null;
   repo_url?: string | null;
   default_branch?: string | null;
   created_at?: string;
@@ -136,7 +136,7 @@ export type CatalogNode = {
   visibility?: "open" | "closed";
 };
 
-export type ProcessKind = "collect" | "index" | "forge" | "clusters";
+export type ProcessKind = "collect" | "index" | "repo_sync" | "clusters";
 export type ProcessState = "running" | "queued" | "failed" | "idle";
 export type Process = { kind: ProcessKind; state: ProcessState; code: string | null; last_at: string | null; pending: number | null };
 export type ActivitySummary = { running: number; queued: number; failed: number };
@@ -150,10 +150,10 @@ export type CatalogTableRow = CatalogNode & {
 };
 export type CatalogTable = Page<CatalogTableRow> & { truncated: boolean };
 
-export type ForgeKind = "github" | "gitlab" | "forgejo" | "gitea";
+export type HostingKind = "github" | "gitlab" | "forgejo" | "gitea";
 
 export type Repository = {
-  origin: "forge" | "source";
+  origin: "repo_sync" | "source";
   connection_id: string | null;
   full_path: string;
   web_url: string;
@@ -171,7 +171,7 @@ export type Repository = {
   has_readme: boolean;
 };
 
-export type Readme = { markdown: string; truncated: boolean; web_url: string; default_branch: string | null; kind: ForgeKind };
+export type Readme = { markdown: string; truncated: boolean; web_url: string; default_branch: string | null; kind: HostingKind };
 
 export type SyncRun = {
   id: string;
@@ -188,10 +188,10 @@ export type SyncRun = {
   problems: { full_path: string; code: string }[];
 };
 
-export type ForgeConnection = {
+export type RepoSyncConnection = {
   id: string;
   node_id: string;
-  kind: ForgeKind;
+  kind: HostingKind;
   api_url: string;
   owner_path: string;
   mirror_subgroups: boolean;
@@ -214,7 +214,7 @@ export type Branch = {
   head_sha: string | null;
   is_default: boolean;
   protected: boolean | null;
-  sources: ("forge" | "ingest" | "cluster" | "manual" | "repository")[];
+  sources: ("repo_sync" | "ingest" | "cluster" | "manual" | "repository")[];
   pinned: boolean;
   stale: boolean;
   first_seen_at: string;
@@ -222,7 +222,7 @@ export type Branch = {
   gone_at: string | null;
 };
 
-export type ForgeExclusion = {
+export type RepoSyncExclusion = {
   external_id: string;
   full_path: string;
   project_id: string | null;
@@ -551,9 +551,9 @@ export type ProjectLink = {
 
 export type KnowledgeRefresh = "interval" | "event";
 
-export type KnowledgeRefreshEvent = "service.deployed" | "cluster.deployed" | "forge.webhook" | "forge.manual";
+export type KnowledgeRefreshEvent = "service.deployed" | "cluster.deployed" | "repo_sync.webhook" | "repo_sync.manual";
 
-export const KNOWLEDGE_REFRESH_EVENTS: readonly KnowledgeRefreshEvent[] = ["service.deployed", "cluster.deployed", "forge.webhook", "forge.manual"];
+export const KNOWLEDGE_REFRESH_EVENTS: readonly KnowledgeRefreshEvent[] = ["service.deployed", "cluster.deployed", "repo_sync.webhook", "repo_sync.manual"];
 
 export type KnowledgeSettings = {
   include: string[] | null;
@@ -617,7 +617,7 @@ export type KnowledgeTag = {
 
 export type Knowledge = {
   synced: boolean;
-  source: SourceKind | "forge" | null;
+  source: SourceKind | "repo_sync" | null;
   settings: KnowledgeSettings;
   branches: KnowledgeBranch[];
   tags?: KnowledgeTag[];
@@ -626,8 +626,8 @@ export type Knowledge = {
 
 export type KnowledgeSource = {
   kind: SourceKind;
-  origin: "own" | "forge";
-  forge: "github" | "gitlab" | "gitea" | "forgejo" | null;
+  origin: "own" | "repo_sync";
+  hosting: "github" | "gitlab" | "gitea" | "forgejo" | null;
   url: string | null;
   api_url: string | null;
   path: string | null;
@@ -754,7 +754,7 @@ export function errorCode(e: unknown): string {
 export type ScanStatus = "ok" | "unchanged" | "warning" | "failed";
 export type ScanKind = "collect" | "index";
 export type ScanTrigger = "schedule" | "manual" | "event";
-export type ScanSource = "forge" | "remote" | "local_dir" | "local_git";
+export type ScanSource = "repo_sync" | "remote" | "local_dir" | "local_git";
 
 export type ScanBranch = {
   name: string;

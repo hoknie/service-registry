@@ -20,15 +20,17 @@ test("sections follow permissions", () => {
   assert.deepEqual(sectionsOf(project(["catalog.read"])), ["general", "owners", "branches", "links", "docs", "publication", "connect"]);
   assert.deepEqual(sectionsOf(project(["catalog.keys", "catalog.access"])), ["general", "owners", "branches", "links", "docs", "publication", "keys", "access", "notifications", "connect"]);
   assert.deepEqual(sectionsOf(project(["catalog.write"])), ["general", "owners", "branches", "links", "dependencies", "docs", "publication", "scans", "connect"]);
-  assert.deepEqual(sectionsOf(folder(["catalog.access"])), ["general", "owners", "forge", "secrets", "links", "docs", "publication", "access", "notifications"]);
-  assert.deepEqual(sectionsOf(folder(["catalog.read"])), ["general", "owners", "forge", "secrets", "links", "docs", "publication"]);
-  assert.deepEqual(sectionsOf(organization(["catalog.read"])), ["general", "owners", "groups", "forge", "secrets", "links", "docs", "publication"]);
+  assert.deepEqual(sectionsOf(folder(["catalog.access"])), ["general", "owners", "repo-sync", "secrets", "links", "docs", "publication", "access", "notifications"]);
+  assert.deepEqual(sectionsOf(folder(["catalog.read"])), ["general", "owners", "repo-sync", "secrets", "links", "docs", "publication"]);
+  assert.deepEqual(sectionsOf(organization(["catalog.read"])), ["general", "owners", "groups", "repo-sync", "secrets", "links", "docs", "publication"]);
 });
 
 test("old tabs move into settings", () => {
   assert.deepEqual(resolveTab(project(), "branches", null), { tab: "settings", section: "branches", redirect: { tab: "settings", section: "branches" } });
   assert.deepEqual(resolveTab(project(), "keys", null).section, "general", "no right to keys");
   assert.deepEqual(resolveTab(folder(), "docs-settings", null).section, "docs");
+  assert.deepEqual(resolveTab(folder(), "forge", null).section, "repo-sync");
+  assert.deepEqual(resolveTab(folder(), "settings", "forge"), { tab: "settings", section: "repo-sync", redirect: { tab: "settings", section: "repo-sync" } });
   assert.deepEqual(resolveTab(project(), "settings", "access"), { tab: "settings", section: "general", redirect: null });
   assert.deepEqual(resolveTab(project(), "releases", null), { tab: "releases", section: null, redirect: null });
   assert.deepEqual(resolveTab(folder(), "events", null).tab, "overview");

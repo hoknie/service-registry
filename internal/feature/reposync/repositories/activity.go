@@ -1,0 +1,75 @@
+package repositories
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
+	catalogtypes "svc-registry/internal/feature/catalog/types"
+	"svc-registry/internal/platform/postgres"
+)
+
+func (s *ConnectionRepository) Signals(ctx context.Context, projects []uuid.UUID, busy bool) (map[uuid.UUID][]catalogtypes.ProcessSignals, error) {
+	found, err := postgres.List(ctx, s.db.From(ctx), constraints, pgx.RowToStructByPos[catalogtypes.ProjectSignals], `
+		WITH hosting AS (
+			SELECT r.project_id, 'repo_sync'::text AS kind,
+				COALESCE(c.lease_until > now(), false) AS running,
+				c.next_run_at <= now() AND NOT COALESCE(c.lease_until > now(), false) AS queued,
+				COALESCE(l.status = 'failed', false) AS failed,
+				l.error_code AS code,
+				rfc3339(l.finished_at) AS last_at,
+				NULL::bigint AS pending
+			FROM repo_sync_repositories r
+			JOIN repo_sync_connections c ON c.id = r.connection_id
+			LEFT JOIN LATERAL (
+				SELECT w.status, w.error_code, w.finished_at
+				FROM repo_sync_runs w
+				WHERE w.connection_id = c.id
+					AND w.status <> 'running'
+				ORDER BY w.started_at DESC, w.id DESC
+				LIMIT 1
+			) l ON true
+			WHERE r.orphaned_at IS NULL
+				AND ($1::uuid[] IS NULL OR r.project_id = ANY($1))
+		)
+		SELECT a.project_id, a.kind, a.running, a.queued, a.failed, a.code, a.last_at, a.pending
+		FROM hosting a
+		WHERE NOT $2
+			OR a.running
+			OR a.queued
+			OR a.failed
+		ORDER BY a.project_id`,
+		projects, busy)
+	if err != nil {
+		return nil, err
+	}
+	return catalogtypes.SignalsByProject(found), nil
+}
+
+func (s *ConnectionRepository) ContainerSignals(ctx context.Context, nodeID uuid.UUID) ([]catalogtypes.ProcessSignals, error) {
+	return postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (catalogtypes.ProcessSignals, error) {
+		var p catalogtypes.ProcessSignals
+		var kind string
+		err := r.Scan(&kind, &p.Running, &p.Queued, &p.Failed, &p.Code, &p.LastAt)
+		p.Kind = catalogtypes.ProcessKind(kind)
+		return p, err
+	}, `
+		SELECT 'repo_sync'::text AS kind,
+			bool_or(COALESCE(c.lease_until > now(), false)) AS running,
+			bool_or(c.next_run_at <= now() AND NOT COALESCE(c.lease_until > now(), false)) AS queued,
+			bool_or(COALESCE(l.status = 'failed', false)) AS failed,
+			(array_agg(l.error_code ORDER BY c.created_at, c.id) FILTER (WHERE l.status = 'failed'))[1] AS code,
+			rfc3339(max(l.finished_at)) AS last_at
+		FROM repo_sync_connections c
+		LEFT JOIN LATERAL (
+			SELECT w.status, w.error_code, w.finished_at
+			FROM repo_sync_runs w
+			WHERE w.connection_id = c.id
+				AND w.status <> 'running'
+			ORDER BY w.started_at DESC, w.id DESC
+			LIMIT 1
+		) l ON true
+		WHERE c.node_id = $1
+		HAVING count(*) > 0`, nodeID)
+}

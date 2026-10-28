@@ -16,7 +16,7 @@ import { forgetRecentNode, recordRecentNode } from "@/lib/recentNodes";
 import { splitVersion } from "@/lib/refs";
 import { can as holds } from "@/lib/rights";
 
-import { ForgeTab } from "../forge/ForgeTab";
+import { RepoSyncTab } from "../reposync/RepoSyncTab";
 import { DocsTab } from "../knowledge/DocsTab";
 import { DocsSettingsTab } from "../knowledge/DocsSettingsTab";
 import { LinksTab } from "../links/LinksTab";
@@ -142,7 +142,7 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: ver
   const onSettled = useCallback(
     (kinds: Settled[]) => {
       if (kinds.includes("collect")) setDocsReload((n) => n + 1);
-      if (kinds.includes("forge") || kinds.includes("collect") || kinds.includes("subtree")) onChanged();
+      if (kinds.includes("repo_sync") || kinds.includes("collect") || kinds.includes("subtree")) onChanged();
     },
     [onChanged],
   );
@@ -606,8 +606,8 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: ver
                       onKeys={sections.includes("keys") ? () => router.replace(catalogHref(locale, node.id, "keys"), { scroll: false }) : undefined}
                     />
                   )}
-                  {section === "forge" && (
-                    <ForgeTab nodeId={node.id} locale={locale} labels={t} canWrite={canWrite} canAccess={can("catalog.access")} onSynced={changed} />
+                  {section === "repo-sync" && (
+                    <RepoSyncTab nodeId={node.id} locale={locale} labels={t} canWrite={canWrite} canAccess={can("catalog.access")} onSynced={changed} />
                   )}
                 </NodeSettings>
               </TabsContent>

@@ -57,13 +57,13 @@ func TestHeadsMoved(t *testing.T) {
 	known := map[string]string{"main": "abcdef1"}
 	cases := []struct {
 		name     string
-		branches []ForgeBranch
+		branches []RepoSyncBranch
 		want     bool
 	}{
-		{"same head", []ForgeBranch{{Name: "main", HeadSHA: "ABCDEF1"}}, false},
-		{"moved head", []ForgeBranch{{Name: "main", HeadSHA: "abcdef2"}}, true},
-		{"new branch", []ForgeBranch{{Name: "dev", HeadSHA: "abcdef1"}}, true},
-		{"invalid head", []ForgeBranch{{Name: "dev", HeadSHA: "zzz"}}, false},
+		{"same head", []RepoSyncBranch{{Name: "main", HeadSHA: "ABCDEF1"}}, false},
+		{"moved head", []RepoSyncBranch{{Name: "main", HeadSHA: "abcdef2"}}, true},
+		{"new branch", []RepoSyncBranch{{Name: "dev", HeadSHA: "abcdef1"}}, true},
+		{"invalid head", []RepoSyncBranch{{Name: "dev", HeadSHA: "zzz"}}, false},
 		{"none", nil, false},
 	}
 	for _, c := range cases {

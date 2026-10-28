@@ -13,14 +13,14 @@ func TestRules(t *testing.T) {
 	}{
 		"pkg imports internal":             {module + "/pkg/ptr", module + "/internal/platform/apperr", "pkg/ must not import internal/"},
 		"platform imports a feature":       {module + "/internal/platform/config", f + "catalog/types", "platform must not import features"},
-		"feature against the graph":        {f + "catalog/services", f + "forge/services", "only the features below it"},
-		"feature along the graph":          {f + "forge/services", f + "catalog/services", ""},
-		"foreign adapter":                  {f + "knowledge/services", f + "forge/clients/forgeclient", "adapters of other features"},
-		"own adapter":                      {f + "forge/services", f + "forge/clients/forgeclient", "its own adapters"},
+		"feature against the graph":        {f + "catalog/services", f + "reposync/services", "only the features below it"},
+		"feature along the graph":          {f + "reposync/services", f + "catalog/services", ""},
+		"foreign adapter":                  {f + "knowledge/services", f + "reposync/clients/hostingclient", "adapters of other features"},
+		"own adapter":                      {f + "reposync/services", f + "reposync/clients/hostingclient", "its own adapters"},
 		"types import services":            {f + "catalog/types", f + "catalog/services", "the domain of a feature"},
 		"ports import repositories":        {f + "catalog/ports", f + "catalog/repositories", "ports of a feature"},
 		"services import repositories":     {f + "catalog/services", f + "catalog/repositories", ""},
-		"foreign repositories":             {f + "forge/services", f + "catalog/repositories", "used only by the services and use cases of its feature"},
+		"foreign repositories":             {f + "reposync/services", f + "catalog/repositories", "used only by the services and use cases of its feature"},
 		"use cases import repositories":    {f + "ingest/usecases", f + "ingest/repositories", ""},
 		"services import use cases":        {f + "ingest/services", f + "ingest/usecases", ""},
 		"use cases import services":        {f + "ingest/usecases", f + "ingest/services", "use cases must not import the services"},
@@ -48,14 +48,14 @@ func TestRules(t *testing.T) {
 
 func TestFakesOnlyInTests(t *testing.T) {
 	t.Parallel()
-	const fake = module + "/pkg/testing/forgefake"
+	const fake = module + "/pkg/testing/hostingfake"
 	for name, tc := range map[string]struct {
 		from string
 		test bool
 		want bool
 	}{
-		"production code": {module + "/internal/feature/forge/clients/forgeclient", false, true},
-		"test file":       {module + "/internal/feature/forge/clients/forgeclient", true, false},
+		"production code": {module + "/internal/feature/reposync/clients/hostingclient", false, true},
+		"test file":       {module + "/internal/feature/reposync/clients/hostingclient", true, false},
 		"package tests":   {module + "/tests", false, false},
 		"testsupport":     {module + "/internal/testsupport", false, false},
 		"another fake":    {module + "/pkg/testing/oidcfake", false, true},

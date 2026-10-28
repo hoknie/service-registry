@@ -10,10 +10,10 @@ import (
 	catalogservices "svc-registry/internal/feature/catalog/services"
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	deployservices "svc-registry/internal/feature/deploy/services"
-	forgeservices "svc-registry/internal/feature/forge/services"
-	forgetypes "svc-registry/internal/feature/forge/types"
 	knowledgeservices "svc-registry/internal/feature/knowledge/services"
 	notifyservices "svc-registry/internal/feature/notify/services"
+	reposyncservices "svc-registry/internal/feature/reposync/services"
+	reposynctypes "svc-registry/internal/feature/reposync/types"
 	"svc-registry/internal/platform/config"
 	"svc-registry/pkg/pgtx"
 	"svc-registry/pkg/secretbox"
@@ -25,7 +25,7 @@ type secretRotation interface {
 
 func rotateSecrets(ctx context.Context, box *secretbox.Box, parts ...secretRotation) (int, error) {
 	if !box.CanEncrypt() {
-		return 0, forgetypes.ConflictSecretsKeyMissing
+		return 0, reposynctypes.ConflictSecretsKeyMissing
 	}
 	applies := make([]func(context.Context) error, 0, len(parts))
 	n := 0
@@ -46,12 +46,12 @@ func rotateSecrets(ctx context.Context, box *secretbox.Box, parts ...secretRotat
 }
 
 func (a *App) RotateSecrets(ctx context.Context) (int, error) {
-	return rotateSecrets(ctx, a.Secrets, a.Catalog.SecretResolver, a.Forge.Ports, a.Notify.Ports)
+	return rotateSecrets(ctx, a.Secrets, a.Catalog.SecretResolver, a.RepoSync.Ports, a.Notify.Ports)
 }
 
 func rotateSecretsOver(ctx context.Context, db *pgtx.DB, box *secretbox.Box) (int, error) {
 	cat := catalogservices.New(catalogservices.Deps{DB: db, Config: &config.Config{}, Secrets: box})
-	return rotateSecrets(ctx, box, cat.SecretResolver, forgeservices.New(forgeservices.Deps{DB: db, Secrets: box}).Ports,
+	return rotateSecrets(ctx, box, cat.SecretResolver, reposyncservices.New(reposyncservices.Deps{DB: db, Secrets: box}).Ports,
 		notifyservices.New(notifyservices.Deps{DB: db, Secrets: box}).Ports)
 }
 
@@ -83,7 +83,7 @@ var errDryRun = errors.New("dry run")
 
 func legacyParts(db *pgtx.DB, box *secretbox.Box) []legacyCredentials {
 	return []legacyCredentials{
-		forgeservices.New(forgeservices.Deps{DB: db, Secrets: box}).Ports,
+		reposyncservices.New(reposyncservices.Deps{DB: db, Secrets: box}).Ports,
 		knowledgeservices.New(knowledgeservices.Deps{DB: db, Secrets: box}).Ports,
 		deployservices.New(deployservices.Deps{DB: db, Secrets: box}).Ports,
 	}

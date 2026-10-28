@@ -127,10 +127,10 @@ func TestEmbeddedMigrationsApplyThroughTheBinary(t *testing.T) {
 	tdb := testsupport.NewTestDB(t)
 	code, out, errOut := run(t, []string{"db:migrate"}, "", "DATABASE_URL", tdb.URL)
 	eq(t, code, 0, errOut)
-	contains(t, out, "applied 111 migration(s)")
+	contains(t, out, "applied 128 migration(s)")
 	versions, err := embedded(t).Versions()
 	must(t, err)
-	eq(t, len(versions), 111)
+	eq(t, len(versions), 128)
 	_, out, _ = run(t, []string{"db:migrate"}, "", "DATABASE_URL", tdb.URL)
 	contains(t, out, "applied 0 migration(s)")
 	code, out, errOut = run(t, []string{"db:rollback", "--count=4"}, "", "DATABASE_URL", tdb.URL)
@@ -207,7 +207,7 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	m := embedded(t)
 	n, err := m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	eq(t, n, 111)
+	eq(t, n, 128)
 	knowledge := []string{"knowledge_blobs", "knowledge_files", "knowledge_settings", "knowledge_snapshots"}
 	oauth := []string{"oauth_login_states", "user_identities"}
 	deploy := []string{"cluster_workloads", "clusters", "environments"}
@@ -268,6 +268,22 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	slices.Sort(withMembers)
 	withSets := append([]string{"skill_organization_sets"}, withMembers...)
 	slices.Sort(withSets)
+	withBuiltin := append([]string{"mcp_builtin_settings"}, withSets...)
+	slices.Sort(withBuiltin)
+	withRepoSync := make([]string, 0, len(withBuiltin))
+	for _, table := range withBuiltin {
+		table = strings.Replace(table, "forge_sync_runs", "repo_sync_runs", 1)
+		withRepoSync = append(withRepoSync, strings.Replace(table, "forge_", "repo_sync_", 1))
+	}
+	slices.Sort(withRepoSync)
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withRepoSync, ","))
+	n, err = rollbackThrough(t, m, tdb, "alter_forge_connections_rename")
+	must(t, err)
+	eq(t, n, 16)
+	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withBuiltin, ","))
+	n, err = rollbackThrough(t, m, tdb, "create_mcp_builtin_settings")
+	must(t, err)
+	eq(t, n, 1)
 	eq(t, strings.Join(embeddedTables(t, tdb), ","), strings.Join(withSets, ","))
 	n, err = rollbackThrough(t, m, tdb, "alter_skills_status_disabled")
 	must(t, err)
@@ -437,7 +453,7 @@ func TestEmbeddedTablesMigrateAndRollBackCompletely(t *testing.T) {
 	eq(t, len(embeddedTables(t, tdb)), 0)
 	n, err = m.Migrate(ctx, tdb.Pool)
 	must(t, err)
-	eq(t, n, 111)
+	eq(t, n, 128)
 }
 
 func execErr(t *testing.T, tdb *testsupport.TestDB, query string, args ...any) string {
@@ -532,23 +548,23 @@ func TestPersonalAccessTokenConstraintsHoldWithoutTheService(t *testing.T) {
 	eq(t, expires == nil, true, "no expiry by default")
 }
 
-func TestForgeConstraintsHoldWithoutTheService(t *testing.T) {
+func TestRepoSyncConstraintsHoldWithoutTheService(t *testing.T) {
 	t.Parallel()
 	tdb := migrated(t)
 	org, project, conn := uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7()), uuid.Must(uuid.NewV7())
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, slug, name) VALUES ($1, 'organization', 'o', 'O')", org)
-	execSQL(t, tdb, "INSERT INTO nodes (id, kind, parent_id, slug, name, forge) VALUES ($1, 'project', $2, 'p', 'P', 'gitea')", project, org)
+	execSQL(t, tdb, "INSERT INTO nodes (id, kind, parent_id, slug, name, hosting) VALUES ($1, 'project', $2, 'p', 'P', 'gitea')", project, org)
 	secret := refSecret(t, tdb, org)
-	insertConn := "INSERT INTO forge_connections (id, node_id, kind, api_url, owner_path, interval_secs, credentials_secret_id) " +
+	insertConn := "INSERT INTO repo_sync_connections (id, node_id, kind, api_url, owner_path, interval_secs, credentials_secret_id) " +
 		"VALUES ($1, $2, 'github', 'https://api.github.com', $3, 900, $4)"
-	contains(t, execErr(t, tdb, insertConn, conn, org, "acme", nil), "forge_connections_credentials_check")
+	contains(t, execErr(t, tdb, insertConn, conn, org, "acme", nil), "repo_sync_connections_credentials_check")
 	execSQL(t, tdb, insertConn, conn, org, "acme", secret)
-	contains(t, execErr(t, tdb, insertConn, uuid.Must(uuid.NewV7()), org, "ACME", secret), "forge_connections_owner_key")
-	execSQL(t, tdb, "INSERT INTO forge_repositories (project_id, connection_id, external_id, full_path, web_url, visibility) "+
+	contains(t, execErr(t, tdb, insertConn, uuid.Must(uuid.NewV7()), org, "ACME", secret), "repo_sync_connections_owner_key")
+	execSQL(t, tdb, "INSERT INTO repo_sync_repositories (project_id, connection_id, external_id, full_path, web_url, visibility) "+
 		"VALUES ($1, $2, '1', 'acme/p', 'https://github.com/acme/p', 'public')", project, conn)
-	execSQL(t, tdb, "INSERT INTO forge_sync_runs (id, connection_id, trigger, status) VALUES ($1, $2, 'manual', 'running')", uuid.Must(uuid.NewV7()), conn)
-	execSQL(t, tdb, "DELETE FROM forge_connections WHERE id = $1", conn)
-	for _, table := range []string{"forge_repositories", "forge_sync_runs"} {
+	execSQL(t, tdb, "INSERT INTO repo_sync_runs (id, connection_id, trigger, status) VALUES ($1, $2, 'manual', 'running')", uuid.Must(uuid.NewV7()), conn)
+	execSQL(t, tdb, "DELETE FROM repo_sync_connections WHERE id = $1", conn)
+	for _, table := range []string{"repo_sync_repositories", "repo_sync_runs"} {
 		eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM "+table), int64(0), table)
 	}
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM nodes"), int64(2), "nodes stay")
@@ -574,7 +590,7 @@ func TestBranchesTableHoldsItsRulesAndBackfillsDefaults(t *testing.T) {
 	eq(t, scalar[string](t, tdb, "SELECT substr(id::text, 15, 1) FROM branches"), "7", "UUID v7")
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM branches"), int64(1))
 	eq(t, scalar[string](t, tdb, "SELECT column_default FROM information_schema.columns "+
-		"WHERE table_schema = current_schema() AND table_name = 'forge_connections' AND column_name = 'branch_include'"), "'{}'::text[]")
+		"WHERE table_schema = current_schema() AND table_name = 'repo_sync_connections' AND column_name = 'branch_include'"), "'{}'::text[]")
 
 	insert := "INSERT INTO branches (id, project_id, name, is_default, sources, head_sha) VALUES ($1, $2, $3, $4, $5::text[], $6)"
 	contains(t, execErr(t, tdb, insert, uuid.Must(uuid.NewV7()), project, "dev", true, "{ingest}", nil), "branches_default_key")
@@ -758,7 +774,7 @@ func TestKnowledgeSourcesHoldTheirRules(t *testing.T) {
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, slug, name) VALUES ($1, 'organization', 'o', 'O')", org)
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, parent_id, slug, name) VALUES ($1, 'project', $2, 'p', 'P')", project, org)
 	contains(t, execErr(t, tdb, "INSERT INTO knowledge_sources (project_id, kind) VALUES ($1, 'local_dir')", project), "knowledge_sources_fields_check")
-	contains(t, execErr(t, tdb, "INSERT INTO knowledge_sources (project_id, kind, forge, url, api_url, path) "+
+	contains(t, execErr(t, tdb, "INSERT INTO knowledge_sources (project_id, kind, hosting, url, api_url, path) "+
 		"VALUES ($1, 'remote', 'github', 'https://github.com/a/b', 'https://api.github.com', '/srv')", project), "knowledge_sources_fields_check")
 	contains(t, execErr(t, tdb, "INSERT INTO knowledge_sources (project_id, kind, path) VALUES ($1, 'svn', '/srv')", project), "knowledge_sources_kind_check")
 	execSQL(t, tdb, "INSERT INTO knowledge_sources (project_id, kind, path) VALUES ($1, 'local_git', '/srv/repos/p')", project)
@@ -1177,13 +1193,13 @@ func TestSecretsSchemaHoldsItsRules(t *testing.T) {
 	contains(t, execErr(t, tdb, insert, uuid.Must(uuid.NewV7()), nil, "GITLAB", nil, "env:Z"), "secrets_name_key")
 	contains(t, execErr(t, tdb, insert, uuid.Must(uuid.NewV7()), nil, "both", "v1.k.x", "env:Z"), "secrets_value_check")
 	conn := uuid.Must(uuid.NewV7())
-	execSQL(t, tdb, "INSERT INTO forge_connections (id, node_id, kind, api_url, owner_path, interval_secs, credentials_secret_id) "+
+	execSQL(t, tdb, "INSERT INTO repo_sync_connections (id, node_id, kind, api_url, owner_path, interval_secs, credentials_secret_id) "+
 		"VALUES ($1, $2, 'github', 'https://api.github.com', 'acme', 900, $3)", conn, org, secret)
-	contains(t, execErr(t, tdb, "UPDATE forge_connections SET credentials_secret_id = NULL WHERE id = $1", conn), "forge_connections_credentials_check")
-	contains(t, execErr(t, tdb, "DELETE FROM secrets WHERE id = $1", secret), "forge_connections_credentials_secret_id_fkey")
-	execSQL(t, tdb, "INSERT INTO knowledge_sources (project_id, kind, forge, url, api_url, credentials_secret_id) "+
+	contains(t, execErr(t, tdb, "UPDATE repo_sync_connections SET credentials_secret_id = NULL WHERE id = $1", conn), "repo_sync_connections_credentials_check")
+	contains(t, execErr(t, tdb, "DELETE FROM secrets WHERE id = $1", secret), "repo_sync_connections_credentials_secret_id_fkey")
+	execSQL(t, tdb, "INSERT INTO knowledge_sources (project_id, kind, hosting, url, api_url, credentials_secret_id) "+
 		"VALUES ($1, 'remote', 'gitlab', 'https://gitlab.example/a/p', 'https://gitlab.example/api/v4', $2)", project, secret)
-	contains(t, execErr(t, tdb, "UPDATE knowledge_sources SET kind = 'local_dir', path = '/docs', forge = NULL, url = NULL, api_url = NULL "+
+	contains(t, execErr(t, tdb, "UPDATE knowledge_sources SET kind = 'local_dir', path = '/docs', hosting = NULL, url = NULL, api_url = NULL "+
 		"WHERE project_id = $1", project), "knowledge_sources_local_secret_check")
 	execSQL(t, tdb, "UPDATE knowledge_sources SET credentials_secret_id = NULL WHERE project_id = $1", project)
 	for _, id := range []uuid.UUID{project, folder, org} {
@@ -1204,7 +1220,7 @@ func TestSourcesReferringToSecretsBlockTheRollback(t *testing.T) {
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, slug, name) VALUES ($1, 'organization', 'o', 'O')", org)
 	execSQL(t, tdb, "INSERT INTO nodes (id, kind, parent_id, slug, name) VALUES ($1, 'project', $2, 'p', 'P')", project, org)
 	execSQL(t, tdb, "INSERT INTO secrets (id, node_id, name, value_ref) VALUES ($1, $2, 'gitlab', 'env:X')", secret, org)
-	execSQL(t, tdb, "INSERT INTO knowledge_sources (project_id, kind, forge, url, api_url, credentials_secret_id) "+
+	execSQL(t, tdb, "INSERT INTO knowledge_sources (project_id, kind, hosting, url, api_url, credentials_secret_id) "+
 		"VALUES ($1, 'remote', 'gitlab', 'https://gitlab.example/a/p', 'https://gitlab.example/api/v4', $2)", project, secret)
 	if _, err := rollbackThrough(t, embedded(t), tdb, "alter_knowledge_sources_secret"); err == nil {
 		t.Fatal("rolling back the source column must fail while a source refers to a secret")
@@ -1250,7 +1266,7 @@ func TestTextChecksAlignOldExternalValues(t *testing.T) {
 	eq(t, n, migrationsFrom(t, m, "alter_schema_text_checks"))
 	eq(t, scalar[string](t, tdb, "SELECT string_agg(name, ',') FROM branches"), "main")
 	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM knowledge_snapshots"), int64(1))
-	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM forge_repositories"), int64(0))
+	eq(t, scalar[int64](t, tdb, "SELECT count(*) FROM repo_sync_repositories"), int64(0))
 	eq(t, scalar[bool](t, tdb, "SELECT default_branch IS NULL AND repo_url IS NULL FROM nodes WHERE id = $1", project), true)
 	eq(t, scalar[string](t, tdb, "SELECT string_agg(environment, ',') FROM service_deployments"), "staging")
 	eq(t, scalar[bool](t, tdb, "SELECT char_length(annotation) = 1024 AND version IS NULL FROM cluster_workloads"), true)

@@ -91,7 +91,7 @@ func (q SkillsQuery) Input() (skillsservices.ListInput, error) {
 
 type SkillSource struct {
 	Kind        *string `json:"kind" validate:"required"`
-	Forge       string  `json:"forge"`
+	Hosting     string  `json:"hosting"`
 	URL         string  `json:"url"`
 	APIURL      string  `json:"api_url"`
 	Path        string  `json:"path"`
@@ -111,7 +111,7 @@ type SkillSource struct {
 }
 
 func (r SkillSource) Input() skillsservices.SourceInput {
-	in := skillsservices.SourceInput{Kind: *r.Kind, Forge: r.Forge, URL: r.URL, APIURL: r.APIURL, Path: r.Path, WorkingTree: r.WorkingTree,
+	in := skillsservices.SourceInput{Kind: *r.Kind, Hosting: r.Hosting, URL: r.URL, APIURL: r.APIURL, Path: r.Path, WorkingTree: r.WorkingTree,
 		Branch: r.Branch, Root: r.Root, Roots: r.Roots, Layout: r.Layout, GroupField: r.GroupField, IntervalSecs: r.IntervalSecs, Status: r.Status, Versions: r.Versions, TagPattern: r.TagPattern}
 	if r.Credentials != nil {
 		in.SecretID = r.Credentials.SecretID

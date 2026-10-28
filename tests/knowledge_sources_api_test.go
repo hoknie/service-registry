@@ -5,18 +5,18 @@ import (
 	"strings"
 	"testing"
 
-	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/hostingfake"
 )
 
 func TestSourceAPIForms(t *testing.T) {
 	t.Parallel()
 	a := startSources(t)
 	eq(t, a.get(sourcePath(a.project), a.admin).text(), "null")
-	f := forgefake.Start(t, "gitlab", forgeToken, "platform")
-	f.Put(forgefake.Repo{ID: 3, Path: "platform/api", Files: map[string]string{"README.md": "x"}})
+	f := hostingfake.Start(t, "gitlab", hostingToken, "platform")
+	f.Put(hostingfake.Repo{ID: 3, Path: "platform/api", Files: map[string]string{"README.md": "x"}})
 
 	secret := a.secret(a.admin, a.org, obj{"name": "gitlab", "value": "glpat-123"})
-	body := obj{"kind": "remote", "forge": "gitlab", "url": "https://gitlab.example.com/platform/api", "credentials": obj{"secret_id": secret}}
+	body := obj{"kind": "remote", "hosting": "gitlab", "url": "https://gitlab.example.com/platform/api", "credentials": obj{"secret_id": secret}}
 	r := a.send("PUT", sourcePath(a.project), a.admin, body)
 	eq(t, r.status, 200, r.text())
 	lacks(t, r.text(), "glpat-123")
@@ -42,12 +42,12 @@ func TestSourceAPIForms(t *testing.T) {
 	eq(t, r.status, 400)
 	eq(t, code(t, r), any("validation.secret_not_available"))
 
-	check := obj{"kind": "remote", "forge": "gitlab", "url": "https://gitlab.example/platform/api", "api_url": f.APIURL() + "/api/v4", "credentials": nil}
+	check := obj{"kind": "remote", "hosting": "gitlab", "url": "https://gitlab.example/platform/api", "api_url": f.APIURL() + "/api/v4", "credentials": nil}
 	r = a.send("POST", sourcePath(a.project)+"/check", a.admin, check)
 	eq(t, r.status, 200, r.text())
 	eq(t, r.json(t)["ok"], any(false))
-	eq(t, r.json(t)["error_code"], any("forge.unauthorized"))
-	check["credentials"] = a.tokenOn(a.admin, a.org, forgeToken)
+	eq(t, r.json(t)["error_code"], any("hosting.unauthorized"))
+	check["credentials"] = a.tokenOn(a.admin, a.org, hostingToken)
 	r = a.send("POST", sourcePath(a.project)+"/check", a.admin, check)
 	eq(t, r.json(t)["ok"], any(true), r.text())
 	eq(t, r.json(t)["branches"], any(float64(1)))
@@ -71,8 +71,8 @@ func TestSourceAPIForms(t *testing.T) {
 		{obj{"kind": "local_dir", "path": a.root + "/../etc"}, "validation.knowledge_path_not_allowed"},
 		{obj{"kind": "local_dir", "path": "/etc"}, "validation.knowledge_path_not_allowed"},
 		{obj{"kind": "local_dir", "path": "docs"}, "validation.invalid_knowledge_source"},
-		{obj{"kind": "remote", "forge": "bitbucket", "url": "https://bitbucket.org/a/b"}, "validation.invalid_knowledge_source"},
-		{obj{"kind": "remote", "forge": "github", "url": "https://github.com/a/b", "credentials": obj{}}, "validation.invalid_knowledge_source"},
+		{obj{"kind": "remote", "hosting": "bitbucket", "url": "https://bitbucket.org/a/b"}, "validation.invalid_knowledge_source"},
+		{obj{"kind": "remote", "hosting": "github", "url": "https://github.com/a/b", "credentials": obj{}}, "validation.invalid_knowledge_source"},
 	} {
 		r := a.send("PUT", sourcePath(a.project), a.admin, c.body)
 		eq(t, r.status, 400, c.body)
@@ -110,11 +110,11 @@ func TestSourceAPIRefusals(t *testing.T) {
 	r := plain.send("PUT", sourcePath(project), admin, obj{"kind": "local_git", "path": "/srv/repos/api"})
 	eq(t, r.status, 409)
 	eq(t, code(t, r), any("conflict.local_sources_disabled"))
-	r = plain.send("PUT", sourcePath(project), admin, obj{"kind": "remote", "forge": "github", "url": "https://github.com/a/b",
+	r = plain.send("PUT", sourcePath(project), admin, obj{"kind": "remote", "hosting": "github", "url": "https://github.com/a/b",
 		"credentials": obj{"token": "ghp_x"}})
 	eq(t, r.status, 400)
 	eq(t, code(t, r), any("validation.credentials_inline_removed"))
-	r = plain.send("PUT", sourcePath(project), admin, obj{"kind": "remote", "forge": "github", "url": "https://github.com/a/b",
+	r = plain.send("PUT", sourcePath(project), admin, obj{"kind": "remote", "hosting": "github", "url": "https://github.com/a/b",
 		"credentials": plain.refOn(admin, org, "env:GH_TOKEN")})
 	eq(t, r.status, 200, "a reference needs no key")
 	eq(t, strings.Contains(r.text(), "GH_TOKEN"), false, "the reference is not answered back")
@@ -125,9 +125,9 @@ func TestSourceBecomesProjectLink(t *testing.T) {
 	a := startSources(t)
 	node := func() map[string]any { return a.get(nodePath(a.project), a.admin).json(t) }
 	eq(t, node()["repo_url"], nil)
-	r := a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "remote", "forge": "github", "url": "https://github.com/acme/api"})
+	r := a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "remote", "hosting": "github", "url": "https://github.com/acme/api"})
 	eq(t, r.status, 200, r.text())
-	eq(t, node()["forge"], any("github"))
+	eq(t, node()["hosting"], any("github"))
 	eq(t, node()["repo_url"], any("https://github.com/acme/api"))
 
 	dir := filepath.Join(a.root, "docs")
@@ -135,16 +135,16 @@ func TestSourceBecomesProjectLink(t *testing.T) {
 	eq(t, a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "local_dir", "path": dir}).status, 200)
 	eq(t, node()["repo_url"], any("https://github.com/acme/api"))
 	eq(t, a.call("DELETE", sourcePath(a.project), a.admin).status, 204)
-	eq(t, node()["forge"], any("github"))
+	eq(t, node()["hosting"], any("github"))
 
 	d := startDocs(t, map[string]string{"README.md": "x"})
 	before := d.app.get(nodePath(d.id), d.admin).json(t)["repo_url"]
 	eq(t, before != nil, true, "a synced project has a link")
-	r = d.app.send("PUT", sourcePath(d.id), d.admin, obj{"kind": "remote", "forge": "gitlab", "url": "https://gitlab.example.com/platform/api"})
+	r = d.app.send("PUT", sourcePath(d.id), d.admin, obj{"kind": "remote", "hosting": "gitlab", "url": "https://gitlab.example.com/platform/api"})
 	eq(t, r.status, 409, r.text())
-	eq(t, code(t, r), any("conflict.managed_by_forge"))
+	eq(t, code(t, r), any("conflict.managed_by_repo_sync"))
 	eq(t, d.app.get(nodePath(d.id), d.admin).json(t)["repo_url"], before)
-	eq(t, d.app.get(sourcePath(d.id), d.admin).json(t)["origin"], any("forge"))
+	eq(t, d.app.get(sourcePath(d.id), d.admin).json(t)["origin"], any("repo_sync"))
 	eq(t, d.app.get(sourcePath(d.id), d.admin).json(t)["url"], before)
 }
 
@@ -202,17 +202,17 @@ func TestSourceIncludeIgnoredFlag(t *testing.T) {
 func TestSourceCheckOnAContainerListsBranches(t *testing.T) {
 	t.Parallel()
 	a := startSources(t)
-	f := forgefake.Start(t, "gitea", forgeToken, "team")
-	f.Put(forgefake.Repo{ID: 1, Path: "team/api", DefaultBranch: "main",
-		Branches: []forgefake.Branch{{Name: "main", SHA: sha(1)}, {Name: "dev", SHA: sha(2)}, {Name: "alpha", SHA: sha(3)}}})
+	f := hostingfake.Start(t, "gitea", hostingToken, "team")
+	f.Put(hostingfake.Repo{ID: 1, Path: "team/api", DefaultBranch: "main",
+		Branches: []hostingfake.Branch{{Name: "main", SHA: sha(1)}, {Name: "dev", SHA: sha(2)}, {Name: "alpha", SHA: sha(3)}}})
 	folder := a.nodeID(a.admin, "folder", a.org, "backend")
-	check := obj{"kind": "remote", "forge": "gitea", "url": "https://git.example.com/team/api", "credentials": nil}
+	check := obj{"kind": "remote", "hosting": "gitea", "url": "https://git.example.com/team/api", "credentials": nil}
 	r := a.send("POST", sourcePath(folder)+"/check", a.admin, check)
 	eq(t, r.status, 200, r.text())
 	eq(t, r.json(t)["ok"], any(false))
 
 	check["api_url"] = f.APIURL()
-	check["credentials"] = a.tokenOn(a.admin, a.org, forgeToken)
+	check["credentials"] = a.tokenOn(a.admin, a.org, hostingToken)
 	r = a.send("POST", sourcePath(folder)+"/check", a.admin, check)
 	eq(t, r.json(t)["ok"], any(true), r.text())
 	eq(t, r.json(t)["branches"], any(float64(3)))

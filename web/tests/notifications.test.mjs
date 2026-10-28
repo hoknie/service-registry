@@ -30,7 +30,7 @@ test("keys and environments follow the server rules", () => {
 
 test("a recovery follows its failure type", async () => {
   const { toggleEvent, PRIMARY_EVENTS } = await import("../src/lib/notifications.ts");
-  assert.deepEqual(PRIMARY_EVENTS, ["deployment.created", "deployment.drift", "link.check_failed", "forge.sync_failed"]);
+  assert.deepEqual(PRIMARY_EVENTS, ["deployment.created", "deployment.drift", "link.check_failed", "repo_sync.failed"]);
   let events = toggleEvent(["deployment.created"], "deployment.drift");
   events = toggleEvent(events, "deployment.drift_resolved");
   assert.deepEqual(events, ["deployment.created", "deployment.drift", "deployment.drift_resolved"]);

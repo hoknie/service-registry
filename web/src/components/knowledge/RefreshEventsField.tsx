@@ -28,10 +28,10 @@ function eventText(t: Labels, e: KnowledgeRefreshEvent): { label: string; hint: 
       return { label: t.eventServiceDeployed, hint: t.eventServiceDeployedHint };
     case "cluster.deployed":
       return { label: t.eventClusterDeployed, hint: t.eventClusterDeployedHint };
-    case "forge.webhook":
-      return { label: t.eventForgeWebhook, hint: t.eventForgeWebhookHint };
-    case "forge.manual":
-      return { label: t.eventForgeManual, hint: t.eventForgeManualHint };
+    case "repo_sync.webhook":
+      return { label: t.eventRepoSyncWebhook, hint: t.eventRepoSyncWebhookHint };
+    case "repo_sync.manual":
+      return { label: t.eventRepoSyncManual, hint: t.eventRepoSyncManualHint };
   }
 }
 

@@ -25,7 +25,7 @@ func startSources(t *testing.T, extra ...string) *sourcesApp {
 	if err != nil {
 		t.Fatal(err)
 	}
-	app := startForgeApp(t, append([]string{"KNOWLEDGE_LOCAL_ROOTS", root}, extra...)...)
+	app := startRepoSyncApp(t, append([]string{"KNOWLEDGE_LOCAL_ROOTS", root}, extra...)...)
 	admin := app.admin()
 	org := app.nodeID(admin, "organization", "", "acme")
 	return &sourcesApp{testApp: app, root: root, admin: admin, org: org, project: app.nodeID(admin, "project", org, "api")}

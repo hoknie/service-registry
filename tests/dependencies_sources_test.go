@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	deploytypes "svc-registry/internal/feature/deploy/types"
-	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/hostingfake"
 )
 
 func edgesOf(t *testing.T, a *testApp, project, source string) string {
@@ -87,22 +87,22 @@ func TestDependenciesFromTheProjectManifest(t *testing.T) {
 	eq(t, scalar[string](t, d.app.db, "SELECT DISTINCT origin FROM service_dependencies WHERE source = 'repository'"), "main")
 
 	d.push(map[string]string{"README.md": "# API", ".svc-registry.yaml": "dependencies: 42\n"},
-		forgefake.Branch{Name: "main", SHA: sha(2)})
+		hostingfake.Branch{Name: "main", SHA: sha(2)})
 	d.app.collect()
 	eq(t, edgesOf(t, d.app, d.id, "repository"), "acme/billing,s3", "broken file keeps edges")
 	eq(t, scalar[string](t, d.app.db, "SELECT array_to_string(warnings, ',') FROM knowledge_scans WHERE project_id = $1 AND kind = 'collect' ORDER BY last_started_at DESC LIMIT 1", d.id), "collect.manifest_invalid")
 
 	d.push(map[string]string{"README.md": "# API", ".svc-registry.yml": "dependencies: [\"external:s3\", 7]\n"},
-		forgefake.Branch{Name: "main", SHA: sha(3)})
+		hostingfake.Branch{Name: "main", SHA: sha(3)})
 	d.app.collect()
 	eq(t, edgesOf(t, d.app, d.id, "repository"), "s3")
 
 	d.push(map[string]string{"README.md": "# API", ".svc-registry.yaml": strings.Repeat("#", 70<<10)},
-		forgefake.Branch{Name: "main", SHA: sha(4)})
+		hostingfake.Branch{Name: "main", SHA: sha(4)})
 	d.app.collect()
 	eq(t, edgesOf(t, d.app, d.id, "repository"), "s3", "too large")
 
-	d.push(map[string]string{"README.md": "# API"}, forgefake.Branch{Name: "main", SHA: sha(5)})
+	d.push(map[string]string{"README.md": "# API"}, hostingfake.Branch{Name: "main", SHA: sha(5)})
 	d.app.collect()
 	eq(t, edgesOf(t, d.app, d.id, "repository"), "")
 }

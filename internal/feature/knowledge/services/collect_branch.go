@@ -9,12 +9,12 @@ import (
 
 	"github.com/google/uuid"
 
-	forgeports "svc-registry/internal/feature/forge/ports"
-	forgetypes "svc-registry/internal/feature/forge/types"
 	knowledgeports "svc-registry/internal/feature/knowledge/ports"
 	"svc-registry/internal/feature/knowledge/repositories"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/feature/knowledge/usecases"
+	reposyncports "svc-registry/internal/feature/reposync/ports"
+	reposynctypes "svc-registry/internal/feature/reposync/types"
 	topologytypes "svc-registry/internal/feature/topology/types"
 	"svc-registry/internal/platform/apperr"
 )
@@ -24,7 +24,7 @@ func (s *CollectService) sourceToken(ctx context.Context, id uuid.UUID, src *kno
 	case src.CredentialsSecretID != nil:
 		t, err := s.catalog.SecretResolver.ResolveSecret(ctx, *src.CredentialsSecretID)
 		if err != nil {
-			return "", knowledgetypes.Failure("forge.credentials_unavailable")
+			return "", knowledgetypes.Failure("hosting.credentials_unavailable")
 		}
 		return t, nil
 	}
@@ -32,8 +32,8 @@ func (s *CollectService) sourceToken(ctx context.Context, id uuid.UUID, src *kno
 }
 
 type syncedReader struct {
-	client   forgeports.ClientPort
-	repo     forgetypes.RemoteRepo
+	client   reposyncports.ClientPort
+	repo     reposynctypes.RemoteRepo
 	settings knowledgetypes.Settings
 	maxTags  int
 }
@@ -73,7 +73,7 @@ func (r *syncedReader) Snapshot(context.Context, string, int64) (fs.FS, func(), 
 }
 
 func (r *syncedReader) Read(ctx context.Context, e knowledgetypes.Entry, limit int64) ([]byte, error) {
-	return r.client.ReadFile(ctx, r.repo, forgetypes.TreeEntry{Path: e.Path, BlobSHA: e.BlobSHA, Size: e.Size}, limit)
+	return r.client.ReadFile(ctx, r.repo, reposynctypes.TreeEntry{Path: e.Path, BlobSHA: e.BlobSHA, Size: e.Size}, limit)
 }
 
 func (s *CollectService) readManifest(ctx context.Context, id uuid.UUID, reader knowledgeports.ReaderPort, entries []knowledgetypes.Entry, scan *knowledgetypes.Scan,
@@ -157,7 +157,7 @@ func (s *CollectService) collectBranch(ctx context.Context, p knowledgetypes.Pro
 		return s.topology.Records.ReplaceRepository(ctx, p.ID, h.name, refs)
 	}); err != nil {
 		slog.Warn("documentation snapshot not saved", "project", p.ID, "branch", h.name, "error", err)
-		return knowledgetypes.Failure("forge.upstream_error")
+		return knowledgetypes.Failure("hosting.upstream_error")
 	}
 	b := knowledgetypes.ScanBranch{Name: h.name, Kind: h.kind, Commit: h.sha, Result: knowledgetypes.BranchCollected, Skipped: map[string]int{}, Truncated: truncated,
 		WorkingTree: strings.Contains(h.sha, "+worktree:")}
@@ -190,7 +190,7 @@ func (s *CollectService) fillDefaultBranch(ctx context.Context, id uuid.UUID, na
 	if name == "" {
 		return nil
 	}
-	managed, err := s.forge.Ports.Managed(ctx, []uuid.UUID{id})
+	managed, err := s.repoSync.Ports.Managed(ctx, []uuid.UUID{id})
 	if err != nil || managed[id] {
 		return err
 	}

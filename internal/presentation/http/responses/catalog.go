@@ -17,7 +17,7 @@ type Node struct {
 	Access             string               `json:"access"`
 	Description        *string              `json:"description,omitempty"`
 	Labels             *catalogtypes.Labels `json:"labels,omitempty"`
-	Forge              **string             `json:"forge,omitempty"`
+	Hosting            **string             `json:"hosting,omitempty"`
 	RepoURL            **string             `json:"repo_url,omitempty"`
 	DefaultBranch      **string             `json:"default_branch,omitempty"`
 	ClusterObservation *bool                `json:"cluster_observation,omitempty"`
@@ -48,12 +48,12 @@ func NodeOf(n catalogtypes.Node, readable bool) Node {
 		body.Visibility = new(string(n.Visibility))
 	}
 	if n.Kind == catalogtypes.KindProject {
-		var forge *string
-		if n.Repo.Forge != nil {
-			forge = new(string(*n.Repo.Forge))
+		var hosting *string
+		if n.Repo.Hosting != nil {
+			hosting = new(string(*n.Repo.Hosting))
 		}
 		url, branch := n.Repo.RepoURL, n.Repo.DefaultBranch
-		body.Forge, body.RepoURL, body.DefaultBranch = &forge, &url, &branch
+		body.Hosting, body.RepoURL, body.DefaultBranch = &hosting, &url, &branch
 		body.ClusterObservation = new(n.ClusterObservation)
 	}
 	return body

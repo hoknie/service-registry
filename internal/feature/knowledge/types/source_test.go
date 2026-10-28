@@ -10,39 +10,39 @@ func TestValidateRemoteSources(t *testing.T) {
 		in       SourceInput
 		url, api string
 	}{
-		{SourceInput{Kind: "remote", Forge: "gitlab", URL: "https://gitlab.example.com/platform/api/"}, "https://gitlab.example.com/platform/api", "https://gitlab.example.com/api/v4"},
-		{SourceInput{Kind: "remote", Forge: "github", URL: "https://github.com/acme/api.git"}, "https://github.com/acme/api", "https://api.github.com"},
-		{SourceInput{Kind: "remote", Forge: "github", URL: "https://ghe.example/acme/api"}, "https://ghe.example/acme/api", "https://ghe.example/api/v3"},
-		{SourceInput{Kind: "remote", Forge: "forgejo", URL: "http://localhost:3000/acme/api"}, "http://localhost:3000/acme/api", "http://localhost:3000/api/v1"},
-		{SourceInput{Kind: "remote", Forge: "gitea", URL: "https://git.example/a/b", APIURL: "https://api.git.example/v1/"}, "https://git.example/a/b", "https://api.git.example/v1"},
+		{SourceInput{Kind: "remote", Hosting: "gitlab", URL: "https://gitlab.example.com/platform/api/"}, "https://gitlab.example.com/platform/api", "https://gitlab.example.com/api/v4"},
+		{SourceInput{Kind: "remote", Hosting: "github", URL: "https://github.com/acme/api.git"}, "https://github.com/acme/api", "https://api.github.com"},
+		{SourceInput{Kind: "remote", Hosting: "github", URL: "https://ghe.example/acme/api"}, "https://ghe.example/acme/api", "https://ghe.example/api/v3"},
+		{SourceInput{Kind: "remote", Hosting: "forgejo", URL: "http://localhost:3000/acme/api"}, "http://localhost:3000/acme/api", "http://localhost:3000/api/v1"},
+		{SourceInput{Kind: "remote", Hosting: "gitea", URL: "https://git.example/a/b", APIURL: "https://api.git.example/v1/"}, "https://git.example/a/b", "https://api.git.example/v1"},
 	} {
 		v, err := ValidateSource(c.in)
 		if err != nil || v.URL != c.url || v.APIURL != c.api || !v.Keep {
 			t.Errorf("%+v: %+v %v", c.in, v, err)
 		}
 	}
-	v, _ := ValidateSource(SourceInput{Kind: "remote", Forge: "gitlab", URL: "https://g.example/a/b/c"})
+	v, _ := ValidateSource(SourceInput{Kind: "remote", Hosting: "gitlab", URL: "https://g.example/a/b/c"})
 	if v.FullPath() != "a/b/c" {
 		t.Fatal(v.FullPath())
 	}
-	v, err := ValidateSource(SourceInput{Kind: "remote", Forge: "github", URL: "https://github.com/a/b", HasCredential: true,
+	v, err := ValidateSource(SourceInput{Kind: "remote", Hosting: "github", URL: "https://github.com/a/b", HasCredential: true,
 		SecretID: new("0199c000-0000-7000-8000-000000000001")})
 	if err != nil || v.SecretID == nil || v.Keep {
 		t.Fatal(v, err)
 	}
-	v, err = ValidateSource(SourceInput{Kind: "remote", Forge: "github", URL: "https://github.com/a/b", HasCredential: true, NoCredentials: true})
+	v, err = ValidateSource(SourceInput{Kind: "remote", Hosting: "github", URL: "https://github.com/a/b", HasCredential: true, NoCredentials: true})
 	if err != nil || v.Keep || v.SecretID != nil {
 		t.Fatal(v, err)
 	}
 	for _, bad := range []SourceInput{
-		{Kind: "remote", Forge: "bitbucket", URL: "https://bitbucket.org/a/b"},
-		{Kind: "remote", Forge: "github", URL: "http://github.com/a/b"},
-		{Kind: "remote", Forge: "github", URL: "https://github.com/a"},
-		{Kind: "remote", Forge: "github", URL: "https://user:pw@github.com/a/b"},
-		{Kind: "remote", Forge: "github", URL: "https://github.com/a/b?x=1"},
-		{Kind: "remote", Forge: "github", URL: "https://github.com/a/b", Path: "/srv"},
-		{Kind: "remote", Forge: "github", URL: "https://github.com/a/b", HasCredential: true, SecretID: new("not-a-uuid")},
-		{Kind: "remote", Forge: "github", URL: "https://github.com/a/b", HasCredential: true},
+		{Kind: "remote", Hosting: "bitbucket", URL: "https://bitbucket.org/a/b"},
+		{Kind: "remote", Hosting: "github", URL: "http://github.com/a/b"},
+		{Kind: "remote", Hosting: "github", URL: "https://github.com/a"},
+		{Kind: "remote", Hosting: "github", URL: "https://user:pw@github.com/a/b"},
+		{Kind: "remote", Hosting: "github", URL: "https://github.com/a/b?x=1"},
+		{Kind: "remote", Hosting: "github", URL: "https://github.com/a/b", Path: "/srv"},
+		{Kind: "remote", Hosting: "github", URL: "https://github.com/a/b", HasCredential: true, SecretID: new("not-a-uuid")},
+		{Kind: "remote", Hosting: "github", URL: "https://github.com/a/b", HasCredential: true},
 		{Kind: "svn", Path: "/srv"},
 	} {
 		if _, err := ValidateSource(bad); !errors.Is(err, InvalidSource) {
@@ -80,7 +80,7 @@ func TestSourceAPIAddressMatchesTheWebForm(t *testing.T) {
 		{"gitea", "https://git.example.com/team/api?x=1", ""},
 		{"gitea", "https://user@git.example.com/team/api", ""},
 	} {
-		v, err := ValidateSource(SourceInput{Kind: "remote", Forge: c.kind, URL: c.url})
+		v, err := ValidateSource(SourceInput{Kind: "remote", Hosting: c.kind, URL: c.url})
 		if c.api == "" {
 			if err == nil {
 				t.Errorf("%s %s: accepted", c.kind, c.url)

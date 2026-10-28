@@ -48,3 +48,27 @@ func (s *ServersService) ServerIcon(ctx context.Context, p accesstypes.Principal
 	}
 	return *icon, nil
 }
+
+func (s *ServersService) BuiltinDisabled(ctx context.Context) ([]string, error) {
+	out, err := s.builtin.Disabled(ctx)
+	return out, apperr.Wrap(err)
+}
+
+func (s *ServersService) BuiltinTools(ctx context.Context, p accesstypes.Principal) ([]string, bool, error) {
+	disabled, err := s.BuiltinDisabled(ctx)
+	return disabled, globalRight(p, accesstypes.ActionUpdate) == nil, err
+}
+
+func (s *ServersService) DisableBuiltinTools(ctx context.Context, p accesstypes.Principal, names []string) ([]string, bool, error) {
+	if err := globalRight(p, accesstypes.ActionUpdate); err != nil {
+		return nil, false, err
+	}
+	clean, err := gatewaytypes.CleanBuiltinTools(names)
+	if err != nil {
+		return nil, false, apperr.Wrap(err)
+	}
+	if err := s.builtin.SetDisabled(ctx, clean); err != nil {
+		return nil, false, apperr.Wrap(err)
+	}
+	return s.BuiltinTools(ctx, p)
+}

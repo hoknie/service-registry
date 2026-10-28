@@ -64,7 +64,74 @@ export type McpServer = {
   can_manage: boolean;
   created_at: string;
   updated_at: string;
+  builtin?: boolean;
+  tools_total?: number;
 };
+
+export type McpBuiltinTool = {
+  name: string;
+  title: string;
+  description: string;
+  input_schema: unknown;
+  annotations: McpTool["annotations"];
+  enabled: boolean;
+};
+
+export type McpBuiltin = {
+  id: "builtin";
+  slug: string;
+  title: string;
+  builtin: true;
+  version: string;
+  instructions: string;
+  endpoint: string;
+  tools: McpBuiltinTool[];
+  disabled: string[];
+  can_write: boolean;
+};
+
+export const BUILTIN_ID = "builtin";
+
+export function builtinTools(b: McpBuiltin): McpTool[] {
+  return b.tools.map((x) => ({ ...x, gateway_name: x.name, output_schema: null, skipped: null }));
+}
+
+export function builtinServer(b: McpBuiltin, description: string): McpServer {
+  return {
+    id: BUILTIN_ID,
+    folder_id: null,
+    organization_id: null,
+    organization: null,
+    path: b.slug,
+    ancestors: [],
+    slug: b.slug,
+    title: b.title,
+    description,
+    tags: [],
+    author: "svc-registry",
+    icon_url: null,
+    icon: "server",
+    has_icon: false,
+    log_payloads: false,
+    status: "published",
+    state: "ok",
+    tools_count: b.tools.filter((x) => x.enabled).length,
+    tools_total: b.tools.length,
+    calls: 0,
+    auth: { kind: "none" },
+    server_info: { name: b.slug, title: b.title, version: b.version, protocol_version: "", instructions: b.instructions },
+    can_write: b.can_write,
+    can_manage: false,
+    created_at: "",
+    updated_at: "",
+    builtin: true,
+  };
+}
+
+export function builtinMatches(server: Pick<McpServer, "title" | "slug">, q: string): boolean {
+  const needle = q.trim().toLowerCase();
+  return !needle || server.title.toLowerCase().includes(needle) || server.slug.includes(needle);
+}
 
 export type McpServerPage = { items: McpServer[]; next_cursor: string | null };
 

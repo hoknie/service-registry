@@ -60,7 +60,7 @@ export function EditForm({
   const [labelLines, setLabelLines] = useState(labelsToLines(node.labels));
   const [labelDraft, setLabelDraft] = useState("");
   const [repo, setRepo] = useState<Repo>({
-    forge: node.forge ?? "",
+    hosting: node.hosting ?? "",
     repo_url: node.repo_url ?? "",
     default_branch: node.default_branch ?? "",
   });
@@ -95,7 +95,7 @@ export function EditForm({
   );
 
   const sourceChanged = () => {
-    if (managed || source?.origin === "forge") return false;
+    if (managed || source?.origin === "repo_sync") return false;
     if (mode === "link") return !!source;
     return !source || secretChanged(draft) || JSON.stringify(sourceBody(draft)) !== JSON.stringify(sourceBody(draftOf(source)));
   };
@@ -160,7 +160,7 @@ export function EditForm({
           {(p) => <Input {...p} required className="font-mono" value={slug} onChange={(e) => setSlug(e.target.value)} />}
         </Field>
         {managed && <p className="rounded-md bg-surface-2 px-3 py-2 text-sm text-ink-2">{t.managedNote}</p>}
-        <DescriptionField labels={labels} value={description} onChange={setDescription} readOnly={managed} hint={managed ? t.fromForge : undefined} />
+        <DescriptionField labels={labels} value={description} onChange={setDescription} readOnly={managed} hint={managed ? t.fromRepoSync : undefined} />
         <Field label={labels.create.labels} hint={labels.create.labelsHint}>
           {(p) => <LabelsInput {...p} value={labelLines} onChange={setLabelLines} onDraft={setLabelDraft} />}
         </Field>

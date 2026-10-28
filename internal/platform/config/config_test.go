@@ -257,12 +257,12 @@ func TestHTTPAddrForms(t *testing.T) {
 	}
 }
 
-func TestForgeSettingsDefaults(t *testing.T) {
+func TestRepoSyncSettingsDefaults(t *testing.T) {
 	cfg, err := config.Load[config.Config](lookup("DATABASE_URL", dbURL))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !cfg.Jobs.Enabled || cfg.Jobs.ForgeConcurrency != 2 || cfg.Jobs.ForgeIntervalSecs != 900 || cfg.Jobs.ForgeRunsKept != 20 {
+	if !cfg.Jobs.Enabled || cfg.Jobs.RepoSyncConcurrency != 2 || cfg.Jobs.RepoSyncIntervalSecs != 900 || cfg.Jobs.RepoSyncRunsKept != 20 {
 		t.Errorf("jobs %+v", cfg.Jobs)
 	}
 	if cfg.Outbound.TimeoutSecs != 30 || cfg.Outbound.CAPEM != nil || len(cfg.Secrets.Keys) != 0 || cfg.Web.PublicURL != "" {
@@ -327,11 +327,26 @@ func TestPublicURL(t *testing.T) {
 }
 
 func TestJobsBounds(t *testing.T) {
-	_, err := config.Load[config.JobsConfig](lookup("FORGE_SYNC_CONCURRENCY", "0", "FORGE_SYNC_INTERVAL_SECS", "59",
-		"FORGE_SYNC_RUNS_KEPT", "1001", "BACKGROUND_JOBS_ENABLED", "maybe"))
-	want := []string{"BACKGROUND_JOBS_ENABLED", "FORGE_SYNC_CONCURRENCY", "FORGE_SYNC_INTERVAL_SECS", "FORGE_SYNC_RUNS_KEPT"}
+	_, err := config.Load[config.JobsConfig](lookup("REPO_SYNC_CONCURRENCY", "0", "REPO_SYNC_INTERVAL_SECS", "59",
+		"REPO_SYNC_RUNS_KEPT", "1001", "BACKGROUND_JOBS_ENABLED", "maybe"))
+	want := []string{"BACKGROUND_JOBS_ENABLED", "REPO_SYNC_CONCURRENCY", "REPO_SYNC_INTERVAL_SECS", "REPO_SYNC_RUNS_KEPT"}
 	if got := vars(t, err); !reflect.DeepEqual(got, want) {
 		t.Fatalf("vars %v", got)
+	}
+}
+
+func TestPreviousRepoSyncVariablesAreRefused(t *testing.T) {
+	_, err := config.Load[config.JobsConfig](lookup("FORGE_SYNC_INTERVAL_SECS", "600", "FORGE_SYNC_RUNS_KEPT", "5"))
+	want := []string{"FORGE_SYNC_INTERVAL_SECS", "FORGE_SYNC_RUNS_KEPT"}
+	if got := vars(t, err); !reflect.DeepEqual(got, want) {
+		t.Fatalf("vars %v", got)
+	}
+	if !strings.Contains(err.Error(), "FORGE_SYNC_INTERVAL_SECS was renamed to REPO_SYNC_INTERVAL_SECS") {
+		t.Fatal(err)
+	}
+	_, err = config.Load[config.Config](lookup("DATABASE_URL", "postgres://x/y", "FORGE_SYNC_CONCURRENCY", "2"))
+	if err == nil || !strings.Contains(err.Error(), "FORGE_SYNC_CONCURRENCY was renamed to REPO_SYNC_CONCURRENCY") {
+		t.Fatalf("full configuration: %v", err)
 	}
 }
 

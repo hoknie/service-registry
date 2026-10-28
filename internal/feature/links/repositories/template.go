@@ -139,7 +139,7 @@ func (s *TemplateRepository) ProjectData(ctx context.Context, projectID uuid.UUI
 	}
 	if out.RepoFullPath, err = postgres.Find(ctx, tx, constraints, pgx.RowTo[string], `
 		SELECT full_path
-		FROM forge_repositories
+		FROM repo_sync_repositories
 		WHERE project_id = $1
 			AND orphaned_at IS NULL`, projectID); err != nil {
 		return out, err

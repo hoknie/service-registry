@@ -13,7 +13,7 @@ import (
 	"time"
 
 	catalogtypes "svc-registry/internal/feature/catalog/types"
-	forgetypes "svc-registry/internal/feature/forge/types"
+	reposynctypes "svc-registry/internal/feature/reposync/types"
 )
 
 func testCA(t *testing.T) string {
@@ -55,8 +55,8 @@ func TestNewClusterRules(t *testing.T) {
 		{"http", with(func(c *ClusterInput) { c.APIURL = new("http://k8s") }), InvalidAPIURL},
 		{"no address", with(func(c *ClusterInput) { c.APIURL = nil }), InvalidAPIURL},
 		{"address in cluster", with(func(c *ClusterInput) { c.InCluster = new(true) }), InvalidAPIURL},
-		{"credentials in cluster", with(func(c *ClusterInput) { c.InCluster = new(true); c.APIURL = nil }), forgetypes.InvalidCredentials},
-		{"no credentials", with(func(c *ClusterInput) { c.Credentials = nil }), forgetypes.InvalidCredentials},
+		{"credentials in cluster", with(func(c *ClusterInput) { c.InCluster = new(true); c.APIURL = nil }), reposynctypes.InvalidCredentials},
+		{"no credentials", with(func(c *ClusterInput) { c.Credentials = nil }), reposynctypes.InvalidCredentials},
 		{"inline token", with(func(c *ClusterInput) { c.Credentials = &catalogtypes.CredentialsInput{Inline: true} }), catalogtypes.InvalidCredentialsInline},
 		{"bad ca", with(func(c *ClusterInput) { c.CAPEM = new("not pem") }), InvalidCA},
 		{"namespace", with(func(c *ClusterInput) { c.Namespaces = new([]string{"Bad_NS"}) }), InvalidNamespaces},
@@ -115,7 +115,7 @@ func TestAgentClusterRules(t *testing.T) {
 		"ca":           {with(func(c *ClusterInput) { c.CAPEM = &ca }), InvalidCA},
 		"credentials": {with(func(c *ClusterInput) {
 			c.Credentials = &catalogtypes.CredentialsInput{SecretID: new("0199c000-0000-7000-8000-000000000001")}
-		}), forgetypes.InvalidCredentials},
+		}), reposynctypes.InvalidCredentials},
 	} {
 		if _, _, err := ValidateCluster(DefaultSettings(), false, tt.in); !errors.Is(err, tt.want) {
 			t.Errorf("%s: %v", name, err)

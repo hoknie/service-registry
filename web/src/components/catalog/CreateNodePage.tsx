@@ -34,7 +34,7 @@ const KINDS: NodeKind[] = ["organization", "folder", "project"];
 
 function checkable(mode: RepoMode, d: SourceDraft): boolean {
   if (mode === "link") return false;
-  if (mode === "remote") return !!d.forge && d.url.trim().length > 0;
+  if (mode === "remote") return !!d.hosting && d.url.trim().length > 0;
   return d.path.trim().length > 0;
 }
 

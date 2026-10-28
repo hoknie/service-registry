@@ -46,14 +46,14 @@ func TestNilMetricsRecordNothing(t *testing.T) {
 	m.IngestEvent("service.deployed", "accepted", "")
 	m.Deployment("event")
 	m.AgentReport(true)
-	m.ForgeWebhook(false)
-	m.JobRun("forge_sync", "failed", time.Second)
+	m.RepoSyncWebhook(false)
+	m.JobRun("repo_sync", "failed", time.Second)
 	m.MCPCall("tool", "get_project", false, time.Millisecond)
 	m.MCPProjectCall("o", "p")
 	m.Login("password", "failed")
 	m.Search("text", "api", false)
-	m.Outbound("forge", "2xx", time.Millisecond)
-	if m.RoundTripper("forge", http.DefaultTransport) != http.DefaultTransport {
+	m.Outbound("hosting", "2xx", time.Millisecond)
+	if m.RoundTripper("hosting", http.DefaultTransport) != http.DefaultTransport {
 		t.Fatal("nil metrics must not wrap transports")
 	}
 }
@@ -176,7 +176,7 @@ func TestRoundTripperCountsResults(t *testing.T) {
 	}))
 	defer srv.Close()
 	m := metrics.New("dev", nil)
-	c := m.Client("forge", srv.Client())
+	c := m.Client("hosting", srv.Client())
 	for _, p := range []string{"/ok", "/bad"} {
 		res, err := c.Get(srv.URL + p)
 		if err != nil {
@@ -189,8 +189,8 @@ func TestRoundTripperCountsResults(t *testing.T) {
 		t.Fatal("expected a refused connection")
 	}
 	body := scrape(t, m)
-	has(t, body, `svcr_outbound_requests_total{result="2xx",target="forge"} 1`)
-	has(t, body, `svcr_outbound_requests_total{result="5xx",target="forge"} 1`)
-	has(t, body, `svcr_outbound_requests_total{result="error",target="forge"} 1`)
+	has(t, body, `svcr_outbound_requests_total{result="2xx",target="hosting"} 1`)
+	has(t, body, `svcr_outbound_requests_total{result="5xx",target="hosting"} 1`)
+	has(t, body, `svcr_outbound_requests_total{result="error",target="hosting"} 1`)
 	lacks(t, body, "127.0.0.1")
 }

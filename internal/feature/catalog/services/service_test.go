@@ -59,13 +59,13 @@ func TestSignalsMergeSourcesInOrder(t *testing.T) {
 	t.Parallel()
 	id := uuid.Must(uuid.NewV7())
 	s := New(Deps{Config: &config.Config{}})
-	s.Use(stubPorts{}, fixedSignals{id: id, kind: catalogtypes.ProcessKind("collect")}, fixedSignals{id: id, kind: catalogtypes.ProcessKind("forge")})
+	s.Use(stubPorts{}, fixedSignals{id: id, kind: catalogtypes.ProcessKind("collect")}, fixedSignals{id: id, kind: catalogtypes.ProcessKind("repo_sync")})
 	got, err := s.Activity.signals(context.Background(), []uuid.UUID{id}, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got[id]) != 2 || got[id][0].Kind != "collect" || got[id][1].Kind != "forge" {
-		t.Fatalf("signals = %+v, want collect then forge", got[id])
+	if len(got[id]) != 2 || got[id][0].Kind != "collect" || got[id][1].Kind != "repo_sync" {
+		t.Fatalf("signals = %+v, want collect then repo_sync", got[id])
 	}
 	empty, err := s.Activity.signals(context.Background(), nil, false, false)
 	if err != nil || len(empty) != 0 {
@@ -128,7 +128,7 @@ func TestMarkReturnsThePortError(t *testing.T) {
 	t.Parallel()
 	var asked []uuid.UUID
 	s := New(Deps{Config: &config.Config{}})
-	s.Use(managedPort{asked: &asked, err: errors.New("forge is down")}, stubPorts{})
+	s.Use(managedPort{asked: &asked, err: errors.New("hosting is down")}, stubPorts{})
 	if err := s.Nodes.mark(context.Background(), new(catalogtypes.Node{ID: uuid.Must(uuid.NewV7())})); err == nil {
 		t.Fatal("the port error must reach the caller")
 	}

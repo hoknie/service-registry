@@ -1,0 +1,1 @@
+UPDATE knowledge_snapshots SET error_code = CASE WHEN error_code = 'forge.interrupted' THEN 'repo_sync.interrupted' ELSE regexp_replace(error_code, '^forge\.', 'hosting.') END WHERE error_code LIKE 'forge.%';

@@ -4,11 +4,11 @@ import (
 	"context"
 
 	catalogservices "svc-registry/internal/feature/catalog/services"
-	forgeservices "svc-registry/internal/feature/forge/services"
 	knowledgeports "svc-registry/internal/feature/knowledge/ports"
 	"svc-registry/internal/feature/knowledge/repositories"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/feature/knowledge/usecases"
+	reposyncservices "svc-registry/internal/feature/reposync/services"
 	topologyservices "svc-registry/internal/feature/topology/services"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
@@ -20,7 +20,7 @@ type Deps struct {
 	DB       *pgtx.DB
 	Config   *config.Config
 	Catalog  *catalogservices.CatalogServices
-	Forge    *forgeservices.ForgeServices
+	RepoSync *reposyncservices.RepoSyncServices
 	Engine   knowledgeports.EnginePort
 	External knowledgeports.ExternalIndexPort
 	Embedder knowledgeports.EmbedderPort
@@ -46,7 +46,7 @@ type parts struct {
 	readers              knowledgeports.ReaderFactoryPort
 	secrets              *secretbox.Box
 	catalog              *catalogservices.CatalogServices
-	forge                *forgeservices.ForgeServices
+	repoSync             *reposyncservices.RepoSyncServices
 	topology             *topologyservices.TopologyServices
 	tagRepository        *repositories.TagRepository
 	saveSnapshot         *usecases.SaveSnapshotUseCase
@@ -73,7 +73,7 @@ func newParts(d Deps) *parts {
 		readers:              d.Readers,
 		secrets:              d.Secrets,
 		catalog:              d.Catalog,
-		forge:                d.Forge,
+		repoSync:             d.RepoSync,
 		topology:             d.Topology,
 		tagRepository:        tags,
 		saveSnapshot:         usecases.NewSaveSnapshot(d.DB, snapshots),
@@ -96,14 +96,14 @@ type KnowledgeServices struct {
 func New(d Deps) *KnowledgeServices {
 	p := newParts(d)
 	f := &KnowledgeServices{
-		Collect:   &CollectService{readers: p.readers, catalog: p.catalog, cfg: p.cfg, db: p.db, forge: p.forge, scanRepository: p.scanRepository, secrets: p.secrets, collectionRepository: p.collectionRepository, snapshotRepository: p.snapshotRepository, sourceRepoRepository: p.sourceRepoRepository, sourceRepository: p.sourceRepository, topology: p.topology, saveSnapshot: p.saveSnapshot, tagRepository: p.tagRepository, syncTags: p.syncTags},
+		Collect:   &CollectService{readers: p.readers, catalog: p.catalog, cfg: p.cfg, db: p.db, repoSync: p.repoSync, scanRepository: p.scanRepository, secrets: p.secrets, collectionRepository: p.collectionRepository, snapshotRepository: p.snapshotRepository, sourceRepoRepository: p.sourceRepoRepository, sourceRepository: p.sourceRepository, topology: p.topology, saveSnapshot: p.saveSnapshot, tagRepository: p.tagRepository, syncTags: p.syncTags},
 		Documents: &DocumentsService{catalog: p.catalog, cfg: p.cfg, collectionRepository: p.collectionRepository, snapshotRepository: p.snapshotRepository, sourceRepository: p.sourceRepository, tagRepository: p.tagRepository},
 		Index:     &IndexService{cfg: p.cfg, db: p.db, indexRepository: p.indexRepository, searchRepository: p.searchRepository, embedder: p.embedder, external: p.external},
 		Ports:     &PortsService{snapshotRepository: p.snapshotRepository, searchRepository: p.searchRepository, embedder: p.embedder, external: p.external, searchEngine: p.searchEngine, secrets: p.secrets, collectionRepository: p.collectionRepository, sourceRepository: p.sourceRepository},
 		Scans:     &ScansService{catalog: p.catalog, scanRepository: p.scanRepository},
 		Search:    &SearchService{collectionRepository: p.collectionRepository, tagRepository: p.tagRepository, indexRepository: p.indexRepository, searchRepository: p.searchRepository, embedder: p.embedder, searchEngine: p.searchEngine},
 		Settings:  &SettingsService{cfg: p.cfg, db: p.db, catalog: p.catalog, collectionRepository: p.collectionRepository, patternRepository: p.patternRepository},
-		Sources:   &SourcesService{catalog: p.catalog, cfg: p.cfg, db: p.db, collectionRepository: p.collectionRepository, forge: p.forge, readers: p.readers, sourceRepoRepository: p.sourceRepoRepository, sourceRepository: p.sourceRepository},
+		Sources:   &SourcesService{catalog: p.catalog, cfg: p.cfg, db: p.db, collectionRepository: p.collectionRepository, repoSync: p.repoSync, readers: p.readers, sourceRepoRepository: p.sourceRepoRepository, sourceRepository: p.sourceRepository},
 		Space:     &SpaceService{catalog: p.catalog, snapshotRepository: p.snapshotRepository},
 	}
 	f.Collect.documents = f.Documents
@@ -147,7 +147,7 @@ func (d docProject) kind() knowledgetypes.SourceKind {
 	case d.Source != nil:
 		return d.Source.Kind
 	case d.Synced:
-		return knowledgetypes.SourceForge
+		return knowledgetypes.SourceRepoSync
 	}
 	return ""
 }

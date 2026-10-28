@@ -54,12 +54,48 @@ func Handler(deps Deps, version string) http.Handler {
 	})
 }
 
-func newServer(ctx context.Context, deps Deps, version string, p accesstypes.Principal, called string) *sdk.Server {
+func builtinServer(deps Deps, version string, p accesstypes.Principal) (*sdk.Server, *tools) {
 	s := sdk.NewServer(&sdk.Implementation{Name: "svc-registry", Version: version},
-		&sdk.ServerOptions{Instructions: instructions(deps.Skills != nil, deps.Gateway != nil)})
+		&sdk.ServerOptions{Instructions: Instructions(deps)})
 	t := &tools{deps: deps, p: p, max: deps.MaxResultBytes}
 	t.register(s)
+	t.registerServerList(s)
+	return s, t
+}
+
+func newServer(ctx context.Context, deps Deps, version string, p accesstypes.Principal, called string) *sdk.Server {
+	s, t := builtinServer(deps, version, p)
+	if deps.Gateway != nil {
+		if disabled, err := deps.Gateway.Servers.BuiltinDisabled(ctx); err == nil && len(disabled) > 0 {
+			s.RemoveTools(disabled...)
+		}
+	}
 	t.registerGateway(ctx, s, called)
 	t.registerResources(s)
 	return s
+}
+
+func Instructions(deps Deps) string { return instructions(deps.Skills != nil, deps.Gateway != nil) }
+
+func Catalog(ctx context.Context, deps Deps, version string) ([]*sdk.Tool, error) {
+	s, _ := builtinServer(deps, version, accesstypes.Principal{})
+	serverSide, clientSide := sdk.NewInMemoryTransports()
+	ss, err := s.Connect(ctx, serverSide, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer ss.Close()
+	cs, err := sdk.NewClient(&sdk.Implementation{Name: "svc-registry-catalog"}, nil).Connect(ctx, clientSide, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer cs.Close()
+	var out []*sdk.Tool
+	for tool, err := range cs.Tools(ctx, nil) {
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, tool)
+	}
+	return out, nil
 }

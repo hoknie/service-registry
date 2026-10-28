@@ -24,7 +24,7 @@
 | Page | What it covers |
 |---|---|
 | [ci-events.md](ci-events.md) | reporting deployments from CI: what to send, links and dependencies of a rollout |
-| [forge-sync.md](forge-sync.md) | importing repositories from GitHub, GitLab, Forgejo or Gitea; webhooks |
+| [repo-sync.md](repo-sync.md) | importing repositories from GitHub, GitLab, Forgejo or Gitea; webhooks |
 | [kubernetes.md](kubernetes.md) | polling clusters, annotations, drift, the agent for isolated clusters |
 | [sign-in.md](sign-in.md) | signing in through OIDC providers and GitLab; groups from the provider |
 | [mcp.md](mcp.md) | the MCP server for AI agents, with a token or over OAuth |
@@ -35,7 +35,7 @@
 |---|---|
 | [access.md](access.md) | superadmins, users, groups, members and invitations of organizations, administration rights for groups, service accounts |
 | [access-tokens.md](access-tokens.md) | personal access tokens: scopes, global rights, tokens for selected nodes |
-| [secrets.md](secrets.md) | named secrets for forges, sources, clusters and notifications; encryption keys |
+| [secrets.md](secrets.md) | named secrets for repository sync, sources, clusters and notifications; encryption keys |
 | [metrics.md](metrics.md) | Prometheus metrics at `/metrics`: turning them on, the token, what is published, example queries |
 | [search-engines.md](search-engines.md) | choosing and setting up documentation search: Postgres, pgvector, Qdrant, Meilisearch, embeddings |
 

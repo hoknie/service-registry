@@ -118,7 +118,7 @@ see every version with marks, and the skill settings show which versions the val
 A folder can follow git repositories: **Settings → Sources** on the folder page. Every folder with `SKILL.md` under the chosen
 directories becomes a skill; a folder inside another skill belongs to that skill.
 
-**Add → Import from git** on a space or folder creates a folder and its source in one step. Paste a link to a
+**Add → Import from git** on a space or folder opens a page that creates a folder and its source in one step. Paste a link to a
 directory of a repository — `https://github.com/apollographql/skills/tree/main/skills`, GitLab's `…/-/tree/<branch>/<path>`
 or Gitea's and Forgejo's `…/src/branch/<branch>/<path>` — and the address, branch and directory are filled in from it.
 The folder is named after the repository unless you give it a name.
@@ -138,7 +138,7 @@ repository, `{name}/v{version}` when the repository holds several skills. Removi
 
 A run reads the branch only when its commit moved. A repository on GitHub, GitLab, Gitea or Forgejo is downloaded as one
 archive (at most `SKILLS_SOURCE_ARCHIVE_MAX_BYTES`, 512 MiB by default), so even a large public repository syncs without a
-token: GitHub allows 60 API requests an hour without one, and a run takes a few. If the forge does not give an archive, the
+token: GitHub allows 60 API requests an hour without one, and a run takes a few. If the hosting does not give an archive, the
 run reads the files one by one, and then a token is worth adding.
 
 The folders a source creates for its layout belong to it: they appear and disappear with the skills, and only their

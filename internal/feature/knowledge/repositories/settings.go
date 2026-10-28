@@ -33,7 +33,7 @@ func (s *CollectionRepository) Trigger(ctx context.Context, projectID uuid.UUID)
 		SELECT $1, now(), clock_timestamp()
 		WHERE EXISTS (
 			SELECT 1
-			FROM forge_repositories r
+			FROM repo_sync_repositories r
 			WHERE r.project_id = $1
 				AND r.orphaned_at IS NULL
 		) OR EXISTS (
@@ -76,7 +76,7 @@ func (s *CollectionRepository) Claim(ctx context.Context, limit, leaseSecs int) 
 	if _, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO knowledge_settings (project_id)
 		SELECT r.project_id
-		FROM forge_repositories r
+		FROM repo_sync_repositories r
 		WHERE r.orphaned_at IS NULL
 		UNION
 		SELECT project_id
@@ -95,7 +95,7 @@ func (s *CollectionRepository) Claim(ctx context.Context, limit, leaseSecs int) 
 				AND (k.lease_until IS NULL OR k.lease_until < now())
 				AND (EXISTS (
 					SELECT 1
-					FROM forge_repositories r
+					FROM repo_sync_repositories r
 					WHERE r.project_id = k.project_id
 						AND r.orphaned_at IS NULL
 				) OR EXISTS (
@@ -144,7 +144,7 @@ func (s *CollectionRepository) Project(ctx context.Context, projectID uuid.UUID)
 		SELECT n.id, COALESCE(n.default_branch, r.default_branch, '') AS default_branch, r.connection_id,
 			r.connection_id IS NOT NULL AS synced, COALESCE(s.force, false) AS force, s.triggered_at
 		FROM nodes n
-		LEFT JOIN forge_repositories r ON r.project_id = n.id AND r.orphaned_at IS NULL
+		LEFT JOIN repo_sync_repositories r ON r.project_id = n.id AND r.orphaned_at IS NULL
 		LEFT JOIN knowledge_settings s ON s.project_id = n.id
 		WHERE n.id = $1
 			AND n.kind = 'project'`, projectID)

@@ -89,7 +89,7 @@ type SourceCredentials struct {
 
 type KnowledgeSource struct {
 	Kind           *string                     `json:"kind" validate:"required"`
-	Forge          string                      `json:"forge"`
+	Hosting        string                      `json:"hosting"`
 	URL            string                      `json:"url"`
 	APIURL         string                      `json:"api_url"`
 	Path           string                      `json:"path"`
@@ -99,7 +99,7 @@ type KnowledgeSource struct {
 }
 
 func (r KnowledgeSource) Input() knowledgetypes.SourceInput {
-	in := knowledgetypes.SourceInput{Kind: *r.Kind, Forge: r.Forge, URL: r.URL, APIURL: r.APIURL, Path: r.Path,
+	in := knowledgetypes.SourceInput{Kind: *r.Kind, Hosting: r.Hosting, URL: r.URL, APIURL: r.APIURL, Path: r.Path,
 		HasCredential: r.Credentials.Present, WorkingTree: r.WorkingTree, IncludeIgnored: r.IncludeIgnored}
 	if r.Credentials.Present && r.Credentials.Value == nil {
 		in.NoCredentials = true

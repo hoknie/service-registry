@@ -80,3 +80,28 @@ func TestDisabledToolsAreDistinct(t *testing.T) {
 		t.Fatalf("%v %v", got, err)
 	}
 }
+
+func TestBuiltinToolNames(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		in []string
+		ok bool
+	}{
+		{[]string{"search_docs", "get_guide"}, true},
+		{[]string{}, true},
+		{[]string{"Get"}, false},
+		{[]string{"a-b"}, false},
+		{[]string{"x", "x"}, false},
+	} {
+		if _, err := CleanBuiltinTools(c.in); (err == nil) != c.ok {
+			t.Fatalf("%v: %v", c.in, err)
+		}
+	}
+	many := make([]string, 101)
+	for i := range many {
+		many[i] = "t" + string(rune('a'+i%26)) + strings.Repeat("x", i/26)
+	}
+	if _, err := CleanBuiltinTools(many); err == nil {
+		t.Fatal("101 names accepted")
+	}
+}

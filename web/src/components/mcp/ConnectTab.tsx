@@ -29,9 +29,13 @@ export function ConnectTab({
         <CodeBlock title={c.endpoint} code={endpoint} />
         <CodeBlock title={c.claude} code={agentConfig(endpoint, "claude")} />
         <CodeBlock title={c.json} code={agentConfig(endpoint, "json")} />
-        <p className="text-sm text-ink-2">
-          {format(c.prefix, { prefix: `${server.slug}__` })}
-        </p>
+        {server.builtin ? (
+          <p className="text-sm text-ink-2">{t.builtin.noPrefix}</p>
+        ) : (
+          <p className="text-sm text-ink-2">
+            {format(c.prefix, { prefix: `${server.slug}__` })}
+          </p>
+        )}
         <p className="text-sm text-ink-2">
           {c.pin}{" "}
           <Link

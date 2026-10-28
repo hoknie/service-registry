@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	catalogtypes "svc-registry/internal/feature/catalog/types"
-	forgetypes "svc-registry/internal/feature/forge/types"
+	reposynctypes "svc-registry/internal/feature/reposync/types"
 )
 
 type SourceKind string
@@ -22,7 +22,7 @@ const (
 	SourceRemote   SourceKind = "remote"
 	SourceLocalDir SourceKind = "local_dir"
 	SourceLocalGit SourceKind = "local_git"
-	SourceForge    SourceKind = "forge"
+	SourceRepoSync SourceKind = "repo_sync"
 )
 
 const LocalBranch = "local"
@@ -34,7 +34,7 @@ const (
 
 type Source struct {
 	Kind           SourceKind
-	Forge          string
+	Hosting        string
 	URL            string
 	APIURL         string
 	Path           string
@@ -48,8 +48,8 @@ type Source struct {
 }
 
 const (
-	OriginOwn   = "own"
-	OriginForge = "forge"
+	OriginOwn      = "own"
+	OriginRepoSync = "repo_sync"
 )
 
 func (s Source) IsLocal() bool { return s.Kind == SourceLocalDir || s.Kind == SourceLocalGit }
@@ -64,7 +64,7 @@ func (s Source) FullPath() string {
 
 type SourceInput struct {
 	Kind           string
-	Forge          string
+	Hosting        string
 	URL            string
 	APIURL         string
 	Path           string
@@ -82,7 +82,7 @@ type ValidSource struct {
 	Keep     bool
 }
 
-var forges = map[string]bool{"github": true, "gitlab": true, "gitea": true, "forgejo": true}
+var hostings = map[string]bool{"github": true, "gitlab": true, "gitea": true, "forgejo": true}
 
 func ValidateSource(in SourceInput) (ValidSource, error) {
 	out := ValidSource{Source: Source{Kind: SourceKind(in.Kind)}}
@@ -96,7 +96,7 @@ func ValidateSource(in SourceInput) (ValidSource, error) {
 	}
 	switch out.Kind {
 	case SourceRemote:
-		if !forges[in.Forge] || strings.TrimSpace(in.Path) != "" {
+		if !hostings[in.Hosting] || strings.TrimSpace(in.Path) != "" {
 			return ValidSource{}, InvalidSource
 		}
 		web, ok := cleanURL(in.URL, true)
@@ -105,11 +105,11 @@ func ValidateSource(in SourceInput) (ValidSource, error) {
 		}
 		api := strings.TrimSuffix(strings.TrimSpace(in.APIURL), "/")
 		if api == "" {
-			api = defaultAPI(in.Forge, web)
+			api = defaultAPI(in.Hosting, web)
 		} else if _, ok := cleanURL(api, false); !ok {
 			return ValidSource{}, InvalidSource
 		}
-		out.Forge, out.URL, out.APIURL = in.Forge, web, api
+		out.Hosting, out.URL, out.APIURL = in.Hosting, web, api
 		switch {
 		case in.Inline:
 			return ValidSource{}, catalogtypes.InvalidCredentialsInline
@@ -127,7 +127,7 @@ func ValidateSource(in SourceInput) (ValidSource, error) {
 	case SourceLocalDir, SourceLocalGit:
 		p := strings.TrimSpace(in.Path)
 		if p == "" || len(p) > 4096 || !utf8.ValidString(p) || strings.ContainsRune(p, 0) || !filepath.IsAbs(p) ||
-			in.Forge != "" || in.URL != "" || in.APIURL != "" || in.SecretID != nil || in.Inline {
+			in.Hosting != "" || in.URL != "" || in.APIURL != "" || in.SecretID != nil || in.Inline {
 			return ValidSource{}, InvalidSource
 		}
 		if filepath.Clean(p) != p {
@@ -229,7 +229,7 @@ func ResolveLocalPath(roots []string, p string) (string, error) {
 }
 
 type SourceRepoRecord struct {
-	Repo          forgetypes.RemoteRepo
+	Repo          reposynctypes.RemoteRepo
 	DefaultBranch *string
 	License       *string
 	Details       bool
@@ -239,7 +239,7 @@ type SourceRepoRecord struct {
 	ChangedAt     *time.Time
 }
 
-func NewSourceRepoRecord(r forgetypes.RemoteRepo, d *forgetypes.Details) SourceRepoRecord {
+func NewSourceRepoRecord(r reposynctypes.RemoteRepo, d *reposynctypes.Details) SourceRepoRecord {
 	rec := SourceRepoRecord{Repo: r, Languages: map[string]float64{}}
 	if r.DefaultBranch != "" {
 		rec.DefaultBranch = &r.DefaultBranch
@@ -251,14 +251,14 @@ func NewSourceRepoRecord(r forgetypes.RemoteRepo, d *forgetypes.Details) SourceR
 		rec.Repo.Topics = []string{}
 	}
 	if rec.Repo.Visibility == "" {
-		rec.Repo.Visibility = forgetypes.VisibilityPublic
+		rec.Repo.Visibility = reposynctypes.VisibilityPublic
 	}
 	if d != nil {
 		rec.Details, rec.Readme, rec.Truncated = true, d.Readme, &d.Truncated
 		if d.Languages != nil {
 			rec.Languages = d.Languages
 		}
-		if l := forgetypes.BoundedLicense(d.License); l != nil {
+		if l := reposynctypes.BoundedLicense(d.License); l != nil {
 			rec.License = l
 		}
 		rec.ChangedAt = r.ChangedAt()

@@ -26,8 +26,8 @@ An organization or folder has **Overview**, **Details** and **Settings**.
 
 New organizations are created by a superadmin or by people allowed to; whoever creates one becomes its owner, and
 owners create folders and projects inside ([owners.md](owners.md#what-owners-can-do)). Editing, moving and deleting a node live in **Settings → General**.
-Moving and deleting are in its danger zone. Projects imported from a forge are moved and renamed by the
-synchronization only ([forge-sync.md](forge-sync.md)).
+Moving and deleting are in its danger zone. Projects imported by repository sync are moved and renamed by the
+synchronization only ([repo-sync.md](repo-sync.md)).
 
 ## Roles
 
@@ -86,7 +86,7 @@ teams without asking a superadmin. These groups give roles and ownership only in
 ## Branches
 
 Every project keeps a list of branches. They come from three places:
-- the forge synchronization, for repositories that changed;
+- repository sync, for repositories that changed;
 - deployments reported by CI (the branch and commit of the event);
 - the project's default branch.
 
@@ -97,7 +97,7 @@ deletes deployment history.
 | Variable | Default | Meaning |
 |---|---|---|
 | `BRANCH_STALE_DAYS` | 90 | a branch without activity this long is shown as stale |
-| `BRANCH_RETENTION_DAYS` | 30 | a branch gone from the forge is deleted after this; a branch seen only in CI after this plus `BRANCH_STALE_DAYS` |
+| `BRANCH_RETENTION_DAYS` | 30 | a branch gone from the hosting is deleted after this; a branch seen only in CI after this plus `BRANCH_STALE_DAYS` |
 | `BRANCH_SYNC_MAX_PER_REPO` | 500 | at most this many branches are read per repository |
 
 ## What is running right now
@@ -105,7 +105,7 @@ deletes deployment history.
 Projects show what their background jobs are doing:
 - documentation collection;
 - indexing for search, with the number of files waiting;
-- forge synchronization;
+- repository sync;
 - cluster polling.
 
 | State | Meaning |

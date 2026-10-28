@@ -4,7 +4,7 @@ import (
 	"net/url"
 	"testing"
 
-	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/hostingfake"
 )
 
 func knowledgePath(id string) string { return nodePath(id) + "/knowledge" }
@@ -22,7 +22,7 @@ func TestKnowledgeSettingsThroughTheAPI(t *testing.T) {
 	bob := d.viewer()
 	r := d.app.get(knowledgePath(d.id)+"/settings", bob)
 	eq(t, r.status, 200, r.text())
-	defaults := `{"include":null,"exclude":[],"refs":[],"apis":true,"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh":"interval","refresh_events":["service.deployed","cluster.deployed","forge.webhook","forge.manual"],"interval_secs":300,"max_tags":10,"defaults":{"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh_events":["service.deployed","cluster.deployed","forge.webhook","forge.manual"]},"own":{},"from":{"api_paths":null,"apis":null,"exclude":null,"include":null,"refresh":null,"refresh_events":null,"refs":null}}`
+	defaults := `{"include":null,"exclude":[],"refs":[],"apis":true,"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh":"interval","refresh_events":["service.deployed","cluster.deployed","repo_sync.webhook","repo_sync.manual"],"interval_secs":300,"max_tags":10,"defaults":{"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh_events":["service.deployed","cluster.deployed","repo_sync.webhook","repo_sync.manual"]},"own":{},"from":{"api_paths":null,"apis":null,"exclude":null,"include":null,"refresh":null,"refresh_events":null,"refs":null}}`
 	eq(t, r.text(), defaults)
 
 	body := obj{"include": []string{"openspec/**", "docs/**/*.md", "README.md"}, "exclude": []string{"docs/drafts/**"}, "refs": []obj{{"pattern": "release/*", "kind": "branch"}}}
@@ -37,7 +37,7 @@ func TestKnowledgeSettingsThroughTheAPI(t *testing.T) {
 	eq(t, code(t, r), any("validation.invalid_knowledge_settings"))
 	eq(t, d.app.send("PUT", knowledgePath(d.id)+"/settings", bob, body).status, 403)
 	r = d.app.send("PUT", knowledgePath(d.id)+"/settings", d.admin, obj{"include": nil})
-	eq(t, r.text(), `{"include":null,"exclude":[],"refs":[],"apis":true,"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh":"interval","refresh_events":["service.deployed","cluster.deployed","forge.webhook","forge.manual"],"interval_secs":300,"max_tags":10,"defaults":{"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh_events":["service.deployed","cluster.deployed","forge.webhook","forge.manual"]},"own":{"include":null},"from":{"api_paths":null,"apis":null,"exclude":null,"include":null,"refresh":null,"refresh_events":null,"refs":null}}`)
+	eq(t, r.text(), `{"include":null,"exclude":[],"refs":[],"apis":true,"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh":"interval","refresh_events":["service.deployed","cluster.deployed","repo_sync.webhook","repo_sync.manual"],"interval_secs":300,"max_tags":10,"defaults":{"api_paths":["**/openapi*.{yaml,yml,json}","**/api-docs/**"],"refresh_events":["service.deployed","cluster.deployed","repo_sync.webhook","repo_sync.manual"]},"own":{"include":null},"from":{"api_paths":null,"apis":null,"exclude":null,"include":null,"refresh":null,"refresh_events":null,"refs":null}}`)
 	eq(t, d.app.send("PUT", knowledgePath(d.id)+"/settings", d.admin, obj{}).text(), defaults)
 
 	eq(t, d.app.get(knowledgePath(d.org)+"/settings", d.admin).status, 200)
@@ -144,7 +144,7 @@ func TestFilesAndOpenSpecThroughTheAPI(t *testing.T) {
 	eq(t, d.app.get(knowledgePath(d.id)+"/specs?branch=release", bob).text(), `{"items":[]}`)
 
 	d.app.send("PUT", knowledgePath(d.id)+"/settings", d.admin, obj{"include": []string{"README.md"}, "refs": []obj{{"pattern": "release/*", "kind": "branch"}}})
-	d.push(nil, forgefake.Branch{Name: "main", SHA: sha(1)}, forgefake.Branch{Name: "release/1", SHA: sha(2)})
+	d.push(nil, hostingfake.Branch{Name: "main", SHA: sha(1)}, hostingfake.Branch{Name: "release/1", SHA: sha(2)})
 	d.app.collect()
 	r = d.app.get(knowledgePath(d.id)+"/files?branch=release%2F1", bob)
 	eq(t, r.status, 200, r.text())

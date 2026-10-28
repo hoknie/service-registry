@@ -9,16 +9,16 @@ import (
 	catalogports "svc-registry/internal/feature/catalog/ports"
 	catalogservices "svc-registry/internal/feature/catalog/services"
 	catalogtypes "svc-registry/internal/feature/catalog/types"
-	forgeservices "svc-registry/internal/feature/forge/services"
-	forgetypes "svc-registry/internal/feature/forge/types"
 	knowledgeservices "svc-registry/internal/feature/knowledge/services"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
+	reposyncservices "svc-registry/internal/feature/reposync/services"
+	reposynctypes "svc-registry/internal/feature/reposync/types"
 	"svc-registry/internal/platform/apperr"
 )
 
 type ProjectCard struct {
 	Scoped        catalogservices.Scoped
-	Repository    *forgetypes.Repository
+	Repository    *reposynctypes.Repository
 	HasRepository bool
 }
 
@@ -40,28 +40,28 @@ func (s *ProjectsService) ProjectCard(ctx context.Context, p accesstypes.Princip
 }
 
 func (s *ProjectsService) UnlinkProject(ctx context.Context, p accesstypes.Principal, id uuid.UUID) (ProjectCard, error) {
-	if err := s.forge.Unlink.UnlinkProject(ctx, p, id); err != nil {
+	if err := s.repoSync.Unlink.UnlinkProject(ctx, p, id); err != nil {
 		return ProjectCard{}, apperr.Wrap(err)
 	}
 	return s.ProjectCard(ctx, p, id)
 }
 
-func (s *ProjectsService) ProjectReadme(ctx context.Context, p accesstypes.Principal, id uuid.UUID) (forgetypes.Readme, error) {
-	r, err := s.forge.Projects.ProjectReadme(ctx, p, id)
+func (s *ProjectsService) ProjectReadme(ctx context.Context, p accesstypes.Principal, id uuid.UUID) (reposynctypes.Readme, error) {
+	r, err := s.repoSync.Projects.ProjectReadme(ctx, p, id)
 	if e := apperr.From(err); e != nil && e.Kind == apperr.NotFound {
 		if _, aerr := s.catalog.Access.Authorize(ctx, p, catalogtypes.PermRead, id); aerr != nil {
-			return forgetypes.Readme{}, apperr.Wrap(aerr)
+			return reposynctypes.Readme{}, apperr.Wrap(aerr)
 		}
 		src, serr := s.knowledge.Sources.SourceReadme(ctx, id)
 		if serr != nil {
-			return forgetypes.Readme{}, apperr.Wrap(serr)
+			return reposynctypes.Readme{}, apperr.Wrap(serr)
 		}
 		if src != nil {
 			r, err = *src, nil
 		}
 	}
 	if err != nil {
-		return forgetypes.Readme{}, apperr.Wrap(err)
+		return reposynctypes.Readme{}, apperr.Wrap(err)
 	}
 	return r, nil
 }
@@ -78,8 +78,8 @@ func (s *ProjectsService) CreateNode(ctx context.Context, p accesstypes.Principa
 	return node, key, nil
 }
 
-func (s *ProjectsService) projectRepository(ctx context.Context, id uuid.UUID) (*forgetypes.Repository, error) {
-	repo, err := s.forge.Projects.ProjectRepository(ctx, id)
+func (s *ProjectsService) projectRepository(ctx context.Context, id uuid.UUID) (*reposynctypes.Repository, error) {
+	repo, err := s.repoSync.Projects.ProjectRepository(ctx, id)
 	if err != nil || repo != nil {
 		return repo, err
 	}
@@ -88,6 +88,6 @@ func (s *ProjectsService) projectRepository(ctx context.Context, id uuid.UUID) (
 
 type ProjectsService struct {
 	catalog   *catalogservices.CatalogServices
-	forge     *forgeservices.ForgeServices
+	repoSync  *reposyncservices.RepoSyncServices
 	knowledge *knowledgeservices.KnowledgeServices
 }

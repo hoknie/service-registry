@@ -42,7 +42,7 @@ func TestValidateSubscription(t *testing.T) {
 		t.Errorf("key: %v", err)
 	}
 	for _, events := range [][]string{{"deployment.drift_resolved"}, {"link.check_recovered", "deployment.drift"},
-		{"forge.sync_recovered", "link.check_failed"}} {
+		{"repo_sync.recovered", "link.check_failed"}} {
 		in := ok
 		in.EventTypes = events
 		if _, err := ValidateSubscription("ops", in); !errors.Is(err, RecoveryWithoutFailure) {
@@ -50,11 +50,11 @@ func TestValidateSubscription(t *testing.T) {
 		}
 	}
 	paired := ok
-	paired.EventTypes = []string{"link.check_recovered", "link.check_failed", "forge.sync_failed"}
+	paired.EventTypes = []string{"link.check_recovered", "link.check_failed", "repo_sync.failed"}
 	if _, err := ValidateSubscription("ops", paired); err != nil {
 		t.Errorf("paired: %v", err)
 	}
-	gone := PutSubscription{Channel: "slack", EventTypes: []string{"forge.sync_recovered"}, Disabled: true}
+	gone := PutSubscription{Channel: "slack", EventTypes: []string{"repo_sync.recovered"}, Disabled: true}
 	if _, err := ValidateSubscription("ops", gone); !errors.Is(err, RecoveryWithoutFailure) {
 		t.Errorf("disabled recovery only: %v", err)
 	}

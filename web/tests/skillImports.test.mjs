@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { parseTreeLink } from "../src/lib/forgeAddress.ts";
+import { parseTreeLink } from "../src/lib/hostingAddress.ts";
 import { archiveErrorCode, filtersFrom, folderCurlCommand, isOff, listQuery } from "../src/lib/skills.ts";
 
 test("links to a directory split into the repository, branch and root", () => {

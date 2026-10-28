@@ -101,15 +101,15 @@ func optional(raw string) *string {
 	return nil
 }
 
-func ValidateForge(raw string) (*Forge, error) {
+func ValidateHosting(raw string) (*Hosting, error) {
 	f := optional(raw)
 	if f == nil {
 		return nil, nil
 	}
-	if forge, ok := ParseForge(*f); ok {
-		return &forge, nil
+	if hosting, ok := ParseHosting(*f); ok {
+		return &hosting, nil
 	}
-	return nil, InvalidForge
+	return nil, InvalidHosting
 }
 
 func ValidateRepoURL(raw string) (*string, error) {
@@ -152,8 +152,8 @@ func ValidateRepo(kind NodeKind, raw RepoInput) (Repo, error) {
 	}
 	var repo Repo
 	var err error
-	if raw.Forge != nil {
-		if repo.Forge, err = ValidateForge(*raw.Forge); err != nil {
+	if raw.Hosting != nil {
+		if repo.Hosting, err = ValidateHosting(*raw.Hosting); err != nil {
 			return Repo{}, err
 		}
 	}
@@ -174,12 +174,12 @@ func ValidateRepoChanges(kind NodeKind, raw RepoInput, changes *NodeChanges) err
 	if kind != KindProject && !raw.IsEmpty() {
 		return InvalidRepoFieldsNotAllowed
 	}
-	if raw.Forge != nil {
-		f, err := ValidateForge(*raw.Forge)
+	if raw.Hosting != nil {
+		f, err := ValidateHosting(*raw.Hosting)
 		if err != nil {
 			return err
 		}
-		changes.Forge = Change[Forge]{Set: true, Value: f}
+		changes.Hosting = Change[Hosting]{Set: true, Value: f}
 	}
 	if raw.RepoURL != nil {
 		u, err := ValidateRepoURL(*raw.RepoURL)

@@ -107,6 +107,12 @@ func (a *Handlers) SkillTags(c fiber.Ctx) error {
 	})
 }
 
+func (a *Handlers) SkillDefaults(c fiber.Ctx) error {
+	return a.skillCall(c, "", http.StatusOK, func(accesstypes.Principal, uuid.UUID) (any, error) {
+		return responses.SkillDefaults{SyncIntervalSecs: a.Skills.Sources.SyncIntervalSecs()}, nil
+	})
+}
+
 func (a *Handlers) GetSkill(c fiber.Ctx) error {
 	return a.skillCall(c, "id", http.StatusOK, func(p accesstypes.Principal, id uuid.UUID) (any, error) {
 		out, err := a.Skills.Skills.GetSkill(c.Context(), p, id)

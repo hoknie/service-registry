@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/hostingfake"
 	"svc-registry/pkg/testing/oidcfake"
 )
 
@@ -17,22 +17,22 @@ func longRef(segments int) string {
 	return strings.Join(parts, "/")
 }
 
-func TestForgeSkipsRepositoriesWithTooLongValues(t *testing.T) {
+func TestRepoSyncSkipsRepositoriesWithTooLongValues(t *testing.T) {
 	t.Parallel()
-	app := startForgeApp(t)
+	app := startRepoSyncApp(t)
 	root := app.admin()
 	acme := app.nodeID(root, "organization", "", "acme")
-	f := forgefake.Start(t, "github", forgeToken, "acme-inc")
-	f.Put(forgefake.Repo{ID: 1, Path: "acme-inc/" + strings.Repeat("a", 1100)})
+	f := hostingfake.Start(t, "github", hostingToken, "acme-inc")
+	f.Put(hostingfake.Repo{ID: 1, Path: "acme-inc/" + strings.Repeat("a", 1100)})
 	longBranch := longRef(30)
-	f.Put(forgefake.Repo{ID: 2, Path: "acme-inc/api", DefaultBranch: longBranch,
-		Branches: []forgefake.Branch{{Name: longBranch, SHA: sha(1)}, {Name: "dev", SHA: sha(2)}}})
+	f.Put(hostingfake.Repo{ID: 2, Path: "acme-inc/api", DefaultBranch: longBranch,
+		Branches: []hostingfake.Branch{{Name: longBranch, SHA: sha(1)}, {Name: "dev", SHA: sha(2)}}})
 	conn := idOf(app.connect(root, acme, f, nil))
 
 	run := app.syncNow(root, acme, conn)
 	eq(t, run["status"], any("succeeded"), run)
 	eq(t, run["created"], any(float64(1)), run)
-	eq(t, at(run, "problems", 0, "code"), any("forge.value_too_long"))
+	eq(t, at(run, "problems", 0, "code"), any("hosting.value_too_long"))
 	eq(t, len([]rune(at(run, "problems", 0, "full_path").(string))) <= 1024, true)
 	api := app.childBySlug(root, acme, "api")
 	eq(t, api["default_branch"], nil)
@@ -45,7 +45,7 @@ func TestForgeSkipsRepositoriesWithTooLongValues(t *testing.T) {
 	for _, it := range items {
 		codes[it.(obj)["action"].(string)] = it.(obj)["code"]
 	}
-	eq(t, codes["skip"], any("forge.value_too_long"))
+	eq(t, codes["skip"], any("hosting.value_too_long"))
 }
 
 func TestCollectionDropsTooLongBranches(t *testing.T) {

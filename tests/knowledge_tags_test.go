@@ -10,10 +10,10 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 
-	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/hostingfake"
 )
 
-func (d *docsProject) tags(tags ...forgefake.Tag) {
+func (d *docsProject) tags(tags ...hostingfake.Tag) {
 	d.app.t.Helper()
 	d.repo.Tags = tags
 	d.fake.SetTags(d.repo.ID, tags)
@@ -42,7 +42,7 @@ func tagNames(t *testing.T, k obj) string {
 	return strings.Join(names, ",")
 }
 
-func tagged(name string, n int) forgefake.Tag { return forgefake.Tag{Name: name, SHA: sha(n)} }
+func tagged(name string, n int) hostingfake.Tag { return hostingfake.Tag{Name: name, SHA: sha(n)} }
 
 func TestKnowledgeTagsLimitEvictionAndRepeat(t *testing.T) {
 	t.Parallel()

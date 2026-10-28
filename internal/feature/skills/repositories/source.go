@@ -20,7 +20,7 @@ type sourceRow struct {
 	FolderID        uuid.UUID         `db:"folder_id"`
 	OrganizationID  *uuid.UUID        `db:"organization_id"`
 	Kind            string            `db:"kind"`
-	Forge           *string           `db:"forge"`
+	Hosting         *string           `db:"hosting"`
 	URL             *string           `db:"url"`
 	APIURL          *string           `db:"api_url"`
 	Path            *string           `db:"path"`
@@ -47,7 +47,7 @@ type sourceRow struct {
 }
 
 func (r sourceRow) source() skillstypes.Source {
-	return skillstypes.Source{ID: r.ID, FolderID: r.FolderID, OrganizationID: r.OrganizationID, Kind: r.Kind, Forge: r.Forge,
+	return skillstypes.Source{ID: r.ID, FolderID: r.FolderID, OrganizationID: r.OrganizationID, Kind: r.Kind, Hosting: r.Hosting,
 		URL: r.URL, APIURL: r.APIURL, Path: r.Path, WorkingTree: r.WorkingTree, SecretID: r.SecretID, SecretName: r.SecretName,
 		Branch: r.Branch, Roots: r.Roots, Layout: r.Layout, GroupField: r.GroupField, IntervalSecs: r.IntervalSecs, NewStatus: skillstypes.Status(r.NewStatus),
 		Versions: r.Versions, TagPattern: r.TagPattern, NextRunAt: r.NextRunAt, Due: r.Due, Running: r.Running,
@@ -57,7 +57,7 @@ func (r sourceRow) source() skillstypes.Source {
 
 func querySources(ctx context.Context, q pgtx.Querier, folder, id *uuid.UUID, secrets []uuid.UUID) ([]skillstypes.Source, error) {
 	return postgres.List(ctx, q, constraints, postgres.Struct(sourceRow.source), `
-		SELECT s.id, s.folder_id, f.organization_id, s.kind, s.forge, s.url, s.api_url, s.path, s.working_tree,
+		SELECT s.id, s.folder_id, f.organization_id, s.kind, s.hosting, s.url, s.api_url, s.path, s.working_tree,
 			s.credentials_secret_id, sec.name AS secret_name, s.branch, s.roots, s.layout, s.group_field, s.interval_secs, s.new_status, s.versions,
 			s.tag_pattern, rfc3339(s.next_run_at) AS next_run_at, COALESCE(s.next_run_at <= now(), false) AS due,
 			COALESCE(s.lease_until > now(), false) AS running, s.last_commit, s.last_tags, s.last_run,
@@ -94,15 +94,15 @@ func (s *SourceRepository) UsingSecrets(ctx context.Context, secrets []uuid.UUID
 
 func (s *SourceRepository) Save(ctx context.Context, src skillstypes.Source) error {
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
-		INSERT INTO skill_sources (id, folder_id, kind, forge, url, api_url, path, working_tree, credentials_secret_id, branch,
+		INSERT INTO skill_sources (id, folder_id, kind, hosting, url, api_url, path, working_tree, credentials_secret_id, branch,
 			roots, interval_secs, new_status, versions, tag_pattern, layout, group_field, next_run_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, now())
 		ON CONFLICT (id)
-		DO UPDATE SET kind = $3, forge = $4, url = $5, api_url = $6, path = $7, working_tree = $8,
+		DO UPDATE SET kind = $3, hosting = $4, url = $5, api_url = $6, path = $7, working_tree = $8,
 			credentials_secret_id = $9, branch = $10, roots = $11, interval_secs = $12, new_status = $13, versions = $14,
 			tag_pattern = $15, layout = $16, group_field = $17, next_run_at = now(), config_changed_at = now(), last_commit = NULL, last_tags = '{}',
 			updated_at = now()`,
-		src.ID, src.FolderID, src.Kind, src.Forge, src.URL, src.APIURL, src.Path, src.WorkingTree, src.SecretID, src.Branch,
+		src.ID, src.FolderID, src.Kind, src.Hosting, src.URL, src.APIURL, src.Path, src.WorkingTree, src.SecretID, src.Branch,
 		src.Roots, src.IntervalSecs, string(src.NewStatus), src.Versions, src.TagPattern, src.Layout, src.GroupField)
 	return err
 }

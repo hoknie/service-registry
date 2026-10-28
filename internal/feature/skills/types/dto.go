@@ -207,7 +207,7 @@ type Source struct {
 	FolderID        uuid.UUID
 	OrganizationID  *uuid.UUID
 	Kind            string
-	Forge           *string
+	Hosting         *string
 	URL             *string
 	APIURL          *string
 	Path            *string

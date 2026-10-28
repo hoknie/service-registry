@@ -50,25 +50,25 @@ func ParseOrgVisibility(s *string) (OrgVisibility, error) {
 	return "", InvalidVisibility
 }
 
-type Forge string
+type Hosting string
 
 const (
-	ForgeGithub  Forge = "github"
-	ForgeGitlab  Forge = "gitlab"
-	ForgeForgejo Forge = "forgejo"
-	ForgeGitea   Forge = "gitea"
+	HostingGithub  Hosting = "github"
+	HostingGitlab  Hosting = "gitlab"
+	HostingForgejo Hosting = "forgejo"
+	HostingGitea   Hosting = "gitea"
 )
 
-func ParseForge(s string) (Forge, bool) {
-	switch Forge(s) {
-	case ForgeGithub, ForgeGitlab, ForgeForgejo, ForgeGitea:
-		return Forge(s), true
+func ParseHosting(s string) (Hosting, bool) {
+	switch Hosting(s) {
+	case HostingGithub, HostingGitlab, HostingForgejo, HostingGitea:
+		return Hosting(s), true
 	}
 	return "", false
 }
 
 type Repo struct {
-	Forge         *Forge
+	Hosting       *Hosting
 	RepoURL       *string
 	DefaultBranch *string
 }

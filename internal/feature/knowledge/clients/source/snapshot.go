@@ -11,8 +11,8 @@ import (
 	"path"
 	"strings"
 
-	forgetypes "svc-registry/internal/feature/forge/types"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
+	reposynctypes "svc-registry/internal/feature/reposync/types"
 )
 
 const unpackFactor = 8
@@ -23,7 +23,7 @@ func (r *remote) Snapshot(ctx context.Context, commit string, limit int64) (fs.F
 		return nil, nil, err
 	}
 	body, err := r.client.Archive(ctx, repo, commit)
-	if errors.Is(err, forgetypes.ErrArchiveUnsupported) {
+	if errors.Is(err, reposynctypes.ErrArchiveUnsupported) {
 		return nil, nil, knowledgetypes.ErrSnapshotUnsupported
 	}
 	if err != nil {
@@ -99,7 +99,7 @@ func tooLarge(err error) error {
 	if errors.Is(err, knowledgetypes.ErrSnapshotTooLarge) {
 		return knowledgetypes.ErrSnapshotTooLarge
 	}
-	return &forgetypes.Upstream{Detail: "repository archive is unreadable: " + err.Error()}
+	return &reposynctypes.Upstream{Detail: "repository archive is unreadable: " + err.Error()}
 }
 
 func entryName(raw string) (string, bool) {

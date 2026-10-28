@@ -123,7 +123,7 @@ export type SkillSource = {
   id: string;
   folder_id: string;
   kind: SkillSourceKind;
-  forge: string | null;
+  hosting: string | null;
   url: string | null;
   api_url: string | null;
   path: string | null;

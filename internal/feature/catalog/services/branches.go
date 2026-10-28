@@ -118,14 +118,14 @@ func (s *BranchRecordsService) SetDefaultBranchIfEmpty(ctx context.Context, proj
 	})
 }
 
-func (s *BranchRecordsService) SyncForgeBranches(ctx context.Context, projectID uuid.UUID, branches []catalogtypes.ForgeBranch, complete bool) (bool, error) {
-	kept := make([]catalogtypes.ForgeBranch, 0, len(branches))
+func (s *BranchRecordsService) SyncHostingBranches(ctx context.Context, projectID uuid.UUID, branches []catalogtypes.RepoSyncBranch, complete bool) (bool, error) {
+	kept := make([]catalogtypes.RepoSyncBranch, 0, len(branches))
 	for _, b := range branches {
 		if catalogtypes.BranchFits(b.Name) {
 			kept = append(kept, b)
 		}
 	}
-	return s.syncForgeBranches.Run(ctx, projectID, kept, complete)
+	return s.syncHostingBranches.Run(ctx, projectID, kept, complete)
 }
 
 func (s *BranchRecordsService) RecordIngestBranch(ctx context.Context, projectID uuid.UUID, name string, commit *string, at string) error {
@@ -156,9 +156,9 @@ func (s *BranchRecordsService) SyncRepositoryBranches(ctx context.Context, proje
 }
 
 type BranchRecordsService struct {
-	branchRepository  *repositories.BranchRepository
-	db                *pgtx.DB
-	nodeRepository    *repositories.NodeRepository
-	setDefaultBranch  *usecases.SetDefaultBranchUseCase
-	syncForgeBranches *usecases.SyncForgeBranchesUseCase
+	branchRepository    *repositories.BranchRepository
+	db                  *pgtx.DB
+	nodeRepository      *repositories.NodeRepository
+	setDefaultBranch    *usecases.SetDefaultBranchUseCase
+	syncHostingBranches *usecases.SyncHostingBranchesUseCase
 }

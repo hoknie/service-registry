@@ -13,6 +13,8 @@ func (r routes) gateway(api *handlers.Handlers) {
 	r.add("/api/v1/mcp/servers/:id", true, get(api.GetMCPServer), patch(api.UpdateMCPServer), del(api.DeleteMCPServer))
 	r.add("/api/v1/mcp/servers/:id/check", true, post(api.CheckMCPServer))
 	r.add("/api/v1/mcp/servers/:id/icon", true, get(api.MCPServerIcon))
+	r.add("/api/v1/mcp/builtin", true, get(api.MCPBuiltin))
+	r.add("/api/v1/mcp/builtin/tools/disabled", true, put(api.DisableMCPBuiltinTools))
 	r.add("/api/v1/mcp/servers/:id/tools", true, get(api.MCPServerTools))
 	r.add("/api/v1/mcp/servers/:id/tools/disabled", true, put(api.DisableMCPServerTools))
 	r.add("/api/v1/mcp/servers/:id/access", true, get(api.MCPServerAccess), put(api.PutMCPServerAccess))

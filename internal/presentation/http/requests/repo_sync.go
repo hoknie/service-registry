@@ -1,0 +1,66 @@
+package requests
+
+import (
+	catalogtypes "svc-registry/internal/feature/catalog/types"
+	reposynctypes "svc-registry/internal/feature/reposync/types"
+)
+
+type Credentials struct {
+	SecretID *string `json:"secret_id"`
+	Token    *string `json:"token"`
+	TokenRef *string `json:"token_ref"`
+}
+
+func (c *Credentials) input() *catalogtypes.CredentialsInput {
+	if c == nil {
+		return nil
+	}
+	return &catalogtypes.CredentialsInput{SecretID: c.SecretID, Inline: c.Token != nil || c.TokenRef != nil}
+}
+
+type CreateConnection struct {
+	Kind            *string      `json:"kind" validate:"required"`
+	APIURL          *string      `json:"api_url"`
+	OwnerPath       *string      `json:"owner_path" validate:"required"`
+	MirrorSubgroups *bool        `json:"mirror_subgroups"`
+	IncludeArchived *bool        `json:"include_archived"`
+	IncludeForks    *bool        `json:"include_forks"`
+	NameInclude     *[]string    `json:"name_include"`
+	NameExclude     *[]string    `json:"name_exclude"`
+	BranchInclude   *[]string    `json:"branch_include"`
+	IntervalSecs    *int64       `json:"interval_secs"`
+	Credentials     *Credentials `json:"credentials" validate:"required"`
+}
+
+func (r CreateConnection) Connection() reposynctypes.CreateConnection {
+	return reposynctypes.CreateConnection{
+		Kind: *r.Kind, APIURL: r.APIURL, OwnerPath: *r.OwnerPath, MirrorSubgroups: r.MirrorSubgroups,
+		IncludeArchived: r.IncludeArchived, IncludeForks: r.IncludeForks, NameInclude: r.NameInclude,
+		NameExclude: r.NameExclude, BranchInclude: r.BranchInclude, IntervalSecs: r.IntervalSecs, Credentials: r.Credentials.input(),
+	}
+}
+
+type UpdateConnection struct {
+	APIURL          *string      `json:"api_url"`
+	OwnerPath       *string      `json:"owner_path"`
+	MirrorSubgroups *bool        `json:"mirror_subgroups"`
+	IncludeArchived *bool        `json:"include_archived"`
+	IncludeForks    *bool        `json:"include_forks"`
+	NameInclude     *[]string    `json:"name_include"`
+	NameExclude     *[]string    `json:"name_exclude"`
+	BranchInclude   *[]string    `json:"branch_include"`
+	IntervalSecs    *int64       `json:"interval_secs"`
+	Credentials     *Credentials `json:"credentials"`
+}
+
+func (r UpdateConnection) Changes() reposynctypes.UpdateConnection {
+	return reposynctypes.UpdateConnection{
+		APIURL: r.APIURL, OwnerPath: r.OwnerPath, MirrorSubgroups: r.MirrorSubgroups,
+		IncludeArchived: r.IncludeArchived, IncludeForks: r.IncludeForks, NameInclude: r.NameInclude,
+		NameExclude: r.NameExclude, BranchInclude: r.BranchInclude, IntervalSecs: r.IntervalSecs, Credentials: r.Credentials.input(),
+	}
+}
+
+type Webhook struct {
+	Mode *string `json:"mode" validate:"required"`
+}

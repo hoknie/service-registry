@@ -11,7 +11,7 @@ import (
 	"svc-registry/internal/platform/postgres"
 )
 
-func forgeText(f *catalogtypes.Forge) *string {
+func hostingText(f *catalogtypes.Hosting) *string {
 	if f == nil {
 		return nil
 	}
@@ -20,13 +20,13 @@ func forgeText(f *catalogtypes.Forge) *string {
 
 func (s *NodeRepository) Insert(ctx context.Context, n catalogtypes.NewNode) (catalogtypes.Node, error) {
 	return postgres.One(ctx, s.db.From(ctx), constraints, scanNode, `
-		INSERT INTO nodes AS n (id, kind, parent_id, slug, name, description, labels, forge, repo_url,
+		INSERT INTO nodes AS n (id, kind, parent_id, slug, name, description, labels, hosting, repo_url,
 			default_branch, cluster_observation)
 		VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11)
-		RETURNING n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url,
+		RETURNING n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.hosting, n.repo_url,
 			n.default_branch, n.cluster_observation, n.visibility, rfc3339(n.created_at) AS created_at,
 			rfc3339(n.updated_at) AS updated_at`, n.ID, string(n.Kind), n.ParentID, n.Slug, n.Name,
-		n.Description, n.Labels, forgeText(n.Repo.Forge), n.Repo.RepoURL, n.Repo.DefaultBranch, n.ClusterObservation)
+		n.Description, n.Labels, hostingText(n.Repo.Hosting), n.Repo.RepoURL, n.Repo.DefaultBranch, n.ClusterObservation)
 }
 
 func (s *NodeRepository) Update(ctx context.Context, id uuid.UUID, c catalogtypes.NodeChanges) (catalogtypes.Node, error) {
@@ -38,14 +38,14 @@ func (s *NodeRepository) Update(ctx context.Context, id uuid.UUID, c catalogtype
 		UPDATE nodes AS n
 		SET slug = COALESCE($2, n.slug), name = COALESCE($3, n.name),
 			description = COALESCE($4, n.description), labels = COALESCE($5::jsonb, n.labels),
-			forge = CASE WHEN $6 THEN $7 ELSE n.forge END, repo_url = CASE WHEN $8 THEN $9 ELSE n.repo_url END,
+			hosting = CASE WHEN $6 THEN $7 ELSE n.hosting END, repo_url = CASE WHEN $8 THEN $9 ELSE n.repo_url END,
 			default_branch = CASE WHEN $10 THEN $11 ELSE n.default_branch END,
 			cluster_observation = COALESCE($12, n.cluster_observation), updated_at = now()
 		WHERE n.id = $1
-		RETURNING n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url,
+		RETURNING n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.hosting, n.repo_url,
 			n.default_branch, n.cluster_observation, n.visibility, rfc3339(n.created_at) AS created_at,
 			rfc3339(n.updated_at) AS updated_at`, id, c.Slug, c.Name, c.Description, labels,
-		c.Forge.Set, forgeText(c.Forge.Value), c.RepoURL.Set, c.RepoURL.Value,
+		c.Hosting.Set, hostingText(c.Hosting.Value), c.RepoURL.Set, c.RepoURL.Value,
 		c.DefaultBranch.Set, c.DefaultBranch.Value, c.ClusterObservation)
 	return foundNode(node, err)
 }
@@ -85,7 +85,7 @@ func (s *NodeRepository) SetParent(ctx context.Context, id uuid.UUID, parent *uu
 		UPDATE nodes AS n
 		SET parent_id = $2, visibility = CASE WHEN $2::uuid IS NULL THEN n.visibility ELSE 'closed' END, updated_at = now()
 		WHERE n.id = $1
-		RETURNING n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url,
+		RETURNING n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.hosting, n.repo_url,
 			n.default_branch, n.cluster_observation, n.visibility, rfc3339(n.created_at) AS created_at,
 			rfc3339(n.updated_at) AS updated_at`, id, parent))
 }
@@ -96,7 +96,7 @@ func (s *NodeRepository) SetVisibility(ctx context.Context, id uuid.UUID, v cata
 		SET visibility = $2, updated_at = now()
 		WHERE n.id = $1
 			AND n.parent_id IS NULL
-		RETURNING n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.forge, n.repo_url,
+		RETURNING n.id, n.kind, n.parent_id, n.slug, n.name, n.description, n.labels, n.hosting, n.repo_url,
 			n.default_branch, n.cluster_observation, n.visibility, rfc3339(n.created_at) AS created_at,
 			rfc3339(n.updated_at) AS updated_at`, id, string(v)))
 }

@@ -63,7 +63,7 @@ All names start with `svcr_`, except the standard `go_*` and `process_*` metrics
 |---|---|---|
 | `svcr_job_runs_total` | `job`, `outcome` | runs: `succeeded`, `failed` or `panicked` |
 | `svcr_job_run_duration_seconds` | `job` | duration of runs |
-| `svcr_job_queue` | `job`, `state` | items waiting (`due`) and being worked on (`leased`) for `forge_sync`, `knowledge_collection`, `knowledge_index`, `link_checks`, `cluster_polls`, `notify_deliveries` |
+| `svcr_job_queue` | `job`, `state` | items waiting (`due`) and being worked on (`leased`) for `repo_sync`, `knowledge_collection`, `knowledge_index`, `link_checks`, `cluster_polls`, `notify_deliveries` |
 
 Other values of `job` are the periodic clean-ups (`event_retention`, `branch_retention`, `notify_retention`, …) and
 `link_refresh`, the hourly expansion of links of all projects.
@@ -75,7 +75,7 @@ Other values of `job` are the periodic clean-ups (`event_retention`, `branch_ret
 | `svcr_ingest_events_total` | `type`, `outcome`, `code` | events from CI: `accepted`, `replayed` (the same idempotency key again) or `rejected` with the error code |
 | `svcr_deployments_total` | `source` | deployments recorded: `event` or `cluster` |
 | `svcr_agent_reports_total` | `outcome` | reports of cluster agents |
-| `svcr_forge_webhooks_total` | `outcome` | webhooks from forges |
+| `svcr_repo_sync_webhooks_total` | `outcome` | webhooks from repository hostings |
 | `svcr_deployments_recent` | `window` | deployments in the last `1d` and `7d` |
 
 ### Catalog
@@ -83,7 +83,7 @@ Other values of `job` are the periodic clean-ups (`event_retention`, `branch_ret
 | Metric | Labels | Meaning |
 |---|---|---|
 | `svcr_catalog_nodes` | `kind` | organizations, folders and projects |
-| `svcr_projects_covered` | `aspect` | projects with `owners`, collected `docs`, `deployments`, `links`, `dependencies`, or imported from a `forge` |
+| `svcr_projects_covered` | `aspect` | projects with `owners`, collected `docs`, `deployments`, `links`, `dependencies`, or imported by repository sync (`repo_sync`) |
 | `svcr_project_info` | `project_id`, `organization_id`, `path` | one series per project with its slug path, for joining |
 | `svcr_users` | `state` | `active`, `disabled` and `service` users |
 | `svcr_users_active` | `window` | users who used a session or a personal token in the last `1d`, `7d`, `30d` |
@@ -93,7 +93,7 @@ Other values of `job` are the periodic clean-ups (`event_retention`, `branch_ret
 | `svcr_clusters` | `mode`, `state` | clusters that are `ok`, `failed` or `silent` (an agent stopped reporting) |
 | `svcr_cluster_workloads` | — | workloads observed in clusters |
 | `svcr_branches` | `state` | `active`, `stale` and `gone` branches |
-| `svcr_forge_connections` | `forge`, `state` | forge connections whose last run is `ok` or `failed` |
+| `svcr_repo_sync_connections` | `hosting`, `state` | repository sync connections whose last run is `ok` or `failed` |
 | `svcr_link_targets` | `state` | link addresses that are `ok`, `broken` or not checked yet |
 | `svcr_notification_subscriptions` | `channel` | `webhook` and `slack` subscriptions |
 | `svcr_knowledge_snapshots`, `svcr_knowledge_files_pending` | — | documentation snapshots, files waiting for embeddings |
@@ -117,10 +117,14 @@ Other values of `job` are the periodic clean-ups (`event_retention`, `branch_ret
 
 | Metric | Labels | Meaning |
 |---|---|---|
-| `svcr_outbound_requests_total` | `target`, `result` | requests to `forge`, `oidc`, `embeddings`, `qdrant`, `meilisearch`, `kubernetes`, `notify`, `link_check`, `client_metadata`, `mcp_gateway`; `result` is `2xx`…`5xx` or `error` when there was no answer |
+| `svcr_outbound_requests_total` | `target`, `result` | requests to `hosting`, `oidc`, `embeddings`, `qdrant`, `meilisearch`, `kubernetes`, `notify`, `link_check`, `client_metadata`, `mcp_gateway`; `result` is `2xx`…`5xx` or `error` when there was no answer |
 | `svcr_outbound_request_duration_seconds` | `target` | duration of requests |
 
 Labels never carry email addresses, tokens, URLs or request paths.
+
+Renamed from older versions: `svcr_forge_connections` → `svcr_repo_sync_connections` (label `forge` → `hosting`),
+`svcr_forge_webhooks_total` → `svcr_repo_sync_webhooks_total`, `job="forge_sync"` → `job="repo_sync"`,
+`target="forge"` → `target="hosting"`, `aspect="forge"` → `aspect="repo_sync"`.
 
 ## Useful queries
 

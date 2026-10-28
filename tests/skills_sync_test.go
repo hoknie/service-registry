@@ -153,11 +153,11 @@ func TestSkillSourceSecretsAndJob(t *testing.T) {
 	global := idOf(s.skillFolder(s.admin, obj{"slug": "global", "name": "Global"}))
 	acme := scalar[string](t, s.db, "SELECT id::text FROM nodes WHERE slug = 'acme'")
 	secret := refSecret(t, s.db, acme)
-	r := s.send("POST", skillsPath+"/folders/"+global+"/sources", s.admin, obj{"kind": "remote", "forge": "gitlab",
+	r := s.send("POST", skillsPath+"/folders/"+global+"/sources", s.admin, obj{"kind": "remote", "hosting": "gitlab",
 		"url": "https://gitlab.example.com/platform/agent-skills", "credentials": obj{"secret_id": secret}})
 	eq(t, r.status, 400, r.text())
 	eq(t, code(t, r), any("validation.secret_not_available"))
-	src := s.source(obj{"kind": "remote", "forge": "gitlab", "url": "https://gitlab.example.com/platform/agent-skills", "root": "skills",
+	src := s.source(obj{"kind": "remote", "hosting": "gitlab", "url": "https://gitlab.example.com/platform/agent-skills", "root": "skills",
 		"credentials": obj{"secret_id": secret}})
 	eq(t, src["api_url"], any("https://gitlab.example.com/api/v4"))
 	eq(t, at(src, "credentials", "secret_id"), any(secret))

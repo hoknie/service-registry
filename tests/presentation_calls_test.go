@@ -80,13 +80,13 @@ func TestPresentationCallsCheckCatchesViolations(t *testing.T) {
 import (
 	accessservices "svc-registry/internal/feature/access/services"
 	catalogservices "svc-registry/internal/feature/catalog/services"
-	forgeservices "svc-registry/internal/feature/forge/services"
+	reposyncservices "svc-registry/internal/feature/reposync/services"
 )
 
 type Handlers struct {
 	Access  *accessservices.AccessServices
 	Catalog *catalogservices.CatalogServices
-	Forge   *forgeservices.ForgeServices
+	RepoSync   *reposyncservices.RepoSyncServices
 }
 `
 	for name, tc := range map[string]struct {
@@ -94,27 +94,27 @@ type Handlers struct {
 		want string
 	}{
 		"two features": {
-			body: "func (a *Handlers) Get() { a.Catalog.GetNode(); a.Forge.Managed() }",
-			want: "Handlers.Get calls catalog, forge",
+			body: "func (a *Handlers) Get() { a.Catalog.GetNode(); a.RepoSync.Managed() }",
+			want: "Handlers.Get calls catalog, reposync",
 		},
 		"through a helper": {
-			body: "func (a *Handlers) Get() { a.Catalog.GetNode(); a.managed() }\nfunc (a *Handlers) managed() { a.Forge.Managed() }",
-			want: "Handlers.Get calls catalog, forge",
+			body: "func (a *Handlers) Get() { a.Catalog.GetNode(); a.managed() }\nfunc (a *Handlers) managed() { a.RepoSync.Managed() }",
+			want: "Handlers.Get calls catalog, reposync",
 		},
 		"authorization": {
 			body: "func (a *Handlers) Get() { a.Catalog.Authorize() }",
 			want: "Handlers.Get calls Catalog.Authorize",
 		},
 		"one feature with input extraction": {
-			body: "func (a *Handlers) Get() { a.Access.Authenticate(); a.Catalog.ResolveNode(); a.Forge.Managed() }",
+			body: "func (a *Handlers) Get() { a.Access.Authenticate(); a.Catalog.ResolveNode(); a.RepoSync.Managed() }",
 		},
 		"two features through area services": {
-			body: "type Areas struct {\n\tCatalog *catalogservices.CatalogServices\n\tForge   *forgeservices.ForgeServices\n}\n" +
-				"func (a *Areas) Get() { a.Catalog.Nodes.Create(); a.Forge.Projects.Managed() }",
-			want: "Areas.Get calls catalog, forge",
+			body: "type Areas struct {\n\tCatalog *catalogservices.CatalogServices\n\tRepoSync   *reposyncservices.RepoSyncServices\n}\n" +
+				"func (a *Areas) Get() { a.Catalog.Nodes.Create(); a.RepoSync.Projects.Managed() }",
+			want: "Areas.Get calls catalog, reposync",
 		},
 		"several methods of one feature": {
-			body: "func (a *Handlers) Get() { a.Forge.Managed(); a.Forge.ProjectReadme() }",
+			body: "func (a *Handlers) Get() { a.RepoSync.Managed(); a.RepoSync.ProjectReadme() }",
 		},
 	} {
 		problems, err := presentationProblems(map[string]string{"handlers/x.go": header + tc.body})

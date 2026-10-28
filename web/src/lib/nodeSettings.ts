@@ -1,6 +1,6 @@
 import type { NodeKind } from "./api";
 
-export const SECTIONS = ["general", "owners", "groups", "branches", "links", "dependencies", "docs", "keys", "access", "notifications", "connect", "forge", "secrets", "scans", "publication"] as const;
+export const SECTIONS = ["general", "owners", "groups", "branches", "links", "dependencies", "docs", "keys", "access", "notifications", "connect", "repo-sync", "secrets", "scans", "publication"] as const;
 export type Section = (typeof SECTIONS)[number];
 
 export const PROJECT_TABS = ["overview", "docs", "details", "releases", "dependencies", "settings"] as const;
@@ -15,7 +15,11 @@ export const LEGACY_TABS: Record<string, Section> = {
   keys: "keys",
   access: "access",
   connect: "connect",
-  forge: "forge",
+  forge: "repo-sync",
+};
+
+export const RENAMED_SECTIONS: Record<string, Section> = {
+  forge: "repo-sync",
 };
 
 export const RENAMED_TABS: Record<string, NodeTab> = {
@@ -56,7 +60,7 @@ export function sectionsOf(node: NodeLike | null): Section[] {
     "general",
     "owners",
     ...(node.parent_id ? [] : (["groups"] as const)),
-    "forge",
+    "repo-sync",
     "secrets",
     "links",
     "docs",
@@ -81,6 +85,8 @@ export function resolveTab(
   if (renamed && node?.kind === "project" && tabs.includes(renamed)) return { tab: renamed, section: null, redirect: { tab: renamed, section: null } };
   const chosen = tabs.includes(tab as NodeTab) ? (tab as NodeTab) : "overview";
   if (chosen !== "settings") return { tab: chosen, section: null, redirect: null };
+  const moved = section ? RENAMED_SECTIONS[section] : undefined;
+  if (moved && sections.includes(moved)) return { tab: "settings", section: moved, redirect: { tab: "settings", section: moved } };
   const s = sections.includes(section as Section) ? (section as Section) : (sections[0] ?? "general");
   return { tab: "settings", section: s, redirect: null };
 }

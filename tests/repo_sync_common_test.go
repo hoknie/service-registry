@@ -1,0 +1,94 @@
+package tests
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"svc-registry/pkg/testing/hostingfake"
+)
+
+const secretsKey = "k1:MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+
+const hostingToken = "hosting-token-1"
+
+func startRepoSyncApp(t testing.TB, extra ...string) *testApp {
+	t.Helper()
+	return startApp(t, append([]string{"SECRETS_KEYS", secretsKey, "PUBLIC_URL", "https://registry.example"}, extra...)...)
+}
+
+func connectionsPath(node string) string { return nodePath(node) + "/repo-sync/connections" }
+
+func connectionPath(node, conn string) string { return connectionsPath(node) + "/" + conn }
+
+func (a *testApp) connect(cookie, node string, f *hostingfake.Fake, extra obj) obj {
+	a.t.Helper()
+	body := obj{"kind": f.Kind, "api_url": f.APIURL(), "owner_path": f.Owner}
+	if _, ok := extra["credentials"]; !ok {
+		body["credentials"] = a.tokenOn(cookie, node, f.Token)
+	}
+	for k, v := range extra {
+		body[k] = v
+	}
+	r := a.send("POST", connectionsPath(node), cookie, body)
+	if r.status != 201 {
+		a.t.Fatalf("connect: %d %s", r.status, r.body)
+	}
+	return r.json(a.t)
+}
+
+func (a *testApp) runDue() int {
+	a.t.Helper()
+	ctx := context.Background()
+	claimed, err := a.services.RepoSync.Sync.ClaimRepoSyncRuns(ctx, 100, 120)
+	if err != nil {
+		a.t.Fatal(err)
+	}
+	for _, c := range claimed {
+		_ = a.services.RepoSync.Sync.RunClaimedSync(ctx, c)
+	}
+	return len(claimed)
+}
+
+func (a *testApp) syncNow(cookie, node, conn string) obj {
+	a.t.Helper()
+	if r := a.call("POST", connectionPath(node, conn)+"/sync", cookie); r.status != 202 {
+		a.t.Fatalf("sync: %d %s", r.status, r.body)
+	}
+	a.runDue()
+	return a.lastRun(cookie, node, conn)
+}
+
+func (a *testApp) lastRun(cookie, node, conn string) obj {
+	a.t.Helper()
+	r := a.get(connectionPath(node, conn)+"/runs", cookie)
+	if r.status != 200 {
+		a.t.Fatalf("runs: %d %s", r.status, r.body)
+	}
+	items := list(a.t, r.json(a.t), "items")
+	if len(items) == 0 {
+		a.t.Fatal("no runs")
+	}
+	return items[0].(obj)
+}
+
+func (a *testApp) childBySlug(cookie, parent, slug string) obj {
+	a.t.Helper()
+	r := a.get("/api/v1/catalog/nodes?parent="+parent, cookie)
+	for _, it := range list(a.t, r.json(a.t), "items") {
+		if it.(obj)["slug"] == slug {
+			return it.(obj)
+		}
+	}
+	return nil
+}
+
+func writeTemp(t testing.TB, content string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}

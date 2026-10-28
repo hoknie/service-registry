@@ -89,8 +89,8 @@ export function SourcePanel({ projectId, parentId, canAccess, synced, canWrite, 
     }
   };
 
-  const locked = !!managed || source?.origin === "forge";
-  const owner = source?.origin === "forge" && source.url ? new URL(source.url).pathname.replace(/^\/+|\/+$/g, "").split("/").slice(0, -1).join("/") : null;
+  const locked = !!managed || source?.origin === "repo_sync";
+  const owner = source?.origin === "repo_sync" && source.url ? new URL(source.url).pathname.replace(/^\/+|\/+$/g, "").split("/").slice(0, -1).join("/") : null;
 
   const current =
     source === undefined
@@ -108,13 +108,13 @@ export function SourcePanel({ projectId, parentId, canAccess, synced, canWrite, 
                 : t.credentials.none
           }`
         : synced
-          ? t.forgeSync
+          ? t.repoSync
           : t.none;
 
   return (
     <Panel title={t.title} description={t.lead}>
       {current && <p className="mb-4 text-sm break-all text-ink-2">{current}</p>}
-      {owner !== null && <p className="mb-4 text-sm text-muted">{format(t.fromForge, { owner })}</p>}
+      {owner !== null && <p className="mb-4 text-sm text-muted">{format(t.fromRepoSync, { owner })}</p>}
       {locked && canWrite && generalHref && (
         <div className="flex flex-wrap gap-2">
           <Link href={generalHref} className="text-sm text-signal hover:underline">

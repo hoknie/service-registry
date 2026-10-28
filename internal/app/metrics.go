@@ -41,9 +41,9 @@ func (a *App) newSampler(extra []metrics.Source) *metrics.Sampler {
 				Max: s.MaxConns(), Acquires: s.AcquireCount(), EmptyAcquires: s.EmptyAcquireCount(), AcquireWait: s.AcquireDuration()}
 		}),
 		metrics.SampleSource("catalog", a.Catalog.System.MetricSamples, a.Access.Users.MetricSamples, a.Ownership.Ports.MetricSamples,
-			a.Ingest.Accept.MetricSamples, a.Deploy.Ports.MetricSamples, a.Forge.Ports.MetricSamples, a.Links.Projects.MetricSamples,
+			a.Ingest.Accept.MetricSamples, a.Deploy.Ports.MetricSamples, a.RepoSync.Ports.MetricSamples, a.Links.Projects.MetricSamples,
 			a.Notify.Outbox.MetricSamples, a.Topology.Records.MetricSamples, a.Knowledge.Search.MetricSamples, a.gatewaySamples),
-		metrics.SampleSource("jobs", a.Deploy.Ports.QueueSamples, a.Forge.Ports.QueueSamples, a.Links.Projects.QueueSamples,
+		metrics.SampleSource("jobs", a.Deploy.Ports.QueueSamples, a.RepoSync.Ports.QueueSamples, a.Links.Projects.QueueSamples,
 			a.Notify.Outbox.QueueSamples, a.Knowledge.Search.QueueSamples),
 	}
 	return a.Metrics.Sampler(time.Duration(a.Config.Metrics.RefreshSecs)*time.Second, append(sources, extra...)...)

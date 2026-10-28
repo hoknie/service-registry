@@ -33,3 +33,20 @@ test("no empty strings", () => {
     }
   }
 });
+
+test("no text says forge, only the Forgejo name", () => {
+  for (const locale of LOCALES) {
+    for (const [key, text] of leaves(load(locale))) {
+      assert.doesNotMatch(text.replaceAll("Forgejo", ""), /forge/i, `${locale}: ${key}`);
+    }
+  }
+});
+
+test("source kinds are a repository, a local repository and a local folder", () => {
+  const en = load("en");
+  for (const kinds of [en.catalog.docs.source.kinds, en.scans.sources]) {
+    assert.deepEqual([kinds.remote, kinds.local_git, kinds.local_dir], ["Repository", "Local repository", "Local folder"]);
+  }
+  const page = en.skills.sourcesPage;
+  assert.deepEqual([page.remote, page.localGit, page.localDir, page.hosting], ["Repository", "Local repository", "Local folder", "Hosting"]);
+});

@@ -128,7 +128,7 @@ func TestDocSpaceListsCollectedBranchesOfAProject(t *testing.T) {
 	d := startDocs(t, map[string]string{"README.md": "# API"})
 	eq(t, d.app.collect(), 1)
 	body := d.app.get(docSpacePath("acme/api"), d.admin).json(t)
-	eq(t, at(body, "docs", "source"), any("forge"))
+	eq(t, at(body, "docs", "source"), any("repo_sync"))
 	eq(t, at(body, "docs", "default_branch"), any("main"))
 	branches := at(body, "docs", "branches").([]any)
 	eq(t, len(branches), 1)

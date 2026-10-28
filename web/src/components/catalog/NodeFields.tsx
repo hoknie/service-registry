@@ -13,10 +13,10 @@ import { SOURCE_KINDS, SourceFields, type SecretScope, type SourceDraft } from "
 import { BranchInput } from "./BranchInput";
 import { type CatalogLabels } from "./shared";
 
-export type Repo = { forge: string; repo_url: string; default_branch: string };
+export type Repo = { hosting: string; repo_url: string; default_branch: string };
 export type RepoMode = "link" | SourceKind;
 
-export const noRepo: Repo = { forge: "", repo_url: "", default_branch: "" };
+export const noRepo: Repo = { hosting: "", repo_url: "", default_branch: "" };
 
 export const labelError = (tag: string) => labelRule(tag, "label");
 
@@ -62,7 +62,7 @@ export function RepoSection({
     <fieldset className="grid gap-4 rounded-lg border border-line p-4">
       <legend className="px-1 text-sm font-medium text-ink-2">
         {labels.repo.section}
-        {managed && <span className="ml-2 font-normal text-muted">· {labels.edit.fromForge}</span>}
+        {managed && <span className="ml-2 font-normal text-muted">· {labels.edit.fromRepoSync}</span>}
       </legend>
       {managed && <p className="text-xs text-muted">{labels.repo.managedSource}</p>}
       <fieldset disabled={managed} className="grid gap-4">
@@ -88,10 +88,10 @@ export function RepoSection({
         </Field>
         {mode === "link" ? (
           <>
-            <Field label={labels.repo.forge}>
+            <Field label={labels.repo.hosting}>
               {(p) => (
-                <Select {...p} value={repo.forge} onChange={(e) => onRepo({ ...repo, forge: e.target.value })}>
-                  <option value="">{labels.repo.noForge}</option>
+                <Select {...p} value={repo.hosting} onChange={(e) => onRepo({ ...repo, hosting: e.target.value })}>
+                  <option value="">{labels.repo.noHosting}</option>
                   <option value="github">GitHub</option>
                   <option value="gitlab">GitLab</option>
                   <option value="forgejo">Forgejo</option>
@@ -107,7 +107,7 @@ export function RepoSection({
           <SourceFields value={draft} onChange={onDraft} labels={s} scope={scope} />
         )}
         {branchNote}
-        <Field label={labels.repo.branch} hint={managed ? labels.edit.fromForge : labels.repo.branchHint}>
+        <Field label={labels.repo.branch} hint={managed ? labels.edit.fromRepoSync : labels.repo.branchHint}>
           {(p) => (
             <BranchInput
               {...p}

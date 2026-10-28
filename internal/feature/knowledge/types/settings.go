@@ -35,11 +35,11 @@ type CollectEvent string
 const (
 	EventServiceDeployed CollectEvent = "service.deployed"
 	EventClusterDeployed CollectEvent = "cluster.deployed"
-	EventForgeWebhook    CollectEvent = "forge.webhook"
-	EventForgeManual     CollectEvent = "forge.manual"
+	EventRepoSyncWebhook CollectEvent = "repo_sync.webhook"
+	EventRepoSyncManual  CollectEvent = "repo_sync.manual"
 )
 
-var DefaultRefreshEvents = []CollectEvent{EventServiceDeployed, EventClusterDeployed, EventForgeWebhook, EventForgeManual}
+var DefaultRefreshEvents = []CollectEvent{EventServiceDeployed, EventClusterDeployed, EventRepoSyncWebhook, EventRepoSyncManual}
 
 func (e CollectEvent) Valid() bool { return slices.Contains(DefaultRefreshEvents, e) }
 

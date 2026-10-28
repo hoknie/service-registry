@@ -9,7 +9,8 @@ func TestSkillImportsCreateAFolderWithASource(t *testing.T) {
 	t.Parallel()
 	s := startSkillSyncWith(t, "SECRETS_KEYS", secretsKey)
 	acme := scalar[string](t, s.db, "SELECT id::text FROM nodes WHERE slug = 'acme'")
-	r := s.send("POST", skillsPath+"/imports", s.admin, obj{"parent_id": nil, "organization_id": nil, "kind": "remote", "forge": "github",
+	eq(t, s.get(skillsPath+"/defaults", s.admin).json(t)["sync_interval_secs"], any(float64(3600)))
+	r := s.send("POST", skillsPath+"/imports", s.admin, obj{"parent_id": nil, "organization_id": nil, "kind": "remote", "hosting": "github",
 		"url": "https://github.com/apollographql/skills/tree/main/skills"})
 	eq(t, r.status, 201, r.text())
 	got := r.json(t)
@@ -20,7 +21,7 @@ func TestSkillImportsCreateAFolderWithASource(t *testing.T) {
 	eq(t, at(got, "source", "state"), any("queued"))
 
 	folders := s.count("skill_folders")
-	r = s.send("POST", skillsPath+"/imports", s.admin, obj{"organization_id": nil, "kind": "remote", "forge": "gitlab",
+	r = s.send("POST", skillsPath+"/imports", s.admin, obj{"organization_id": nil, "kind": "remote", "hosting": "gitlab",
 		"url": "https://gitlab.example.com/a/b", "credentials": obj{"secret_id": refSecret(t, s.db, acme)}})
 	eq(t, code(t, r), any("validation.secret_not_available"))
 	eq(t, s.count("skill_folders"), folders)

@@ -21,7 +21,7 @@ type ManagedNodesPort interface {
 }
 
 type ProjectSourcePort interface {
-	Repo() (*catalogtypes.Forge, *string, bool)
+	Repo() (*catalogtypes.Hosting, *string, bool)
 	Attach(ctx context.Context, projectID uuid.UUID) error
 }
 

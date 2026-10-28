@@ -7,8 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
-	forgetypes "svc-registry/internal/feature/forge/types"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
+	reposynctypes "svc-registry/internal/feature/reposync/types"
 )
 
 type EnginePort interface {
@@ -34,7 +34,7 @@ type ReaderPort interface {
 }
 
 type RepoMetadataPort interface {
-	Metadata(ctx context.Context, known *time.Time) (forgetypes.RemoteRepo, *forgetypes.Details, error)
+	Metadata(ctx context.Context, known *time.Time) (reposynctypes.RemoteRepo, *reposynctypes.Details, error)
 }
 
 type ReaderFactoryPort interface {

@@ -13,10 +13,10 @@ import (
 
 var freeTextColumns = []string{
 	"clusters.ca_pem",
-	"forge_connections.webhook_secret_enc",
-	"forge_repositories.description",
-	"forge_repositories.readme_md",
-	"forge_sync_runs.error_message",
+	"repo_sync_connections.webhook_secret_enc",
+	"repo_sync_repositories.description",
+	"repo_sync_repositories.readme_md",
+	"repo_sync_runs.error_message",
 	"knowledge_blobs.content",
 	"knowledge_files.path",
 	"knowledge_index_state.engine",

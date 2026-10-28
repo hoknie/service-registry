@@ -1,0 +1,6 @@
+ALTER TABLE repo_sync_groups RENAME CONSTRAINT repo_sync_groups_connection_id_fkey TO forge_groups_connection_id_fkey;
+ALTER TABLE repo_sync_groups RENAME CONSTRAINT repo_sync_groups_full_path_check TO forge_groups_full_path_check;
+ALTER TABLE repo_sync_groups RENAME CONSTRAINT repo_sync_groups_node_id_fkey TO forge_groups_node_id_fkey;
+ALTER TABLE repo_sync_groups RENAME CONSTRAINT repo_sync_groups_pkey TO forge_groups_pkey;
+ALTER INDEX repo_sync_groups_path_key RENAME TO forge_groups_path_key;
+ALTER TABLE repo_sync_groups RENAME TO forge_groups;

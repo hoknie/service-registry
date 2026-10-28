@@ -8,6 +8,7 @@ func (r routes) skills(api *handlers.Handlers) {
 	}
 	r.add("/api/v1/skills", true, get(api.ListSkills), post(api.CreateSkill))
 	r.add("/api/v1/skills/tags", true, get(api.SkillTags))
+	r.add("/api/v1/skills/defaults", true, get(api.SkillDefaults))
 	r.add("/api/v1/skills/folders", true, get(api.ListSkillFolders), post(api.CreateSkillFolder))
 	r.add("/api/v1/skills/folders/:id", true, get(api.GetSkillFolder), patch(api.UpdateSkillFolder), del(api.DeleteSkillFolder))
 	r.add("/api/v1/skills/imports", true, post(api.ImportSkillSource))

@@ -38,7 +38,7 @@ func (s *CollectionRepository) Signals(ctx context.Context, projects []uuid.UUID
 					WHERE x.project_id = n.id
 				) OR EXISTS (
 					SELECT 1
-					FROM forge_repositories r
+					FROM repo_sync_repositories r
 					WHERE r.project_id = n.id
 						AND r.orphaned_at IS NULL
 				))

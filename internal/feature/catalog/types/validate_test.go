@@ -68,13 +68,13 @@ func TestLabelsRules(t *testing.T) {
 }
 
 func TestRepositoryFields(t *testing.T) {
-	if f, err := ValidateForge("forgejo"); err != nil || *f != ForgeForgejo {
+	if f, err := ValidateHosting("forgejo"); err != nil || *f != HostingForgejo {
 		t.Errorf("forgejo: %v %v", f, err)
 	}
-	if f, err := ValidateForge(""); err != nil || f != nil {
-		t.Errorf("empty forge: %v %v", f, err)
+	if f, err := ValidateHosting(""); err != nil || f != nil {
+		t.Errorf("empty hosting: %v %v", f, err)
 	}
-	if _, err := ValidateForge("svn"); err != InvalidForge {
+	if _, err := ValidateHosting("svn"); err != InvalidHosting {
 		t.Errorf("svn: %v", err)
 	}
 	for _, good := range []string{"https://git.example.com/acme/api", "http://localhost:3000/x"} {
@@ -109,14 +109,14 @@ func TestRepositoryFields(t *testing.T) {
 
 func TestRepoChangesSetAndClear(t *testing.T) {
 	var c NodeChanges
-	err := ValidateRepoChanges(KindProject, RepoInput{Forge: new("github"), DefaultBranch: new("")}, &c)
+	err := ValidateRepoChanges(KindProject, RepoInput{Hosting: new("github"), DefaultBranch: new("")}, &c)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !c.Forge.Set || *c.Forge.Value != ForgeGithub || c.RepoURL.Set || !c.DefaultBranch.Set || c.DefaultBranch.Value != nil {
+	if !c.Hosting.Set || *c.Hosting.Value != HostingGithub || c.RepoURL.Set || !c.DefaultBranch.Set || c.DefaultBranch.Value != nil {
 		t.Errorf("changes: %+v", c)
 	}
-	if err := ValidateRepoChanges(KindOrganization, RepoInput{Forge: new("")}, &c); err != InvalidRepoFieldsNotAllowed {
+	if err := ValidateRepoChanges(KindOrganization, RepoInput{Hosting: new("")}, &c); err != InvalidRepoFieldsNotAllowed {
 		t.Errorf("organization: %v", err)
 	}
 }

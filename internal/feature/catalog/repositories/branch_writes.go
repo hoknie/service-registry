@@ -19,7 +19,7 @@ func (s *BranchRepository) UpsertIngest(ctx context.Context, id, projectID uuid.
 			SELECT s
 			FROM unnest(b.sources || ARRAY['ingest']::text[]) s
 			GROUP BY s
-			ORDER BY array_position(ARRAY['forge', 'repository', 'ingest', 'cluster', 'manual']::text[], s)
+			ORDER BY array_position(ARRAY['repo_sync', 'repository', 'ingest', 'cluster', 'manual']::text[], s)
 		),
 			head_sha = CASE
 				WHEN $4::text IS NOT NULL AND ($5::timestamptz > b.last_activity_at OR b.head_sha IS NULL) THEN $4
@@ -29,16 +29,16 @@ func (s *BranchRepository) UpsertIngest(ctx context.Context, id, projectID uuid.
 	return err
 }
 
-func (s *BranchRepository) UpsertForge(ctx context.Context, id, projectID uuid.UUID, name string, head *string, protected *bool, committed *time.Time) error {
+func (s *BranchRepository) UpsertRepoSync(ctx context.Context, id, projectID uuid.UUID, name string, head *string, protected *bool, committed *time.Time) error {
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		INSERT INTO branches AS b (id, project_id, name, head_sha, protected, sources, last_activity_at)
-		VALUES ($1, $2, $3, $4, $5, ARRAY['forge'], COALESCE($6, now()))
+		VALUES ($1, $2, $3, $4, $5, ARRAY['repo_sync'], COALESCE($6, now()))
 		ON CONFLICT (project_id, name)
 		DO UPDATE SET sources = ARRAY(
 			SELECT s
-			FROM unnest(b.sources || ARRAY['forge']::text[]) s
+			FROM unnest(b.sources || ARRAY['repo_sync']::text[]) s
 			GROUP BY s
-			ORDER BY array_position(ARRAY['forge', 'repository', 'ingest', 'cluster', 'manual']::text[], s)
+			ORDER BY array_position(ARRAY['repo_sync', 'repository', 'ingest', 'cluster', 'manual']::text[], s)
 		), head_sha = COALESCE($4, b.head_sha), protected = COALESCE($5, b.protected),
 			last_activity_at = CASE
 				WHEN $6::timestamptz IS NOT NULL THEN GREATEST(b.last_activity_at, $6)
@@ -57,7 +57,7 @@ func (s *BranchRepository) UpsertCluster(ctx context.Context, id, projectID uuid
 			SELECT s
 			FROM unnest(b.sources || ARRAY['cluster']::text[]) s
 			GROUP BY s
-			ORDER BY array_position(ARRAY['forge', 'repository', 'ingest', 'cluster', 'manual']::text[], s)
+			ORDER BY array_position(ARRAY['repo_sync', 'repository', 'ingest', 'cluster', 'manual']::text[], s)
 		),
 			head_sha = CASE
 				WHEN $5::timestamptz IS NOT NULL AND $4::text IS NOT NULL THEN $4
@@ -99,7 +99,7 @@ func (s *BranchRepository) SyncRepository(ctx context.Context, projectID uuid.UU
 			SELECT s
 			FROM unnest(b.sources || ARRAY['repository']::text[]) s
 			GROUP BY s
-			ORDER BY array_position(ARRAY['forge', 'repository', 'ingest', 'cluster', 'manual']::text[], s)
+			ORDER BY array_position(ARRAY['repo_sync', 'repository', 'ingest', 'cluster', 'manual']::text[], s)
 		), head_sha = COALESCE(EXCLUDED.head_sha, b.head_sha),
 			last_activity_at = CASE
 				WHEN EXCLUDED.head_sha IS DISTINCT FROM b.head_sha THEN now()

@@ -7,21 +7,21 @@ descriptions — and shows them in one place:
 - search;
 - AI agents through MCP.
 
-Nothing has to run in your CI for this. Files are read through the forge's API or from a local folder.
+Nothing has to run in your CI for this. Files are read through the hosting's API or from a local folder.
 
 ## Sources
 
-A project synchronized from a forge ([forge-sync.md](forge-sync.md)) is collected from its repository
-automatically. Any project may also name its own **source**, which then wins over the forge. Set it in the new
+A project imported by repository sync ([repo-sync.md](repo-sync.md)) is collected from its repository
+automatically. Any project may also name its own **source**, which then wins over repository sync. Set it in the new
 project form ("Repository and documentation") or later under **Settings → Documentation settings → Source**:
 
-- **Repository by address** — a repository on GitHub, GitLab, Gitea or Forgejo, read through the forge's API.
+- **Repository** — a repository on GitHub, GitLab, Gitea or Forgejo, read through the hosting's API.
   - Pick a [secret](secrets.md) with a token, or none for a public repository; anonymous access hits low rate
     limits.
   - The address also becomes the project's repository link. SSH keys are not supported.
-- **Local directory** — files as they are on the server's disk. There is one branch, `local`, and a new snapshot
+- **Local folder** — files as they are on the server's disk. There is one branch, `local`, and a new snapshot
   whenever the content changes.
-- **Local git repository** — a working copy or a bare repository on the server's disk, read without the network.
+- **Local repository** — a working copy or a bare repository on the server's disk, read without the network.
   - **Include uncommitted files of the current branch** (on by default) reads the checked-out branch from the working
     copy: new and edited files are collected, deleted ones are not. Files ignored by `.gitignore` are skipped unless
     they are committed. Such a snapshot is marked *working copy*. Turn it off to collect commits only.
@@ -64,7 +64,7 @@ Each row of **Branches and tags** is a pattern with a kind:
 - **Branches** — `feat/*` collects every branch starting with `feat/`, `master` collects the branch `master`. The
   default branch is always collected.
 - **Tags** — `v*` or `v*-release` collects tags matching the mask. Tags come from remote and local git sources and
-  from projects synchronized with a forge; a local directory has none.
+  from projects imported by repository sync; a local directory has none.
 
 Only the `KNOWLEDGE_MAX_TAGS` newest matching tags are collected (10 by default, `0` turns tags off). A tag is newer
 when the first number group in its name is larger: `v0.10.0` is newer than `v0.9.3`. Tags without numbers count as
@@ -94,9 +94,9 @@ Settings saved before tags existed keep their extra branches as branch patterns.
   - **Deployment from CI** — CI reports a new deployment of the project ([ci-events.md](ci-events.md)); sending the
     same event again does not count;
   - **Deployment seen in a cluster** — a cluster records a version CI never reported ([kubernetes.md](kubernetes.md));
-  - **Forge webhook** — a forge synchronization started by a push webhook finds a new commit in one of the project's
+  - **Hosting webhook** — a repository sync started by a push webhook finds a new commit in one of the project's
     branches;
-  - **Manual forge sync** — the same for **Sync now** or the command line.
+  - **Manual repository sync** — the same for **Sync now** or the command line.
 
   Scheduled synchronizations never count. **Events** is inherited like the other fields and kept while the mode is
   **On a timer**. With no event selected, only the actions below start a collection.

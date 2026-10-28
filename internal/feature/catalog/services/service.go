@@ -29,7 +29,7 @@ type parts struct {
 	box                  *secretbox.Box
 	secretUsers          []catalogports.SecretUserPort
 	setDefaultBranch     *usecases.SetDefaultBranchUseCase
-	syncForgeBranches    *usecases.SyncForgeBranchesUseCase
+	syncHostingBranches  *usecases.SyncHostingBranchesUseCase
 	deleteBranch         *usecases.DeleteBranchUseCase
 	moveNode             *usecases.MoveNodeUseCase
 }
@@ -47,7 +47,7 @@ func newParts(d Deps) *parts {
 		box:                  d.Secrets,
 	}
 	p.setDefaultBranch = usecases.NewSetDefaultBranch(p.db, p.branchRepository)
-	p.syncForgeBranches = usecases.NewSyncForgeBranches(p.db, p.branchRepository)
+	p.syncHostingBranches = usecases.NewSyncHostingBranches(p.db, p.branchRepository)
 	p.deleteBranch = usecases.NewDeleteBranch(p.db, p.branchRepository)
 	p.moveNode = usecases.NewMoveNode(p.db, p.nodeRepository)
 	return p
@@ -109,7 +109,7 @@ func New(d Deps) *CatalogServices {
 		System: &SystemService{nodeRepository: p.nodeRepository, moveNode: p.moveNode, activityRepository: p.activityRepository,
 			staleDays: p.cfg.Branches.StaleDays},
 		BranchRecords: &BranchRecordsService{branchRepository: p.branchRepository, db: p.db, nodeRepository: p.nodeRepository,
-			setDefaultBranch: p.setDefaultBranch, syncForgeBranches: p.syncForgeBranches},
+			setDefaultBranch: p.setDefaultBranch, syncHostingBranches: p.syncHostingBranches},
 		Table: &TableService{nodeRepository: p.nodeRepository},
 	}
 	f.Access.system = f.System

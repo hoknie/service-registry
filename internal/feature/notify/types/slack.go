@@ -112,15 +112,15 @@ func summary(p Payload, m Messages) (string, []field) {
 			status += " (HTTP " + strconv.Itoa(*d.HTTPStatus) + ")"
 		}
 		return d.LinkKey + ": " + status, []field{{"link", d.URL}, {"status", status}, {"previous", d.PreviousStatus}}
-	case EventForgeSyncFailed, EventForgeRecovered:
-		var d ForgeData
+	case EventRepoSyncFailed, EventRepoSyncRecovered:
+		var d RepoSyncData
 		if json.Unmarshal(p.Data, &d) != nil {
 			return "", nil
 		}
-		if p.Type == EventForgeRecovered {
-			return d.Forge + " " + d.OwnerPath, []field{{"connection", d.Forge + " " + d.OwnerPath}}
+		if p.Type == EventRepoSyncRecovered {
+			return d.Hosting + " " + d.OwnerPath, []field{{"connection", d.Hosting + " " + d.OwnerPath}}
 		}
-		fields := []field{{"connection", d.Forge + " " + d.OwnerPath}}
+		fields := []field{{"connection", d.Hosting + " " + d.OwnerPath}}
 		fields = appendOpt(fields, "error", d.ErrorMessage)
 		code := ""
 		if d.ErrorCode != nil {

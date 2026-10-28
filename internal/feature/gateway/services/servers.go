@@ -13,7 +13,10 @@ import (
 	"svc-registry/internal/platform/apperr"
 )
 
-type ServersService struct{ parts }
+type ServersService struct {
+	parts
+	builtin *repositories.BuiltinRepository
+}
 
 type ServerQuery struct {
 	Query          string

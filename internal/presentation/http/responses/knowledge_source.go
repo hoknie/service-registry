@@ -23,7 +23,7 @@ func sourceCredentialsOf(c catalogtypes.Credentials) SourceCredentials {
 type KnowledgeSource struct {
 	Kind           string            `json:"kind"`
 	Origin         string            `json:"origin"`
-	Forge          *string           `json:"forge"`
+	Hosting        *string           `json:"hosting"`
 	URL            *string           `json:"url"`
 	APIURL         *string           `json:"api_url"`
 	Path           *string           `json:"path"`
@@ -41,7 +41,7 @@ func KnowledgeSourceOf(s *knowledgetypes.Source) *KnowledgeSource {
 	if origin == "" {
 		origin = knowledgetypes.OriginOwn
 	}
-	return &KnowledgeSource{Kind: string(s.Kind), Origin: origin, Forge: ptr.NonEmpty(s.Forge), URL: ptr.NonEmpty(s.URL), APIURL: ptr.NonEmpty(s.APIURL),
+	return &KnowledgeSource{Kind: string(s.Kind), Origin: origin, Hosting: ptr.NonEmpty(s.Hosting), URL: ptr.NonEmpty(s.URL), APIURL: ptr.NonEmpty(s.APIURL),
 		Path: ptr.NonEmpty(s.Path), Credentials: sourceCredentialsOf(s.Credentials),
 		WorkingTree: s.WorkingTree, IncludeIgnored: s.IncludeIgnored, UpdatedAt: s.UpdatedAt}
 }

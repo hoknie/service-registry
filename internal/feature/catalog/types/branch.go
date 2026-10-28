@@ -12,14 +12,14 @@ import (
 type BranchSource string
 
 const (
-	SourceForge      BranchSource = "forge"
+	SourceRepoSync   BranchSource = "repo_sync"
 	SourceRepository BranchSource = "repository"
 	SourceIngest     BranchSource = "ingest"
 	SourceCluster    BranchSource = "cluster"
 	SourceManual     BranchSource = "manual"
 )
 
-var BranchSources = []BranchSource{SourceForge, SourceRepository, SourceIngest, SourceCluster, SourceManual}
+var BranchSources = []BranchSource{SourceRepoSync, SourceRepository, SourceIngest, SourceCluster, SourceManual}
 
 type Branch struct {
 	ProjectID      uuid.UUID
@@ -64,7 +64,7 @@ func BranchFits(name string) bool {
 	return name != "" && utf8.RuneCountInString(name) <= MaxBranchLen
 }
 
-type ForgeBranch struct {
+type RepoSyncBranch struct {
 	Name        string
 	HeadSHA     string
 	Protected   *bool
@@ -137,7 +137,7 @@ type BranchHead struct {
 	Head *string
 }
 
-func HeadsMoved(known map[string]string, branches []ForgeBranch) bool {
+func HeadsMoved(known map[string]string, branches []RepoSyncBranch) bool {
 	for _, b := range branches {
 		if head := BranchSHA(&b.HeadSHA); head != nil && known[b.Name] != *head {
 			return true

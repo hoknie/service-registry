@@ -62,7 +62,7 @@ func TestAPIPathsFromSettings(t *testing.T) {
 func TestDefaultSettingsAreCopies(t *testing.T) {
 	s := DefaultSettings()
 	s.APIPaths[0] = "x"
-	s.RefreshEvents[0] = EventForgeManual
+	s.RefreshEvents[0] = EventRepoSyncManual
 	d := DefaultSettings()
 	if d.APIPaths[0] != DefaultAPIPaths[0] || DefaultAPIPaths[0] != "**/openapi*.{yaml,yml,json}" || d.RefreshEvents[0] != EventServiceDeployed {
 		t.Fatalf("defaults changed: %+v", d)
@@ -178,20 +178,20 @@ func TestMergeAPIPathsAndRefreshEvents(t *testing.T) {
 	events := func(e ...CollectEvent) *[]CollectEvent { return &e }
 	project := ChainNode{Name: "api"}
 	folder := ChainNode{Name: "backend"}
-	org := ChainNode{Name: "acme", Own: NodeSettings{APIPaths: list("**/*.proto"), RefreshEvents: events(EventForgeWebhook)}}
+	org := ChainNode{Name: "acme", Own: NodeSettings{APIPaths: list("**/*.proto"), RefreshEvents: events(EventRepoSyncWebhook)}}
 
 	s, from := Merge([]ChainNode{project, folder, org})
 	if strings.Join(s.APIPaths, ",") != "**/*.proto" || from.APIPaths != 2 || len(s.RefreshEvents) != 1 || from.RefreshEvents != 2 {
 		t.Fatalf("inherited: %+v %+v", s, from)
 	}
-	if !s.Listens(EventForgeWebhook) || s.Listens(EventServiceDeployed) {
+	if !s.Listens(EventRepoSyncWebhook) || s.Listens(EventServiceDeployed) {
 		t.Fatalf("listens: %+v", s.RefreshEvents)
 	}
 	folder.Own = NodeSettings{APIPaths: list("**/*.proto", "spec/**")}
 	project.Own = NodeSettings{RefreshEvents: &[]CollectEvent{}}
 	s, from = Merge([]ChainNode{project, folder, org})
 	if strings.Join(s.APIPaths, ",") != "**/*.proto,spec/**" || from.APIPaths != 1 || len(s.RefreshEvents) != 0 || s.RefreshEvents == nil ||
-		from.RefreshEvents != 0 || s.Listens(EventForgeWebhook) {
+		from.RefreshEvents != 0 || s.Listens(EventRepoSyncWebhook) {
 		t.Fatalf("overridden: %+v %+v", s, from)
 	}
 	project.Own = NodeSettings{APIPaths: &[]string{}}
@@ -206,13 +206,13 @@ func TestValidateNodeSettingsChecksTheSetFields(t *testing.T) {
 	hourly := Refresh("hourly")
 	for _, n := range []NodeSettings{{IncludeSet: true, Include: bad}, {Exclude: &bad}, {Refs: &[]RefPattern{{Pattern: "", Kind: RefBranch}}}, {Refresh: &hourly},
 		{APIPaths: &[]string{"api/[a-"}}, {APIPaths: &[]string{""}}, {RefreshEvents: &[]CollectEvent{"push"}},
-		{RefreshEvents: &[]CollectEvent{EventForgeWebhook, EventForgeWebhook}}} {
+		{RefreshEvents: &[]CollectEvent{EventRepoSyncWebhook, EventRepoSyncWebhook}}} {
 		if _, err := ValidateNodeSettings(n); !errors.Is(err, InvalidSettings) {
 			t.Errorf("%+v: %v", n, err)
 		}
 	}
 	for _, n := range []NodeSettings{{IncludeSet: true, Exclude: &[]string{}}, {APIPaths: &[]string{}}, {RefreshEvents: &[]CollectEvent{}},
-		{APIPaths: &[]string{"**/*.proto"}, RefreshEvents: &[]CollectEvent{EventForgeManual, EventServiceDeployed}}} {
+		{APIPaths: &[]string{"**/*.proto"}, RefreshEvents: &[]CollectEvent{EventRepoSyncManual, EventServiceDeployed}}} {
 		if _, err := ValidateNodeSettings(n); err != nil {
 			t.Fatalf("%+v: %v", n, err)
 		}

@@ -4,15 +4,15 @@ export const EVENT_TYPES = [
   "deployment.drift_resolved",
   "link.check_failed",
   "link.check_recovered",
-  "forge.sync_failed",
-  "forge.sync_recovered",
+  "repo_sync.failed",
+  "repo_sync.recovered",
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
 export const RECOVERY_OF: Partial<Record<EventType, EventType>> = {
   "deployment.drift": "deployment.drift_resolved",
   "link.check_failed": "link.check_recovered",
-  "forge.sync_failed": "forge.sync_recovered",
+  "repo_sync.failed": "repo_sync.recovered",
 };
 
 const RECOVERIES = new Set(Object.values(RECOVERY_OF));

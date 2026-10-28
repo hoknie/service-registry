@@ -46,11 +46,11 @@ export type ReadmeSource = {
   anchorLabel?: string;
 };
 
-type ForgeSource = ReadmeSource & { webUrl: string; kind: NonNullable<ReadmeSource["kind"]> };
+type RepoSyncSource = ReadmeSource & { webUrl: string; kind: NonNullable<ReadmeSource["kind"]> };
 
 const SCHEME = /^[a-z][a-z0-9+.-]*:/i;
 
-export function forgeBases(src: ForgeSource): { blob: string; raw: string } {
+export function hostingBases(src: RepoSyncSource): { blob: string; raw: string } {
   const root = src.webUrl.replace(/\/+$/, "");
   const branch = encodeURIComponent(src.branch ?? "HEAD").replace(/%2F/gi, "/");
   const dir = src.dir ? `${src.dir.split("/").map(encodeURIComponent).join("/")}/` : "";
@@ -167,7 +167,7 @@ export function renderReadme(markdown: string, src: ReadmeSource): string {
   const md = new MarkdownIt({ html: false, linkify: true });
   md.validateLink = allowed;
   extend(md, src);
-  const bases = src.webUrl && src.kind ? forgeBases(src as ForgeSource) : null;
+  const bases = src.webUrl && src.kind ? hostingBases(src as RepoSyncSource) : null;
   const rules = md.renderer.rules;
   const dropped: boolean[] = [];
   rules.link_open = (tokens, idx, options, _env, self) => {

@@ -199,7 +199,7 @@ func MissingRoots(paths, roots []string) []string {
 
 func KnowledgeSource(src Source) knowledgetypes.Source {
 	out := knowledgetypes.Source{Kind: knowledgetypes.SourceKind(src.Kind), WorkingTree: src.WorkingTree}
-	out.Forge, out.URL, out.APIURL, out.Path = value(src.Forge), value(src.URL), value(src.APIURL), value(src.Path)
+	out.Hosting, out.URL, out.APIURL, out.Path = value(src.Hosting), value(src.URL), value(src.APIURL), value(src.Path)
 	return out
 }
 

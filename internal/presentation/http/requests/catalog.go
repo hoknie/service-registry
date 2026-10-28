@@ -10,13 +10,13 @@ import (
 )
 
 type Repo struct {
-	Forge         *string `json:"forge"`
+	Hosting       *string `json:"hosting"`
 	RepoURL       *string `json:"repo_url"`
 	DefaultBranch *string `json:"default_branch"`
 }
 
 func (r Repo) input() catalogtypes.RepoInput {
-	return catalogtypes.RepoInput{Forge: r.Forge, RepoURL: r.RepoURL, DefaultBranch: r.DefaultBranch}
+	return catalogtypes.RepoInput{Hosting: r.Hosting, RepoURL: r.RepoURL, DefaultBranch: r.DefaultBranch}
 }
 
 func labels(raw json.RawMessage) *catalogtypes.LabelsInput {

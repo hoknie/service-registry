@@ -45,11 +45,11 @@ func (m *Metrics) AgentReport(accepted bool) {
 	m.agentReports.WithLabelValues(acceptance(accepted)).Inc()
 }
 
-func (m *Metrics) ForgeWebhook(accepted bool) {
+func (m *Metrics) RepoSyncWebhook(accepted bool) {
 	if m == nil {
 		return
 	}
-	m.forgeWebhooks.WithLabelValues(acceptance(accepted)).Inc()
+	m.repoSyncWebhooks.WithLabelValues(acceptance(accepted)).Inc()
 }
 
 func acceptance(ok bool) string {

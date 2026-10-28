@@ -40,7 +40,7 @@ func (s *NodesService) CreateNode(ctx context.Context, p accesstypes.Principal, 
 			return catalogtypes.Node{}, nil, err
 		}
 		if f, url, ok := src.Repo(); ok {
-			row.Repo.Forge, row.Repo.RepoURL = f, url
+			row.Repo.Hosting, row.Repo.RepoURL = f, url
 		}
 	}
 	node, err := s.insert(ctx, p, row)
@@ -230,7 +230,7 @@ func (s *NodesService) refuseManaged(ctx context.Context, id uuid.UUID) error {
 		return apperr.Wrap(err)
 	}
 	if managed[id] {
-		return apperr.Wrap(catalogtypes.ConflictManagedByForge)
+		return apperr.Wrap(catalogtypes.ConflictManagedByRepoSync)
 	}
 	return nil
 }

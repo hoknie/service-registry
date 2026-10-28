@@ -8,7 +8,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 
-	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/hostingfake"
 )
 
 func TestALocalDirectoryIsCollected(t *testing.T) {
@@ -67,43 +67,43 @@ func TestALocalGitRepositoryIsCollectedByBranch(t *testing.T) {
 	eq(t, a.get(knowledgePath(a.project), a.admin).json(t)["source"], any("local_git"))
 }
 
-func TestARemoteRepositoryIsCollectedThroughTheForge(t *testing.T) {
+func TestARemoteRepositoryIsCollectedThroughTheHosting(t *testing.T) {
 	t.Parallel()
 	a := startSources(t)
-	f := forgefake.Start(t, "github", forgeToken, "other")
-	f.Put(forgefake.Repo{ID: 1, Path: "other/api", DefaultBranch: "main", Files: map[string]string{"README.md": "# Remote"},
-		Branches: []forgefake.Branch{{Name: "main", SHA: sha(7)}}})
-	r := a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "remote", "forge": "github",
-		"url": "https://github.example/other/api", "api_url": f.APIURL(), "credentials": a.tokenOn(a.admin, a.org, forgeToken)})
+	f := hostingfake.Start(t, "github", hostingToken, "other")
+	f.Put(hostingfake.Repo{ID: 1, Path: "other/api", DefaultBranch: "main", Files: map[string]string{"README.md": "# Remote"},
+		Branches: []hostingfake.Branch{{Name: "main", SHA: sha(7)}}})
+	r := a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "remote", "hosting": "github",
+		"url": "https://github.example/other/api", "api_url": f.APIURL(), "credentials": a.tokenOn(a.admin, a.org, hostingToken)})
 	eq(t, r.status, 200, r.text())
 	a.collect()
 	eq(t, a.lastOf(a.project, "main", "commit_sha"), sha(7))
 	eq(t, a.get(knowledgePath(a.project)+"/file?path=README.md", a.admin).json(t)["content"], any("# Remote"))
 
-	g := forgefake.Start(t, "gitlab", "unused", "pub")
+	g := hostingfake.Start(t, "gitlab", "unused", "pub")
 	g.Anonymous = true
-	g.Put(forgefake.Repo{ID: 5, Path: "pub/site", DefaultBranch: "main", Files: map[string]string{"README.md": "# Public"},
-		Branches: []forgefake.Branch{{Name: "main", SHA: sha(8)}}})
+	g.Put(hostingfake.Repo{ID: 5, Path: "pub/site", DefaultBranch: "main", Files: map[string]string{"README.md": "# Public"},
+		Branches: []hostingfake.Branch{{Name: "main", SHA: sha(8)}}})
 	other := a.nodeID(a.admin, "project", a.org, "site")
-	r = a.send("PUT", sourcePath(other), a.admin, obj{"kind": "remote", "forge": "gitlab",
+	r = a.send("PUT", sourcePath(other), a.admin, obj{"kind": "remote", "hosting": "gitlab",
 		"url": "https://gitlab.example/pub/site", "api_url": g.APIURL() + "/api/v4", "credentials": nil})
 	eq(t, r.status, 200, r.text())
 	a.collect()
 	eq(t, a.lastOf(other, "main", "commit_sha"), sha(8))
-	r = a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "remote", "forge": "github",
+	r = a.send("PUT", sourcePath(a.project), a.admin, obj{"kind": "remote", "hosting": "github",
 		"url": "https://github.example/other/api", "api_url": f.APIURL(), "credentials": a.tokenOn(a.admin, a.org, "wrong")})
 	eq(t, r.status, 200)
 	a.collect()
-	eq(t, a.lastOf(a.project, "main", "error_code"), "forge.unauthorized")
+	eq(t, a.lastOf(a.project, "main", "error_code"), "hosting.unauthorized")
 }
 
-func TestASourceWinsOverTheForgeAndFailuresAreRecorded(t *testing.T) {
+func TestASourceWinsOverTheRepoSyncAndFailuresAreRecorded(t *testing.T) {
 	t.Parallel()
-	d := startDocs(t, map[string]string{"README.md": "from the forge"}, "KNOWLEDGE_LOCAL_ROOTS", t.TempDir())
+	d := startDocs(t, map[string]string{"README.md": "from the hosting"}, "KNOWLEDGE_LOCAL_ROOTS", t.TempDir())
 	roots := d.app.services.Config.Knowledge.LocalRoots
 	dir := filepath.Join(roots[0], "local")
 	writeFile(t, filepath.Join(dir, "README.md"), "from the disk")
-	eq(t, code(t, d.app.send("PUT", sourcePath(d.id), d.admin, obj{"kind": "local_dir", "path": dir})), any("conflict.managed_by_forge"))
+	eq(t, code(t, d.app.send("PUT", sourcePath(d.id), d.admin, obj{"kind": "local_dir", "path": dir})), any("conflict.managed_by_repo_sync"))
 	execSQL(t, d.app.db, "INSERT INTO knowledge_sources (project_id, kind, path) VALUES ($1, 'local_dir', $2)", d.id, dir)
 	execSQL(t, d.app.db, "UPDATE knowledge_settings SET next_run_at = now() WHERE project_id = $1", d.id)
 	eq(t, d.app.get(sourcePath(d.id), d.admin).json(t)["origin"], any("own"))
@@ -123,8 +123,8 @@ func TestASourceWinsOverTheForgeAndFailuresAreRecorded(t *testing.T) {
 	eq(t, d.last("local", "error_code"), "source.not_allowed")
 	eq(t, d.app.call("DELETE", sourcePath(d.id), d.admin).status, 204)
 	d.app.collect()
-	eq(t, d.app.get(knowledgePath(d.id), d.admin).json(t)["source"], any("forge"))
-	eq(t, d.app.get(knowledgePath(d.id)+"/file?path=README.md", d.admin).json(t)["content"], any("from the forge"))
+	eq(t, d.app.get(knowledgePath(d.id), d.admin).json(t)["source"], any("repo_sync"))
+	eq(t, d.app.get(knowledgePath(d.id)+"/file?path=README.md", d.admin).json(t)["content"], any("from the hosting"))
 }
 
 func TestLocalGitCollectsTheWorkingTreeOfTheCheckedOutBranch(t *testing.T) {

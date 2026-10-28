@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 
 import type { Locale } from "@/i18n/config";
 import type { KnowledgeSource, SourceKind } from "@/lib/api";
-import { guessForge, sourceApiUrl } from "@/lib/forgeAddress";
+import { guessHosting, sourceApiUrl } from "@/lib/hostingAddress";
 
 import { catalogHref } from "../catalog/shared";
 import { SecretPicker } from "../secrets/SecretPicker";
@@ -13,15 +13,15 @@ import { Checkbox, Field, Input } from "../ui/Field";
 import { Select } from "../ui/Select";
 import type { CatalogLabels } from "../catalog/shared";
 
-export const FORGES = ["github", "gitlab", "gitea", "forgejo"] as const;
+export const HOSTINGS = ["github", "gitlab", "gitea", "forgejo"] as const;
 export const SOURCE_KINDS: SourceKind[] = ["remote", "local_dir", "local_git"];
 
 export type SourceDraft = {
   kind: SourceKind;
-  forge: (typeof FORGES)[number];
+  hosting: (typeof HOSTINGS)[number];
   url: string;
   apiUrl: string;
-  forgeTouched: boolean;
+  hostingTouched: boolean;
   apiTouched: boolean;
   secret: string | null;
   current: string | null;
@@ -33,10 +33,10 @@ export type SourceDraft = {
 
 export const emptyDraft: SourceDraft = {
   kind: "remote",
-  forge: "gitlab",
+  hosting: "gitlab",
   url: "",
   apiUrl: "",
-  forgeTouched: false,
+  hostingTouched: false,
   apiTouched: false,
   secret: null,
   current: null,
@@ -48,14 +48,14 @@ export const emptyDraft: SourceDraft = {
 
 export function draftOf(s: KnowledgeSource | null): SourceDraft {
   if (!s) return emptyDraft;
-  const forge = s.forge ?? "gitlab";
+  const hosting = s.hosting ?? "gitlab";
   return {
     kind: s.kind,
-    forge,
+    hosting,
     url: s.url ?? "",
     apiUrl: s.api_url ?? "",
-    forgeTouched: s.forge !== null,
-    apiTouched: !!s.api_url && s.api_url !== sourceApiUrl(forge, s.url ?? ""),
+    hostingTouched: s.hosting !== null,
+    apiTouched: !!s.api_url && s.api_url !== sourceApiUrl(hosting, s.url ?? ""),
     secret: s.credentials.secret?.id ?? null,
     current: s.credentials.secret?.id ?? null,
     noToken: s.credentials.mode === "none",
@@ -70,26 +70,26 @@ export function sourceBody(d: SourceDraft): Record<string, unknown> {
     return { kind: d.kind, path: d.path, working_tree: d.workingTree, include_ignored: d.workingTree && d.includeIgnored };
   }
   if (d.kind !== "remote") return { kind: d.kind, path: d.path };
-  const out: Record<string, unknown> = { kind: d.kind, forge: d.forge, url: d.url, api_url: d.apiUrl };
+  const out: Record<string, unknown> = { kind: d.kind, hosting: d.hosting, url: d.url, api_url: d.apiUrl };
   if (d.noToken) out.credentials = null;
   else if (d.secret && d.secret !== d.current) out.credentials = { secret_id: d.secret };
   return out;
 }
 
-export function withRemote(d: SourceDraft, patch: Partial<Pick<SourceDraft, "forge" | "url" | "apiUrl">>): SourceDraft {
+export function withRemote(d: SourceDraft, patch: Partial<Pick<SourceDraft, "hosting" | "url" | "apiUrl">>): SourceDraft {
   const next = { ...d, ...patch };
-  if (patch.forge !== undefined) next.forgeTouched = true;
+  if (patch.hosting !== undefined) next.hostingTouched = true;
   if (patch.apiUrl !== undefined) next.apiTouched = true;
-  if (patch.url !== undefined && !next.forgeTouched) {
-    const guessed = guessForge(patch.url);
-    if (guessed) next.forge = guessed;
+  if (patch.url !== undefined && !next.hostingTouched) {
+    const guessed = guessHosting(patch.url);
+    if (guessed) next.hosting = guessed;
   }
-  if (!next.apiTouched && (patch.url !== undefined || patch.forge !== undefined)) next.apiUrl = sourceApiUrl(next.forge, next.url) ?? "";
+  if (!next.apiTouched && (patch.url !== undefined || patch.hosting !== undefined)) next.apiUrl = sourceApiUrl(next.hosting, next.url) ?? "";
   return next;
 }
 
 export function recomputeApi(d: SourceDraft): SourceDraft {
-  return { ...d, apiTouched: false, apiUrl: sourceApiUrl(d.forge, d.url) ?? "" };
+  return { ...d, apiTouched: false, apiUrl: sourceApiUrl(d.hosting, d.url) ?? "" };
 }
 
 export function secretChanged(d: SourceDraft): boolean {
@@ -140,10 +140,10 @@ export function SourceFields({
   }
   return (
     <>
-      <Field label={t.forge}>
+      <Field label={t.hosting}>
         {(p) => (
-          <Select {...p} value={value.forge} onChange={(e) => onChange(withRemote(value, { forge: e.target.value as SourceDraft["forge"] }))}>
-            {FORGES.map((f) => (
+          <Select {...p} value={value.hosting} onChange={(e) => onChange(withRemote(value, { hosting: e.target.value as SourceDraft["hosting"] }))}>
+            {HOSTINGS.map((f) => (
               <option key={f} value={f}>
                 {f}
               </option>

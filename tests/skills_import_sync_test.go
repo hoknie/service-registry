@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"svc-registry/pkg/testing/forgefake"
+	"svc-registry/pkg/testing/hostingfake"
 )
 
 func cyberSkill(name, subdomain string) string {
@@ -22,7 +22,7 @@ func TestSkillSourceReadsAnArchiveAndGroupsByField(t *testing.T) {
 	t.Parallel()
 	s := startSkillSyncWith(t, "SECRETS_KEYS", secretsKey)
 	acme := scalar[string](t, s.db, "SELECT id::text FROM nodes WHERE slug = 'acme'")
-	f := forgefake.Start(t, "github", forgeToken, "mukul975")
+	f := hostingfake.Start(t, "github", hostingToken, "mukul975")
 	files := map[string]string{
 		"README.md":                  cyberSkill("x", "y"),
 		"skills/volatility/SKILL.md": cyberSkill("volatility", "Digital Forensics"),
@@ -30,9 +30,9 @@ func TestSkillSourceReadsAnArchiveAndGroupsByField(t *testing.T) {
 		"skills/nmap/SKILL.md":       cyberSkill("nmap", "Network Security"),
 		"skills/plain/SKILL.md":      skillMD("plain", ""),
 	}
-	f.Put(forgefake.Repo{ID: 1, Path: "mukul975/cyber", Name: "cyber", Files: files})
-	src := s.source(obj{"kind": "remote", "forge": "github", "url": "https://github.com/mukul975/cyber/tree/main/skills",
-		"api_url": f.APIURL(), "credentials": s.tokenOn(s.admin, acme, forgeToken), "layout": "field", "group_field": "subdomain"})
+	f.Put(hostingfake.Repo{ID: 1, Path: "mukul975/cyber", Name: "cyber", Files: files})
+	src := s.source(obj{"kind": "remote", "hosting": "github", "url": "https://github.com/mukul975/cyber/tree/main/skills",
+		"api_url": f.APIURL(), "credentials": s.tokenOn(s.admin, acme, hostingToken), "layout": "field", "group_field": "subdomain"})
 	eq(t, src["url"], any("https://github.com/mukul975/cyber"))
 	eq(t, src["branch"], any("main"))
 	eq(t, jsonText(src["roots"]), `["skills"]`)
@@ -53,15 +53,15 @@ func TestSkillSourceReadsAnArchiveAndGroupsByField(t *testing.T) {
 	files["skills/nmap/SKILL.md"] = cyberSkill("nmap", "Web Security")
 	delete(files, "skills/volatility/SKILL.md")
 	delete(files, "skills/volatility/ref.md")
-	f.Put(forgefake.Repo{ID: 1, Path: "mukul975/cyber", Name: "cyber", Files: files,
-		Branches: []forgefake.Branch{{Name: "main", SHA: "2222222222222222222222222222222222222222"}}})
+	f.Put(hostingfake.Repo{ID: 1, Path: "mukul975/cyber", Name: "cyber", Files: files,
+		Branches: []hostingfake.Branch{{Name: "main", SHA: "2222222222222222222222222222222222222222"}}})
 	got = s.runSource(idOf(src))
 	eq(t, at(got, "last_run", "removed"), any(float64(1)), jsonText(got))
 	eq(t, s.get(skillPath(nmap), s.admin).json(t)["status"], any("disabled"))
 	eq(t, s.folderNames(s.folder), "Web Security")
 
-	f.Put(forgefake.Repo{ID: 1, Path: "mukul975/cyber", Name: "cyber", Files: files, NoArchive: true,
-		Branches: []forgefake.Branch{{Name: "main", SHA: "3333333333333333333333333333333333333333"}}})
+	f.Put(hostingfake.Repo{ID: 1, Path: "mukul975/cyber", Name: "cyber", Files: files, NoArchive: true,
+		Branches: []hostingfake.Branch{{Name: "main", SHA: "3333333333333333333333333333333333333333"}}})
 	got = s.runSource(idOf(src))
 	eq(t, at(got, "last_run", "status"), any("succeeded"), jsonText(got))
 	eq(t, f.Calls("blob") > 0, true, "falls back to reading files")

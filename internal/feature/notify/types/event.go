@@ -15,18 +15,18 @@ const (
 	EventDeploymentCreated EventType = "deployment.created"
 	EventDeploymentDrift   EventType = "deployment.drift"
 	EventLinkCheckFailed   EventType = "link.check_failed"
-	EventForgeSyncFailed   EventType = "forge.sync_failed"
+	EventRepoSyncFailed    EventType = "repo_sync.failed"
 	EventDriftResolved     EventType = "deployment.drift_resolved"
 	EventLinkRecovered     EventType = "link.check_recovered"
-	EventForgeRecovered    EventType = "forge.sync_recovered"
+	EventRepoSyncRecovered EventType = "repo_sync.recovered"
 	EventTest              EventType = "test"
 )
 
 var SubscribableEvents = []EventType{EventDeploymentCreated, EventDeploymentDrift, EventDriftResolved, EventLinkCheckFailed,
-	EventLinkRecovered, EventForgeSyncFailed, EventForgeRecovered}
+	EventLinkRecovered, EventRepoSyncFailed, EventRepoSyncRecovered}
 
 var RecoveryOf = map[EventType]EventType{EventDeploymentDrift: EventDriftResolved, EventLinkCheckFailed: EventLinkRecovered,
-	EventForgeSyncFailed: EventForgeRecovered}
+	EventRepoSyncFailed: EventRepoSyncRecovered}
 
 const MaxObserved = 50
 
@@ -87,9 +87,9 @@ type LinkData struct {
 	CheckedAt      string  `json:"checked_at"`
 }
 
-type ForgeData struct {
+type RepoSyncData struct {
 	ConnectionID uuid.UUID `json:"connection_id"`
-	Forge        string    `json:"forge"`
+	Hosting      string    `json:"hosting"`
 	OwnerPath    string    `json:"owner_path"`
 	RunID        uuid.UUID `json:"run_id"`
 	Trigger      string    `json:"trigger"`
@@ -115,7 +115,7 @@ func LinkKey(targetID, projectID uuid.UUID, linkKey string, checkID uuid.UUID) s
 	return "link:" + targetID.String() + ":" + projectID.String() + ":" + linkKey + ":" + checkID.String()
 }
 
-func ForgeKey(runID uuid.UUID) string { return "forge:" + runID.String() }
+func RepoSyncKey(runID uuid.UUID) string { return "repo_sync:" + runID.String() }
 
 func DriftEpisode(projectID uuid.UUID, service, environment string) string {
 	sum := sha256.Sum256([]byte(service + "\x00" + environment))
@@ -126,7 +126,7 @@ func LinkEpisode(targetID, projectID uuid.UUID, linkKey string) string {
 	return "link:" + targetID.String() + ":" + projectID.String() + ":" + linkKey
 }
 
-func ForgeEpisode(connectionID uuid.UUID) string { return "forge:" + connectionID.String() }
+func RepoSyncEpisode(connectionID uuid.UUID) string { return "repo_sync:" + connectionID.String() }
 
 func TestKey(id uuid.UUID) string { return "test:" + id.String() }
 

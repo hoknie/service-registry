@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	forgetypes "svc-registry/internal/feature/forge/types"
+	reposynctypes "svc-registry/internal/feature/reposync/types"
 )
 
 func TestNewSnapshotTotalsCountStoredAndSkipped(t *testing.T) {
@@ -86,14 +86,14 @@ func TestNewSourceRepoRecordDefaults(t *testing.T) {
 	pushed := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 	readme := "# hi"
 	license := "MIT"
-	bare := NewSourceRepoRecord(forgetypes.RemoteRepo{FullPath: "a/b"}, nil)
-	if bare.Repo.Topics == nil || bare.Languages == nil || bare.Repo.Visibility != forgetypes.VisibilityPublic ||
+	bare := NewSourceRepoRecord(reposynctypes.RemoteRepo{FullPath: "a/b"}, nil)
+	if bare.Repo.Topics == nil || bare.Languages == nil || bare.Repo.Visibility != reposynctypes.VisibilityPublic ||
 		bare.DefaultBranch != nil || bare.License != nil || bare.Details || bare.ChangedAt != nil || bare.Truncated != nil {
 		t.Fatalf("bare record = %+v", bare)
 	}
-	full := NewSourceRepoRecord(forgetypes.RemoteRepo{FullPath: "a/b", DefaultBranch: "main", License: "GPL", Visibility: forgetypes.VisibilityPrivate,
-		PushedAt: &pushed}, &forgetypes.Details{Readme: &readme, Truncated: true, License: &license, Languages: map[string]float64{"Go": 1}})
-	if !full.Details || *full.DefaultBranch != "main" || *full.License != "MIT" || full.Repo.Visibility != forgetypes.VisibilityPrivate ||
+	full := NewSourceRepoRecord(reposynctypes.RemoteRepo{FullPath: "a/b", DefaultBranch: "main", License: "GPL", Visibility: reposynctypes.VisibilityPrivate,
+		PushedAt: &pushed}, &reposynctypes.Details{Readme: &readme, Truncated: true, License: &license, Languages: map[string]float64{"Go": 1}})
+	if !full.Details || *full.DefaultBranch != "main" || *full.License != "MIT" || full.Repo.Visibility != reposynctypes.VisibilityPrivate ||
 		full.Readme != &readme || !*full.Truncated || full.Languages["Go"] != 1 || full.ChangedAt == nil {
 		t.Fatalf("full record = %+v", full)
 	}

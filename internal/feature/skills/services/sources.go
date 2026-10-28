@@ -28,7 +28,7 @@ type SourcesService struct {
 
 type SourceInput struct {
 	Kind         string
-	Forge        string
+	Hosting      string
 	URL          string
 	APIURL       string
 	Path         string
@@ -119,7 +119,7 @@ func (s *SourcesService) save(ctx context.Context, p accesstypes.Principal, src 
 func (s *SourcesService) validate(ctx context.Context, src skillstypes.Source, in SourceInput) (skillstypes.Source, error) {
 	link := skillstypes.LinkFields(in.Kind == string(knowledgetypes.SourceRemote), in.URL, in.Branch, in.Roots, in.Root)
 	in.URL, in.Branch, in.Roots = link.URL, link.Branch, link.Roots
-	v, err := knowledgetypes.ValidateSource(knowledgetypes.SourceInput{Kind: in.Kind, Forge: in.Forge, URL: in.URL, APIURL: in.APIURL,
+	v, err := knowledgetypes.ValidateSource(knowledgetypes.SourceInput{Kind: in.Kind, Hosting: in.Hosting, URL: in.URL, APIURL: in.APIURL,
 		Path: in.Path, SecretID: in.SecretID, WorkingTree: in.WorkingTree, HasCredential: in.SecretID != nil})
 	if err != nil {
 		return skillstypes.Source{}, err
@@ -152,7 +152,7 @@ func (s *SourcesService) validate(ctx context.Context, src skillstypes.Source, i
 		return skillstypes.Source{}, err
 	}
 	src.Kind, src.WorkingTree, src.SecretID = string(v.Kind), v.WorkingTree, v.SecretID
-	src.Forge, src.URL, src.APIURL, src.Path = optional(v.Forge), optional(v.URL), optional(v.APIURL), optional(v.Path)
+	src.Hosting, src.URL, src.APIURL, src.Path = optional(v.Hosting), optional(v.URL), optional(v.APIURL), optional(v.Path)
 	src.Branch, src.Roots, src.IntervalSecs, src.NewStatus, src.Versions, src.TagPattern = branch, roots, in.IntervalSecs, status, versions, pattern
 	src.Layout, src.GroupField = layout, field
 	return src, nil
@@ -290,3 +290,5 @@ func (s *SourcesService) ImportSource(ctx context.Context, p accesstypes.Princip
 	out, err := s.GetSource(ctx, p, sourceID)
 	return f, out, err
 }
+
+func (s *SourcesService) SyncIntervalSecs() int64 { return s.cfg.Skills.SyncIntervalSecs }

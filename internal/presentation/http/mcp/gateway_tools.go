@@ -52,13 +52,19 @@ func calledTool(r *http.Request) string {
 	return msg.Params.Name
 }
 
-func (t *tools) registerGateway(ctx context.Context, s *sdk.Server, called string) {
+func (t *tools) registerServerList(s *sdk.Server) {
 	if t.deps.Gateway == nil {
 		return
 	}
 	sdk.AddTool(s, &sdk.Tool{Name: "list_mcp_servers", Description: "External MCP servers available to you through this registry, " +
 		"with the prefix of their tools and the tool names. Their tools are listed by tools/list as <slug>__<tool>." + dataNote,
 		Annotations: &sdk.ToolAnnotations{ReadOnlyHint: true}}, observe(t, "list_mcp_servers", t.listServers))
+}
+
+func (t *tools) registerGateway(ctx context.Context, s *sdk.Server, called string) {
+	if t.deps.Gateway == nil {
+		return
+	}
 	offered, err := t.deps.Gateway.Gateway.Tools(ctx, t.p)
 	if err != nil {
 		offered = nil

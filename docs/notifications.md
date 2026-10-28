@@ -1,6 +1,6 @@
 # Notifications
 
-The registry can tell you when something happens: a new deployment, drift in a cluster, a broken link, a failed forge
+The registry can tell you when something happens: a new deployment, drift in a cluster, a broken link, a failed repository
 synchronization — and when it recovers. Messages go to a **webhook** of yours or to a **Slack** channel.
 
 ## Subscribing
@@ -17,7 +17,7 @@ Subscriptions live on organizations, folders and projects and cover everything b
 | Channel | webhook or Slack |
 | Address secret | the secret with the receiver's address |
 | Events | which events to send (below). A recovery can be chosen only together with its failure |
-| Environments | empty means all. Link and forge events have no environment and always pass |
+| Environments | empty means all. Link and repository sync events have no environment and always pass |
 | Language | `en`, `es`, `ru` or `zh` — the language of Slack messages and of the link back to the registry |
 | Disabled | sends nothing and switches off an inherited subscription with the same key |
 
@@ -33,11 +33,11 @@ Subscriptions live on organizations, folders and projects and cover everything b
 | `deployment.drift_resolved` | the drift you were told about is gone |
 | `link.check_failed` | a link that worked stops working. The first check of an address and forbidden addresses never notify |
 | `link.check_recovered` | a broken link you were told about works again |
-| `forge.sync_failed` | a forge synchronization fails after one that did not. Hitting the forge's rate limit is not a failure |
-| `forge.sync_recovered` | a synchronization succeeds after a failure you were told about |
+| `repo_sync.failed` | a repository sync fails after one that did not. Hitting the hosting's rate limit is not a failure |
+| `repo_sync.recovered` | a synchronization succeeds after a failure you were told about |
 
-**No repeats.** A failure opens an *episode*: the drift of one service and environment, one broken link, one forge
-connection. While the episode is open, the same failure is not sent again. Its recovery closes it, and the next
+**No repeats.** A failure opens an *episode*: the drift of one service and environment, one broken link, one repository
+sync connection. While the episode is open, the same failure is not sent again. Its recovery closes it, and the next
 failure is sent again.
 
 **Recoveries.** A recovery goes only to subscriptions that received the failure and chose the recovery event.
@@ -70,10 +70,14 @@ without `PUBLIC_URL`. `data` by event:
 | `deployment.drift` | the service, environment and current version, what clusters run (`observed`) and since when |
 | `deployment.drift_resolved` | the current release and when the drift started |
 | `link.check_failed`, `link.check_recovered` | the link, its address, the new and the previous state |
-| `forge.sync_failed`, `forge.sync_recovered` | the connection, the forge, the owner, the run and its error |
+| `repo_sync.failed`, `repo_sync.recovered` | the connection, the hosting (`hosting`), the owner, the run and its error |
 | `test` | the subscription |
 
 A recovery also carries `"recovers"` — the id of the failure message it closes.
+
+Older versions sent `forge.sync_failed` and `forge.sync_recovered` with the field `forge` and error codes `forge.*`.
+They are now `repo_sync.failed` and `repo_sync.recovered` with the field `hosting` and codes `hosting.*`
+(`repo_sync.interrupted` for an interrupted run); existing subscriptions are switched over on upgrade.
 
 ## Checking the signature
 

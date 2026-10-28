@@ -76,7 +76,7 @@ func ServeUntil(ctx context.Context, cfg config.Config) error {
 	jobs.SpawnLoginStateRetention(tasks, deps)
 	jobs.SpawnOAuthRetention(tasks, deps)
 	jobs.SpawnInvitationRetention(tasks, deps)
-	forgeDone := jobs.SpawnForgeSync(tasks, deps)
+	repoSyncDone := jobs.SpawnRepoSync(tasks, deps)
 	linksDone := jobs.SpawnLinkChecks(tasks, deps)
 	clustersDone := jobs.SpawnClusterPolls(tasks, deps)
 	knowledgeDone := jobs.SpawnKnowledgeCollection(tasks, deps)
@@ -108,9 +108,9 @@ func ServeUntil(ctx context.Context, cfg config.Config) error {
 		shutdown, cancel := context.WithTimeout(context.Background(), grace)
 		defer cancel()
 		select {
-		case <-forgeDone:
+		case <-repoSyncDone:
 		case <-shutdown.Done():
-			slog.Warn("shutdown grace period elapsed; forge sync still stopping")
+			slog.Warn("shutdown grace period elapsed; repository sync still stopping")
 		}
 		select {
 		case <-linksDone:

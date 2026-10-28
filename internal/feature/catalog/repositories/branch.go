@@ -109,12 +109,12 @@ func (s *BranchRepository) Heads(ctx context.Context, projectID uuid.UUID) (map[
 		WHERE project_id = $1`, projectID)
 }
 
-func (s *BranchRepository) MarkForgeGone(ctx context.Context, projectID uuid.UUID, kept []string) error {
+func (s *BranchRepository) MarkRepoSyncGone(ctx context.Context, projectID uuid.UUID, kept []string) error {
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		UPDATE branches
 		SET gone_at = now(), updated_at = now()
 		WHERE project_id = $1
-			AND 'forge' = ANY(sources)
+			AND 'repo_sync' = ANY(sources)
 			AND gone_at IS NULL
 			AND NOT (name = ANY($2::text[]))`, projectID, kept)
 	return err
@@ -163,7 +163,7 @@ func (s *BranchRepository) Prune(ctx context.Context, retentionDays, staleDays u
 				AND NOT is_default
 				AND (
 					gone_at < now() - make_interval(days => $1::int)
-					OR (NOT sources && ARRAY['forge', 'repository'] AND last_activity_at < now() - make_interval(days => $1::int + $2::int))
+					OR (NOT sources && ARRAY['repo_sync', 'repository'] AND last_activity_at < now() - make_interval(days => $1::int + $2::int))
 				)
 			RETURNING project_id, name
 		),
