@@ -1,6 +1,7 @@
 "use client";
 
 import { GitBranch, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import type { Locale } from "@/i18n/config";
@@ -19,6 +20,7 @@ import { loadFolder } from "@/lib/skillsApi";
 
 import { bodyOf, draftOf, emptyDraft, SourceFields, type Draft } from "./SourceForm";
 
+import { catalogHref } from "../catalog/shared";
 import { useUiText } from "../UiText";
 import { Badge, type Tone } from "../ui/Badge";
 import { Button } from "../ui/Button";
@@ -35,6 +37,7 @@ const stateTone: Record<SkillSource["state"], Tone> = {
   running: "signal",
   idle: "neutral",
   failed: "danger",
+  paused: "amber",
 };
 
 export function SourcesView({ locale, labels: t, folderId }: Props) {
@@ -211,6 +214,17 @@ export function SourcesView({ locale, labels: t, folderId }: Props) {
             <div className="grid gap-2 text-sm">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone={stateTone[src.state]}>{s.state[src.state]}</Badge>
+                {src.state === "paused" && src.paused_reason && (
+                  <span className="text-ink-2">
+                    {src.paused_reason === "polling_off" && folder?.organization_id ? (
+                      <Link href={catalogHref(locale, folder.organization_id, "settings", null, null, "polling")} className="hover:underline">
+                        {s.pausedReason[src.paused_reason]}
+                      </Link>
+                    ) : (
+                      s.pausedReason[src.paused_reason]
+                    )}
+                  </span>
+                )}
                 {src.next_run_at && src.state !== "running" && (
                   <span className="text-muted">
                     {format(s.nextRun, {

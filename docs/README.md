@@ -25,6 +25,7 @@
 |---|---|
 | [ci-events.md](ci-events.md) | reporting deployments from CI: what to send, links and dependencies of a rollout |
 | [repo-sync.md](repo-sync.md) | importing repositories from GitHub, GitLab, Forgejo or Gitea; webhooks |
+| [repository-polling.md](repository-polling.md) | how often and how long repositories are polled, per organization, folder and project; pausing polling |
 | [kubernetes.md](kubernetes.md) | polling clusters, annotations, drift, the agent for isolated clusters |
 | [sign-in.md](sign-in.md) | signing in through OIDC providers and GitLab; groups from the provider |
 | [mcp.md](mcp.md) | the MCP server for AI agents, with a token or over OAuth |

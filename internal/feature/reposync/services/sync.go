@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	pollingtypes "svc-registry/internal/feature/polling/types"
 	reposyncports "svc-registry/internal/feature/reposync/ports"
 	reposynctypes "svc-registry/internal/feature/reposync/types"
 	"svc-registry/internal/platform/apperr"
@@ -27,6 +28,12 @@ func (s *SyncService) ExtendRepoSyncRun(ctx context.Context, c reposynctypes.Cla
 }
 
 func (s *SyncService) RunClaimedSync(ctx context.Context, c reposynctypes.Claimed) error {
+	if c.Trigger == reposynctypes.TriggerSchedule || c.Trigger == reposynctypes.TriggerWebhook {
+		paused, err := s.postponeIfPaused(ctx, c.ID)
+		if err != nil || paused {
+			return err
+		}
+	}
 	run, err := s.runSync(ctx, c.ID, c.Trigger)
 	if err != nil {
 		slog.Error("repository sync failed", "connection", c.ID, "error", err)
@@ -76,18 +83,19 @@ func (s *SyncService) runSync(ctx context.Context, id uuid.UUID, trigger reposyn
 	keep := context.WithoutCancel(ctx)
 	run, err := s.runRepository.Start(keep, reposynctypes.NewRun{ID: uuid.Must(uuid.NewV7()), ConnectionID: id, Trigger: trigger})
 	if err != nil {
-		_ = s.connectionRepository.Release(keep, id, nil)
+		_ = s.connectionRepository.Release(keep, id, nil, int(s.cfg.Jobs.RepoSyncIntervalSecs))
 		return reposynctypes.Run{}, err
 	}
 	conn, err := s.connectionRepository.Find(keep, id)
 	if err != nil || conn == nil {
 		return run, err
 	}
-	res, next := s.synchronize(ctx, *conn, trigger)
+	eff := s.effective(keep, conn.NodeID)
+	res, next := s.synchronize(ctx, *conn, trigger, eff)
 	if err := s.finishRun(keep, *conn, run, res); err != nil {
 		return run, err
 	}
-	if err := s.connectionRepository.Release(keep, id, next); err != nil {
+	if err := s.connectionRepository.Release(keep, id, next, s.intervalSecs(*conn, eff)); err != nil {
 		return run, err
 	}
 	run.Status, run.Counts, run.ErrorCode, run.ErrorMessage, run.Problems = res.Status, res.Counts, res.ErrorCode, res.ErrorMessage, res.Problems
@@ -118,7 +126,7 @@ func failedWith(res reposynctypes.RunResult, err error) (reposynctypes.RunResult
 	return res, nil
 }
 
-func (s *SyncService) clientFor(ctx context.Context, conn reposynctypes.Connection) (reposyncports.ClientPort, error) {
+func (s *SyncService) clientFor(ctx context.Context, conn reposynctypes.Connection, timeout time.Duration) (reposyncports.ClientPort, error) {
 	sec, err := s.connectionRepository.Secrets(ctx, conn.ID)
 	if err != nil {
 		return nil, err
@@ -137,7 +145,7 @@ func (s *SyncService) clientFor(ctx context.Context, conn reposynctypes.Connecti
 		slog.Warn("hosting credentials unavailable", "connection", conn.ID, "error", err)
 		return nil, reposynctypes.ErrCredentialsUnavailable
 	}
-	return s.clients.New(reposynctypes.Endpoint{Kind: conn.Kind, APIURL: conn.APIURL, Owner: conn.OwnerPath, Token: token})
+	return s.clients.New(reposynctypes.Endpoint{Kind: conn.Kind, APIURL: conn.APIURL, Owner: conn.OwnerPath, Token: token, Timeout: timeout})
 }
 
 func settingsOf(c reposynctypes.Connection) reposynctypes.Settings {
@@ -175,7 +183,7 @@ func (s *SyncService) remoteState(ctx context.Context, conn reposynctypes.Connec
 	return targets, orphans, nil
 }
 
-func (s *SyncService) synchronize(ctx context.Context, conn reposynctypes.Connection, trigger reposynctypes.Trigger) (reposynctypes.RunResult, *time.Time) {
+func (s *SyncService) synchronize(ctx context.Context, conn reposynctypes.Connection, trigger reposynctypes.Trigger, eff pollingtypes.Effective) (reposynctypes.RunResult, *time.Time) {
 	res := reposynctypes.RunResult{Status: reposynctypes.RunSucceeded}
 	failed := func(res reposynctypes.RunResult, err error) (reposynctypes.RunResult, *time.Time) {
 		if ctx.Err() != nil {
@@ -183,7 +191,7 @@ func (s *SyncService) synchronize(ctx context.Context, conn reposynctypes.Connec
 		}
 		return failedWith(res, err)
 	}
-	client, err := s.clientFor(ctx, conn)
+	client, err := s.clientFor(ctx, conn, eff.Timeout())
 	if err != nil {
 		return failed(res, err)
 	}

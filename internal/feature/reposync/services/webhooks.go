@@ -54,7 +54,7 @@ func (s *HooksService) SetupWebhook(ctx context.Context, p accesstypes.Principal
 	var client reposyncports.ClientPort
 	needClient := mode == reposynctypes.WebhookRegister || (prev != nil && prev.WebhookID != nil)
 	if needClient {
-		if client, err = s.sync.clientFor(ctx, c); err != nil {
+		if client, err = s.sync.clientFor(ctx, c, s.sync.effective(ctx, c.NodeID).Timeout()); err != nil {
 			return WebhookSetup{}, apperr.Wrap(err)
 		}
 	}
@@ -91,7 +91,7 @@ func (s *HooksService) DeleteWebhook(ctx context.Context, p accesstypes.Principa
 		return apperr.Wrap(err)
 	}
 	if sec != nil && sec.WebhookID != nil {
-		client, err := s.sync.clientFor(ctx, c)
+		client, err := s.sync.clientFor(ctx, c, s.sync.effective(ctx, c.NodeID).Timeout())
 		if err != nil {
 			return apperr.Wrap(err)
 		}

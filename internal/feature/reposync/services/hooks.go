@@ -36,6 +36,9 @@ func (s *HooksService) AcceptDelivery(ctx context.Context, rawID string, header 
 	if err != nil || !s.clients.VerifyDelivery(conn.Kind, secret, header, body) {
 		return refused
 	}
+	if s.sync.effective(ctx, conn.NodeID).Off() {
+		return nil
+	}
 	return apperr.Wrap(s.connectionRepository.ScheduleNow(ctx, id, reposynctypes.TriggerWebhook))
 }
 

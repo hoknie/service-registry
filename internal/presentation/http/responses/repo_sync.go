@@ -84,7 +84,9 @@ type Connection struct {
 	NameInclude     []string    `json:"name_include"`
 	NameExclude     []string    `json:"name_exclude"`
 	BranchInclude   []string    `json:"branch_include"`
-	IntervalSecs    int         `json:"interval_secs"`
+	IntervalSecs    *int        `json:"interval_secs"`
+	EffectiveSecs   int         `json:"effective_interval_secs"`
+	Paused          bool        `json:"paused"`
 	Credentials     Credentials `json:"credentials"`
 	Webhook         *Webhook    `json:"webhook"`
 	LastRun         *Run        `json:"last_run"`
@@ -99,6 +101,7 @@ func ConnectionOf(v reposyncservices.ConnectionView) Connection {
 		ID: c.ID, NodeID: c.NodeID, Kind: string(c.Kind), APIURL: c.APIURL, OwnerPath: c.OwnerPath,
 		MirrorSubgroups: c.MirrorSubgroups, IncludeArchived: c.IncludeArchived, IncludeForks: c.IncludeForks,
 		NameInclude: nonNil(c.NameInclude), NameExclude: nonNil(c.NameExclude), BranchInclude: nonNil(c.BranchInclude), IntervalSecs: c.IntervalSecs,
+		EffectiveSecs: v.EffectiveIntervalSecs, Paused: v.Paused,
 		Credentials: CredentialsOf(c.Credentials),
 		NextRunAt:   c.NextRunAt, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
 	}

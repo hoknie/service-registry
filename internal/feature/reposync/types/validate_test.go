@@ -6,20 +6,20 @@ import (
 )
 
 func TestCreateDefaultsAndNormalization(t *testing.T) {
-	s, err := ValidateCreate(CreateConnection{Kind: "github", OwnerPath: " acme-inc "}, 900)
+	s, err := ValidateCreate(CreateConnection{Kind: "github", OwnerPath: " acme-inc "})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Settings{Kind: KindGithub, APIURL: "https://api.github.com", OwnerPath: "acme-inc", IntervalSecs: 900,
+	want := Settings{Kind: KindGithub, APIURL: "https://api.github.com", OwnerPath: "acme-inc",
 		NameInclude: []string{}, NameExclude: []string{}, BranchInclude: []string{}}
 	if !reflect.DeepEqual(s, want) {
 		t.Fatalf("%+v", s)
 	}
-	g, err := ValidateCreate(CreateConnection{Kind: "gitlab", OwnerPath: "/acme/platform/", APIURL: new("https://git.example.com/"), IntervalSecs: new(int64(60))}, 900)
-	if err != nil || g.OwnerPath != "acme/platform" || g.APIURL != "https://git.example.com" || !g.MirrorSubgroups || g.IntervalSecs != 60 {
+	g, err := ValidateCreate(CreateConnection{Kind: "gitlab", OwnerPath: "/acme/platform/", APIURL: new("https://git.example.com/"), IntervalSecs: new(int64(60))})
+	if err != nil || g.OwnerPath != "acme/platform" || g.APIURL != "https://git.example.com" || !g.MirrorSubgroups || g.IntervalSecs == nil || *g.IntervalSecs != 60 {
 		t.Fatalf("%+v %v", g, err)
 	}
-	f, _ := ValidateCreate(CreateConnection{Kind: "forgejo", OwnerPath: "acme", APIURL: new("https://code.example"), MirrorSubgroups: new(true)}, 900)
+	f, _ := ValidateCreate(CreateConnection{Kind: "forgejo", OwnerPath: "acme", APIURL: new("https://code.example"), MirrorSubgroups: new(true)})
 	if f.MirrorSubgroups {
 		t.Error("mirror kept for forgejo")
 	}
@@ -44,7 +44,7 @@ func TestCreateRules(t *testing.T) {
 		{CreateConnection{Kind: "github", OwnerPath: "a", IntervalSecs: new(int64(86401))}, InvalidInterval},
 	}
 	for _, tt := range tests {
-		if _, err := ValidateCreate(tt.in, 900); err != tt.want {
+		if _, err := ValidateCreate(tt.in); err != tt.want {
 			t.Errorf("%+v: got %v, want %v", tt.in, err, tt.want)
 		}
 	}
@@ -52,9 +52,18 @@ func TestCreateRules(t *testing.T) {
 
 func TestUpdateKeepsWhatIsNotSent(t *testing.T) {
 	cur := Connection{Kind: KindGitlab, APIURL: "https://gitlab.com", OwnerPath: "acme", MirrorSubgroups: true,
-		NameInclude: []string{"svc-*"}, NameExclude: []string{}, IntervalSecs: 900}
+		NameInclude: []string{"svc-*"}, NameExclude: []string{}, IntervalSecs: new(900)}
 	s, err := ValidateUpdate(cur, UpdateConnection{IncludeArchived: new(true)})
-	if err != nil || !s.IncludeArchived || !s.MirrorSubgroups || s.NameInclude[0] != "svc-*" || s.IntervalSecs != 900 {
+	if err != nil || !s.IncludeArchived || !s.MirrorSubgroups || s.NameInclude[0] != "svc-*" || s.IntervalSecs == nil || *s.IntervalSecs != 900 {
+		t.Fatalf("%+v %v", s, err)
+	}
+}
+
+func TestUpdateClearsInterval(t *testing.T) {
+	cur := Connection{Kind: KindGithub, APIURL: "https://api.github.com", OwnerPath: "acme", NameInclude: []string{},
+		NameExclude: []string{}, IntervalSecs: new(600)}
+	s, err := ValidateUpdate(cur, UpdateConnection{ClearInterval: true})
+	if err != nil || s.IntervalSecs != nil {
 		t.Fatalf("%+v %v", s, err)
 	}
 }

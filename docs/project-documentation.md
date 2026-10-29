@@ -88,7 +88,8 @@ Settings saved before tags existed keep their extra branches as branch patterns.
 
 **Refresh** picks one of two modes, inherited like the other fields:
 
-- **On a timer** (the default). Every project is checked every `KNOWLEDGE_INTERVAL_SECS` (5 minutes). A branch whose
+- **On a timer** (the default). Every project is checked once per polling period of the project
+  ([repository-polling.md](repository-polling.md); `KNOWLEDGE_INTERVAL_SECS`, 5 minutes, by default). A branch whose
   newest commit changed gets a new snapshot. Events do not trigger anything extra.
 - **On events.** There is no timer. A collection starts within seconds after an event selected in **Events**:
   - **Deployment from CI** — CI reports a new deployment of the project ([ci-events.md](ci-events.md)); sending the
@@ -105,6 +106,9 @@ In both modes these start a collection too:
 - **Collect now** on the **Documentation** tab;
 - changing the documentation settings;
 - saving the source.
+
+Polling turned off for the project, or **Only published documentation** for a project that is not published, stops both
+modes; only **Collect now** collects then ([repository-polling.md](repository-polling.md)).
 
 Events that arrive during a collection queue exactly one more. A project on events that gets no events is not
 refreshed: a local directory without CI is collected only by **Collect now**.

@@ -20,12 +20,12 @@ var (
 	ownerSegment = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
 )
 
-func ValidateCreate(in CreateConnection, defaultInterval int) (Settings, error) {
+func ValidateCreate(in CreateConnection) (Settings, error) {
 	kind, ok := ParseKind(strings.TrimSpace(in.Kind))
 	if !ok {
 		return Settings{}, InvalidKind
 	}
-	s := Settings{Kind: kind, MirrorSubgroups: kind == KindGitlab, IntervalSecs: defaultInterval,
+	s := Settings{Kind: kind, MirrorSubgroups: kind == KindGitlab,
 		NameInclude: []string{}, NameExclude: []string{}, BranchInclude: []string{}}
 	apply(&s, UpdateConnection{
 		APIURL: in.APIURL, OwnerPath: &in.OwnerPath, MirrorSubgroups: in.MirrorSubgroups,
@@ -47,6 +47,9 @@ func ValidateUpdate(current Connection, in UpdateConnection) (Settings, error) {
 		NameExclude: current.NameExclude, BranchInclude: current.BranchInclude, IntervalSecs: current.IntervalSecs,
 	}
 	apply(&s, in)
+	if in.ClearInterval {
+		s.IntervalSecs = nil
+	}
 	return s, check(&s, in.IntervalSecs)
 }
 
@@ -82,7 +85,7 @@ func check(s *Settings, interval *int64) error {
 		if *interval < MinInterval || *interval > MaxInterval {
 			return InvalidInterval
 		}
-		s.IntervalSecs = int(*interval)
+		s.IntervalSecs = new(int(*interval))
 	}
 	api, err := validateAPIURL(s.APIURL)
 	if err != nil {

@@ -17,6 +17,7 @@ import (
 	membershipservices "svc-registry/internal/feature/membership/services"
 	notifyservices "svc-registry/internal/feature/notify/services"
 	ownershipservices "svc-registry/internal/feature/ownership/services"
+	pollingservices "svc-registry/internal/feature/polling/services"
 	publishingservices "svc-registry/internal/feature/publishing/services"
 	reposyncservices "svc-registry/internal/feature/reposync/services"
 	skillsservices "svc-registry/internal/feature/skills/services"
@@ -41,6 +42,7 @@ type Handlers struct {
 	Apis       *apisservices.ApisServices
 	Compose    *composeservices.ComposeServices
 	Publishing *publishingservices.PublishingServices
+	Polling    *pollingservices.PollingServices
 	Skills     *skillsservices.SkillsServices
 	Gateway    *gatewayservices.GatewayServices
 	Membership *membershipservices.MembershipServices

@@ -231,7 +231,16 @@ type Source struct {
 	ConfigChangedAt string
 	CreatedAt       string
 	UpdatedAt       string
+	PausedReason    *string
+	Requested       bool
+	EffectiveSecs   int
 }
+
+const (
+	PausedFolderDisabled = "folder_disabled"
+	PausedSkillsDisabled = "skills_disabled"
+	PausedPollingOff     = "polling_off"
+)
 
 type Run struct {
 	StartedAt  string    `json:"started_at"`
@@ -269,6 +278,10 @@ func (s Source) State() string {
 	switch {
 	case s.Running:
 		return "running"
+	case s.NextRunAt != nil && s.Due && s.Requested:
+		return "queued"
+	case s.PausedReason != nil:
+		return "paused"
 	case s.NextRunAt != nil && s.Due:
 		return "queued"
 	case s.LastRun != nil && s.LastRun.Status == RunFailed:

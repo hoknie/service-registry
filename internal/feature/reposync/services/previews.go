@@ -25,7 +25,7 @@ func (s *PreviewsService) PreviewConnection(ctx context.Context, p accesstypes.P
 	if err != nil {
 		return nil, err
 	}
-	client, err := s.sync.clientFor(ctx, c)
+	client, err := s.sync.clientFor(ctx, c, s.sync.effective(ctx, c.NodeID).Timeout())
 	if err != nil {
 		return nil, apperr.Wrap(err)
 	}

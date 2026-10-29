@@ -53,14 +53,13 @@ func New(o Options) *http.Client {
 	roots := o.RootCAs()
 	timeout := o.Timeout
 	transport := &http.Transport{
-		Proxy:                 o.ProxyFunc(),
-		DialContext:           (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
-		TLSClientConfig:       &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12},
-		TLSHandshakeTimeout:   10 * time.Second,
-		ResponseHeaderTimeout: timeout,
-		IdleConnTimeout:       90 * time.Second,
-		MaxIdleConnsPerHost:   4,
-		ForceAttemptHTTP2:     true,
+		Proxy:               o.ProxyFunc(),
+		DialContext:         (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
+		TLSClientConfig:     &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12},
+		TLSHandshakeTimeout: 10 * time.Second,
+		IdleConnTimeout:     90 * time.Second,
+		MaxIdleConnsPerHost: 4,
+		ForceAttemptHTTP2:   true,
 	}
 	return &http.Client{Transport: transport, Timeout: timeout}
 }

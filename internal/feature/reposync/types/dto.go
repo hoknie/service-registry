@@ -32,6 +32,7 @@ type UpdateConnection struct {
 	NameExclude     *[]string
 	BranchInclude   *[]string
 	IntervalSecs    *int64
+	ClearInterval   bool
 	Credentials     *catalogtypes.CredentialsInput
 }
 
@@ -45,7 +46,7 @@ type Settings struct {
 	NameInclude     []string
 	NameExclude     []string
 	BranchInclude   []string
-	IntervalSecs    int
+	IntervalSecs    *int
 }
 
 type NewConnection struct {

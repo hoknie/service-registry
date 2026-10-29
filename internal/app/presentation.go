@@ -15,7 +15,7 @@ import (
 func (a *App) Router(dist webui.Dist) *fiber.App {
 	return apphttp.NewRouter(apphttp.Deps{Config: a.Config, Readiness: databaseReadiness{a}, Version: Version, Access: a.Access, Catalog: a.Catalog,
 		Links: a.Links, Ingest: a.Ingest, RepoSync: a.RepoSync, Deploy: a.Deploy, Knowledge: a.Knowledge,
-		Ownership: a.Ownership, Notify: a.Notify, Topology: a.Topology, Apis: a.Apis, Compose: a.Compose, Publishing: a.Publishing, Skills: a.Skills, Gateway: a.Gateway, Membership: a.Membership, Metrics: a.Metrics}, dist)
+		Ownership: a.Ownership, Notify: a.Notify, Topology: a.Topology, Apis: a.Apis, Compose: a.Compose, Publishing: a.Publishing, Polling: a.Polling, Skills: a.Skills, Gateway: a.Gateway, Membership: a.Membership, Metrics: a.Metrics}, dist)
 }
 
 func (a *App) Jobs() jobs.Deps {

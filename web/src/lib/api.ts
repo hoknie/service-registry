@@ -200,7 +200,9 @@ export type RepoSyncConnection = {
   name_include: string[];
   name_exclude: string[];
   branch_include: string[];
-  interval_secs: number;
+  interval_secs: number | null;
+  effective_interval_secs: number;
+  paused: boolean;
   credentials: Credentials;
   webhook: { mode: "register" | "manual"; url: string | null } | null;
   last_run: SyncRun | null;

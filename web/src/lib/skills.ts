@@ -100,7 +100,9 @@ export type SkillPolicyView = {
   can_write: boolean;
 };
 
-export type SourceState = "queued" | "running" | "idle" | "failed";
+export type SourceState = "queued" | "running" | "idle" | "failed" | "paused";
+
+export type SourcePausedReason = "folder_disabled" | "skills_disabled" | "polling_off";
 
 export type SourceRun = {
   started_at: string;
@@ -139,6 +141,8 @@ export type SkillSource = {
   versions: "branch" | "tags";
   tag_pattern: string;
   state: SourceState;
+  paused_reason: SourcePausedReason | null;
+  effective_interval_secs: number;
   next_run_at: string | null;
   last_run: SourceRun | null;
 };

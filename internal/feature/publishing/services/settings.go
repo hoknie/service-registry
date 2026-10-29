@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"errors"
+	"log/slog"
 	"net/url"
 
 	"github.com/google/uuid"
@@ -9,6 +11,7 @@ import (
 	accesstypes "svc-registry/internal/feature/access/types"
 	catalogservices "svc-registry/internal/feature/catalog/services"
 	catalogtypes "svc-registry/internal/feature/catalog/types"
+	knowledgeservices "svc-registry/internal/feature/knowledge/services"
 	"svc-registry/internal/feature/publishing/repositories"
 	publishingtypes "svc-registry/internal/feature/publishing/types"
 	"svc-registry/internal/platform/apperr"
@@ -35,6 +38,7 @@ type SettingsService struct {
 	catalog               *catalogservices.CatalogServices
 	publicationRepository *repositories.PublicationRepository
 	hosts                 *HostsService
+	knowledge             *knowledgeservices.KnowledgeServices
 }
 
 func (s *SettingsService) GetPublication(ctx context.Context, p accesstypes.Principal, id uuid.UUID) (Publication, error) {
@@ -104,6 +108,7 @@ func (s *SettingsService) PutPublication(ctx context.Context, p accesstypes.Prin
 			return Publication{}, apperr.Wrap(publishingtypes.ConflictNameTaken)
 		}
 	}
+	was := s.publishes(ctx, id)
 	err = repositories.Err(s.db.InTx(ctx, func(ctx context.Context) error {
 		if in.IsEmpty() {
 			return s.publicationRepository.Delete(ctx, id)
@@ -114,5 +119,27 @@ func (s *SettingsService) PutPublication(ctx context.Context, p accesstypes.Prin
 		return Publication{}, apperr.Wrap(err)
 	}
 	s.hosts.forget()
+	if !was && s.publishes(ctx, id) && s.knowledge != nil {
+		if err := s.knowledge.Settings.ReplanSubtree(ctx, id); err != nil {
+			slog.Warn("publication saved, documentation collection not queued", "node", id, "error", err)
+		}
+	}
 	return s.publication(ctx, p, id)
+}
+
+func (s *SettingsService) Published(ctx context.Context, projectID uuid.UUID) (bool, error) {
+	chain, err := s.publicationRepository.Chain(ctx, projectID)
+	if errors.Is(err, apperr.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	merged, _ := publishingtypes.Merge(chain)
+	return merged.Publish, nil
+}
+
+func (s *SettingsService) publishes(ctx context.Context, id uuid.UUID) bool {
+	published, err := s.Published(ctx, id)
+	return err == nil && published
 }

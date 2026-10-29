@@ -15,13 +15,17 @@ func NewFactoryClient(httpClient *http.Client) *FactoryClient {
 }
 
 func (f *FactoryClient) New(e reposynctypes.Endpoint) (reposyncports.ClientPort, error) {
+	httpClient := f.http
+	if e.Timeout > 0 && e.Timeout != f.http.Timeout {
+		httpClient = &http.Client{Transport: f.http.Transport, CheckRedirect: f.http.CheckRedirect, Jar: f.http.Jar, Timeout: e.Timeout}
+	}
 	switch e.Kind {
 	case reposynctypes.KindGithub:
-		return newGithub(f.http, e)
+		return newGithub(httpClient, e)
 	case reposynctypes.KindGitlab:
-		return newGitlab(f.http, e)
+		return newGitlab(httpClient, e)
 	case reposynctypes.KindGitea, reposynctypes.KindForgejo:
-		return newGitea(f.http, e)
+		return newGitea(httpClient, e)
 	}
 	return nil, apperr.InternalDetail("unknown hosting kind " + string(e.Kind))
 }

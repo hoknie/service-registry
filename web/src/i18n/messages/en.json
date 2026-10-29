@@ -360,7 +360,8 @@
       "invalid_invitation": "Check the email, role and language.",
       "skill_folder_too_large": "The skills of the folder are too large for one archive.",
       "invalid_skill_set": "Choose global folders and skills only, at most 500.",
-      "invalid_builtin_tools": "Tool names: at most 100, distinct, a-z, 0-9 and _ starting with a letter."
+      "invalid_builtin_tools": "Tool names: at most 100, distinct, a-z, 0-9 and _ starting with a letter.",
+      "invalid_polling": "Check the polling fields: period 1 minute to 24 hours, request limit 1 to 600 seconds."
     },
     "conflict": {
       "email_taken": "A user with this email already exists.",
@@ -1535,7 +1536,13 @@
         "restore": "Bring back under sync",
         "confirm": "Remove the exclusion? The project becomes synchronized again on the next run.",
         "restored": "Exclusion removed; the next sync brings the project back."
-      }
+      },
+      "intervalInherit": "As on the node",
+      "intervalOwn": "Own",
+      "intervalInheritHint": "The node's polling period is used.",
+      "intervalInherited": "The node's polling period: every {n} min",
+      "intervalFromNode": "from the node",
+      "paused": "Polling is paused in the node's settings"
     },
     "repoMeta": {
       "open": "Open on the hosting",
@@ -2016,7 +2023,8 @@
         "groups": "Groups",
         "publication": "Publication",
         "skills": "Skills",
-        "mcp": "MCP"
+        "mcp": "MCP",
+        "polling": "Repository polling"
       }
     },
     "linkIcons": {
@@ -2242,6 +2250,40 @@
       "resend": "Send again",
       "revoke": "Revoke",
       "revoked": "Invitation revoked"
+    },
+    "polling": {
+      "title": "Repository polling",
+      "lead": "How often and how long the registry polls repositories here. Each field is taken from the nearest node where it is set; otherwise the server defaults apply.",
+      "readOnly": "Only editors of the node change these settings.",
+      "interval": "Polling period",
+      "minutes": "Minutes",
+      "intervalHint": "From {min} to {max} minutes. Applies to repository sync, documentation and skills alike.",
+      "everyMinutes": "Every {minutes} min",
+      "defaultRepoSync": "Repository sync: every {minutes} min",
+      "defaultDocs": "Documentation: every {minutes} min",
+      "defaultSkills": "Skills: every {minutes} min",
+      "timeout": "Request limit for the hosting",
+      "seconds": "Seconds",
+      "timeoutHint": "From {min} to {max} seconds for one request to the hosting.",
+      "timeoutSeconds": "{seconds} s",
+      "mode": "Mode",
+      "modes": {
+        "on": "Poll",
+        "off": "Do not poll",
+        "published": "Only published documentation"
+      },
+      "applies": "These settings apply to repository sync and to documentation collection of the projects below.",
+      "appliesOrganization": "These settings apply to repository sync, documentation collection and the git sources of the organization's skills.",
+      "offHint": "With «Do not poll» only manual runs go to the repositories: sync now, collect now, sync a source.",
+      "publishedHint": "«Only published documentation» stops collecting projects whose documentation is not published; collected snapshots stay.",
+      "here": "Set here",
+      "inherited": "Inherited from {name}",
+      "serverDefault": "Server default",
+      "override": "Override",
+      "reset": "Reset",
+      "invalid": "Enter a whole number in the range.",
+      "save": "Save",
+      "saved": "Polling settings saved."
     }
   },
   "notFound": {
@@ -2965,7 +3007,7 @@
       "root": "Folder in the repository",
       "rootHint": "Empty — the whole repository",
       "interval": "Interval, seconds",
-      "intervalHint": "Empty — the server default",
+      "intervalHint": "Empty — {interval} s, {from}",
       "newStatus": "New skills",
       "versions": "Versions",
       "fromBranch": "From the branch",
@@ -2977,7 +3019,8 @@
         "queued": "Queued",
         "running": "Running",
         "idle": "Idle",
-        "failed": "Failed"
+        "failed": "Failed",
+        "paused": "Paused"
       },
       "nextRun": "Next run {when}",
       "lastRun": "Last run",
@@ -2997,7 +3040,14 @@
       "layoutTree": "Like the repository directories",
       "layoutField": "By a SKILL.md field",
       "groupField": "Field",
-      "groupFieldHint": "For example subdomain or metadata.category"
+      "groupFieldHint": "For example subdomain or metadata.category",
+      "pausedReason": {
+        "folder_disabled": "the folder is disabled",
+        "skills_disabled": "every skill is unpublished",
+        "polling_off": "polling is off in the organization's settings"
+      },
+      "intervalFromOrganization": "as in the organization",
+      "intervalFromServer": "the server default"
     },
     "organization": {
       "title": "Skills",

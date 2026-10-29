@@ -9,6 +9,7 @@ import (
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	"svc-registry/internal/feature/reposync/repositories"
 	reposynctypes "svc-registry/internal/feature/reposync/types"
+	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/metrics"
 	"svc-registry/pkg/secretbox"
 )
@@ -23,6 +24,10 @@ func (s *PortsService) ActivitySignals(ctx context.Context, projects []uuid.UUID
 
 func (s *PortsService) ContainerSignals(ctx context.Context, nodeID uuid.UUID) ([]catalogtypes.ProcessSignals, error) {
 	return s.connectionRepository.ContainerSignals(ctx, nodeID)
+}
+
+func (s *PortsService) ReplanSubtree(ctx context.Context, nodeID uuid.UUID) error {
+	return apperr.Wrap(s.connectionRepository.ScheduleSubtree(ctx, nodeID))
 }
 
 func (s *PortsService) SecretUsage(ctx context.Context, secrets []uuid.UUID) (map[uuid.UUID]int64, error) {

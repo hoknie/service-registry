@@ -18,6 +18,24 @@ func (s *ConnectionRepository) ScheduleNow(ctx context.Context, id uuid.UUID, tr
 		WHERE id = $1`, id, string(trigger))
 }
 
+func (s *ConnectionRepository) ScheduleSubtree(ctx context.Context, nodeID uuid.UUID) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		WITH RECURSIVE down AS (
+			SELECT id
+			FROM nodes
+			WHERE id = $1
+			UNION ALL
+			SELECT n.id
+			FROM nodes n
+			JOIN down ON n.parent_id = down.id
+		)
+		UPDATE repo_sync_connections
+		SET next_run_at = now()
+		WHERE node_id IN (SELECT id FROM down)
+			AND next_run_at > now()`, nodeID)
+	return err
+}
+
 func (s *ConnectionRepository) Claim(ctx context.Context, limit, leaseSecs int) ([]reposynctypes.Claimed, error) {
 	return postgres.List(ctx, s.db.From(ctx), constraints, func(r pgx.CollectableRow) (reposynctypes.Claimed, error) {
 		var c reposynctypes.Claimed
@@ -63,12 +81,12 @@ func (s *ConnectionRepository) Extend(ctx context.Context, id uuid.UUID, leaseSe
 	return err
 }
 
-func (s *ConnectionRepository) Release(ctx context.Context, id uuid.UUID, next *time.Time) error {
+func (s *ConnectionRepository) Release(ctx context.Context, id uuid.UUID, next *time.Time, intervalSecs int) error {
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		UPDATE repo_sync_connections
 		SET lease_until = NULL, next_trigger = 'schedule',
-			next_run_at = COALESCE($2, now() + make_interval(secs => interval_secs))
-		WHERE id = $1`, id, next)
+			next_run_at = COALESCE($2, now() + make_interval(secs => $3))
+		WHERE id = $1`, id, next, float64(intervalSecs))
 	return err
 }
 

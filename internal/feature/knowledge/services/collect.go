@@ -16,6 +16,8 @@ import (
 	"svc-registry/internal/feature/knowledge/repositories"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
 	"svc-registry/internal/feature/knowledge/usecases"
+	pollingservices "svc-registry/internal/feature/polling/services"
+	pollingtypes "svc-registry/internal/feature/polling/types"
 	reposyncservices "svc-registry/internal/feature/reposync/services"
 	reposynctypes "svc-registry/internal/feature/reposync/types"
 	topologyservices "svc-registry/internal/feature/topology/services"
@@ -73,11 +75,16 @@ func (s *CollectService) RunKnowledgeCollect(ctx context.Context, id uuid.UUID) 
 	case p.TriggeredAt != nil:
 		run.scan.Trigger = knowledgetypes.TriggerEvent
 	}
-	defer s.recordScan(ctx, run.scan)
 	if p.Settings, err = s.settingsService.effectiveSettings(ctx, id); err != nil {
 		return err
 	}
 	run.project = p
+	eff, paused := s.polled(ctx, id)
+	run.next, run.timeout = uint32(eff.IntervalOr(int(cfg.IntervalSecs))), eff.Timeout()
+	if paused && !p.Force {
+		return run.release(ctx)
+	}
+	defer s.recordScan(ctx, run.scan)
 	src, err := s.sourceRepository.Get(ctx, id)
 	if err != nil {
 		return apperr.Wrap(err)
@@ -103,6 +110,26 @@ func (s *CollectService) RunKnowledgeCollect(ctx context.Context, id uuid.UUID) 
 	}
 	heads = append(heads, tags...)
 	return run.collect(ctx, reader, heads)
+}
+
+func (s *CollectService) polled(ctx context.Context, id uuid.UUID) (pollingtypes.Effective, bool) {
+	eff := pollingtypes.Effective{TimeoutSecs: int(s.cfg.Outbound.TimeoutSecs), Mode: pollingtypes.ModeOn}
+	if s.polling == nil {
+		return eff, false
+	}
+	got, err := s.polling.Ports.Effective(ctx, id)
+	if err != nil {
+		slog.Warn("polling settings unavailable, using defaults", "project", id, "error", err)
+		return eff, false
+	}
+	published := true
+	if got.Mode == pollingtypes.ModePublished && s.publication != nil {
+		if published, err = s.publication.Published(ctx, id); err != nil {
+			slog.Warn("publication unknown, collecting", "project", id, "error", err)
+			published = true
+		}
+	}
+	return got, got.DocsPaused(published)
 }
 
 func compareNames(a, b string) int {
@@ -194,6 +221,8 @@ type CollectService struct {
 	documents            *DocumentsService
 	settingsService      *SettingsService
 	topology             *topologyservices.TopologyServices
+	polling              *pollingservices.PollingServices
+	publication          knowledgeports.PublicationPort
 	saveSnapshot         *usecases.SaveSnapshotUseCase
 	tagRepository        *repositories.TagRepository
 	syncTags             *usecases.SyncTagsUseCase

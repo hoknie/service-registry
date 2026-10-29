@@ -3,6 +3,7 @@ package services
 import (
 	catalogservices "svc-registry/internal/feature/catalog/services"
 	notifyservices "svc-registry/internal/feature/notify/services"
+	pollingservices "svc-registry/internal/feature/polling/services"
 	reposyncports "svc-registry/internal/feature/reposync/ports"
 	"svc-registry/internal/feature/reposync/repositories"
 	"svc-registry/internal/platform/config"
@@ -17,6 +18,7 @@ type Deps struct {
 	Clients reposyncports.ClientFactoryPort
 	Secrets *secretbox.Box
 	Notify  *notifyservices.NotifyServices
+	Polling *pollingservices.PollingServices
 }
 
 type parts struct {
@@ -32,6 +34,7 @@ type parts struct {
 	secrets              *secretbox.Box
 	catalog              *catalogservices.CatalogServices
 	notify               *notifyservices.NotifyServices
+	polling              *pollingservices.PollingServices
 }
 
 func newParts(d Deps) *parts {
@@ -47,6 +50,7 @@ func newParts(d Deps) *parts {
 		secrets:              d.Secrets,
 		catalog:              d.Catalog,
 		notify:               d.Notify,
+		polling:              d.Polling,
 	}
 }
 
@@ -73,7 +77,7 @@ func New(d Deps) *RepoSyncServices {
 		Ports:       &PortsService{connectionRepository: p.connectionRepository, repoRepository: p.repoRepository, secrets: p.secrets},
 		Previews:    &PreviewsService{catalog: p.catalog, repoRepository: p.repoRepository},
 		Projects:    &ProjectsService{catalog: p.catalog, connectionRepository: p.connectionRepository, repoRepository: p.repoRepository},
-		Sync:        &SyncService{adoptionRepository: p.adoptionRepository, catalog: p.catalog, cfg: p.cfg, clients: p.clients, connectionRepository: p.connectionRepository, db: p.db, exclusionRepository: p.exclusionRepository, notify: p.notify, repoRepository: p.repoRepository, runRepository: p.runRepository, secrets: p.secrets},
+		Sync:        &SyncService{adoptionRepository: p.adoptionRepository, catalog: p.catalog, cfg: p.cfg, clients: p.clients, connectionRepository: p.connectionRepository, db: p.db, exclusionRepository: p.exclusionRepository, notify: p.notify, polling: p.polling, repoRepository: p.repoRepository, runRepository: p.runRepository, secrets: p.secrets},
 		Unlink:      &UnlinkService{adoptionRepository: p.adoptionRepository, catalog: p.catalog, connectionRepository: p.connectionRepository, db: p.db, exclusionRepository: p.exclusionRepository, repoRepository: p.repoRepository, sources: p.sources},
 	}
 	f.Connections.sync = f.Sync

@@ -3,6 +3,7 @@ package services
 import (
 	catalogservices "svc-registry/internal/feature/catalog/services"
 	knowledgeports "svc-registry/internal/feature/knowledge/ports"
+	pollingservices "svc-registry/internal/feature/polling/services"
 	skillsports "svc-registry/internal/feature/skills/ports"
 	"svc-registry/internal/feature/skills/repositories"
 	skillstypes "svc-registry/internal/feature/skills/types"
@@ -17,6 +18,7 @@ type Deps struct {
 	Catalog *catalogservices.CatalogServices
 	Store   skillsports.BlobStorePort
 	Readers knowledgeports.ReaderFactoryPort
+	Polling *pollingservices.PollingServices
 }
 
 type SkillsServices struct {
@@ -42,6 +44,7 @@ type parts struct {
 	sources  *repositories.SourceRepository
 	store    skillsports.BlobStorePort
 	save     *usecases.SaveVersionUseCase
+	polling  *pollingservices.PollingServices
 }
 
 func limitsOf(c config.SkillsConfig) skillstypes.Limits {
@@ -51,7 +54,7 @@ func limitsOf(c config.SkillsConfig) skillstypes.Limits {
 func New(d Deps) *SkillsServices {
 	p := parts{db: d.DB, cfg: d.Config, access: &accessRules{catalog: d.Catalog}, folders: repositories.NewFolderRepository(d.DB),
 		skills: repositories.NewSkillRepository(d.DB), versions: repositories.NewVersionRepository(d.DB),
-		blobs: repositories.NewBlobRepository(d.DB), sources: repositories.NewSourceRepository(d.DB), store: d.Store}
+		blobs: repositories.NewBlobRepository(d.DB), sources: repositories.NewSourceRepository(d.DB), store: d.Store, polling: d.Polling}
 	p.save = usecases.NewSaveVersion(usecases.SaveVersionDeps{DB: d.DB, Skills: p.skills, Versions: p.versions, Blobs: p.blobs,
 		Store: d.Store, Keep: int(d.Config.Skills.KeepVersions)})
 	cards := &cardBuilder{parts: p}

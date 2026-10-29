@@ -5,6 +5,8 @@ import { toast } from "sonner";
 
 import { apiGet, apiSend, type RepoSyncConnection, type RepoSyncExclusion, type HostingKind, type Items } from "@/lib/api";
 import { ownerUrlOf, parseOwnerUrl } from "@/lib/hostingAddress";
+import type { Polling } from "@/lib/polling";
+import { format } from "@/i18n/format";
 import { ago } from "@/i18n/time";
 import Link from "next/link";
 
@@ -17,6 +19,7 @@ import { Button } from "../ui/Button";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { Dialog } from "../ui/Dialog";
 import { Checkbox, Field, Input } from "../ui/Field";
+import { Segmented } from "../ui/Segmented";
 import { Select } from "../ui/Select";
 import { Message, type Note } from "../ui/Message";
 import { splitPatterns, type RepoSyncLabels } from "./shared";
@@ -75,7 +78,19 @@ export function ConnectionDialog({ nodeId, locale, connection, labels: t, fail, 
   const [archived, setArchived] = useState(connection?.include_archived ?? false);
   const [forks, setForks] = useState(connection?.include_forks ?? false);
   const [subgroups, setSubgroups] = useState(connection?.mirror_subgroups ?? true);
-  const [minutes, setMinutes] = useState(String(Math.round((connection?.interval_secs ?? 900) / 60)));
+  const [inherit, setInherit] = useState(connection ? connection.interval_secs === null : true);
+  const [minutes, setMinutes] = useState(String(Math.round((connection?.interval_secs ?? connection?.effective_interval_secs ?? 900) / 60)));
+  const [nodeInterval, setNodeInterval] = useState<number | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    apiGet<Polling>(`/v1/catalog/nodes/${nodeId}/polling`)
+      .then((p) => live && setNodeInterval(p.interval_secs ?? p.defaults.repo_sync_interval_secs))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [nodeId]);
   const [note, setNote] = useState<Note>(null);
   const [busy, setBusy] = useState(false);
 
@@ -92,7 +107,7 @@ export function ConnectionDialog({ nodeId, locale, connection, labels: t, fail, 
       include_archived: archived,
       include_forks: forks,
       mirror_subgroups: kind === "gitlab" && subgroups,
-      interval_secs: Math.round(Number(minutes) * 60),
+      interval_secs: inherit ? null : Math.round(Number(minutes) * 60),
     };
     if (apiUrl.trim()) body.api_url = apiUrl.trim();
     if (secret && secret !== current) body.credentials = { secret_id: secret };
@@ -237,9 +252,25 @@ export function ConnectionDialog({ nodeId, locale, connection, labels: t, fail, 
           <Checkbox label={t.forks} checked={forks} onChange={(e) => setForks(e.target.checked)} />
           {kind === "gitlab" && <Checkbox label={t.subgroups} checked={subgroups} onChange={(e) => setSubgroups(e.target.checked)} />}
         </div>
-        <Field label={t.interval} className="max-w-48">
-          {(p) => <Input {...p} type="number" min={1} max={1440} step={1} required value={minutes} onChange={(e) => setMinutes(e.target.value)} />}
-        </Field>
+        <div className="grid gap-2">
+          <Segmented
+            label={t.interval}
+            value={inherit ? "inherit" : "own"}
+            options={[
+              { value: "inherit", label: t.intervalInherit },
+              { value: "own", label: t.intervalOwn },
+            ]}
+            onChange={(v) => setInherit(v === "inherit")}
+            className="w-fit"
+          />
+          {inherit ? (
+            <p className="text-sm text-ink-2">{nodeInterval === null ? t.intervalInheritHint : format(t.intervalInherited, { n: Math.round(nodeInterval / 60) })}</p>
+          ) : (
+            <Field label={t.interval} className="max-w-48">
+              {(p) => <Input {...p} type="number" min={1} max={1440} step={1} required value={minutes} onChange={(e) => setMinutes(e.target.value)} />}
+            </Field>
+          )}
+        </div>
         {editing && (
           <section aria-labelledby="repo-sync-exclusions" className="grid gap-2 border-t border-line pt-4">
             <h3 id="repo-sync-exclusions" className="text-sm font-semibold text-ink">

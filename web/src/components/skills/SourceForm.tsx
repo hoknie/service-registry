@@ -3,10 +3,13 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 
 import type { Locale } from "@/i18n/config";
+import { format } from "@/i18n/format";
 import type { Messages } from "@/i18n/messages";
+import { apiGet } from "@/lib/api";
 import { guessHosting, parseTreeLink, sourceApiUrl } from "@/lib/hostingAddress";
 import type { SkillFolder, SkillSource, SkillSourceKind, SourceLayout } from "@/lib/skills";
 import { loadSkillDefaults } from "@/lib/skillsApi";
+import type { Polling } from "@/lib/polling";
 import { toTags } from "@/lib/tags";
 
 import { SecretPicker } from "../secrets/SecretPicker";
@@ -132,6 +135,21 @@ export function SourceFields({ draft, setDraft, folder, locale, labels: t }: Pro
   const s = t.sourcesPage;
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
   const [defaultInterval, setDefaultInterval] = useState<number | null>(null);
+  const [orgInterval, setOrgInterval] = useState<number | null>(null);
+  const organization = folder?.organization_id ?? null;
+
+  useEffect(() => {
+    if (!organization) return;
+    let alive = true;
+    apiGet<Polling>(`/v1/catalog/nodes/${organization}/polling`)
+      .then((p) => alive && setOrgInterval(p.interval_secs))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [organization]);
+  const fallback = (organization ? orgInterval : null) ?? defaultInterval;
+  const fromOrganization = organization !== null && orgInterval !== null;
 
   useEffect(() => {
     let alive = true;
@@ -275,12 +293,19 @@ export function SourceFields({ draft, setDraft, folder, locale, labels: t }: Pro
               )}
             </Field>
           )}
-          <Field label={s.interval} hint={s.intervalHint}>
+          <Field
+            label={s.interval}
+            hint={
+              fallback === null
+                ? undefined
+                : format(s.intervalHint, { interval: fallback, from: fromOrganization ? s.intervalFromOrganization : s.intervalFromServer })
+            }
+          >
             {(f) => (
               <Input
                 {...f}
                 inputMode="numeric"
-                placeholder={defaultInterval === null ? undefined : String(defaultInterval)}
+                placeholder={fallback === null ? undefined : String(fallback)}
                 value={draft.interval}
                 onChange={(e) =>
                   set({ interval: e.target.value.replace(/\D/g, "") })

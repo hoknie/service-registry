@@ -129,7 +129,7 @@ The folder is named after the repository unless you give it a name.
 | Branch | empty — the default branch |
 | Skill directories | up to 20 paths in the repository, one per line; empty — the whole repository |
 | Folders | all skills in the folder of the source; like the directories of the repository; or by a field of `SKILL.md` such as `subdomain` or `metadata.category` |
-| Interval | seconds between runs; empty — `SKILLS_SYNC_INTERVAL_SECS` (1 h) |
+| Interval | seconds between runs; empty — the polling period of the organization ([repository-polling.md](repository-polling.md)), otherwise `SKILLS_SYNC_INTERVAL_SECS` (1 h) |
 | New skills | published, draft or disabled — for a repository with hundreds of skills you may want them disabled and enable what you need |
 | Versions | from the branch (`metadata.version` or the next patch on every change) or from tags |
 
@@ -147,6 +147,8 @@ description and the **Disable** switch can be changed by hand.
  Skills whose folder disappeared are removed; a skill from git
 is changed only in git (its content, name and tags), its status and image can be changed in the registry.
 **Sync now** queues a run at once. The last run lists what was created, updated, removed and skipped, and why.
+A source is **Paused** while its folder is disabled, while every one of its skills is disabled, or while polling is off in
+the organization; **Sync now** still runs it.
 
 ## Disabling skills
 

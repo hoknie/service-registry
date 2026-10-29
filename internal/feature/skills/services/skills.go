@@ -181,6 +181,11 @@ func (s *SkillsService) PatchSkill(ctx context.Context, p accesstypes.Principal,
 		if err := s.skills.Patch(ctx, id, status, tags, in.Slug, in.About); err != nil {
 			return err
 		}
+		if status != nil && *status != skillstypes.StatusDisabled && sk.Source != nil {
+			if err := s.sources.Wake(ctx, sk.Source.ID); err != nil {
+				return err
+			}
+		}
 		if !in.Move {
 			return nil
 		}

@@ -360,7 +360,8 @@
       "invalid_invitation": "Revisa el correo, el rol y el idioma.",
       "skill_folder_too_large": "Las habilidades de la carpeta son demasiado grandes para un archivo.",
       "invalid_skill_set": "Elige solo carpetas y habilidades globales, como máximo 500.",
-      "invalid_builtin_tools": "Nombres de herramientas: como máximo 100, sin repetir, a-z, 0-9 y _, empezando por una letra."
+      "invalid_builtin_tools": "Nombres de herramientas: como máximo 100, sin repetir, a-z, 0-9 y _, empezando por una letra.",
+      "invalid_polling": "Revise el sondeo: periodo de 1 minuto a 24 horas, límite de petición de 1 a 600 segundos."
     },
     "conflict": {
       "email_taken": "Ya existe un usuario con este correo.",
@@ -1535,7 +1536,13 @@
         "restore": "Volver a sincronizar",
         "confirm": "¿Quitar la exclusión? El proyecto volverá a sincronizarse en la próxima ejecución.",
         "restored": "Exclusión eliminada; la próxima sincronización recupera el proyecto."
-      }
+      },
+      "intervalInherit": "Como el nodo",
+      "intervalOwn": "Propio",
+      "intervalInheritHint": "Se usa el periodo de sondeo del nodo.",
+      "intervalInherited": "Periodo de sondeo del nodo: cada {n} min",
+      "intervalFromNode": "del nodo",
+      "paused": "El sondeo está pausado en los ajustes del nodo"
     },
     "repoMeta": {
       "open": "Abrir en el hosting",
@@ -2016,7 +2023,8 @@
         "groups": "Grupos",
         "publication": "Publicación",
         "skills": "Habilidades",
-        "mcp": "MCP"
+        "mcp": "MCP",
+        "polling": "Sondeo de repositorios"
       }
     },
     "linkIcons": {
@@ -2242,6 +2250,40 @@
       "resend": "Enviar de nuevo",
       "revoke": "Revocar",
       "revoked": "Invitación revocada"
+    },
+    "polling": {
+      "title": "Sondeo de repositorios",
+      "lead": "Con qué frecuencia y cuánto espera el registro al sondear repositorios aquí. Cada campo se toma del nodo más cercano donde está definido; si no, se aplican los valores del servidor.",
+      "readOnly": "Solo los editores del nodo cambian estos ajustes.",
+      "interval": "Periodo de sondeo",
+      "minutes": "Minutos",
+      "intervalHint": "De {min} a {max} minutos. Se aplica a la sincronización de repositorios, la documentación y las habilidades.",
+      "everyMinutes": "Cada {minutes} min",
+      "defaultRepoSync": "Sincronización de repositorios: cada {minutes} min",
+      "defaultDocs": "Documentación: cada {minutes} min",
+      "defaultSkills": "Habilidades: cada {minutes} min",
+      "timeout": "Límite de petición al hosting",
+      "seconds": "Segundos",
+      "timeoutHint": "De {min} a {max} segundos por petición al hosting.",
+      "timeoutSeconds": "{seconds} s",
+      "mode": "Modo",
+      "modes": {
+        "on": "Sondear",
+        "off": "No sondear",
+        "published": "Solo documentación publicada"
+      },
+      "applies": "Estos ajustes se aplican a la sincronización de repositorios y a la recopilación de documentación de los proyectos de abajo.",
+      "appliesOrganization": "Estos ajustes se aplican a la sincronización de repositorios, la recopilación de documentación y las fuentes git de habilidades de la organización.",
+      "offHint": "Con «No sondear» solo las ejecuciones manuales acceden a los repositorios: sincronizar, recopilar ahora, sincronizar una fuente.",
+      "publishedHint": "«Solo documentación publicada» detiene la recopilación de proyectos cuya documentación no está publicada; las instantáneas recopiladas se conservan.",
+      "here": "Definido aquí",
+      "inherited": "Heredado de {name}",
+      "serverDefault": "Valor del servidor",
+      "override": "Sobrescribir",
+      "reset": "Restablecer",
+      "invalid": "Introduzca un número entero dentro del rango.",
+      "save": "Guardar",
+      "saved": "Ajustes de sondeo guardados."
     }
   },
   "notFound": {
@@ -2965,7 +3007,7 @@
       "root": "Carpeta del repositorio",
       "rootHint": "Vacío — todo el repositorio",
       "interval": "Intervalo, segundos",
-      "intervalHint": "Vacío — el valor del servidor",
+      "intervalHint": "Vacío — {interval} s, {from}",
       "newStatus": "Habilidades nuevas",
       "versions": "Versiones",
       "fromBranch": "De la rama",
@@ -2977,7 +3019,8 @@
         "queued": "En cola",
         "running": "En curso",
         "idle": "En espera",
-        "failed": "Fallida"
+        "failed": "Fallida",
+        "paused": "En pausa"
       },
       "nextRun": "Próxima ejecución {when}",
       "lastRun": "Última ejecución",
@@ -2997,7 +3040,14 @@
       "layoutTree": "Como los directorios del repositorio",
       "layoutField": "Por un campo de SKILL.md",
       "groupField": "Campo",
-      "groupFieldHint": "Por ejemplo subdomain o metadata.category"
+      "groupFieldHint": "Por ejemplo subdomain o metadata.category",
+      "pausedReason": {
+        "folder_disabled": "la carpeta está desactivada",
+        "skills_disabled": "todas las habilidades están despublicadas",
+        "polling_off": "el sondeo está desactivado en los ajustes de la organización"
+      },
+      "intervalFromOrganization": "como en la organización",
+      "intervalFromServer": "valor del servidor"
     },
     "organization": {
       "title": "Habilidades",

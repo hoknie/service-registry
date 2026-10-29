@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"log/slog"
 
 	"github.com/google/uuid"
 
+	pollingtypes "svc-registry/internal/feature/polling/types"
 	skillsports "svc-registry/internal/feature/skills/ports"
+	skillstypes "svc-registry/internal/feature/skills/types"
 	"svc-registry/internal/platform/apperr"
 )
 
@@ -99,4 +102,35 @@ func copyOne(ctx context.Context, p parts, from, to skillsports.BlobStorePort, s
 	}
 	out.Copied++
 	return nil
+}
+
+func (s *PortsService) ReplanSubtree(ctx context.Context, nodeID uuid.UUID) error {
+	return apperr.Wrap(s.sources.WakeOrganization(ctx, nodeID))
+}
+
+func (p parts) polled(ctx context.Context, src skillstypes.Source) (skillstypes.Source, pollingtypes.Effective) {
+	eff := pollingtypes.Effective{TimeoutSecs: int(p.cfg.Outbound.TimeoutSecs), Mode: pollingtypes.ModeOn}
+	if src.OrganizationID != nil && p.polling != nil {
+		got, err := p.polling.Ports.Effective(ctx, *src.OrganizationID)
+		if err != nil {
+			slog.Warn("polling settings unavailable, using defaults", "organization", *src.OrganizationID, "error", err)
+		} else {
+			eff = got
+		}
+	}
+	src.EffectiveSecs = eff.IntervalOr(int(p.cfg.Skills.SyncIntervalSecs))
+	if src.IntervalSecs != nil {
+		src.EffectiveSecs = *src.IntervalSecs
+	}
+	if src.PausedReason == nil && eff.Off() {
+		src.PausedReason = new(skillstypes.PausedPollingOff)
+	}
+	return src, eff
+}
+
+func (p parts) polledAll(ctx context.Context, srcs []skillstypes.Source) []skillstypes.Source {
+	for i := range srcs {
+		srcs[i], _ = p.polled(ctx, srcs[i])
+	}
+	return srcs
 }

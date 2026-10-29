@@ -105,6 +105,7 @@ func NewRouter(d Deps, dist webui.Dist) *fiber.App {
 	r.add("/api/v1/catalog/nodes/:id/knowledge", true, get(api.GetKnowledge))
 	r.add("/api/v1/catalog/nodes/:id/knowledge/settings", true, get(api.GetKnowledgeSettings), put(api.PutKnowledgeSettings))
 	r.add("/api/v1/catalog/nodes/:id/publication", true, get(api.GetPublication), put(api.PutPublication))
+	r.add("/api/v1/catalog/nodes/:id/polling", true, get(api.GetPolling), put(api.PutPolling))
 	r.add("/api/v1/catalog/nodes/:id/knowledge/collect", true, post(api.CollectKnowledge))
 	r.add("/api/v1/catalog/nodes/:id/knowledge/files", true, get(api.KnowledgeFiles))
 	r.add("/api/v1/catalog/nodes/:id/knowledge/tree", true, get(api.KnowledgeTree))

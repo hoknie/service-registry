@@ -20,6 +20,7 @@ type collectRun struct {
 	project     knowledgetypes.Project
 	scan        *knowledgetypes.Scan
 	next, retry uint32
+	timeout     time.Duration
 	defBranch   string
 	failed      bool
 }
@@ -69,7 +70,9 @@ func (r *collectRun) sourceHeads(ctx context.Context, src *knowledgetypes.Stored
 	if err != nil {
 		return nil, nil, r.fail(ctx, known, err)
 	}
-	reader, err := s.readers.Open(ctx, src.Source, p.Settings, token)
+	source := src.Source
+	source.Timeout = r.timeout
+	reader, err := s.readers.Open(ctx, source, p.Settings, token)
 	if err != nil {
 		return nil, nil, r.fail(ctx, known, err)
 	}
@@ -126,7 +129,7 @@ func (r *collectRun) sourceHeads(ctx context.Context, src *knowledgetypes.Stored
 func (r *collectRun) repoSyncHeads(ctx context.Context) (knowledgeports.ReaderPort, []head, error) {
 	s, p, id := r.s, r.project, r.id
 	r.scan.Source = "repo_sync"
-	repo, client, code := s.repoSync.Projects.ProjectClient(ctx, id)
+	repo, client, code := s.repoSync.Projects.ProjectClient(ctx, id, r.timeout)
 	branches, err := s.snapshotRepository.Branches(ctx, id)
 	if err != nil {
 		return nil, nil, apperr.Wrap(err)

@@ -53,6 +53,7 @@ import { ProjectScans } from "../knowledge/ProjectScans";
 import { DependenciesTab } from "../dependencies/DependenciesTab";
 import { DependencySettings } from "../dependencies/DependencySettings";
 import { SecretsTable } from "../secrets/SecretsTable";
+import { PollingSettings } from "../polling/PollingSettings";
 import { PublicationSettings } from "../publication/PublicationSettings";
 import { NodeDetails } from "./NodeDetails";
 import { NodeSettings } from "./NodeSettings";
@@ -594,6 +595,7 @@ export function NodeView({ id, tab: tabParam, section: sectionParam, branch: ver
                   {section === "dependencies" && <DependencySettings node={node} locale={locale} labels={t} fail={fail} />}
                   {section === "docs" && <DocsSettingsTab node={node} locale={locale} labels={t} canWrite={canWrite} onChanged={refreshActivity} />}
                   {section === "publication" && <PublicationSettings node={node} locale={locale} labels={t.publication} />}
+                  {section === "polling" && <PollingSettings node={node} locale={locale} labels={t.polling} />}
                   {section === "scans" && <ProjectScans projectId={node.id} branch={branchParam} locale={locale} labels={t} />}
                   {section === "keys" && <ProjectKeys projectId={node.id} locale={locale} labels={t} />}
                   {section === "secrets" && <SecretsTable locale={locale} nodeId={node.id} canManage={can("catalog.access")} />}

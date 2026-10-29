@@ -58,7 +58,7 @@ func (s *SourcesService) ListSources(ctx context.Context, p accesstypes.Principa
 		return nil, err
 	}
 	out, err := s.sources.List(ctx, folder)
-	return out, apperr.Wrap(err)
+	return s.polledAll(ctx, out), apperr.Wrap(err)
 }
 
 func (s *SourcesService) source(ctx context.Context, p accesstypes.Principal, id uuid.UUID, action *accesstypes.Action) (skillstypes.Source, error) {
@@ -78,7 +78,8 @@ func (s *SourcesService) source(ctx context.Context, p accesstypes.Principal, id
 			return skillstypes.Source{}, err
 		}
 	}
-	return *src, nil
+	out, _ := s.polled(ctx, *src)
+	return out, nil
 }
 
 func (s *SourcesService) GetSource(ctx context.Context, p accesstypes.Principal, id uuid.UUID) (skillstypes.Source, error) {
@@ -203,17 +204,17 @@ func (s *SourcesService) RunSource(ctx context.Context, id uuid.UUID) error {
 	if err != nil || src == nil {
 		return apperr.Wrap(err)
 	}
-	started := time.Now().UTC()
-	res := s.runSource(ctx, *src)
-	res.Run.StartedAt, res.Run.FinishedAt = started.Format(time.RFC3339), time.Now().UTC().Format(time.RFC3339)
-	interval := int(s.cfg.Skills.SyncIntervalSecs)
-	if src.IntervalSecs != nil {
-		interval = *src.IntervalSecs
+	polled, eff := s.polled(ctx, *src)
+	if polled.PausedReason != nil && !polled.Requested {
+		return apperr.Wrap(s.sources.Postpone(context.WithoutCancel(ctx), id, polled.EffectiveSecs))
 	}
-	return apperr.Wrap(s.sources.Finish(context.WithoutCancel(ctx), id, res.Run, res.Commit, res.Tags, interval, src.ConfigChangedAt))
+	started := time.Now().UTC()
+	res := s.runSource(ctx, polled, eff.Timeout())
+	res.Run.StartedAt, res.Run.FinishedAt = started.Format(time.RFC3339), time.Now().UTC().Format(time.RFC3339)
+	return apperr.Wrap(s.sources.Finish(context.WithoutCancel(ctx), id, res.Run, res.Commit, res.Tags, polled.EffectiveSecs, src.ConfigChangedAt))
 }
 
-func (s *SourcesService) runSource(ctx context.Context, src skillstypes.Source) usecases.SyncResult {
+func (s *SourcesService) runSource(ctx context.Context, src skillstypes.Source, timeout time.Duration) usecases.SyncResult {
 	fail := func(code string) usecases.SyncResult {
 		return usecases.SyncResult{Run: skillstypes.Run{Status: skillstypes.RunFailed, Error: &code, Problems: []skillstypes.Problem{}}}
 	}
@@ -228,7 +229,11 @@ func (s *SourcesService) runSource(ctx context.Context, src skillstypes.Source) 
 		}
 		token = t
 	}
-	reader, err := s.readers.Open(ctx, skillstypes.KnowledgeSource(src), skillstypes.KnowledgeSettings(src), token)
+	ks := skillstypes.KnowledgeSource(src)
+	if src.OrganizationID != nil {
+		ks.Timeout = timeout
+	}
+	reader, err := s.readers.Open(ctx, ks, skillstypes.KnowledgeSettings(src), token)
 	if err != nil {
 		return fail(skillstypes.FailUnreachable)
 	}

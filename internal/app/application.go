@@ -22,6 +22,7 @@ import (
 	membershipservices "svc-registry/internal/feature/membership/services"
 	notifyservices "svc-registry/internal/feature/notify/services"
 	ownershipservices "svc-registry/internal/feature/ownership/services"
+	pollingservices "svc-registry/internal/feature/polling/services"
 	publishingservices "svc-registry/internal/feature/publishing/services"
 	"svc-registry/internal/feature/reposync/clients/hostingclient"
 	reposyncservices "svc-registry/internal/feature/reposync/services"
@@ -56,6 +57,7 @@ type App struct {
 	Deploy      *deployservices.DeployServices
 	Knowledge   *knowledgeservices.KnowledgeServices
 	Publishing  *publishingservices.PublishingServices
+	Polling     *pollingservices.PollingServices
 	Skills      *skillsservices.SkillsServices
 	Gateway     *gatewayservices.GatewayServices
 	Membership  *membershipservices.MembershipServices
@@ -96,6 +98,7 @@ func New(cfg config.Config, opts ...Option) (*App, error) {
 		ClientMetadata: instrument(m, "client_metadata", clientMetadata(o, cfg)), LoginLimiter: auth.NewLoginLimiter(cfg.LoginLimit),
 		Metrics: m, Instance: hostname()})
 	a.Catalog = catalogservices.New(catalogservices.Deps{DB: db, Config: &cfg, Secrets: a.Secrets})
+	a.Polling = pollingservices.New(pollingservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog})
 	a.Ownership = ownershipservices.New(ownershipservices.Deps{DB: db, Catalog: a.Catalog})
 	a.Notify = notifyservices.New(notifyservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Ownership: a.Ownership,
 		Sender: instrument(m, "notify", notifySender(o, cfg)), Secrets: a.Secrets, Version: Version})
@@ -105,12 +108,12 @@ func New(cfg config.Config, opts ...Option) (*App, error) {
 	a.Ingest = ingestservices.New(ingestservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Limiter: auth.NewIngestLimiter(cfg.Ingest),
 		Notify: a.Notify, Topology: a.Topology, Metrics: m})
 	a.RepoSync = reposyncservices.New(reposyncservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Clients: hostings, Secrets: a.Secrets,
-		Notify: a.Notify})
+		Notify: a.Notify, Polling: a.Polling})
 	a.Deploy = deployservices.New(deployservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Ingest: a.Ingest,
 		K8s: instrument(m, "kubernetes", k8sFactory(o, cfg.Outbound, cfg.K8s.K8sClientConfig)), Secrets: a.Secrets, Notify: a.Notify, Topology: a.Topology})
 	a.Knowledge = knowledgeservices.New(knowledgeservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, RepoSync: a.RepoSync,
 		Engine: srch.engine, External: srch.external, Embedder: srch.embedder, Secrets: a.Secrets, Topology: a.Topology,
-		Readers: readers})
+		Readers: readers, Polling: a.Polling})
 	a.Apis = apisservices.New(apisservices.Deps{Knowledge: a.Knowledge})
 	a.Publishing = publishingservices.New(publishingservices.Deps{DB: db, Config: &cfg, Catalog: a.Catalog, Knowledge: a.Knowledge, Apis: a.Apis,
 		Limiter: auth.NewPublicDocsLimiter(cfg.DocsPublic.RatePerMinute)})
@@ -140,6 +143,11 @@ func New(cfg config.Config, opts ...Option) (*App, error) {
 	a.Catalog.UseTokenRoots(a.Access.Tokens)
 	a.RepoSync.Use(a.Knowledge.Sources, a.Knowledge.Ports)
 	a.Ingest.Use(a.Knowledge.Ports)
+	a.Knowledge.UsePublication(a.Publishing.Settings)
+	a.Polling.Use(a.RepoSync.Ports, a.Knowledge.Settings)
+	if a.Skills != nil {
+		a.Polling.Use(a.Skills.Ports)
+	}
 	a.Sampler = a.newSampler(o.metricSources)
 	if !a.Catalog.Wired() {
 		pool.Close()

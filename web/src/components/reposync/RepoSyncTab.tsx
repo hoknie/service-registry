@@ -1,6 +1,7 @@
 "use client";
 
 import { Activity, Eye, GitBranch, Pencil, Plus, RefreshCw, ShieldCheck, Trash, Webhook } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -11,7 +12,7 @@ import { ago, when } from "@/i18n/time";
 import { apiGet, apiSend, errorCode, type RepoSyncConnection, type Items } from "@/lib/api";
 import { credentialsText } from "@/lib/secrets";
 
-import { HOSTING_NAMES, type CatalogLabels } from "../catalog/shared";
+import { catalogHref, HOSTING_NAMES, type CatalogLabels } from "../catalog/shared";
 import { useUiText } from "../UiText";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
@@ -112,8 +113,16 @@ export function RepoSyncTab({ nodeId, locale, labels, canWrite, canAccess, onSyn
                     <p className="mt-1 text-sm text-ink-2">
                       {credentialsText(c.credentials, secrets)}
                       {" · "}
-                      {format(t.minutes, { n: Math.round(c.interval_secs / 60) })}
+                      {format(t.minutes, { n: Math.round(c.effective_interval_secs / 60) })}
+                      {c.interval_secs === null && ` · ${t.intervalFromNode}`}
                     </p>
+                    {c.paused && (
+                      <p className="mt-1 text-sm">
+                        <Link href={catalogHref(locale, nodeId, "settings", null, null, "polling")} className="text-amber hover:underline">
+                          {t.paused}
+                        </Link>
+                      </p>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {canWrite && (

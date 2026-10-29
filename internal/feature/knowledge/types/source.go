@@ -45,6 +45,7 @@ type Source struct {
 	IncludeIgnored bool
 	UpdatedAt      string
 	Origin         string
+	Timeout        time.Duration
 }
 
 const (

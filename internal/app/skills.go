@@ -43,7 +43,7 @@ func (a *App) buildSkills(o overrides, readers *source.FactoryClient) error {
 	if err != nil {
 		return err
 	}
-	a.Skills = skillsservices.New(skillsservices.Deps{DB: a.DB, Config: a.Config, Catalog: a.Catalog, Store: store, Readers: readers})
+	a.Skills = skillsservices.New(skillsservices.Deps{DB: a.DB, Config: a.Config, Catalog: a.Catalog, Store: store, Readers: readers, Polling: a.Polling})
 	a.skillsStore = store
 	return nil
 }

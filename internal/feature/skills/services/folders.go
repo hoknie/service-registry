@@ -182,6 +182,11 @@ func (s *FoldersService) UpdateFolder(ctx context.Context, p accesstypes.Princip
 			if err := s.folders.SetDisabled(ctx, id, *in.Disabled); err != nil {
 				return err
 			}
+			if !*in.Disabled {
+				if err := s.sources.WakeFolder(ctx, id); err != nil {
+					return err
+				}
+			}
 		}
 		if !in.Move {
 			return nil

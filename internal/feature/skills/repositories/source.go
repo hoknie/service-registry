@@ -44,6 +44,8 @@ type sourceRow struct {
 	ConfigChangedAt string            `db:"config_changed_at"`
 	CreatedAt       string            `db:"created_at"`
 	UpdatedAt       string            `db:"updated_at"`
+	PausedReason    *string           `db:"paused_reason"`
+	Requested       bool              `db:"requested"`
 }
 
 func (r sourceRow) source() skillstypes.Source {
@@ -52,7 +54,7 @@ func (r sourceRow) source() skillstypes.Source {
 		Branch: r.Branch, Roots: r.Roots, Layout: r.Layout, GroupField: r.GroupField, IntervalSecs: r.IntervalSecs, NewStatus: skillstypes.Status(r.NewStatus),
 		Versions: r.Versions, TagPattern: r.TagPattern, NextRunAt: r.NextRunAt, Due: r.Due, Running: r.Running,
 		LastCommit: r.LastCommit, LastTags: r.LastTags, LastRun: r.LastRun, ConfigChangedAt: r.ConfigChangedAt,
-		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
+		CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt, PausedReason: r.PausedReason, Requested: r.Requested}
 }
 
 func querySources(ctx context.Context, q pgtx.Querier, folder, id *uuid.UUID, secrets []uuid.UUID) ([]skillstypes.Source, error) {
@@ -62,7 +64,20 @@ func querySources(ctx context.Context, q pgtx.Querier, folder, id *uuid.UUID, se
 			s.tag_pattern, rfc3339(s.next_run_at) AS next_run_at, COALESCE(s.next_run_at <= now(), false) AS due,
 			COALESCE(s.lease_until > now(), false) AS running, s.last_commit, s.last_tags, s.last_run,
 			s.config_changed_at::text AS config_changed_at, rfc3339(s.created_at) AS created_at,
-			rfc3339(s.updated_at) AS updated_at
+			rfc3339(s.updated_at) AS updated_at, s.requested_at IS NOT NULL AS requested,
+			CASE
+				WHEN skill_folder_disabled(s.folder_id) IS NOT NULL THEN 'folder_disabled'
+				WHEN EXISTS (
+					SELECT 1
+					FROM skills k
+					WHERE k.source_id = s.id
+				) AND NOT EXISTS (
+					SELECT 1
+					FROM skills k
+					WHERE k.source_id = s.id
+						AND k.status <> 'disabled'
+				) THEN 'skills_disabled'
+			END AS paused_reason
 		FROM skill_sources s
 		JOIN skill_folders f ON f.id = s.folder_id
 		LEFT JOIN secrets sec ON sec.id = s.credentials_secret_id
@@ -116,8 +131,56 @@ func (s *SourceRepository) Delete(ctx context.Context, id uuid.UUID) error {
 func (s *SourceRepository) Queue(ctx context.Context, id uuid.UUID) error {
 	return postgres.ExecFound(ctx, s.db.From(ctx), constraints, `
 		UPDATE skill_sources
-		SET next_run_at = LEAST(COALESCE(next_run_at, now()), now())
+		SET next_run_at = LEAST(COALESCE(next_run_at, now()), now()), requested_at = now()
 		WHERE id = $1`, id)
+}
+
+func (s *SourceRepository) Wake(ctx context.Context, id uuid.UUID) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		UPDATE skill_sources
+		SET next_run_at = now()
+		WHERE id = $1
+			AND next_run_at > now()`, id)
+	return err
+}
+
+func (s *SourceRepository) WakeFolder(ctx context.Context, folder uuid.UUID) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		WITH RECURSIVE down AS (
+			SELECT id
+			FROM skill_folders
+			WHERE id = $1
+			UNION ALL
+			SELECT f.id
+			FROM skill_folders f
+			JOIN down ON f.parent_id = down.id
+		)
+		UPDATE skill_sources
+		SET next_run_at = now()
+		WHERE folder_id IN (SELECT id FROM down)
+			AND next_run_at > now()`, folder)
+	return err
+}
+
+func (s *SourceRepository) WakeOrganization(ctx context.Context, organization uuid.UUID) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		UPDATE skill_sources
+		SET next_run_at = now()
+		WHERE folder_id IN (
+				SELECT id
+				FROM skill_folders
+				WHERE organization_id = $1
+			)
+			AND next_run_at > now()`, organization)
+	return err
+}
+
+func (s *SourceRepository) Postpone(ctx context.Context, id uuid.UUID, intervalSecs int) error {
+	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
+		UPDATE skill_sources
+		SET lease_until = NULL, requested_at = NULL, next_run_at = now() + make_interval(secs => $2)
+		WHERE id = $1`, id, float64(intervalSecs))
+	return err
 }
 
 func (s *SourceRepository) Claim(ctx context.Context, limit, leaseSecs int) ([]uuid.UUID, error) {
@@ -149,6 +212,7 @@ func (s *SourceRepository) Finish(ctx context.Context, id uuid.UUID, run skillst
 	_, err := postgres.Exec(ctx, s.db.From(ctx), constraints, `
 		UPDATE skill_sources
 		SET last_run = $2, last_commit = COALESCE($3, last_commit), last_tags = COALESCE($4, last_tags), lease_until = NULL,
+			requested_at = NULL,
 			next_run_at = CASE WHEN config_changed_at::text = $6 THEN now() + make_interval(secs => $5) ELSE now() END
 		WHERE id = $1`, id, run, commit, tags, float64(intervalSecs), configAt)
 	return err

@@ -62,7 +62,7 @@ type Connection struct {
 	NameInclude     []string
 	NameExclude     []string
 	BranchInclude   []string
-	IntervalSecs    int
+	IntervalSecs    *int
 	Credentials     catalogtypes.Credentials
 	WebhookMode     *WebhookMode
 	NextRunAt       string

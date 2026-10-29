@@ -37,6 +37,10 @@ type RepoMetadataPort interface {
 	Metadata(ctx context.Context, known *time.Time) (reposynctypes.RemoteRepo, *reposynctypes.Details, error)
 }
 
+type PublicationPort interface {
+	Published(ctx context.Context, projectID uuid.UUID) (bool, error)
+}
+
 type ReaderFactoryPort interface {
 	Open(ctx context.Context, s knowledgetypes.Source, settings knowledgetypes.Settings, token string) (ReaderPort, error)
 }

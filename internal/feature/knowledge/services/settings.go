@@ -10,6 +10,7 @@ import (
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	"svc-registry/internal/feature/knowledge/repositories"
 	knowledgetypes "svc-registry/internal/feature/knowledge/types"
+	pollingservices "svc-registry/internal/feature/polling/services"
 	"svc-registry/internal/platform/apperr"
 	"svc-registry/internal/platform/config"
 	"svc-registry/pkg/pgtx"
@@ -39,6 +40,12 @@ func (s *SettingsService) nodeSettings(ctx context.Context, id uuid.UUID) (Knowl
 		return KnowledgeSettings{}, apperr.Wrap(err)
 	}
 	sc, from := knowledgetypes.Merge(chain)
+	interval := s.cfg.Knowledge.IntervalSecs
+	if s.polling != nil {
+		if eff, err := s.polling.Ports.Effective(ctx, id); err == nil {
+			interval = uint32(eff.IntervalOr(int(interval)))
+		}
+	}
 	origin := func(i int) *knowledgetypes.ChainNode {
 		if i <= 0 {
 			return nil
@@ -47,7 +54,7 @@ func (s *SettingsService) nodeSettings(ctx context.Context, id uuid.UUID) (Knowl
 	}
 	return KnowledgeSettings{Settings: sc, Defaults: knowledgetypes.DefaultSettings(), Own: chain[0].Own, IncludeFrom: origin(from.Include),
 		ExcludeFrom: origin(from.Exclude), RefsFrom: origin(from.Refs), APIsFrom: origin(from.APIs), RefreshFrom: origin(from.Refresh),
-		APIPathsFrom: origin(from.APIPaths), RefreshEventsFrom: origin(from.RefreshEvents), IntervalSecs: s.cfg.Knowledge.IntervalSecs,
+		APIPathsFrom: origin(from.APIPaths), RefreshEventsFrom: origin(from.RefreshEvents), IntervalSecs: interval,
 		MaxTags: s.cfg.Knowledge.MaxTags}, nil
 }
 
@@ -88,9 +95,14 @@ func (s *SettingsService) putPatterns(ctx context.Context, id uuid.UUID, sc know
 }
 
 type SettingsService struct {
+	polling              *pollingservices.PollingServices
 	cfg                  *config.Config
 	db                   *pgtx.DB
 	catalog              *catalogservices.CatalogServices
 	collectionRepository *repositories.CollectionRepository
 	patternRepository    *repositories.PatternRepository
+}
+
+func (s *SettingsService) ReplanSubtree(ctx context.Context, nodeID uuid.UUID) error {
+	return apperr.Wrap(s.collectionRepository.MarkSubtreeDue(ctx, nodeID))
 }

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,6 +12,8 @@ import (
 	catalogtypes "svc-registry/internal/feature/catalog/types"
 	notifyservices "svc-registry/internal/feature/notify/services"
 	notifytypes "svc-registry/internal/feature/notify/types"
+	pollingservices "svc-registry/internal/feature/polling/services"
+	pollingtypes "svc-registry/internal/feature/polling/types"
 	reposyncports "svc-registry/internal/feature/reposync/ports"
 	"svc-registry/internal/feature/reposync/repositories"
 	reposynctypes "svc-registry/internal/feature/reposync/types"
@@ -71,10 +74,43 @@ type SyncService struct {
 	db                   *pgtx.DB
 	exclusionRepository  *repositories.ExclusionRepository
 	notify               *notifyservices.NotifyServices
+	polling              *pollingservices.PollingServices
 	repoRepository       *repositories.RepoRepository
 	runRepository        *repositories.RunRepository
 	secrets              *secretbox.Box
 	connectionsService   *ConnectionsService
 	unlink               *UnlinkService
 	docs                 reposyncports.DocsTriggerPort
+}
+
+func (s *SyncService) effective(ctx context.Context, nodeID uuid.UUID) pollingtypes.Effective {
+	e := pollingtypes.Effective{TimeoutSecs: int(s.cfg.Outbound.TimeoutSecs), Mode: pollingtypes.ModeOn}
+	if s.polling == nil {
+		return e
+	}
+	got, err := s.polling.Ports.Effective(ctx, nodeID)
+	if err != nil {
+		slog.Warn("polling settings unavailable, using defaults", "node", nodeID, "error", err)
+		return e
+	}
+	return got
+}
+
+func (s *SyncService) intervalSecs(c reposynctypes.Connection, e pollingtypes.Effective) int {
+	if c.IntervalSecs != nil {
+		return *c.IntervalSecs
+	}
+	return e.IntervalOr(int(s.cfg.Jobs.RepoSyncIntervalSecs))
+}
+
+func (s *SyncService) postponeIfPaused(ctx context.Context, id uuid.UUID) (bool, error) {
+	conn, err := s.connectionRepository.Find(ctx, id)
+	if err != nil || conn == nil {
+		return false, err
+	}
+	e := s.effective(ctx, conn.NodeID)
+	if !e.Off() {
+		return false, nil
+	}
+	return true, s.connectionRepository.Release(context.WithoutCancel(ctx), id, nil, s.intervalSecs(*conn, e))
 }

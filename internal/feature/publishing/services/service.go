@@ -29,8 +29,9 @@ func New(d Deps) *PublishingServices {
 	publications := repositories.NewPublicationRepository(d.DB)
 	hosts := &HostsService{publicationRepository: publications}
 	return &PublishingServices{
-		Settings: &SettingsService{db: d.DB, cfg: d.Config, catalog: d.Catalog, publicationRepository: publications, hosts: hosts},
-		Public:   &PublicService{knowledge: d.Knowledge, apis: d.Apis, publicationRepository: publications, hosts: hosts, limiter: d.Limiter},
-		Hosts:    hosts,
+		Settings: &SettingsService{db: d.DB, cfg: d.Config, catalog: d.Catalog, publicationRepository: publications, hosts: hosts,
+			knowledge: d.Knowledge},
+		Public: &PublicService{knowledge: d.Knowledge, apis: d.Apis, publicationRepository: publications, hosts: hosts, limiter: d.Limiter},
+		Hosts:  hosts,
 	}
 }

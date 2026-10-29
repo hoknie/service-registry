@@ -1,10 +1,13 @@
 package types
 
+import "time"
+
 type Endpoint struct {
-	Kind   Kind
-	APIURL string
-	Owner  string
-	Token  string
+	Kind    Kind
+	APIURL  string
+	Owner   string
+	Token   string
+	Timeout time.Duration
 }
 
 type TreeEntry struct {

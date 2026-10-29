@@ -360,7 +360,8 @@
       "invalid_invitation": "请检查邮箱、角色和语言。",
       "skill_folder_too_large": "该文件夹的技能过大，无法放入一个归档。",
       "invalid_skill_set": "只能选择全局文件夹和技能，最多 500 个。",
-      "invalid_builtin_tools": "工具名称：最多 100 个，不可重复，由 a-z、0-9 和 _ 组成，以字母开头。"
+      "invalid_builtin_tools": "工具名称：最多 100 个，不可重复，由 a-z、0-9 和 _ 组成，以字母开头。",
+      "invalid_polling": "请检查轮询设置：周期 1 分钟到 24 小时，请求上限 1 到 600 秒。"
     },
     "conflict": {
       "email_taken": "该邮箱已被其他用户使用。",
@@ -1535,7 +1536,13 @@
         "restore": "恢复同步",
         "confirm": "删除排除项？项目将在下次运行时重新同步。",
         "restored": "排除项已删除；下次同步将恢复该项目。"
-      }
+      },
+      "intervalInherit": "与节点相同",
+      "intervalOwn": "自定义",
+      "intervalInheritHint": "使用节点的轮询周期。",
+      "intervalInherited": "节点轮询周期：每 {n} 分钟",
+      "intervalFromNode": "来自节点",
+      "paused": "轮询已在节点设置中暂停"
     },
     "repoMeta": {
       "open": "在代码托管平台上打开",
@@ -2016,7 +2023,8 @@
         "groups": "群组",
         "publication": "发布",
         "skills": "技能",
-        "mcp": "MCP"
+        "mcp": "MCP",
+        "polling": "仓库轮询"
       }
     },
     "linkIcons": {
@@ -2242,6 +2250,40 @@
       "resend": "重新发送",
       "revoke": "撤销",
       "revoked": "邀请已撤销"
+    },
+    "polling": {
+      "title": "仓库轮询",
+      "lead": "注册表在此轮询仓库的频率和等待时间。每个字段取自设置了它的最近节点，否则使用服务器默认值。",
+      "readOnly": "只有节点的编辑者可以修改这些设置。",
+      "interval": "轮询周期",
+      "minutes": "分钟",
+      "intervalHint": "{min} 到 {max} 分钟。同时作用于仓库同步、文档和技能。",
+      "everyMinutes": "每 {minutes} 分钟",
+      "defaultRepoSync": "仓库同步：每 {minutes} 分钟",
+      "defaultDocs": "文档：每 {minutes} 分钟",
+      "defaultSkills": "技能：每 {minutes} 分钟",
+      "timeout": "托管平台请求上限",
+      "seconds": "秒",
+      "timeoutHint": "对托管平台的单个请求 {min} 到 {max} 秒。",
+      "timeoutSeconds": "{seconds} 秒",
+      "mode": "模式",
+      "modes": {
+        "on": "轮询",
+        "off": "不轮询",
+        "published": "仅已发布的文档"
+      },
+      "applies": "这些设置作用于下方项目的仓库同步和文档收集。",
+      "appliesOrganization": "这些设置作用于仓库同步、文档收集以及该组织技能的 git 源。",
+      "offHint": "选择「不轮询」时，只有手动运行会访问仓库：立即同步、立即收集、同步源。",
+      "publishedHint": "「仅已发布的文档」会停止收集文档未发布的项目；已收集的快照保留。",
+      "here": "在此设置",
+      "inherited": "继承自 {name}",
+      "serverDefault": "服务器默认值",
+      "override": "覆盖",
+      "reset": "重置",
+      "invalid": "请输入范围内的整数。",
+      "save": "保存",
+      "saved": "轮询设置已保存。"
     }
   },
   "notFound": {
@@ -2965,7 +3007,7 @@
       "root": "仓库中的文件夹",
       "rootHint": "留空 — 整个仓库",
       "interval": "间隔（秒）",
-      "intervalHint": "留空 — 服务器默认值",
+      "intervalHint": "留空 — {interval} 秒，{from}",
       "newStatus": "新技能",
       "versions": "版本",
       "fromBranch": "来自分支",
@@ -2977,7 +3019,8 @@
         "queued": "排队中",
         "running": "运行中",
         "idle": "空闲",
-        "failed": "失败"
+        "failed": "失败",
+        "paused": "已暂停"
       },
       "nextRun": "下次运行 {when}",
       "lastRun": "上次运行",
@@ -2997,7 +3040,14 @@
       "layoutTree": "按仓库目录",
       "layoutField": "按 SKILL.md 字段",
       "groupField": "字段",
-      "groupFieldHint": "例如 subdomain 或 metadata.category"
+      "groupFieldHint": "例如 subdomain 或 metadata.category",
+      "pausedReason": {
+        "folder_disabled": "文件夹已停用",
+        "skills_disabled": "所有技能均已取消发布",
+        "polling_off": "组织设置中已关闭轮询"
+      },
+      "intervalFromOrganization": "与组织相同",
+      "intervalFromServer": "服务器默认值"
     },
     "organization": {
       "title": "技能",

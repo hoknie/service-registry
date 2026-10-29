@@ -26,7 +26,9 @@ repository fields are changed on the hosting, not in the registry. A repository 
 
 ## When it runs
 
-- on a schedule — every `REPO_SYNC_INTERVAL_SECS` (15 minutes) by default, or the connection's own interval;
+- on a schedule — every polling period of the node ([repository-polling.md](repository-polling.md); `REPO_SYNC_INTERVAL_SECS`,
+  15 minutes, by default), or the connection's own interval. **Do not poll** on the node stops scheduled runs and webhook
+  deliveries;
 - on **Sync now**;
 - on a webhook delivery from the hosting (below);
 - from the command line: `svc-registry repo:sync <connection-id>`.

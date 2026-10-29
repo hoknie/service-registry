@@ -32,6 +32,8 @@ type SkillSource struct {
 	Versions     string                  `json:"versions"`
 	TagPattern   string                  `json:"tag_pattern"`
 	State        string                  `json:"state"`
+	PausedReason *string                 `json:"paused_reason"`
+	Effective    int                     `json:"effective_interval_secs"`
 	NextRunAt    *string                 `json:"next_run_at"`
 	LastRun      *skillstypes.Run        `json:"last_run"`
 	CreatedAt    string                  `json:"created_at"`
@@ -41,7 +43,7 @@ type SkillSource struct {
 func SkillSourceOf(s skillstypes.Source) SkillSource {
 	out := SkillSource{ID: s.ID, FolderID: s.FolderID, Kind: s.Kind, Hosting: s.Hosting, URL: s.URL, APIURL: s.APIURL, Path: s.Path,
 		WorkingTree: s.WorkingTree, Branch: s.Branch, Roots: s.Roots, Layout: s.Layout, GroupField: s.GroupField, IntervalSecs: s.IntervalSecs, Status: string(s.NewStatus),
-		Versions: s.Versions, TagPattern: s.TagPattern, State: s.State(), NextRunAt: s.NextRunAt, LastRun: s.LastRun,
+		Versions: s.Versions, TagPattern: s.TagPattern, State: s.State(), PausedReason: s.PausedReason, Effective: s.EffectiveSecs, NextRunAt: s.NextRunAt, LastRun: s.LastRun,
 		CreatedAt: s.CreatedAt, UpdatedAt: s.UpdatedAt}
 	if len(s.Roots) > 0 {
 		out.Root = s.Roots[0]

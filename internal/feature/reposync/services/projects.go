@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -22,7 +23,7 @@ func (s *ProjectsService) ProjectRepository(ctx context.Context, id uuid.UUID) (
 	return new(r.FromHosting()), nil
 }
 
-func (s *ProjectsService) ProjectClient(ctx context.Context, id uuid.UUID) (reposynctypes.RemoteRepo, reposyncports.ClientPort, string) {
+func (s *ProjectsService) ProjectClient(ctx context.Context, id uuid.UUID, timeout time.Duration) (reposynctypes.RemoteRepo, reposyncports.ClientPort, string) {
 	r, err := s.repoRepository.Find(ctx, id)
 	if err != nil || r == nil {
 		return reposynctypes.RemoteRepo{}, nil, "not_found"
@@ -31,7 +32,7 @@ func (s *ProjectsService) ProjectClient(ctx context.Context, id uuid.UUID) (repo
 	if err != nil || conn == nil {
 		return reposynctypes.RemoteRepo{}, nil, "credentials_unavailable"
 	}
-	client, err := s.sync.clientFor(ctx, *conn)
+	client, err := s.sync.clientFor(ctx, *conn, timeout)
 	if err != nil {
 		if code := reposynctypes.FailureCode(err); code != "" {
 			return reposynctypes.RemoteRepo{}, nil, code

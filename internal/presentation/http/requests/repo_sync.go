@@ -41,23 +41,24 @@ func (r CreateConnection) Connection() reposynctypes.CreateConnection {
 }
 
 type UpdateConnection struct {
-	APIURL          *string      `json:"api_url"`
-	OwnerPath       *string      `json:"owner_path"`
-	MirrorSubgroups *bool        `json:"mirror_subgroups"`
-	IncludeArchived *bool        `json:"include_archived"`
-	IncludeForks    *bool        `json:"include_forks"`
-	NameInclude     *[]string    `json:"name_include"`
-	NameExclude     *[]string    `json:"name_exclude"`
-	BranchInclude   *[]string    `json:"branch_include"`
-	IntervalSecs    *int64       `json:"interval_secs"`
-	Credentials     *Credentials `json:"credentials"`
+	APIURL          *string         `json:"api_url"`
+	OwnerPath       *string         `json:"owner_path"`
+	MirrorSubgroups *bool           `json:"mirror_subgroups"`
+	IncludeArchived *bool           `json:"include_archived"`
+	IncludeForks    *bool           `json:"include_forks"`
+	NameInclude     *[]string       `json:"name_include"`
+	NameExclude     *[]string       `json:"name_exclude"`
+	BranchInclude   *[]string       `json:"branch_include"`
+	IntervalSecs    Optional[int64] `json:"interval_secs"`
+	Credentials     *Credentials    `json:"credentials"`
 }
 
 func (r UpdateConnection) Changes() reposynctypes.UpdateConnection {
 	return reposynctypes.UpdateConnection{
 		APIURL: r.APIURL, OwnerPath: r.OwnerPath, MirrorSubgroups: r.MirrorSubgroups,
 		IncludeArchived: r.IncludeArchived, IncludeForks: r.IncludeForks, NameInclude: r.NameInclude,
-		NameExclude: r.NameExclude, BranchInclude: r.BranchInclude, IntervalSecs: r.IntervalSecs, Credentials: r.Credentials.input(),
+		NameExclude: r.NameExclude, BranchInclude: r.BranchInclude, IntervalSecs: r.IntervalSecs.Value, ClearInterval: r.IntervalSecs.Present && r.IntervalSecs.Value == nil,
+		Credentials: r.Credentials.input(),
 	}
 }
 

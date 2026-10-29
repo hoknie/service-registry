@@ -9,6 +9,7 @@ import (
 	accesstypes "svc-registry/internal/feature/access/types"
 	catalogservices "svc-registry/internal/feature/catalog/services"
 	catalogtypes "svc-registry/internal/feature/catalog/types"
+	pollingtypes "svc-registry/internal/feature/polling/types"
 	"svc-registry/internal/feature/reposync/repositories"
 	reposynctypes "svc-registry/internal/feature/reposync/types"
 	"svc-registry/internal/platform/apperr"
@@ -16,8 +17,10 @@ import (
 )
 
 type ConnectionView struct {
-	Connection reposynctypes.Connection
-	WebhookURL *string
+	Connection            reposynctypes.Connection
+	WebhookURL            *string
+	EffectiveIntervalSecs int
+	Paused                bool
 }
 
 func (s *ConnectionsService) view(ctx context.Context, c reposynctypes.Connection) (ConnectionView, error) {
@@ -40,13 +43,21 @@ func (s *ConnectionsService) views(ctx context.Context, conns []reposynctypes.Co
 		return nil, apperr.Wrap(err)
 	}
 	out := make([]ConnectionView, 0, len(conns))
+	effective := map[uuid.UUID]pollingtypes.Effective{}
 	for _, c := range conns {
+		e, ok := effective[c.NodeID]
+		if !ok {
+			e = s.sync.effective(ctx, c.NodeID)
+			effective[c.NodeID] = e
+		}
 		if c.Credentials.SecretID != nil {
 			if ref, ok := refs[*c.Credentials.SecretID]; ok {
 				c.Credentials.Secret = &ref
 			}
 		}
-		out = append(out, s.viewOf(c))
+		v := s.viewOf(c)
+		v.EffectiveIntervalSecs, v.Paused = s.sync.intervalSecs(c, e), e.Off()
+		out = append(out, v)
 	}
 	return out, nil
 }
@@ -112,7 +123,7 @@ func (s *ConnectionsService) CreateConnection(ctx context.Context, p accesstypes
 	if sc.Node.Kind == catalogtypes.KindProject {
 		return ConnectionView{}, apperr.Wrap(reposynctypes.InvalidContainer)
 	}
-	settings, err := reposynctypes.ValidateCreate(in, int(s.cfg.Jobs.RepoSyncIntervalSecs))
+	settings, err := reposynctypes.ValidateCreate(in)
 	if err != nil {
 		return ConnectionView{}, apperr.Wrap(err)
 	}
@@ -175,7 +186,7 @@ func (s *ConnectionsService) DeleteConnection(ctx context.Context, p accesstypes
 		return err
 	}
 	if sec, err := s.connectionRepository.Secrets(ctx, id); err == nil && sec != nil && sec.WebhookID != nil {
-		if client, err := s.sync.clientFor(ctx, c); err == nil {
+		if client, err := s.sync.clientFor(ctx, c, s.sync.effective(ctx, c.NodeID).Timeout()); err == nil {
 			if err := client.DeleteHook(ctx, *sec.WebhookID); err != nil {
 				slog.Warn("hosting webhook not removed", "connection", id, "error", err)
 			}
@@ -189,7 +200,7 @@ func (s *ConnectionsService) CheckConnection(ctx context.Context, p accesstypes.
 	if err != nil {
 		return err
 	}
-	client, err := s.sync.clientFor(ctx, c)
+	client, err := s.sync.clientFor(ctx, c, s.sync.effective(ctx, c.NodeID).Timeout())
 	if err != nil {
 		return apperr.Wrap(err)
 	}
